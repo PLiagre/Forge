@@ -7,7 +7,7 @@ La seule pièce qui a besoin d'une machine allumée. Le reste décide en Python
 |---|---|
 | `installer.sh` | installer ou réinstaller, sans sudo, rejouable |
 | `repartiteur.sh` | appelé chaque minute par la crontab ; lit le profil, lance les rôles du moment |
-| `profils/jour.sh` | la cadence : pilote toutes les 2 min, veille 06:45, journal 07:15, boussole lundi 07:45 |
+| `profils/jour.sh` | la cadence : pilote toutes les 2 min, veille 06:45, journal 07:15, démo le vendredi à 18:15 |
 | `tour.sh <rôle>` | un verrou par rôle (sauf le pilote, dont les tours tournent en même temps sous les verrous de `atelier/verrous.py`), la base à jour, puis Python |
 | `atelier-boucle <jour\|arret\|etat>` | armer, désarmer, regarder |
 | `veille.sh` | ce qui manque pour tourner, à la main |
@@ -29,8 +29,7 @@ crontab qui appelait un ancien répartiteur.
 ## Les jetons
 
 - **GitHub** : la session `gh` de l'utilisateur (`gh auth status`). La chaîne
-  commente, étiquette et fusionne sous ce compte ; il n'y a plus de second
-  compte relecteur.
+  commente, étiquette et fusionne sous ce compte.
 - **Claude Code** : `claude setup-token` rend un jeton longue durée ; le
   ranger dans `~/.atelier/claude.token`, mode 600. La chaîne le passe à
   `claude` par l'environnement, jamais par la ligne de commande.
@@ -41,7 +40,7 @@ crontab qui appelait un ancien répartiteur.
 
 ```bash
 python3 -m atelier veille          # binaires, jetons, accès GitHub
-python3 -m atelier sonde           # chaque agent répond-il, avec son modèle, en non interactif ?
+python3 -m atelier sonde           # chaque rôle répond-il, avec son modèle, sans écran ?
 python3 -m atelier tour --a-sec    # ce que le pilote ferait, sans rien faire
 ```
 
@@ -51,5 +50,6 @@ python3 -m atelier tour --a-sec    # ce que le pilote ferait, sans rien faire
 |---|---|
 | ce que le pilote a fait | `~/.atelier/logs/pilote.log` |
 | pourquoi la chaîne a attendu | `~/.atelier/journal.jsonl` |
+| ce qu'un agent a dit, appel par appel | `~/.atelier/appels/` |
 | la dernière veille | `~/.atelier/veille.txt` |
 | les worktrees des lots | `~/Forge/.atelier/chantiers/` (ignorés par git) |

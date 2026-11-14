@@ -9,7 +9,7 @@
 # Un tour sans agent ne coûte que quelques lectures de GitHub ; à dix
 # minutes, chaque étape d'un lot en attendait cinq en moyenne (#120, le
 # 29 septembre 2026 : brief à 09:53, envoi au PC à 10:02).
-# Le journal s'écrit à 07:15 ; la boussole, le lundi à 07:45 ; la veille
+# Le journal s'écrit à 07:15 ; la démo se fige le vendredi à 18:15 ; la veille
 # regarde les outils à 06:45, avant tout le monde. Ces minutes sont impaires :
 # elles ne tombent jamais sur un tour du pilote.
 
@@ -21,7 +21,7 @@ roles_du_moment() {
   [[ "$minute" =~ ^[0-9]+$ ]] || return 0
   [[ "$quand" == "06:45" ]] && printf 'veille\n'
   [[ "$quand" == "07:15" ]] && printf 'journal\n'
-  [[ "$quand" == "07:45" && "$(date +%u)" == "1" ]] && printf 'boussole\n'
+  [[ "$quand" == "18:15" && "$(date +%u)" == "5" ]] && printf 'vendredi\n'
   (( 10#$minute % PAS_DU_PILOTE == 0 )) && printf 'pilote\n'
   # Une minute sans réveil n'est pas une erreur : sans ce `return`, la
   # fonction rendrait le code du dernier test.

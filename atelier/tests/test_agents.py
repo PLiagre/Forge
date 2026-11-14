@@ -1,462 +1,499 @@
-"""Les rôles, et comment on appelle un agent : la ligne de commande exacte,
-les clés retirées, le secours sur quota, qui code et qui relit."""
+"""Appeler un agent : son argv, son environnement, sa session, sa mesure, et
+la garde de ses commandes.
+
+Aucun vrai agent n'est appelé : l'exécuteur est une doublure, sauf pour
+`executer`, qui lance un petit script Python écrit dans le dossier du test.
+"""
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import io
 import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import textwrap
+import time
 
 import pytest
 
-from atelier import agents as A
-from atelier.projet import OUTILS, ROLES, Agent, ProjetIncomplet, charger, lire_agent, lire_poste, table_des_roles
+from atelier import agents, garde_commandes
+from atelier.agents import Appel, Introuvable
+from atelier.projet import Agent
 
-from conftest import RACINE, Agents
+from conftest import flux
 
-
-def test_le_branchement_du_depot_nomme_chaque_role():
-    projet = charger(RACINE)
-    assert projet.depot == "PLiagre/Forge"
-    assert str(projet.poste("codeur").principal) == "claude/claude-sonnet-5-5@high"
-    assert str(projet.poste("chef").principal) == "claude/claude-opus-5-5@high"
-    assert [str(a) for a in projet.poste("relecteur_moteur").agents] == ["claude/claude-opus-5-5@high"]
-    assert [str(a) for a in projet.poste("relecteur").agents] == ["claude/claude-sonnet-5-5@high"]
-    assert projet.poste("chroniqueur").lecture_seule and not projet.poste("codeur").lecture_seule
-    assert "relecteur_moteur" in table_des_roles(projet)
-    assert "codeur" in table_des_roles(projet)
+OPUS = Agent("claude", "opus", "high")
+CONSIGNE = "Lis la fiche du lot #10 et rends ton plan."
+SUITE = "ÉTAPE 2 SUR 2 : les données."
+SESSION = "6f1c2f0e-5c62-5b8e-9d0a-3f2b1c4d5e6f"
 
 
-def test_un_outil_inconnu_ou_un_role_absent_se_refuse(tmp_path, projet):
-    with pytest.raises(ProjetIncomplet):
-        lire_poste("codeur", "copilot/gpt")
-    with pytest.raises(ProjetIncomplet):
-        lire_poste("codeur", "codex")
-    texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8")
-    sans_boussole = "".join(l for l in texte.splitlines(keepends=True) if not l.startswith("boussole"))
-    (tmp_path / "atelier.toml").write_text(sans_boussole, encoding="utf-8")
-    with pytest.raises(ProjetIncomplet, match="boussole"):
-        charger(tmp_path)
+def appel(**plus) -> Appel:
+    return Appel(**({"role": "chef", "consigne": CONSIGNE, "lecture_seule": False} | plus))
 
 
-def test_les_chemins_interdits_a_un_lot(projet):
-    assert projet.interdit("atelier/pilote.py")
-    assert projet.interdit(".github/workflows/tests.yml")
-    assert projet.interdit("atelier.toml")
-    assert not projet.interdit("jeu/sim/engine.py")
-    assert not projet.interdit("atelier.toml.bak")
+def option(argv, nom):
+    """La valeur qui suit cette option dans l'argv."""
+    return argv[argv.index(nom) + 1]
 
 
-def test_argv_de_claude_en_ecriture_et_en_lecture():
-    claude = A.argv(Agent("claude", "claude-opus-5-5"), "fais", lecture_seule=False, windows=False)
-    assert claude[:7] == ["claude", "-p", "fais", "--model", "claude-opus-5-5", "--output-format", "json"]
-    assert "acceptEdits" in claude and "Bash(git push:*)" in claude[claude.index("--disallowedTools") + 1]
-    relit = A.argv(Agent("claude", "claude-opus-5-5"), "relis", lecture_seule=True, windows=False)
-    assert "Edit" in relit[relit.index("--disallowedTools") + 1]
+class Executeur:
+    """Un faux exécuteur : il rend les réponses dictées et garde ce qu'il a reçu."""
+
+    def __init__(self, *reponses):
+        self.reponses = list(reponses)
+        self.appels: list[dict] = []
+
+    def __call__(self, argv, cwd, env, delai, consigne, trace):
+        self.appels.append({"argv": argv, "cwd": cwd, "env": env, "delai": delai, "consigne": consigne, "trace": trace})
+        return self.reponses.pop(0)
 
 
-def test_aucune_cle_api_et_le_jeton_claude_par_l_environnement(monkeypatch, tmp_path):
+# ------------------------------------------------------------- les refus
+def test_la_cause_d_un_refus_se_lit_dans_ce_que_l_outil_dit_en_dernier():
+    assert agents.cause_de_refus(1, "You've hit your 5-hour limit · resets 9:30pm") == "quota"
+    assert agents.cause_de_refus(1, "Invalid API key · Please run /login") == "auth"
+    assert agents.cause_de_refus(1, "error: unknown option '--effort'") == "appel"
+    assert agents.cause_de_refus(127, "") == "installation" and agents.cause_de_refus(126, "") == "installation"
+
+
+def test_ni_un_appel_reussi_ni_un_vrai_echec_ne_sont_des_refus():
+    assert agents.cause_de_refus(0, "rate limit, 401, oauth") is None
+    assert agents.cause_de_refus(1, "AssertionError: 3 != 4") is None
+    # Seule la fin compte : un long travail peut citer le quota sans que ce soit un refus.
+    travail = "Je lis la règle du quota de grain.\n" + "\n".join(f"ligne {i}" for i in range(30)) + "\nLe test échoue."
+    assert agents.cause_de_refus(1, travail) is None
+    assert agents.cause_de_refus(1, travail + "\nAPI Error: rate limit exceeded") == "quota"
+
+
+def test_la_derniere_ligne_ne_montre_rien_qui_ressemble_a_un_jeton():
+    jeton = "sk-ant-" + "A1b2C3d4" * 6
+    assert agents.derniere_ligne(f"première ligne\nInvalid key {jeton} refusée\n\n   \n") == "Invalid key … refusée"
+    assert agents.derniere_ligne("\n \n") == ""
+    assert len(agents.derniere_ligne("mot " * 100)) == 160
+
+
+# ------------------------------------------------- le lancement sous Windows
+SHIM = textwrap.dedent("""\
+    @ECHO off
+    IF EXIST "%dp0%\\node.exe" (
+      SET "_prog=%dp0%\\node.exe"
+    ) ELSE (
+      SET "_prog=node"
+    )
+    "%_prog%"  "%dp0%\\node_modules\\@anthropic-ai\\claude-code\\cli.js" %*
+    """)
+
+
+def _shim(dossier: Path, *, avec_script: bool = True) -> tuple[Path, Path]:
+    """Le `claude.cmd` que pose npm, et le .js qu'il fait lancer par node."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    cmd = dossier / "claude.cmd"
+    cmd.write_text(SHIM, encoding="utf-8")
+    script = dossier / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
+    if avec_script:
+        script.parent.mkdir(parents=True)
+        script.write_text("// l'outil", encoding="utf-8")
+    return cmd, script
+
+
+def test_sous_windows_un_exe_se_lance_tel_quel(tmp_path):
+    exe = tmp_path / "claude.exe"
+    commande, env = agents.lancement(["claude", "-p", "a & b"], {"X": "1"}, windows=True, chercher=lambda nom: str(exe))
+    assert commande == [str(exe), "-p", "a & b"] and env == {"X": "1"}
+
+
+def test_sous_windows_un_shim_npm_devient_node_et_son_script(tmp_path):
+    """Le défaut gardé : lancer le `.cmd` ferait passer les arguments par cmd.exe, qui interprète `& | % ^`."""
+    cmd, script = _shim(tmp_path)
+    chercher = {"claude": str(cmd), "node": str(tmp_path / "ailleurs" / "node.exe")}.get
+    commande, _ = agents.lancement(["claude", "-p", "a & b"], {}, windows=True, chercher=chercher)
+    assert commande == [str(tmp_path / "ailleurs" / "node.exe"), str(script), "-p", "a & b"]
+    (tmp_path / "node.exe").write_bytes(b"")
+    commande, _ = agents.lancement(["claude"], {}, windows=True, chercher=chercher)
+    assert commande == [str(tmp_path / "node.exe"), str(script)], "le node posé à côté du shim passe d'abord"
+
+
+def test_sous_windows_ce_qui_n_a_pas_de_lancement_sur_est_introuvable(tmp_path):
+    with pytest.raises(Introuvable, match="binaire introuvable : claude"):
+        agents.lancement(["claude", "-p"], {}, windows=True, chercher=lambda nom: None)
+    with pytest.raises(Introuvable, match="binaire introuvable : claude"):
+        agents.lancement(["claude", "-p"], {"PATH": str(tmp_path)}, windows=True)
+    # Un `.cmd` qui n'est pas un shim lisible, ou dont le script a disparu, passerait par cmd.exe.
+    lot = tmp_path / "outil.cmd"
+    lot.write_text("@echo off\nnode autre-chose %*\n", encoding="utf-8")
+    with pytest.raises(Introuvable, match="cmd.exe"):
+        agents.lancement(["outil"], {}, windows=True, chercher=lambda nom: str(lot))
+    orphelin, _ = _shim(tmp_path / "orphelin", avec_script=False)
+    with pytest.raises(Introuvable, match="cmd.exe"):
+        agents.lancement(["claude"], {}, windows=True, chercher={"claude": str(orphelin), "node": "node.exe"}.get)
+
+
+def test_hors_de_windows_la_commande_part_telle_quelle():
+    def jamais(nom):
+        raise AssertionError("hors de Windows, rien n'est cherché")
+
+    commande, env = ["claude", "-p"], {"PATH": "/usr/bin"}
+    assert agents.lancement(commande, env, windows=False, chercher=jamais) == (commande, env)
+
+
+# --------------------------------------------------------- l'environnement
+def test_un_agent_ne_recoit_aucune_cle_d_api_ni_le_droit_aux_taches_de_fond(monkeypatch):
+    for cle in agents.CLES_API:
+        monkeypatch.setenv(cle, "une-cle")
+    monkeypatch.setenv("FORGE_TEMOIN", "gardé")
+    monkeypatch.setenv("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "0")
+    env = agents.environnement()
+    assert not set(agents.CLES_API) & set(env) and env["FORGE_TEMOIN"] == "gardé"
+    assert env["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+
+
+def test_le_jeton_de_l_abonnement_passe_par_l_environnement_jamais_par_l_argv(tmp_path, monkeypatch):
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
-    for cle in A.CLES_API:
-        monkeypatch.setenv(cle, "secret")
-    jeton = tmp_path / "claude.token"
-    jeton.write_text("jeton-longue-duree\n", encoding="utf-8")
-    monkeypatch.setattr(A, "FICHIER_JETON_CLAUDE", jeton)
-    env = A.environnement("claude")
-    assert not any(cle in env for cle in A.CLES_API)
-    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == "jeton-longue-duree"
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in agents.environnement(), "sans fichier, pas de jeton"
+    fichier = tmp_path / "claude.token"
+    fichier.write_text("  jeton-du-test-0123\n", encoding="utf-8")
+    monkeypatch.setattr(agents, "FICHIER_JETON_CLAUDE", fichier)
+    executeur = Executeur((0, flux(texte="fait"), ""))
+    agents.invoquer(OPUS, appel(session=SESSION), tmp_path, 900, executeur=executeur)
+    [recu] = executeur.appels
+    assert recu["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "jeton-du-test-0123"
+    assert not any("jeton-du-test-0123" in morceau for morceau in recu["argv"])
 
 
-@pytest.mark.parametrize("code,texte,cause", [
-    (0, "rate limit", None),
-    (1, "Error: You've hit your usage limit. Try again later.", "quota"),
-    (1, "429 Too Many Requests", "quota"),
-    (1, "ActionRequiredError: Increase limits for faster responses You're out of usage. Switch to Auto, "
-        "or ask your admin to increase your limit to continue.", "quota"),
-    (1, "Invalid API key · Please run /login", "auth"),
-    (1, "OAuth token has expired. Run claude setup-token", "auth"),
-    (1, "AssertionError: capacité 3 != 4", None),
-    (127, "binaire introuvable : claude", "installation"),
-    (126, "ne démarre pas : [WinError 5] Accès refusé", "installation"),
-])
-def test_quota_et_session_se_reconnaissent_a_la_fin_de_la_sortie(code, texte, cause):
-    assert A.cause_de_refus(code, texte) == cause
+# ------------------------------------------------------------------ l'argv
+def test_la_consigne_n_est_jamais_dans_l_argv():
+    for demande in (appel(), appel(lecture_seule=True), appel(sans_outil=True), appel(suite=SUITE, session=SESSION)):
+        for reprise in (False, True):
+            argv = agents.argv(OPUS, demande, reprise=reprise)
+            assert argv[:4] == ["claude", "-p", "--model", "opus"] and option(argv, "--effort") == "high"
+            assert not any(CONSIGNE in morceau or SUITE in morceau for morceau in argv)
 
 
-def test_un_quota_epuise_passe_au_secours(projet, tmp_path):
-    agents = Agents((1, "You've hit your usage limit"), (0, "fait"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "claude/haiku"
-    assert agents.outils() == ["sonnet", "haiku"]
+def test_une_session_neuve_s_ouvre_par_son_nom_et_une_session_reprise_se_reprend():
+    neuve = agents.argv(OPUS, appel(session=SESSION), reprise=False)
+    reprise = agents.argv(OPUS, appel(session=SESSION), reprise=True)
+    assert option(neuve, "--session-id") == SESSION and "--resume" not in neuve
+    assert option(reprise, "--resume") == SESSION and "--session-id" not in reprise
+    anonyme = agents.argv(OPUS, appel(), reprise=True)
+    assert "--resume" not in anonyme and "--session-id" not in anonyme
 
 
-def test_aucun_agent_ne_repond_le_lot_attend(projet, tmp_path):
-    agents = Agents((1, "429 Too Many Requests"), (1, "Please log in"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.attente and not res.reussi and not res.personne
-    assert len(res.essais) == 2
+def test_le_schema_et_les_sous_agents_passent_en_json():
+    schema = {"type": "object", "properties": {"décision": {"type": "string"}}, "required": ["décision"]}
+    sous_agents = {"developpeur": {"description": "Les tâches bornées.", "model": "sonnet"}}
+    argv = agents.argv(OPUS, appel(schema=schema, sous_agents=sous_agents), reprise=False)
+    assert json.loads(option(argv, "--json-schema")) == schema
+    assert json.loads(option(argv, "--agents")) == sous_agents
+    nu = agents.argv(OPUS, appel(), reprise=False)
+    assert "--json-schema" not in nu and "--agents" not in nu
 
 
-def test_un_binaire_introuvable_passe_au_secours_et_n_est_pas_un_echec(projet, tmp_path):
-    # Mesuré le 27 septembre 2026 : trois « 127 binaire introuvable » ont
-    # compté comme trois échecs du codeur et bloqué le lot #118.
-    agents = Agents((127, "binaire introuvable : claude"), (0, "fait"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "claude/haiku"
-    personne = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
-                          executeur=Agents((127, "binaire introuvable : claude"), (1, "429 Too Many Requests")))
-    assert personne.attente and not personne.personne
+def test_un_role_en_lecture_seule_ne_peut_ni_ecrire_ni_confier_ni_faire_les_gestes_du_pilote():
+    argv = agents.argv(OPUS, appel(lecture_seule=True, sous_agents={"developpeur": {}}), reprise=False, windows=True)
+    permis, interdits = option(argv, "--allowedTools").split(","), option(argv, "--disallowedTools").split(",")
+    assert option(argv, "--permission-mode") == "default"
+    assert "Read" in permis and not {"Edit", "Write", "Agent", "Bash", "PowerShell"} & set(permis)
+    assert {"Edit", "Write", "NotebookEdit", "Agent", *agents.GESTES_DU_PILOTE} <= set(interdits)
 
 
-def test_les_essais_disent_pourquoi_chaque_agent_a_ete_ecarte(projet, tmp_path):
-    agents = Agents((1, "Error: You've hit your usage limit · resets 5pm"), (2, "SyntaxError"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert "claude/sonnet : quota épuisé" in res.essais[0] and "usage limit" in res.essais[0]
-    assert res.essais[1] == "claude/haiku : code 2"
+def test_un_role_qui_ecrit_edite_sans_faire_les_gestes_du_pilote():
+    argv = agents.argv(OPUS, appel(), reprise=False, windows=False)
+    assert option(argv, "--permission-mode") == "acceptEdits"
+    assert option(argv, "--allowedTools") == "Read,Glob,Grep,Edit,Write,Bash"
+    assert option(argv, "--disallowedTools").split(",") == list(agents.GESTES_DU_PILOTE)
+    assert "Bash(git push:*)" in agents.GESTES_DU_PILOTE and "Bash(gh:*)" in agents.GESTES_DU_PILOTE
+    # L'outil Agent exige des sous-agents, PowerShell exige Windows.
+    confie = agents.argv(OPUS, appel(sous_agents={"developpeur": {}}), reprise=False, windows=False)
+    seul = agents.argv(OPUS, appel(), reprise=False, windows=True)
+    assert option(confie, "--allowedTools").split(",")[-1] == "Agent" and "PowerShell" not in option(confie, "--allowedTools")
+    assert option(seul, "--allowedTools").split(",")[-1] == "PowerShell" and "Agent" not in option(seul, "--allowedTools")
 
 
-PROMPT_PIEGE = "Ligne 1\nLigne 2 & del /q x | findstr y %PATH% ^ \"guillemets\""
+def test_un_appel_sans_outil_n_a_ni_outil_ni_reglage():
+    argv = agents.argv(OPUS, appel(sans_outil=True, session=SESSION), reprise=False)
+    assert argv[-2:] == ["--tools", ""]
+    assert not {"--settings", "--allowedTools", "--permission-mode"} & set(argv)
 
 
-def test_sous_windows_le_lancement_de_chaque_outil(tmp_path):
-    # CreateProcess n'ajoute que « .exe ». Et appeler un .cmd passerait le
-    # prompt par cmd.exe, qui coupe aux retours à la ligne et interprète & | % ^.
-    # Un shim npm : on lance son node et son .js, jamais le .cmd.
-    npm = tmp_path / "npm"
-    script = npm / "node_modules" / "outil" / "bin" / "outil.js"
-    script.parent.mkdir(parents=True)
-    script.write_text("", encoding="utf-8")
-    (npm / "outil.cmd").write_text(
-        '@ECHO off\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  '
-        '"%dp0%\\node_modules\\outil\\bin\\outil.js" %*\r\n', encoding="utf-8")
-    trouve = {"outil": str(npm / "outil.cmd"), "node": r"C:\nodejs\node.exe"}
-    commande, _ = A.lancement(["outil", "exec", PROMPT_PIEGE], {}, windows=True, chercher=trouve.get)
-    assert commande == [r"C:\nodejs\node.exe", str(script), "exec", PROMPT_PIEGE]
-    # Un vrai .exe se lance tel quel.
-    commande, _ = A.lancement(["claude", "-p", "x"], {}, windows=True,
-                              chercher={"claude": r"C:\bin\claude.exe"}.get)
-    assert commande == [r"C:\bin\claude.exe", "-p", "x"]
-    # Un script qu'on ne sait pas lire ne passe jamais par cmd.exe : il est introuvable.
-    (tmp_path / "autre.cmd").write_text("@echo off\r\nautre %*\r\n", encoding="utf-8")
-    with pytest.raises(A.Introuvable):
-        A.lancement(["autre", PROMPT_PIEGE], {}, windows=True, chercher={"autre": str(tmp_path / "autre.cmd")}.get)
-    # Introuvable, il l'est aussi ; hors de Windows, rien ne change.
-    with pytest.raises(A.Introuvable):
-        A.lancement(["claude", "-p", "x"], {}, windows=True, chercher=lambda nom: None)
-    assert A.lancement(["claude", "-p", "x"], {}, windows=False)[0] == ["claude", "-p", "x"]
+def test_les_reglages_portent_la_garde_des_commandes_et_sa_borne():
+    for demande in (appel(jours_max=30), appel(jours_max=30, lecture_seule=True)):
+        crochet = json.loads(option(agents.argv(OPUS, demande, reprise=False), "--settings"))["hooks"]["PreToolUse"][0]
+        assert crochet["matcher"] == "Bash|PowerShell"
+        assert crochet["hooks"] == [{"type": "command", "command": f'"{sys.executable}" "{agents.GARDE}" 30'}]
+    assert agents.GARDE.is_file() and agents.GARDE.name == "garde_commandes.py"
 
 
-def test_un_echec_ordinaire_ne_passe_pas_au_secours(projet, tmp_path):
-    agents = Agents((2, "SyntaxError: invalid syntax"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert not res.reussi and not res.attente and str(res.agent) == "claude/sonnet"
-    assert agents.outils() == ["sonnet"]
+# ------------------------------------------------------- lire la sortie en flux
+def test_un_appel_fini_rend_son_texte_sa_sortie_et_sa_mesure():
+    modeles = {"claude-opus-5-5": {"inputTokens": 10, "outputTokens": 200, "cacheReadInputTokens": 3000,
+                                   "cacheCreationInputTokens": 400, "costUSD": 0.4},
+               "claude-sonnet-5-5": {"inputTokens": 5, "outputTokens": 50, "costUSD": 0.1}}
+    lu = agents.lire_flux(flux(texte="C'est fait.", sortie={"etat": "faite"}, cout=0.5, session="s-7", modeles=modeles,
+                               cinq_heures=0.3, semaine=0.1))
+    assert (lu.fini, lu.texte, lu.sortie, lu.session) == (True, "C'est fait.", {"etat": "faite"}, "s-7")
+    assert lu.mesure == {
+        "limites": {"cinq_heures": 0.3, "semaine": 0.1}, "cout": 0.5, "tours": 4, "duree": 90,
+        "modeles": {"claude-opus-5-5": {"entree": 10, "sortie": 200, "cache_lu": 3000, "cache_ecrit": 400, "cout": 0.4},
+                    "claude-sonnet-5-5": {"entree": 5, "sortie": 50, "cache_lu": 0, "cache_ecrit": 0, "cout": 0.1}}}
 
 
-def test_exclure_ecarte_une_famille_de_modele(projet, tmp_path):
-    # `exclure` nomme des familles de modèles, pas des outils : le secours du
-    # dépanneur n'est pas le modèle qui vient de lire sans rien décider.
-    agents = Agents((0, "DECISION: REPRENDRE :: relis SC6"))
-    exclure = frozenset({lire_agent("claude/claude-opus-5-5@high").famille})
-    res = A.invoquer(projet.poste("depanneur"), "lis", tmp_path, 10, exclure=exclure, executeur=agents)
-    assert str(res.agent) == "claude/sonnet" and agents.outils() == ["sonnet"]
-    assert "claude/opus : écarté" in res.essais[0]
-    personne = A.invoquer(projet.poste("depanneur"), "lis", tmp_path, 10,
-                          exclure=frozenset({"opus", "sonnet"}), executeur=Agents())
-    assert personne.personne and not personne.attente
+def _message(identifiant, texte, *, modele="claude-opus-5-5", sortie=100, parent=None) -> str:
+    """Un message de l'agent dans le flux, avec son usage."""
+    evenement = {"type": "assistant", "message": {
+        "id": identifiant, "model": modele, "content": [{"type": "text", "text": texte}],
+        "usage": {"input_tokens": 10, "output_tokens": sortie, "cache_read_input_tokens": 1000}}}
+    if parent:
+        evenement["parent_tool_use_id"] = parent
+    return json.dumps(evenement, ensure_ascii=False)
 
 
-@pytest.mark.parametrize("agent,famille", [
-    ("claude/claude-opus-5-5", "opus"),
-    ("claude/opus", "opus"),
-    ("claude/claude-sonnet-5-5", "sonnet"),
-    ("claude/sonnet-renfort", "sonnet"),
-    ("claude/claude-haiku-5-5", "haiku"),
-    ("claude/claude-fable-5-1", "fable"),
-])
-def test_chaque_modele_claude_est_sa_propre_famille(agent, famille):
-    # Toute la chaîne est Claude depuis le 5 novembre 2026 : si Claude était
-    # une seule famille, le secours Sonnet du dépanneur ne lirait jamais
-    # après Opus.
-    assert lire_agent(agent).famille == famille
+def test_un_appel_coupe_garde_ses_jetons_et_ses_derniers_mots():
+    """Un même message revient pour chacun de ses blocs, avec le même usage :
+    le compter à chaque fois gonflerait la mesure d'un appel coupé."""
+    lignes = [json.dumps({"type": "system", "subtype": "init", "session_id": "s-9"}),
+              _message("m1", "Je lis la fiche."), _message("m1", "Je lis le code."),
+              _message("m2", "J'écris la règle.", sortie=40),
+              _message("m3", "Les données sont posées.", modele="claude-sonnet-5-5", sortie=7, parent="toolu_1"),
+              _message("m4", "Je joue les tests."), '{"type": "assistant", "mess']
+    lu = agents.lire_flux("\n".join(lignes))
+    assert not lu.fini and lu.sortie is None and lu.session == "s-9"
+    assert lu.texte == "Je lis le code.\nJ'écris la règle.\nJe joue les tests.", "sans les mots du sous-agent"
+    assert lu.mesure == {"coupe": True, "modeles": {
+        "claude-opus-5-5": {"entree": 30, "sortie": 240, "cache_lu": 3000, "cache_ecrit": 0},
+        "claude-sonnet-5-5": {"entree": 10, "sortie": 7, "cache_lu": 1000, "cache_ecrit": 0}}}
 
 
-def test_seul_opus_ecrit_les_briefs():
-    # Choix du propriétaire (30 octobre 2026) : un brief ne s'écrit qu'avec
-    # Claude Opus 5.5. Opus à court de quota, le lot attend.
-    chef = charger(RACINE).poste("chef")
-    assert [str(a) for a in chef.agents] == ["claude/claude-opus-5-5@high"]
+def test_une_sortie_vide_ou_illisible_ne_rend_rien_sans_exception():
+    illisible = '{cassé\n[1, 2]\n"du texte"\n{"type": "assistant", "message": "pas un objet"}\n{"type": 3}'
+    for sortie in ("", "claude: command not found\n", illisible):
+        lu = agents.lire_flux(sortie)
+        assert (lu.texte, lu.sortie, lu.session, lu.fini) == ("", None, None, False)
+        assert not {"cout", "tours", "duree", "modeles", "limites"} & set(lu.mesure)
 
 
-def test_opus_est_reserve_au_brief_et_au_moteur():
-    # Refonte du 7 novembre 2026 : une seule réserve de quota pour tous les
-    # rôles. Opus écrit les briefs et relit les lots qui touchent le moteur ;
-    # Sonnet code tous les lots, PC compris, et fait tout le reste, journal du
-    # matin compris, en effort moyen.
-    projet = charger(RACINE)
-    opus = {role for role, poste in projet.postes.items() if any(a.famille == "opus" for a in poste.agents)}
-    assert opus == {"chef", "relecteur_moteur"}
-    for role in ("codeur", "codeur_3d", "relecteur", "mecanicien", "depanneur", "chroniqueur", "boussole"):
-        assert {a.famille for a in projet.poste(role).agents} == {"sonnet"}, role
-    assert str(projet.poste("chroniqueur").principal) == "claude/claude-sonnet-5-5@medium"
-    assert projet.poste("relecteur_moteur").lecture_seule and projet.poste("relecteur").lecture_seule
+# ------------------------------------------------------------------ invoquer
+def test_un_appel_reussi_rend_son_texte_sa_sortie_sa_session_et_sa_trace(tmp_path):
+    executeur = Executeur((0, flux(texte="C'est fait.", sortie={"etat": "faite"}), ""))
+    trace = tmp_path / "appels" / "10-chef.jsonl"
+    res = agents.invoquer(OPUS, appel(session=SESSION), tmp_path, 900, executeur=executeur, trace=trace)
+    assert res.reussi and not res.attente and not res.coupe and res.agent == OPUS
+    assert (res.texte, res.sortie, res.session, res.neuve) == ("C'est fait.", {"etat": "faite"}, SESSION, True)
+    assert res.mesure["cout"] == 0.5 and res.trace == str(trace)
+    [recu] = executeur.appels
+    assert (recu["consigne"], recu["cwd"], recu["delai"], recu["trace"]) == (CONSIGNE, tmp_path, 900, trace)
 
 
-def test_le_relecteur_du_moteur_relit_ce_qui_touche_jeu_sim(projet, tmp_path):
-    reel = charger(RACINE)
-    assert reel.chemins_du_moteur == ("jeu/sim/",)
-    assert reel.relecteur_pour(["docs/briefs/1.md", "jeu/sim/engine.py"]) == "relecteur_moteur"
-    assert reel.relecteur_pour(["jeu/sim\\tests\\test_x.py"]) == "relecteur_moteur"
-    for fichiers in ([], ["jeu/vues/tableau/x.py"], ["3d/unity/Assets/X.cs", "jeu/data/batiments.toml"],
-                     ["jeu/simulateur/x.py"]):
-        assert reel.relecteur_pour(fichiers) == "relecteur", fichiers
-    # Un dépôt qui ne nomme pas de relecteur du moteur : le relecteur relit tout.
-    assert projet.relecteur_pour(["jeu/sim/engine.py"]) == "relecteur"
-    texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8")
-    (tmp_path / "atelier.toml").write_text(texte.replace('[agents]\n', '[agents]\nrenfort = "claude/sonnet"\n'),
-                                           encoding="utf-8")
-    with pytest.raises(ProjetIncomplet, match="rôles inconnus : renfort"):
-        charger(tmp_path)
+def test_un_quota_epuise_ou_un_outil_absent_font_attendre_sans_echec(tmp_path):
+    quota = Executeur((1, "", "You've hit your 5-hour limit · resets 9:30pm"))
+    res = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=quota)
+    assert res.attente and res.agent is None and not res.reussi and not res.coupe
+    assert res.raison == "claude/opus@high : quota épuisé (« You've hit your 5-hour limit · resets 9:30pm »)"
+    absent = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=Executeur((127, "", "binaire introuvable : claude")))
+    assert absent.attente and absent.agent is None and "ne démarre pas" in absent.raison
 
 
-def test_un_lot_a_la_taille_d_une_ligne_du_cap():
-    # Un gain que le joueur voit et sa preuve dans la même PR : 1 500 lignes
-    # environ (refonte du 7 novembre 2026 ; à 300, une ligne du CAP devenait
-    # 3,9 issues et un lot sur trois n'était qu'une preuve).
-    assert charger(RACINE).lignes_max == 1500
+def test_un_appel_refuse_n_est_pas_mesure_comme_un_appel_coupe(tmp_path):
+    res = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=Executeur((1, "", "You've hit your 5-hour limit")))
+    assert res.attente and not res.mesure.get("coupe")
 
 
-def test_plus_rien_que_claude():
-    # Le propriétaire n'a plus que l'abonnement Claude : plus de GPT ni de
-    # Codex (30 octobre 2026), plus de grok ni de composer par Cursor
-    # (5 novembre). Le dépôt n'appelle que Claude Code, l'atelier ne sait plus
-    # appeler un autre harnais, et le chargement refuse la ligne qui remettrait
-    # un autre modèle.
-    projet = charger(RACINE)
-    assert OUTILS == {"claude": "claude"}
-    assert projet.postes and all(a.outil == "claude" for poste in projet.postes.values() for a in poste.agents)
-    for ligne in ("claude/opus | claude/grok-4.7-high@high", "claude/gpt-5.6-sol@high", "claude/composer-2.5"):
-        with pytest.raises(ProjetIncomplet, match="seuls les modèles Claude"):
-            lire_poste("chef", ligne)
-    for texte in ("cursor/grok-4.7-high@high", "cursor/claude-opus-5-5-high", "codex/gpt-5.6-sol@high"):
-        with pytest.raises(ProjetIncomplet, match="outil inconnu"):
-            lire_agent(texte)
+def test_un_appel_coupe_par_son_delai_garde_sa_mesure_et_n_est_pas_une_attente(tmp_path):
+    coupe = flux(texte="Je relis la règle du quota de grain.", coupe=True)
+    executeur = Executeur((agents.CODE_COUPE, coupe, "délai dépassé après 900 s"))
+    res = agents.invoquer(OPUS, appel(session=SESSION, reprendre=True), tmp_path, 900, executeur=executeur)
+    assert res.coupe and not res.attente and not res.reussi and res.agent == OPUS and len(executeur.appels) == 1
+    assert res.mesure["coupe"] is True and res.mesure["modeles"]["claude-opus-5-5"]["sortie"] == 200
+    assert res.mesure["limites"] == {"cinq_heures": 0.2, "semaine": 0.05}
+    assert res.raison == "délai dépassé après 900 s" and res.sortie is None and res.session == SESSION
+    assert "Je relis la règle du quota de grain." in res.texte
 
 
-def test_chaque_agent_du_depot_dit_son_harnais_son_modele_et_son_effort():
-    projet = charger(RACINE)
-    for poste in projet.postes.values():
-        for agent in poste.agents:
-            assert agent.effort, f"{poste.role} : {agent} ne dit pas son effort"
-    table = table_des_roles(projet)
-    for mot in ("Claude Code", "claude-opus-5-5", "claude-sonnet-5-5", "high"):
-        assert mot in table
+def test_une_session_introuvable_est_rouverte_avec_la_consigne_entiere(tmp_path):
+    executeur = Executeur((1, "", f"No conversation found with session ID: {SESSION}"), (0, flux(texte="fait"), ""))
+    res = agents.invoquer(OPUS, appel(session=SESSION, reprendre=True, suite=SUITE), tmp_path, 900, executeur=executeur)
+    refuse, rouvert = executeur.appels
+    assert option(refuse["argv"], "--resume") == SESSION and refuse["consigne"] == SUITE
+    assert option(rouvert["argv"], "--session-id") == SESSION and "--resume" not in rouvert["argv"]
+    assert rouvert["consigne"] == CONSIGNE
+    assert res.reussi and res.neuve and res.session == SESSION
 
 
-def test_l_effort_passe_a_claude_code_par_son_option():
-    claude = A.argv(lire_agent("claude/claude-opus-5-5@xhigh"), "x", lecture_seule=True)
-    assert claude[claude.index("--effort") + 1] == "xhigh"
-    # Sans effort, l'appel reste celui d'avant.
-    assert "--effort" not in A.argv(lire_agent("claude/opus"), "x", lecture_seule=True)
+def test_une_session_deja_ouverte_est_reprise_avec_la_suite(tmp_path):
+    executeur = Executeur((1, "", f"Error: Session ID {SESSION} is already in use."), (0, flux(texte="fait"), ""))
+    res = agents.invoquer(OPUS, appel(session=SESSION, suite=SUITE), tmp_path, 900, executeur=executeur)
+    refuse, repris = executeur.appels
+    assert option(refuse["argv"], "--session-id") == SESSION and refuse["consigne"] == CONSIGNE
+    assert option(repris["argv"], "--resume") == SESSION and "--session-id" not in repris["argv"]
+    assert repris["consigne"] == SUITE
+    assert res.reussi and not res.neuve
 
 
-@pytest.mark.parametrize("texte,motif", [
-    ("claude/claude-opus-5-5@minimal", "ne connaît pas l'effort"),
-    ("claude/claude-sonnet-5-5@defaut", "ne connaît pas l'effort"),   # « defaut » était à Cursor
-    ("claude/claude-opus-5-5@", "illisible"),
-])
-def test_un_effort_que_le_harnais_ne_recoit_pas_se_refuse(texte, motif):
-    with pytest.raises(ProjetIncomplet, match=motif):
-        lire_agent(texte)
+def test_une_session_reprise_recoit_la_suite_et_pas_la_consigne(tmp_path):
+    executeur = Executeur((0, flux(texte="fait"), ""), (0, flux(texte="fait"), ""))
+    res = agents.invoquer(OPUS, appel(session=SESSION, reprendre=True, suite=SUITE), tmp_path, 900, executeur=executeur)
+    assert executeur.appels[0]["consigne"] == SUITE and "--resume" in executeur.appels[0]["argv"] and not res.neuve
+    agents.invoquer(OPUS, appel(session=SESSION, reprendre=True), tmp_path, 900, executeur=executeur)
+    assert executeur.appels[1]["consigne"] == CONSIGNE, "sans suite, la session reprise reçoit la consigne entière"
 
 
-def test_sonnet_code_tous_les_lots_et_aucun_renfort():
-    # Le renfort donnait le dernier passage à un autre modèle ; avec un seul
-    # abonnement, c'était Sonnet encore une fois (retiré le 7 novembre 2026).
-    projet = charger(RACINE)
-    for role in ("codeur", "codeur_3d", "mecanicien"):
-        assert {a.famille for a in projet.poste(role).agents} == {"sonnet"}, role
-        assert not projet.poste(role).lecture_seule
-    assert "renfort" not in projet.postes and "renfort" not in ROLES
+def test_un_outil_plein_fait_attendre_sans_lancer_personne(tmp_path):
+    demandes = []
+
+    @contextmanager
+    def place(outil, libre=False):
+        demandes.append(outil)
+        yield libre
+
+    executeur = Executeur((0, flux(texte="fait"), ""))
+    res = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=executeur, place=place)
+    assert res.attente and res.agent is None and "occupé" in res.raison
+    assert demandes == ["claude"] and not executeur.appels
+    assert agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=executeur,
+                           place=lambda outil: place(outil, libre=True)).reussi
 
 
-def test_chaque_lot_du_vps_peut_coder_avec_sonnet():
-    # Claude tient un codeur par lot du VPS, et il lui reste une place pour
-    # juger ; deux lots, un par processeur du VPS (28 octobre 2026).
-    projet = charger(RACINE)
-    assert projet.capacite("vps") == 2
-    assert projet.plafond("claude") > projet.capacite("vps")
+def test_une_erreur_dite_dans_le_flux_est_un_echec_meme_avec_le_code_zero(tmp_path):
+    dit = flux(texte="La sortie ne respecte pas le schéma.", sortie={"etat": "faite"}, erreur=True)
+    res = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=Executeur((0, dit, "")))
+    assert not res.reussi and not res.attente and res.code == 1 and res.agent == OPUS
+    assert res.sortie is None and "La sortie ne respecte pas le schéma." in res.texte
+    quota = flux(texte="You've hit your weekly limit · resets Monday", erreur=True)
+    res = agents.invoquer(OPUS, appel(), tmp_path, 900, executeur=Executeur((0, quota, "")))
+    assert res.attente and res.agent is None and "quota épuisé" in res.raison, "un quota dit dans le flux fait attendre"
 
 
-def test_un_quota_du_chef_passe_a_son_secours(projet, tmp_path):
-    agents = Agents((1, "Error: You've hit your usage limit"), (0, "DECISION: BRIEF"))
-    res = A.invoquer(projet.poste("chef"), "prépare", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "claude/sonnet"
+# ------------------------------------------------------- exécuter pour de vrai
+ECHO = """
+    import sys
+    consigne = sys.stdin.buffer.read()
+    open("fait.txt", "wb").write(consigne)
+    sys.stdout.buffer.write(b"recu : " + consigne)
+"""
+DORMEUR = """
+    import sys, time
+    sys.stdin.read()
+    print("debut du travail", flush=True)
+    time.sleep(30)
+    print("jamais dit", flush=True)
+"""
 
 
-# Le parallélisme : combien de lots par machine, combien d'agents par outil.
+def _agent(dossier: Path, corps: str) -> list[str]:
+    """Un « agent » : un script Python du dossier du test, lancé par l'interpréteur des tests."""
+    script = dossier / "agent.py"
+    script.write_text(textwrap.dedent(corps), encoding="utf-8")
+    return [sys.executable, str(script)]
 
-def _toml_avec(projet, tmp_path, ajout):
-    texte = (projet.racine / "atelier.toml").read_text(encoding="utf-8") + ajout
-    (tmp_path / "atelier.toml").write_text(texte, encoding="utf-8")
+
+def test_l_agent_lit_sa_consigne_sur_l_entree_standard_et_sa_sortie_reste_dans_la_trace(tmp_path):
+    chantier, trace = tmp_path / "chantier", tmp_path / "appels" / "10-chef.jsonl"
+    chantier.mkdir()
+    consigne = "Lève une armée à Biskra — été 1400."
+    code, sortie, erreur = agents.executer(_agent(tmp_path, ECHO), chantier, dict(os.environ), 30, consigne, trace)
+    assert (code, sortie, erreur) == (0, f"recu : {consigne}", "")
+    assert trace.read_text(encoding="utf-8") == sortie and not trace.with_suffix(".err").exists()
+    assert (chantier / "fait.txt").read_text(encoding="utf-8") == consigne, "l'agent tourne dans le dossier du lot"
+
+
+def test_un_agent_plus_lent_que_son_delai_est_coupe_et_garde_ce_qu_il_avait_dit(tmp_path):
+    """Le défaut : un appel coupé par son délai ne laissait ni sortie ni trace."""
+    trace = tmp_path / "appels" / "10-chef.jsonl"
+    debut = time.monotonic()
+    code, sortie, erreur = agents.executer(_agent(tmp_path, DORMEUR), tmp_path, dict(os.environ), 2, "Dors.", trace)
+    assert (code, erreur) == (agents.CODE_COUPE, "délai dépassé après 2 s")
+    assert "debut du travail" in sortie and "jamais dit" not in sortie
+    assert "debut du travail" in trace.read_text(encoding="utf-8")
+    assert time.monotonic() - debut < 20, "l'agent coupé est tué : on n'attend pas la fin de son sommeil"
+
+
+def test_un_binaire_absent_rend_127_sans_exception(tmp_path):
+    commande = ["agent-de-forge-qui-n-existe-pas", "-p"]
+    code, sortie, erreur = agents.executer(commande, tmp_path, dict(os.environ), 5, "Fais.", tmp_path / "trace.jsonl")
+    assert (code, sortie) == (127, "") and "binaire introuvable : agent-de-forge-qui-n-existe-pas" in erreur
+
+
+# ------------------------------------------------------ la garde des commandes
+def test_la_suite_entiere_est_refusee_sous_toutes_ses_formes_un_lancement_borne_passe():
+    for commande in ("python3 -m pytest jeu -q", "py -m pytest", "pytest", "python3 -m pytest -x --tb=short jeu/sim",
+                     "cd jeu && py -m pytest sim/tests/ -q -n auto"):
+        assert "la suite entière" in garde_commandes.refus(commande, 400), commande
+    for commande in ("python3 -m pytest jeu/sim/tests/test_lieux.py -q", "py -m pytest jeu -q -k ouverture",
+                     "pytest jeu/sim/tests/lieux.py::test_ouverture", "python3 -m pytest atelier/tests -q",
+                     "py -m pytest atelier\\tests -q"):
+        assert garde_commandes.refus(commande, 400) == "", commande
+
+
+def test_une_simulation_plus_longue_que_la_borne_est_refusee():
+    assert "3650 jours" in garde_commandes.refus("python3 -m forge --ticks 3650 --seed 0", 400)
+    assert garde_commandes.refus("py -m forge --jours=401", 400) and garde_commandes.refus("py -m forge --days 500", 400)
+    assert garde_commandes.refus("python3 -m forge --ticks 400 --seed 0", 400) == ""
+    assert "(30 au plus)" in garde_commandes.refus("python3 -m forge --ticks 365", 30)
+
+
+def test_une_commande_sans_rapport_passe():
+    for commande in ("git log --oneline -5", "ls jeu/sim/tests", "python3 -m forge --seed 3650", ""):
+        assert garde_commandes.refus(commande, 400) == "", commande
+
+
+def test_citer_pytest_sans_le_lancer_n_est_pas_jouer_la_suite():
+    assert garde_commandes.refus('grep -rn "pytest" docs/', 400) == ""
+    assert garde_commandes.refus("cat pytest.ini", 400) == ""
+
+
+def _entree_standard(monkeypatch, texte: str) -> None:
+    monkeypatch.setattr(sys, "stdin", io.StringIO(texte))
+
+
+def test_la_garde_sort_2_et_dit_pourquoi_quand_elle_refuse(monkeypatch, capsys):
+    suite = json.dumps({"tool_name": "Bash", "tool_input": {"command": "python3 -m pytest jeu -q"}})
+    _entree_standard(monkeypatch, suite)
+    assert garde_commandes.main(["400"]) == 2
+    assert capsys.readouterr().err.startswith("Commande refusée par la chaîne : la suite entière")
+    annee = json.dumps({"tool_name": "PowerShell", "tool_input": {"command": "py -m forge --ticks 365"}})
+    _entree_standard(monkeypatch, annee)
+    assert garde_commandes.main(["30"]) == 2, "la borne vient de l'argument"
+    _entree_standard(monkeypatch, annee)
+    assert garde_commandes.main([]) == 0, "sans argument, 400 jours"
+
+
+def test_la_garde_laisse_passer_ce_qu_elle_ne_refuse_pas_ou_ne_sait_pas_lire(monkeypatch, capsys):
+    lisibles = [{"tool_input": {"command": "git status"}}, {"tool_input": {}}, {"tool_name": "Read"}, ["pas", "un", "objet"]]
+    for entree in (*(json.dumps(e) for e in lisibles), "pytest jeu : pas du JSON", ""):
+        _entree_standard(monkeypatch, entree)
+        assert garde_commandes.main(["400"]) == 0, entree
+    assert capsys.readouterr().err == ""
+
+
+# ------------------------------------------------------------------ la sonde
+@pytest.fixture
+def dossier_jetable_du_test(tmp_path, monkeypatch):
+    """La sonde ouvre son dossier jetable sous le dossier du test, pas dans le vrai dossier temporaire."""
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     return tmp_path
 
 
-def test_sans_reglage_chaque_machine_tient_un_lot_et_aucun_outil_n_a_de_plafond(projet):
-    assert projet.capacite("vps") == 1 and projet.capacite("pc") == 1
-    assert projet.plafond("claude") is None
+def test_la_sonde_d_un_role_en_lecture_seule_attend_le_mot_ok(dossier_jetable_du_test):
+    executeur = Executeur((0, flux(texte="OK"), ""), (0, flux(texte="Bonjour."), ""),
+                          (1, "", "Invalid API key · Please run /login"))
+    assert agents.sonder(OPUS, "relecteur", True, executeur=executeur) == (True, "OK")
+    assert option(executeur.appels[0]["argv"], "--permission-mode") == "default"
+    assert dossier_jetable_du_test in executeur.appels[0]["cwd"].parents
+    assert agents.sonder(OPUS, "relecteur", True, executeur=executeur) == (False, "Bonjour.")
+    reussi, detail = agents.sonder(OPUS, "relecteur", True, executeur=executeur)
+    assert not reussi and "session de l'abonnement expirée" in detail
 
 
-def test_le_parallelisme_se_lit_et_une_faute_se_refuse(projet, tmp_path):
-    (tmp_path / "bon").mkdir()
-    lu = charger(_toml_avec(projet, tmp_path / "bon", "\n[machines]\nvps = 3\n\n[outils]\nclaude = 2\n"))
-    assert lu.capacite("vps") == 3 and lu.capacite("pc") == 1
-    assert lu.plafond("claude") == 2
-    assert "vps 3" in table_des_roles(lu) and "claude 2" in table_des_roles(lu)
-    # Cursor n'est plus un outil : son plafond se refuse comme une faute de frappe.
-    for ajout, motif in (("\n[machines]\nvps = 0\n", "vps"), ("\n[machines]\nmac = 2\n", "mac"),
-                         ("\n[outils]\nclaude = \"deux\"\n", "claude"), ("\n[outils]\ncursor = 1\n", "cursor")):
-        dossier = tmp_path / motif
-        dossier.mkdir(exist_ok=True)
-        with pytest.raises(ProjetIncomplet, match=motif):
-            charger(_toml_avec(projet, dossier, ajout))
+def test_la_sonde_d_un_role_qui_ecrit_exige_le_fichier_qu_il_devait_creer(dossier_jetable_du_test):
+    def ecrivain(argv, cwd, env, delai, consigne, trace):
+        assert agents.FICHIER_SONDE in consigne and option(argv, "--permission-mode") == "acceptEdits"
+        (Path(cwd) / agents.FICHIER_SONDE).write_text("OK\n", encoding="utf-8")
+        return 0, flux(texte="OK"), ""
 
-
-def test_le_depot_fait_avancer_plusieurs_lots_du_vps_et_plafonne_ses_outils():
-    projet = charger(RACINE)
-    assert projet.capacite("vps") >= 2 and projet.capacite("pc") == 1
-    for outil in {a.outil for poste in projet.postes.values() for a in poste.agents}:
-        assert projet.plafond(outil), outil
-
-
-class _Places:
-    """Des places d'outil dictées : `pleins` n'en a plus."""
-
-    def __init__(self, *pleins):
-        self.pleins = set(pleins)
-        self.demandees: list[str] = []
-
-    def __call__(self, outil):
-        from contextlib import nullcontext
-        self.demandees.append(outil)
-        return nullcontext(outil not in self.pleins)
-
-
-def test_claude_a_son_plafond_le_lot_attend_sans_essai(projet, tmp_path):
-    # Claude est le seul outil : ses places prises, aucun secours n'est libre.
-    agents = Agents()
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=_Places("claude"))
-    assert res.attente and not res.personne and agents.appels == []
-    assert res.essais and all("occupé (claude a déjà tous ses agents en route)" in e for e in res.essais)
-
-
-def test_une_place_libre_laisse_coder(projet, tmp_path):
-    agents = Agents((0, "fait"))
-    places = _Places()
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents, place=places)
-    assert res.reussi and str(res.agent) == "claude/sonnet" and places.demandees == ["claude"]
-
-
-# La sonde : un agent qui écrit doit vraiment écrire.
-
-def test_la_sonde_exige_qu_un_agent_qui_ecrit_ecrive(projet):
-    codeur = projet.poste("codeur")
-    unique = type(codeur)(role="codeur", agents=codeur.agents[:1])
-    ok, _ = A.sonder(unique, projet.racine, executeur=Agents((0, "OK", {A.FICHIER_SONDE: "OK"})))
-    assert ok
-    # Contre-épreuve : l'agent du PC du 29 septembre 2026, qui répond « OK »
-    # sans rien pouvoir écrire.
-    ok, detail = A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))
-    assert not ok and "sans rien écrire" in detail
-
-
-def test_la_sonde_d_un_agent_en_lecture_seule_ne_demande_qu_une_reponse(projet):
-    relecteur = projet.poste("relecteur")
-    unique = type(relecteur)(role="relecteur", agents=relecteur.agents[:1])
-    assert A.sonder(unique, projet.racine, executeur=Agents((0, "OK")))[0]
-    assert not A.sonder(unique, projet.racine, executeur=Agents((0, "non")))[0]
-
-
-# Un harnais qui refuse l'appel : le réglage est en cause, pas l'agent.
-
-@pytest.mark.parametrize("sortie", [
-    "error: unknown option '--effort'",                                         # un Claude Code trop ancien
-    "Error loading config.toml: unknown variant `extreme`, expected one of `minimal`, `low`, `medium`, `high`",
-    "error: unexpected argument '--effort' found",
-])
-def test_un_harnais_qui_refuse_l_appel_passe_la_main_sans_bruler_d_essai(projet, tmp_path, sortie):
-    assert A.cause_de_refus(2, sortie) == "appel"
-    agents = Agents((2, sortie), (0, "fait"))
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-    assert res.reussi and str(res.agent) == "claude/haiku"
-    assert "refuse l'appel" in res.essais[0]
-
-
-def test_une_session_claude_perdue_fait_attendre_le_lot(tmp_path):
-    # Sur la vraie ligne du codeur : la session Claude du VPS a expiré le
-    # 21 octobre 2026. Sans autre harnais, le lot attend, et aucun essai
-    # n'est brûlé ; le journal demande de ranger un nouveau jeton.
-    refus = "Failed to authenticate: OAuth session expired and could not be refreshed"
-    res = A.invoquer(charger(RACINE).poste("codeur"), "code", tmp_path, 10, executeur=Agents((1, refus)))
-    assert res.attente and not res.reussi and not res.personne
-    assert res.essais and "claude/claude-sonnet-5-5@high : session expirée" in res.essais[0]
-
-
-def test_un_effort_inconnu_que_claude_code_ignore_n_est_pas_un_refus():
-    # Mesuré le 29 septembre 2026 (Claude Code 2.1.284) : il prévient, prend
-    # son effort par défaut et rend 0. C'est le chargement qui l'empêche.
-    sortie = ("Warning: Unknown --effort value 'bogus' — ignoring it and using the default effort. "
-              "Valid values: low, medium, high, xhigh, max.")
-    assert A.cause_de_refus(0, sortie) is None
-    with pytest.raises(ProjetIncomplet):
-        lire_agent("claude/claude-opus-5-5@bogus")
-
-
-def test_un_test_rouge_de_l_agent_n_est_pas_un_appel_refuse():
-    # Contre-épreuve : argparse, lancé par un test que l'agent a joué, écrit
-    # « unrecognized arguments » ; c'est l'échec de l'agent, pas du harnais.
-    sortie = "E   SystemExit: 2\nusage: forge [-h]\nforge: error: unrecognized arguments: --vite\n1 failed"
-    assert A.cause_de_refus(1, sortie) is None
-
-
-# Ce que Claude Code 2.1.312 rend avec `--output-format json` (relevé le 10 novembre 2026, abrégé).
-def _json_de_claude(texte, *, erreur=False, cout=0.42, extra=""):
-    return ('{"type":"result","subtype":"' + ("error_during_execution" if erreur else "success") + '","is_error":'
-            + ("true" if erreur else "false") + ',"num_turns":7,"duration_ms":93400,"total_cost_usd":' + str(cout)
-            + ',"usage":{"input_tokens":12,"cache_creation_input_tokens":8000,"cache_read_input_tokens":30000,'
-            '"output_tokens":900},"result":' + json.dumps(texte) + extra + "}")
-
-
-def test_la_sortie_json_rend_le_texte_de_l_agent_et_ce_que_l_appel_a_coute(projet, tmp_path):
-    """Jusqu'au 10 novembre 2026, la sortie était en texte : 1 071 appels en
-    cinq semaines, et personne ne savait ce que coûtait un lot."""
-    texte, mesure = A.lire_sortie("un avertissement du harnais\n" + _json_de_claude("Fait.\nVERDICT: ACCEPTE") + "\n")
-    assert texte == "Fait.\nVERDICT: ACCEPTE"
-    assert mesure == {"cout": 0.42, "tours": 7, "duree": 93, "entree": 38012, "sortie": 900, "erreur": False}
-    res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
-                     executeur=Agents((0, _json_de_claude("Fait."))))
-    assert res.reussi and res.texte == "Fait." and res.mesure["cout"] == 0.42
-
-
-@pytest.mark.parametrize("sortie", ["Fait.\nVERDICT: ACCEPTE", "", '{"pas": "un résultat"}', "{json cassé",
-                                    '["type", "result"]'])
-def test_une_sortie_qui_n_est_pas_ce_json_reste_telle_quelle_sans_mesure(sortie):
-    """Contre-épreuve : on ne devine pas un coût. Un appel coupé par son
-    délai, un autre harnais ou une version ancienne rendent leur texte."""
-    assert A.lire_sortie(sortie) == (sortie, {})
-
-
-def test_un_quota_dit_en_json_fait_toujours_attendre_sans_bruler_d_essai(projet, tmp_path):
-    """Le refus se lit dans le texte de l'agent, ou ailleurs dans ce que le
-    harnais a rendu ; et une erreur dite sans code d'erreur reste une erreur."""
-    for refus in (_json_de_claude("You've hit your usage limit", erreur=True),
-                  _json_de_claude("", erreur=True, extra=',"api_error_status":429')):
-        agents = Agents((1, refus), (0, _json_de_claude("fait")))
-        res = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10, executeur=agents)
-        assert res.reussi and str(res.agent) == "claude/haiku" and "quota" in res.essais[0]
-    sans_code = A.invoquer(projet.poste("relecteur"), "relis", tmp_path, 10,
-                           executeur=Agents((0, _json_de_claude("l'outil a planté", erreur=True))))
-    assert not sans_code.reussi and sans_code.code == 1 and not sans_code.attente
-    # Un agent qui parle de quota dans un travail réussi n'est pas un refus.
-    bavard = A.invoquer(projet.poste("codeur"), "code", tmp_path, 10,
-                        executeur=Agents((0, _json_de_claude("Le quota de grain est codé."))))
-    assert bavard.reussi and str(bavard.agent) == "claude/sonnet"
-
+    assert agents.sonder(OPUS, "chef", False, executeur=ecrivain) == (True, "OK")
+    assert not list(dossier_jetable_du_test.glob("sonde-*")), "le dossier jetable est retiré"
+    bavard = Executeur((0, flux(texte="OK"), ""))
+    assert agents.sonder(OPUS, "chef", False, executeur=bavard) == (False, "a répondu sans rien écrire : OK")

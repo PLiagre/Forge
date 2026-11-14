@@ -1,2054 +1,538 @@
-"""Le pilote, tour par tour, sur un GitHub en mémoire et des agents dictés."""
+"""Le chemin d'un lot, de la fiche à la fusion, et ce qui arrive quand ça coince.
+
+Chaque défaut mesuré de l'ancienne chaîne a ici le test qui l'aurait vu :
+une boucle de dépendances, un appel coupé sans coût ni trace, une décision
+arrivée sans ses raisons, un test changé sans raison, une relecture réduite
+à sa dernière phrase, un test qui écrit dans le vrai journal.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+from pathlib import Path
 
 import pytest
 
-from atelier import lots, prompts
-from atelier.depot import DepotErreur
-from atelier.lots import (Lot, marque, marques, decisions_du_lot, decisions_seules, decisions_de_la_direction, question_pour_la_direction)
+from atelier import garde_commandes, lots
 from atelier.pilote import Pilote
-from atelier.projet import charger
-from atelier.verrous import Verrous
 
-from conftest import Agents
+from conftest import Agents, piloter
 
-BRIEF_BON = """# Lot #10 — Le service lit un lieu
-Jalon : J1 · Machine : vps · Taille prévue : 120 lignes
+FICHE = """## Ce que je joue de plus
+Je lève une armée.
 
-## But
-Unity lit un lieu.
-## Le joueur
-Le joueur voit les vrais chiffres de son lieu dans Unity.
-## Règle du monde
-sans objet
-## Périmètre
-jeu/sim/service.py
-## Conditions de succès
-SC1 : python3 -m pytest jeu -q
-## Hors périmètre
-Unity.
+## Ce que je vois samedi
+Une armée sur la carte.
+
+## La règle du monde
+Les soldats sont des habitants. Niveau 2.
+
+## Les preuves
+- python3 -m pytest jeu/sim/tests/test_armees.py -q
 """
-BRANCHE = "lot/10-le-service-lit-un-lieu"
+ETAPES = [{"titre": "La règle de la levée", "quoi": "armees.py", "qui": "chef", "tests": "test_armees.py -k levee"},
+          {"titre": "Les données", "quoi": "jeu/data/armees.toml", "qui": "developpeur", "tests": "test_armees.py -k donnees"}]
+PLAN = {"sortie": {"decision": "plan", "resume": "La levée, puis ses données.", "etapes": ETAPES}}
 
 
-def _pilote(projet, gh, depot, agents, tmp_path):
-    return Pilote(projet, gh, depot, executeur_agents=agents, journal=tmp_path / "journal.jsonl",
-                  maintenant=lambda: datetime(2026, 9, 28, 8, 0, tzinfo=timezone.utc))
+def faite(fichiers=None, **plus):
+    return {"sortie": {"etat": "faite", "compte_rendu": "C'est fait.", **plus},
+            "fichiers": fichiers if fichiers is not None else {"jeu/sim/armees.py": "x = 1\n"}}
 
 
-def _gestes(gh, nom):
-    return [g for g in gh.gestes if g[0] == nom]
+ACCEPTE = {"sortie": {"verdict": "ACCEPTE", "resume": "Tout tient.", "constats": [],
+                      "promesse_joueur_tenue": True, "tests_changes_justifies": True}}
 
 
-def test_le_chef_ecrit_le_brief_dans_la_branche_et_ouvre_la_pr(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((0, "J'ai écrit le brief.\nDECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-    assert ("pousser", BRANCHE) in depot.gestes
-    assert _gestes(gh, "creer_pr")[0][1:] == (BRANCHE, "Lot #10 — Le service lit un lieu")
-    assert ("etiqueter", 10, ("en-cours",), ("pret",)) in gh.gestes
-    assert any("brief écrit" in l for l in lignes)
-    pr = gh.prs_[max(gh.prs_)]
-    assert "Closes #10" in pr["body"]
-    assert marques(pr["comments"])[0]["role"] == "chef"
+def _marques(gh, numero, *, pr=False):
+    source = gh.prs_ if pr else gh.issues_
+    return lots.marques(source[numero]["comments"])
 
 
-def test_un_brief_qui_demande_le_pc_etiquette_le_lot(projet, gh, depot, tmp_path):
-    # #237 : le brief disait « Machine : pc », l'issue n'avait pas l'étiquette.
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    brief = BRIEF_BON.replace("Machine : vps", "Machine : pc")
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": brief}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert ("etiqueter", 10, (lots.ETIQUETTE_PC,), ()) in gh.gestes
-    assert "Machine : pc" in gh.prs_[max(gh.prs_)]["body"]
+def _pr_du_lot(gh, numero):
+    return next(n for n, p in gh.prs_.items() if p["headRefName"].startswith(f"lot/{numero}-"))
 
 
-def test_le_chef_ne_garde_que_le_brief(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON,
-                                             "jeu/sim/engine.py": "triche"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert ("annuler", ("jeu/sim/engine.py",)) in depot.gestes
+def _jusqu_a_la_relecture(projet, gh, depot, tmp_path, *reponses, etiquettes=("lot", "pret", "monde")):
+    """Un lot dont le plan et les deux étapes sont faits, CI verte : il attend sa relecture."""
+    gh.ajouter_issue(10, "Lever une armée", etiquettes, corps=FICHE)
+    agents = Agents(PLAN, faite(), faite(), *reponses)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    gh.ci(_pr_du_lot(gh, 10), "vert")
+    return pilote, agents, _pr_du_lot(gh, 10)
 
 
-def test_le_chef_refuse_un_lot_hors_du_jalon(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Des batailles navales")
-    _pilote(projet, gh, depot, Agents((0, "DECISION: REFUS :: c'est le jalon 6")), tmp_path).tour()
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "bloque" in etiquettes and "pret" not in etiquettes
-    assert "jalon 6" in gh.issues_[10]["comments"][-1]["body"]
-    assert not _gestes(gh, "creer_pr")
+def test_un_lot_va_de_la_fiche_a_la_fusion(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, faite(), faite(), ACCEPTE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
 
-
-def test_un_refus_qui_attend_une_issue_ouverte_fait_attendre_le_lot(projet, gh, depot, tmp_path):
-    # #413 (10 octobre 2026) : « attend #396 » bloquait le lot, qui n'avait rien à décider.
-    gh.ajouter_issue(10, "Le chantier se paie au grenier", corps="Ce qu'il fait.\n\nDépend de : #5")
-    gh.ajouter_issue(396, "Le seigneur prélève sa part", etiquettes=())
-    refus = "DECISION: REFUS :: attend #396 (le seigneur prélève sa part, et elle voyage jusqu'à son grenier)"
-    _pilote(projet, gh, depot, Agents((0, refus)), tmp_path).tour()
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "pret" in etiquettes and "bloque" not in etiquettes
-    assert lots.Lot.de(gh.issues_[10]).dependances == frozenset({5, 396})
-    assert gh.issues_[10]["body"].startswith("Ce qu'il fait.\n\nDépend de : #5, #396")
-    commentaire = gh.issues_[10]["comments"][-1]["body"]
-    assert "#396" in commentaire and marques([{"body": commentaire}])[-1]["etat"] == "attend"
-    assert not _gestes(gh, "creer_pr")
-    # Au tour suivant, le lot attend : le chef n'est pas rappelé.
-    rappel = Agents()
-    _pilote(projet, gh, depot, rappel, tmp_path).tour()
-    assert rappel.appels == []
-
-
-def test_un_refus_qui_attend_une_issue_livree_bloque_le_lot(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Des batailles navales")
-    gh.ajouter_issue(396, "Déjà fait", etiquettes=("lot", "livre"), etat="CLOSED")
-    _pilote(projet, gh, depot, Agents((0, "DECISION: REFUS :: attend #396, mais c'est le jalon 6")), tmp_path).tour()
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "bloque" in etiquettes and "pret" not in etiquettes
-    assert "corps_de" not in [g[0] for g in gh.gestes]
-
-
-QUESTION_DU_CHEF = """Le lot ferait rougir un invariant du monde.
-DECISION: QUESTION :: Que faire des villes que leurs champs ne nourrissent pas ?
-- A :: leur donner un grenier de départ :: elles peuvent maigrir ensuite
-- B :: plafonner les villes :: Paris démarre plus petit
-RECOMMANDATION :: A :: garde l'histoire et la physique"""
-
-
-def test_le_chef_pose_sa_question_et_le_lot_l_attend(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Les grandes villes")
-    agents = Agents((0, QUESTION_DU_CHEF))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
-    assert "DECISION: QUESTION" in prompt and "RECOMMANDATION" in prompt
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "bloque" in etiquettes and "pret" not in etiquettes
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "le chef attend ta décision" in corps and "**Que faire des villes" in corps
-    assert "- **A** — leur donner un grenier de départ (elles peuvent maigrir ensuite)" in corps
-    assert "Le chef recommande **A** : garde l'histoire et la physique." in corps
-    assert "une lettre suffit" in corps
-    m = marques([{"body": corps}])[-1]
-    assert m["etat"] == "bloque" and m["question"].startswith("Que faire des villes")
-    assert m["options"][1] == ["B", "plafonner les villes", "Paris démarre plus petit"]
-    assert m["recommandation"] == ["A", "garde l'histoire et la physique"]
-    assert not _gestes(gh, "creer_pr")
-
-
-def _avec_direction(projet):
-    """Le même projet, qui nomme une direction (Fable, en lecture seule)."""
-    chemin = projet.racine / "atelier.toml"
-    texte = chemin.read_text(encoding="utf-8")
-    chemin.write_text(texte.replace('boussole    =', 'direction   = "claude/fable"\nboussole    ='), encoding="utf-8")
-    return charger(projet.racine)
-
-
-def test_la_direction_tranche_une_question_et_le_lot_repart_avec_sa_decision(projet, gh, depot, tmp_path):
-    """Du 27 septembre au 10 novembre 2026, 47 questions ont attendu le
-    propriétaire, 19 h de médiane chacune ; le 10 novembre, sept lots
-    attendaient ainsi et la chaîne ne faisait plus rien."""
-    projet = _avec_direction(projet)
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10)
-    direction = Agents((0, "La décision 26 de VISION.md le dit déjà.\n"
-                           "DECISION: TRANCHE :: b :: les villes de 1400 sont une donnée réglable\n"
-                           "FONDEMENT :: jeu/data/villes-1400.json, le plafond se change d'une ligne"))
-    lignes = _pilote(projet, gh, depot, direction, tmp_path).tour()
-    assert direction.outils() == ["fable"] and "Tu es la direction technique" in _prompt(direction.appels[0])
-    assert "--disallowedTools" in direction.appels[0] and "acceptEdits" not in direction.appels[0], "lecture seule"
-    assert "- B :: plafonner les villes :: Paris démarre plus petit" in _prompt(direction.appels[0])
-    assert "pret" in _etiquettes(gh, 10) and "bloque" not in _etiquettes(gh, 10)
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "tranchée sans t'attendre" in corps and "Décision : **B** — plafonner les villes" in corps
-    assert "jeu/data/villes-1400.json" in corps and "remets « pret »" in corps
-    m = marques([{"body": corps}])[-1]
-    assert (m["etat"], m["par"], m["recommandation"][0]) == ("decision", "direction", "B")
-    assert any("décision de la direction" in l and "B — Que faire des villes" in l for l in lignes)
-    # Elle suit le lot comme une réponse du propriétaire, et ne compte pas
-    # parmi les décisions techniques du pilote.
-    commentaires = gh.issues_[10]["comments"]
-    assert any("Décision : B — plafonner les villes (prise par la direction" in d for d in decisions_du_lot(commentaires))
-    assert decisions_seules(commentaires) == 0 and decisions_de_la_direction(commentaires) == 1
-    chef = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, chef, tmp_path).tour()
-    assert "la décision de la direction, qui vaut celle du propriétaire" in _prompt(chef.appels[0])
-
-
-def test_la_direction_laisse_au_proprietaire_ce_qui_est_a_lui_et_ne_relit_pas(projet, gh, depot, tmp_path):
-    projet = _avec_direction(projet)
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    direction = Agents((0, "B rendrait la preuve du jalon 2 moins exigeante.\n"
-                           "DECISION: PROPRIETAIRE :: la preuve du jalon écrite au CAP en dépend\n"
-                           "AVIS :: A :: elle garde l'histoire"))
-    _pilote(projet, gh, depot, direction, tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10)
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "cette question est pour toi — la preuve du jalon écrite au CAP en dépend" in corps
-    assert "Son avis : A :: elle garde l'histoire" in corps
-    assert marques([{"body": corps}])[-1] == {"role": "direction", "etat": "avis", "agent": "claude/fable"}
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [], "ni la direction ni le dépanneur ne la relisent"
-    # La réponse du propriétaire lève toujours le blocage.
-    gh.issues_[10]["comments"].append({"body": "A", "author": {"login": "PLiagre"}})
-    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON})),
-            tmp_path).tour()
-    assert any("réponse reçue" in c["body"] for c in gh.issues_[10]["comments"])
-
-
-@pytest.mark.parametrize("reponse, pourquoi", [
-    ((0, "DECISION: TRANCHE :: Z :: une lettre inventée\nFONDEMENT :: rien"), "lettre « Z » que la question ne propose pas"),
-    ((0, "DECISION: TRANCHE :: A :: sans dire ce qui la fonde"), "décision sans fondement"),
-    ((0, "Je ne sais pas."), "décision illisible"),
-    ((1, "erreur interne"), "code 1"),
-])
-def test_une_direction_sans_decision_valable_laisse_la_question_au_proprietaire(projet, gh, depot, tmp_path,
-                                                                             reponse, pourquoi):
-    """Contre-épreuve : la direction évite une attente, elle ne retire rien.
-    Une lettre hors des réponses proposées, une décision sans fondement, un
-    texte illisible ou un échec laissent le lot bloqué, et elle ne le relit pas."""
-    projet = _avec_direction(projet)
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    _pilote(projet, gh, depot, Agents(reponse), tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10) and "pret" not in _etiquettes(gh, 10)
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert f"pas de décision ({pourquoi})" in corps and "la question t'attend" in corps
-    assert decisions_de_la_direction(gh.issues_[10]["comments"]) == 0
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == []
-
-
-def test_sans_direction_dans_atelier_toml_la_question_attend_le_proprietaire(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and "bloque" in _etiquettes(gh, 10)
-
-
-def test_la_direction_ne_tranche_pas_plus_de_deux_fois_sur_un_lot():
-    question = {"question": "Que faire ?", "options": [["A", "ceci", ""], ["B", "cela", ""]],
-                "recommandation": ["A", "plus simple"], "nature": "jeu"}
-    bloque = {"body": marque(role="pilote", etat="bloque", raison="question", **question)}
-    tranche = {"body": marque(role="pilote", etat="decision", par="direction", consigne="A", **question)}
-    assert question_pour_la_direction([bloque]).texte == "Que faire ?"
-    assert question_pour_la_direction([bloque, tranche, bloque]) is not None
-    assert question_pour_la_direction([bloque, tranche, bloque, tranche, bloque]) is None, "la troisième est à lui"
-    assert question_pour_la_direction([bloque, {"body": "B", "author": {"login": "PLiagre"}}]) is None
-    assert question_pour_la_direction([{"body": marque(role="pilote", etat="bloque", raison="CI rouge")}]) is None
-    sans_reponses = dict(question, options=[])
-    assert question_pour_la_direction([{"body": marque(role="pilote", etat="bloque", **sans_reponses)}]) is None
-
-
-def test_un_appel_qui_dit_son_cout_entre_au_journal_du_pilote(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Les grandes villes")
-    sortie = json.dumps({"type": "result", "is_error": False, "num_turns": 9, "duration_ms": 61000,
-                         "total_cost_usd": 1.25, "usage": {"input_tokens": 10, "output_tokens": 20},
-                         "result": QUESTION_DU_CHEF})
-    pilote = _pilote(projet, gh, depot, Agents((0, sortie)), tmp_path)
-    lignes = pilote.tour()
-    assert "bloque" in _etiquettes(gh, 10), "le texte de l'agent est lu comme avant"
-    assert any(l.startswith("#10 appel [claude/opus] — chef : 1.25 $, 9 tours, 61 s") for l in lignes)
-    notees = [json.loads(l) for l in pilote.journal.read_text(encoding="utf-8").splitlines()]
-    appel = next(e for e in notees if e["action"] == "appel")
-    assert appel["mesure"] == {"role": "chef", "cout": 1.25, "tours": 9, "duree": 61, "entree": 10, "sortie": 20,
-                               "erreur": False}
-    # Un agent qui ne dit pas son coût n'écrit rien : on ne devine pas.
-    gh.ajouter_issue(11, "Un autre lot")
-    muet = _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path)
-    assert not any(" appel " in l for l in muet.tour())
-
-
-def test_une_reponse_du_proprietaire_remet_le_lot_en_route(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    gh.issues_[10]["comments"].append({"body": "A", "author": {"login": "PLiagre"}})
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-les-grandes-villes.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert any("réponse reçue" in c["body"] for c in gh.issues_[10]["comments"])
-    # Le chef relit sa question avec la réponse : « A » seul ne dit rien.
-    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
-    assert "ta question au propriétaire" in prompt and "Que faire des villes" in prompt and "PLiagre : A" in prompt
-    assert _gestes(gh, "creer_pr")
-
-
-@pytest.mark.parametrize("commentaire", [
-    {"body": "🤖 **pilote** : autre chose\n\n" + marque(role="pilote", etat="attend", raison="x"),
-     "author": {"login": "PLiagre"}},
-    {"body": "Une faille dans une dépendance.", "author": {"login": "dependabot[bot]"}},
-])
-def test_ni_le_pilote_ni_un_robot_ne_repondent_a_la_place_du_proprietaire(projet, gh, depot, tmp_path, commentaire):
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF)), tmp_path).tour()
-    gh.issues_[10]["comments"].append(commentaire)
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]] and agents.appels == []
-
-
-def test_une_reponse_sur_un_lot_a_pr_ouverte_le_reprend_ou_il_en_est(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[FAIT_CODEUR], etiquettes=("lot", "bloque"))
-    gh.issues_[10]["comments"] += [
-        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="le codeur a échoué 3 fois")},
-        {"body": "Cursor est à jour sur le VPS.", "author": {"login": "PLiagre"}}]
-    _pilote(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
-    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
-    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_le_chef_decoupe_un_lot_trop_gros(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Tout le pont")
-    texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu\n"
-    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
-    crees = [g[1] for g in _gestes(gh, "creer_issue")]
-    assert crees == ["Le service", "Le panneau"]
-    assert ("fermer_issue", 10, True) in gh.gestes
-    assert all(i["milestone"]["title"] == "J1 — Le pont" for n, i in gh.issues_.items() if n > 100)
-
-
-def test_les_sous_lots_se_suivent_et_ce_qui_attendait_le_lot_decoupe_les_attend(projet, gh, depot, tmp_path):
-    # Mesuré le 28 septembre 2026 : #119 découpé en #183 et #184 ; #120, qui
-    # « dépend de #119 », devenait libre au tour suivant, avant ses morceaux.
-    gh.ajouter_issue(10, "Tout le pont")
-    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
-    texte = "DECISION: DECOUPE\n- Le service :: sim sert un lieu\n- Le panneau :: Unity affiche le lieu :: après 1\n"
-    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
-    service, panneau = 101, 102
-    assert Lot.de(gh.issues_[panneau]).dependances == frozenset({service})
-    # Le tour suivant prend le premier sous-lot, jamais le lanceur.
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/101-le-service.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[-1][1] == "lot/101-le-service"
-
-
-def test_un_lot_attend_les_sous_lots_ouverts_du_lot_dont_il_depend(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Tout le pont", etat="CLOSED")
-    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
-    # Le sous-lot ouvert est sur le PC : la machine du VPS est libre, seule la
-    # dépendance retient le lanceur.
-    gh.ajouter_issue(30, "Le panneau", ("lot", "en-cours", "pc"), corps="Ce qu'il fait.\n\nDécoupé du lot #10 par le chef.")
-    fait_pc = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
-    gh.ajouter_pr(60, "lot/30-le-panneau", ci="attente", commentaires=[fait_pc])
-    assert _pilote(projet, gh, depot, Agents(), tmp_path).tour() == ["#30 attendre_ci — PR #60"]
-    gh.issues_[30]["state"] = "CLOSED"
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/20-le-lanceur.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[-1][1] == "lot/20-le-lanceur"
-
-
-def test_un_lot_en_cours_qui_attend_une_dependance_rend_sa_machine(projet, gh, depot, tmp_path):
-    # Mesuré le 28 septembre 2026 : #184 (le panneau), pris avant #185 et #186
-    # (le client qu'il lit), gardait le PC et brûlait ses essais : le codeur
-    # refusait, à raison, de coder sans le client.
-    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "en-cours", "pc"), corps="Dépend de : #11")
-    refus = marque(role="codeur_3d", etat="echec", essai=1, agent="claude/opus")
-    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, refus])
-    gh.ajouter_issue(11, "Le client", ("lot", "pret", "pc"))
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/11-le-client.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "pret" in etiquettes and "en-cours" not in etiquettes
-    assert "#11" in gh.issues_[10]["comments"][-1]["body"]
-    assert not _gestes(gh, "lancer_workflow")
-    # La machine rendue, le client est pris.
-    assert _gestes(gh, "creer_pr")[-1][1] == "lot/11-le-client"
-
-
-def test_un_lot_pret_ne_se_reprend_qu_une_fois_ses_dependances_livrees(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"), corps="Dépend de : #11")
-    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, ECHEC_127])
-    gh.ajouter_issue(11, "Le client", ("lot", "en-cours"))
-    gh.ajouter_pr(51, "lot/11-le-client", ci="attente", commentaires=[FAIT_CODEUR])
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert not any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
-    gh.issues_[11]["state"] = "CLOSED"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
-    assert _gestes(gh, "lancer_workflow")[-1][2]["essai"] == "0"
-
-
-def test_un_brief_trop_gros_est_un_echec_puis_un_blocage(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    gros = BRIEF_BON.replace("120 lignes", "450 lignes")
-    for _ in range(2):
-        _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": gros})),
-                tmp_path).tour()
-    assert "trop gros" in gh.issues_[10]["comments"][0]["body"]
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_un_brief_sans_le_joueur_est_un_echec_du_chef(projet, gh, depot, tmp_path):
-    # Le 6 octobre 2026, J3 avait livré dix lots sans qu'aucun ne donne un geste au joueur :
-    # un brief dit désormais ce que le joueur y gagne, ou il ne passe pas.
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    muet = BRIEF_BON.replace("## Le joueur\nLe joueur voit les vrais chiffres de son lieu dans Unity.\n", "")
-    assert "## Le joueur" not in muet
-    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": muet})),
-            tmp_path).tour()
-    assert "brief incomplet : ## Le joueur" in gh.issues_[10]["comments"][0]["body"]
-    assert not _gestes(gh, "creer_pr")
-
-
-def _en_cours(gh, commentaires=(), ci="vert", etiquettes=("lot", "en-cours")):
-    gh.ajouter_issue(10, "Le service lit un lieu", etiquettes)
-    return gh.ajouter_pr(50, BRANCHE, brouillon=True, ci=ci, commentaires=commentaires)
-
-
-def test_le_codeur_code_et_les_chemins_interdits_sont_retires(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    agents = Agents((0, "Fait : service écrit, 12 tests verts.",
-                     {"jeu/sim/service.py": "code", "atelier/pilote.py": "triche"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["sonnet"]
-    assert ("annuler", ("atelier/pilote.py",)) in depot.gestes
-    assert ("pousser", BRANCHE) in depot.gestes and ("pr_prete", 50) in gh.gestes
-    dernier = gh.prs_[50]["comments"][-1]["body"]
-    assert "Changements retirés" in dernier and "`atelier/pilote.py`" in dernier
-    assert marques([{"body": dernier}]) == [{"role": "codeur", "etat": "fait", "essai": 1,
-                                             "agent": "claude/sonnet", "sha": "b" * 40}]
-
-
-def test_un_codeur_qui_ne_change_rien_echoue(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    _pilote(projet, gh, depot, Agents((0, "Je n'ai rien trouvé à faire.")), tmp_path).tour()
-    assert marques(gh.prs_[50]["comments"])[-1]["etat"] == "echec"
-    assert not [g for g in depot.gestes if g[0] == "pousser"]
-
-
-def test_un_codeur_coupe_par_son_delai_garde_son_travail_inacheve(projet, gh, depot, tmp_path):
-    # Le 12 octobre 2026, #398 a été coupé trois fois à 3600 s avec un code vert, et le travail jeté.
-    _en_cours(gh)
-    agents = Agents((124, "délai dépassé", {"jeu/sim/service.py": "code", "atelier/pilote.py": "triche"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert ("pousser", BRANCHE) in depot.gestes and ("annuler", ("atelier/pilote.py",)) in depot.gestes
-    dernier = gh.prs_[50]["comments"][-1]["body"]
-    assert "inachevé (délai dépassé)" in dernier
-    derniere = marques([{"body": dernier}])[-1]
-    assert derniere["etat"] == "fait" and derniere["inacheve"] is True
-
-
-def test_un_codeur_coupe_sans_rien_ecrire_reste_en_echec(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    _pilote(projet, gh, depot, Agents((124, "délai dépassé")), tmp_path).tour()
-    assert marques(gh.prs_[50]["comments"])[-1]["etat"] == "echec"
-    assert not [g for g in depot.gestes if g[0] == "pousser"]
-
-
-FAIT_CODEUR = marque(role="codeur", etat="fait", essai=1, agent="claude/sonnet", sha="a" * 40)
-
-
-def test_le_relecteur_accepte_et_la_fusion_part(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    agents = Agents((0, "Le diff reste dans le périmètre.\nVERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-    revue = gh.prs_[50]["comments"][-1]["body"]
-    assert revue.startswith("## Relecture — ACCEPTE") and "VERDICT" not in revue
-    assert ("fusion_auto", 50) in gh.gestes
-    # La fusion ne vaut que pour la révision relue.
-    assert gh.tetes_fusionnees == ["a" * 40]
-
-
-def test_un_verdict_que_cursor_colle_au_message_suivant_se_lit(projet, gh, depot, tmp_path):
-    # #825, 31 octobre 2026 : composer a rendu « VERDICT: ACCEPTE », puis un
-    # second message sur ses tests finis ; Cursor colle ses messages sans
-    # saut de ligne, et deux relectures sont tombées en « verdict illisible ».
-    from atelier.pilote import _VERDICT
-
-    colle = ("Aucun constat bloquant.\n\nVERDICT: ACCEPTELes tests SC4/SC5 lancés en arrière-plan sont finis : "
-             "**VERDICT: ACCEPTE** pour la révision `0ade725`.")
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    _pilote(projet, gh, depot, Agents((0, colle)), tmp_path).tour()
-    revue = gh.prs_[50]["comments"][-1]["body"]
-    assert revue.startswith("## Relecture — ACCEPTE") and "Les tests SC4/SC5" in revue
-    assert ("fusion_auto", 50) in gh.gestes
-    assert _VERDICT.findall(colle) == ["ACCEPTE"]
-    assert _VERDICT.findall("Constat.\n**VERDICT: CORRIGER**Le codeur relance.") == ["CORRIGER"]
-    # Ce qui suit le verdict après une espace n'est pas une colle : une
-    # acceptation sous condition reste illisible.
-    assert _VERDICT.findall("VERDICT: ACCEPTE à condition de fusionner master") == []
-    assert _VERDICT.findall("VERDICT: ACCEPTE\n") == ["ACCEPTE"]
-
-
-def test_une_pr_deja_fusionnable_est_fusionnee_tout_de_suite_a_la_revision_relue():
-    # Mesuré le 28 septembre 2026 sur la PR #174 (lot #118) : relue ACCEPTE,
-    # tous ses contrôles verts, GitHub refuse d'armer l'auto-fusion (« clean
-    # status ») et le pilote échouait à chaque tour sans jamais fusionner.
-    from atelier.github import GitHub
-    appels = []
-
-    def faux_gh(argv, entree):
-        appels.append(argv[1:])
-        if "--auto" in argv:
-            return 1, "", "GraphQL: Pull request Pull request is in clean status (enablePullRequestAutoMerge)"
-        return 0, "", ""
-
-    GitHub("moi/essai", executeur=faux_gh).fusion_auto(174, "f" * 40)
-    assert appels[-1] == ["pr", "merge", "174", "-R", "moi/essai", "--squash", "--match-head-commit", "f" * 40]
-    assert "--match-head-commit" in appels[0]
-
-
-def test_une_autre_erreur_de_fusion_n_est_pas_masquee():
-    from atelier.github import GitHub, GitHubErreur
-    refus = lambda argv, entree: (1, "", "GraphQL: Base branch was modified")  # noqa: E731
-    with pytest.raises(GitHubErreur):
-        GitHub("moi/essai", executeur=refus).fusion_auto(174, "f" * 40)
-
-
-def test_opus_relit_le_lot_du_pc_qu_il_a_code(projet, gh, depot, tmp_path):
-    # Choix du propriétaire (5 novembre 2026) : Opus relit Opus, Sonnet ne
-    # relit pas Opus. Le relecteur n'écarte plus l'auteur : le premier de sa
-    # ligne relit, dans sa propre session en lecture seule.
-    fait_opus = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
-    _en_cours(gh, commentaires=[fait_opus], etiquettes=("lot", "en-cours", "pc"))
-    agents = Agents((0, "VERDICT: CORRIGER"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-    assert not _gestes(gh, "fusion_auto")
-
-
-def test_un_lot_ecrit_par_opus_et_sonnet_se_relit_quand_meme(projet, gh, depot, tmp_path):
-    # Que l'un, l'autre ou les deux aient écrit, le lot se relit : il ne se
-    # bloque plus « aucun relecteur possible ».
-    faits = [marque(role="codeur", etat="fait", essai=1, agent="claude/sonnet", sha="c" * 40),
-             marque(role="relecteur", verdict="CORRIGER", sha="c" * 40, agent="claude/opus"),
-             marque(role="codeur", etat="fait", essai=2, agent="claude/opus", sha="a" * 40)]
-    _en_cours(gh, commentaires=faits)
-    agents = Agents((0, "VERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-    assert "bloque" not in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_un_quota_claude_ne_retient_pas_le_chef(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((1, "Error: You've hit your usage limit"),
-                    (0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus", "sonnet"]
-    assert any("brief écrit" in l and "claude/sonnet" in l for l in lignes)
-
-
-def test_un_secours_qui_repond_laisse_au_journal_la_raison_du_refus(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((1, "You've hit your monthly spend limit · resets 5:50pm"),
-                    (0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    entrees = [json.loads(l) for l in (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()]
-    secours = [e for e in entrees if e["action"] == "secours"]
-    assert secours and "monthly spend limit" in secours[0]["detail"] and secours[0]["lot"] == 10
-    assert secours[0]["agent"] == "claude/sonnet"
-
-
-def test_corriger_donne_la_revue_au_codeur(projet, gh, depot, tmp_path):
-    revue = "## Relecture — CORRIGER\n\nLe test SC1 ne peut pas rougir (jeu/sim/tests/x.py:3).\n\n" + marque(
-        role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")
-    _en_cours(gh, commentaires=[FAIT_CODEUR, revue])
-    agents = Agents((0, "Corrigé.", {"jeu/sim/tests/x.py": "mieux"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    prompt = _prompt(agents.appels[0])
-    assert "C'EST UNE CORRECTION" in prompt and "ne peut pas rougir" in prompt
-    assert marques(gh.prs_[50]["comments"])[-1]["essai"] == 2
-
-
-def _modele(argv):
-    return argv[argv.index("--model") + 1]
-
-
-def _prompt(argv):
-    return argv[argv.index("-p") + 1]
-
-
-def _deux_passages_corriges():
-    """Deux passages du codeur, chacun renvoyé par le relecteur : il reste la
-    dernière correction permise (corrections_max = 2)."""
-    return [marque(role="codeur", etat="fait", essai=1, agent="claude/sonnet", sha="c" * 40),
-            marque(role="relecteur", verdict="CORRIGER", sha="c" * 40, agent="claude/opus"),
-            marque(role="codeur", etat="fait", essai=2, agent="claude/sonnet", sha="a" * 40),
-            "## Relecture — CORRIGER\n\nToujours faux (jeu/sim/x.py:3).\n\n"
-            + marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")]
-
-
-def test_la_premiere_correction_reste_au_codeur(projet, gh, depot, tmp_path):
-    revue = marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus")
-    _en_cours(gh, commentaires=[FAIT_CODEUR, revue])
-    agents = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _modele(agents.appels[0]) == "sonnet"
-    assert "renfort" not in gh.prs_[50]["comments"][-1]["body"]
-
-
-def test_la_derniere_correction_reste_au_codeur(projet, gh, depot, tmp_path):
-    # Le renfort est retiré (7 novembre 2026) : le dernier passage avant
-    # blocage est celui du codeur, qui a sous les yeux la revue d'avant.
-    _en_cours(gh, commentaires=_deux_passages_corriges())
-    agents = Agents((0, "Corrigé autrement.", {"jeu/sim/x.py": "juste"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["sonnet"]
-    assert "Toujours faux" in _prompt(agents.appels[0])
-    dernier = gh.prs_[50]["comments"][-1]["body"]
-    assert "correction 2" in dernier and "renfort" not in dernier
-    m = marques([{"body": dernier}])[-1]
-    assert (m["role"], m["essai"], m["agent"]) == ("codeur", 3, "claude/sonnet")
-
-
-def test_le_relecteur_du_moteur_relit_le_lot_qui_touche_jeu_sim(projet, gh, depot, tmp_path):
-    # Opus relit les lots du moteur, Sonnet les autres (refonte du 7 novembre 2026).
-    from dataclasses import replace
-    from atelier.projet import lire_poste
-    moteur = replace(projet, chemins_du_moteur=("jeu/sim/",),
-                     postes={**projet.postes, "relecteur": lire_poste("relecteur", "claude/sonnet"),
-                             "relecteur_moteur": lire_poste("relecteur_moteur", "claude/opus")})
-    for fichiers, attendu in ((["jeu/sim/engine.py", "docs/briefs/10.md"], "opus"),
-                              (["3d/unity/Assets/X.cs"], "sonnet")):
-        gh_lot = type(gh)()
-        _en_cours(gh_lot, commentaires=[FAIT_CODEUR])
-        depot.fichiers_du_lot = lambda chemin, f=fichiers: f
-        agents = Agents((0, "VERDICT: ACCEPTE"))
-        _pilote(moteur, gh_lot, depot, agents, tmp_path).tour()
-        assert agents.outils() == [attendu], fichiers
-        m = marques(gh_lot.prs_[50]["comments"])[-1]
-        assert (m["role"], m["verdict"], m["agent"]) == ("relecteur", "ACCEPTE", f"claude/{attendu}")
-
-
-def test_un_lot_du_pc_n_a_pas_de_renfort(projet, gh, depot, tmp_path):
-    commentaires = [c.replace('"role": "codeur"', '"role": "codeur_3d"') for c in _deux_passages_corriges()]
-    _en_cours(gh, commentaires=commentaires, etiquettes=("lot", "en-cours", "pc"))
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == []
-    envoi = _gestes(gh, "lancer_workflow")[0]
-    assert envoi[1] == "lot-pc.yml" and envoi[2]["action"] == "corriger_relecture"
-
-
-def test_sans_agent_disponible_le_lot_attend_sans_bruit(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    lignes = _pilote(projet, gh, depot, Agents((1, "429 Too Many Requests"), (1, "usage limit reached")), tmp_path).tour()
-    assert gh.prs_[50]["comments"] == []
-    assert any("attente" in l for l in lignes)
-    assert (tmp_path / "journal.jsonl").read_text(encoding="utf-8").count("attente") == 1
-
-
-def test_un_seul_agent_par_tour(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    gh.ajouter_issue(11, "Le panneau affiche le lieu", ("lot", "en-cours"))
-    gh.ajouter_pr(51, "lot/11-le-panneau-affiche-le-lieu", ci="vert")
-    agents = Agents((0, "Fait.", {"jeu/sim/service.py": "code"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert len(agents.appels) == 1 and gh.prs_[51]["comments"] == []
-
-
-SESSION_PERDUE = (1, "Failed to authenticate: OAuth session expired and could not be refreshed")
-
-
-def test_un_lot_qui_attend_son_relecteur_ne_retient_pas_les_autres(projet, gh, depot, tmp_path):
-    # Du 26 au 28 octobre 2026, #720 attendait Claude, son seul relecteur
-    # possible (session du VPS expirée) : chaque tour s'arrêtait sur lui.
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.ajouter_issue(11, "Le panneau affiche le lieu", ("lot", "en-cours"))
-    gh.ajouter_pr(51, "lot/11-le-panneau-affiche-le-lieu", ci="vert")
-    agents = Agents(SESSION_PERDUE, (0, "Fait.", {"jeu/sim/service.py": "code"}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus", "sonnet"]
-    assert any(l.startswith("#10 attente") for l in lignes)
-    assert marques(gh.prs_[51]["comments"])[-1]["role"] == "codeur"
-
-
-def test_un_lot_qui_attend_laisse_le_chef_prendre_le_suivant(projet, gh, depot, tmp_path):
-    # Le VPS a une place libre : le relecteur de #10 ne répond pas, le chef
-    # prend #12 dans le même tour (son secours écrit le brief).
-    projet = _parallele(projet)
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.ajouter_issue(12, "Le service lit un lieu")
-    brief = BRIEF_BON.replace("Lot #10", "Lot #12")
-    agents = Agents(SESSION_PERDUE, SESSION_PERDUE,
-                    (0, "Brief écrit.\nDECISION: BRIEF", {"docs/briefs/12-le-service-lit-un-lieu.md": brief}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus", "opus", "sonnet"]
-    assert any(l.startswith("#10 attente") for l in lignes)
-    assert ("etiqueter", 12, ("en-cours",), ("pret",)) in gh.gestes
-
-
-def test_un_lot_fusionne_est_livre(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "en-cours"), etat="CLOSED")
-    pr = gh.ajouter_pr(50, BRANCHE, etat="MERGED")
-    pr["mergedAt"] = "2026-09-28T07:00:00Z"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert "livre" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert ("retirer", 10) in depot.gestes
-
-
-def test_un_lot_pc_part_sur_le_pc_sans_agent_local(projet, gh, depot, tmp_path):
-    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == []
-    envoi = _gestes(gh, "lancer_workflow")[0]
-    assert envoi[1] == "lot-pc.yml" and envoi[2]["branche"] == BRANCHE and envoi[2]["action"] == "coder"
-    assert marques(gh.prs_[50]["comments"])[-1]["etat"] == "envoye"
-
-
-ENVOI_PC = marque(role="codeur_3d", etat="envoye", essai=1, quand="2026-09-27T13:40:10+00:00")
-ECHEC_127 = marque(role="codeur_3d", etat="echec", essai=1, agent="claude/opus")
-
-def test_un_pc_en_pause_ne_recoit_aucun_travail_et_ne_compte_pas_d_essai(projet, gh, depot, tmp_path):
-    # La variable PC_ACTIF = « non » : le propriétaire a besoin de son PC.
-    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
-    gh.variables_["PC_ACTIF"] = "non"
-    agents = Agents()
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "lancer_workflow")
-    assert gh.prs_[50]["comments"] == []
-    assert any("PC en pause" in l and "coder" in l for l in lignes)
-    # À la reprise, le même lot part au tour suivant.
-    gh.variables_["PC_ACTIF"] = "oui"
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "lancer_workflow")[0][2]["action"] == "coder"
-
-
-@pytest.mark.parametrize("valeur", [None, "oui", "", "Oui", "peut-être"])
-def test_seul_non_met_le_pc_en_pause(projet, gh, depot, tmp_path, valeur):
-    if valeur is not None:
-        gh.variables_["PC_ACTIF"] = valeur
-    _en_cours(gh, etiquettes=("lot", "en-cours", "pc"))
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert _gestes(gh, "lancer_workflow")
-
-
-def test_un_pc_en_pause_laisse_le_vps_prendre_le_lot_suivant(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le panneau affiche le lieu", ("lot", "pret", "pc"))
-    gh.ajouter_issue(11, "Le service lit un lieu", ("lot", "pret"))
-    gh.variables_["PC_ACTIF"] = "NON"
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/11-le-service-lit-un-lieu.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[-1][1] == "lot/11-le-service-lit-un-lieu"
-    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_un_pc_en_pause_ne_fait_pas_reprendre_un_lot_pc(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"))
-    gh.ajouter_pr(50, BRANCHE, commentaires=[ENVOI_PC, ECHEC_127])
-    gh.variables_["PC_ACTIF"] = "non"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert not any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
-    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]] and not _gestes(gh, "lancer_workflow")
-    gh.variables_["PC_ACTIF"] = "oui"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
-
-
-def _gh_qui_repond(reponses):
-    """Un vrai GitHub dont `gh` rend ce qu'on lui dicte, par commande."""
-    from atelier.github import GitHub
-
-    appels = []
-
-    def executeur(argv, entree):
-        appels.append(argv)
-        return reponses(argv)
-
-    return GitHub("moi/essai", executeur), appels
-
-
-def test_la_variable_se_lit_par_l_api_et_une_variable_absente_est_none():
-    gh, appels = _gh_qui_repond(lambda argv: (0, json.dumps({"name": "PC_ACTIF", "value": "non"}), ""))
-    assert gh.variable("PC_ACTIF") == "non" and not gh.pc_actif()
-    assert appels[0][:3] == ["gh", "api", "repos/moi/essai/actions/variables/PC_ACTIF"]
-    absent, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Not Found (HTTP 404)"))
-    assert absent.variable("PC_ACTIF") is None and absent.pc_actif()
-
-
-def test_une_variable_illisible_ne_met_jamais_le_pc_en_pause():
-    # Un jeton sans le droit de lire les variables (403) ou GitHub qui ne
-    # répond pas : la chaîne continue comme avant l'interrupteur.
-    from atelier.github import GitHubErreur
-
-    gh, _ = _gh_qui_repond(lambda argv: (1, "", "gh: Resource not accessible by personal access token (HTTP 403)"))
-    with pytest.raises(GitHubErreur):
-        gh.variable("PC_ACTIF")
-    assert gh.pc_actif()
-
-
-def test_un_lot_pret_dont_la_pr_est_ouverte_est_repris_sans_le_chef(projet, gh, depot, tmp_path):
-    # Le lot #118 : trois 127 l'ont bloqué, le propriétaire le remet « pret ».
-    # Relancer le chef coûterait un quota et buterait sur la branche et la
-    # PR qui existent déjà : le lot est REPRIS où il en est.
-    gh.ajouter_issue(10, "Le service lit un lieu", ("lot", "pret", "pc"))
-    gh.issues_[10]["comments"].append({"body": marque(role="pilote", etat="bloque", raison="le codeur a échoué 3 fois")})
-    gh.ajouter_pr(50, BRANCHE, brouillon=True, commentaires=[ENVOI_PC, ECHEC_127] * 3)
-    agents = Agents()
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "creer_pr")
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "en-cours" in etiquettes and "pret" not in etiquettes and "bloque" not in etiquettes
-    assert any(m.get("etat") == "reprise" for m in marques(gh.prs_[50]["comments"]))
-    envoi = _gestes(gh, "lancer_workflow")[0][2]
-    assert (envoi["action"], envoi["essai"]) == ("coder", "0")
-    assert any("repris" in l for l in lignes)
-
-
-def test_le_message_de_blocage_dit_comment_reprendre(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[marque(role="codeur", etat="echec", essai=1, agent="claude/sonnet")] * 3)
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    texte = gh.issues_[10]["comments"][-1]["body"]
-    assert "remettre « pret »" in texte and "sans relancer le chef" in texte
-
-
-def test_l_echec_du_codeur_dit_pourquoi_les_autres_ont_ete_ecartes(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    agents = Agents((1, "Error: You've hit your usage limit"), (2, "SyntaxError: invalid syntax"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    commentaire = gh.prs_[50]["comments"][-1]["body"]
-    assert "claude/sonnet : quota épuisé" in commentaire and "claude/haiku : code 2" in commentaire
-    journal = (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
-    assert "quota épuisé" in journal
-
-
-def test_un_binaire_introuvable_fait_attendre_sans_bruler_d_essai(projet, gh, depot, tmp_path):
-    _en_cours(gh)
-    agents = Agents((127, "binaire introuvable : claude"), (127, "binaire introuvable : claude"))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert gh.prs_[50]["comments"] == []
-    assert any("attente" in l and "introuvable" in l for l in lignes)
-
-
-def test_le_pc_en_attente_est_relance_apres_une_heure(projet, gh, depot, tmp_path):
-    attente = marque(role="codeur_3d", etat="attente", quand="2026-09-28T07:30:00+00:00")
-    _en_cours(gh, commentaires=[ENVOI_PC, attente], etiquettes=("lot", "en-cours", "pc"))
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()      # 08:00 : trente minutes
-    assert not _gestes(gh, "lancer_workflow")
-    plus_tard = Pilote(projet, gh, depot, executeur_agents=Agents(), journal=tmp_path / "j.jsonl",
-                       maintenant=lambda: datetime(2026, 9, 28, 8, 45, tzinfo=timezone.utc))
-    plus_tard.tour()
-    envoi = _gestes(gh, "lancer_workflow")[0][2]
-    assert (envoi["action"], envoi["essai"]) == ("coder", "0")
-
-
-def test_relancer_le_pc_renvoie_la_meme_action(projet, gh, depot, tmp_path):
-    premier = marque(role="codeur_3d", etat="envoye", essai=1, action="coder", quand="2026-09-26T10:00:00+00:00")
-    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
-    envoi = marque(role="codeur_3d", etat="envoye", essai=2, action="corriger_ci",
-                   quand="2026-09-27T06:00:00+00:00")
-    _en_cours(gh, commentaires=[premier, fait, envoi], ci="rouge", etiquettes=("lot", "en-cours", "pc"))
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert _gestes(gh, "lancer_workflow")[0][2]["action"] == "corriger_ci"
-
-
-def test_a_sec_une_reprise_est_suivie_de_ce_qu_elle_declenche(projet, tmp_path, capsys):
-    # Le tour à sec lit le vrai GitHub : sans relire ses propres gestes, il
-    # annonçait « bloqué » juste après avoir repris le lot.
-    from atelier.asec import DepotASec, GitHubASec, executeur_a_sec
-    issue = {"number": 10, "title": "Le service lit un lieu", "body": "", "state": "OPEN", "comments": [],
-             "labels": [{"name": n} for n in ("lot", "pret", "pc")], "milestone": {"title": "J1 — Le pont"}}
-    rollup = [{"__typename": "CheckRun", "name": n, "status": "COMPLETED", "conclusion": "SUCCESS",
-               "startedAt": "2026-09-27T10:00:00Z"} for n in ("tests", "gitleaks")]
-    pr = {"number": 50, "state": "OPEN", "headRefName": BRANCHE, "headRefOid": "a" * 40, "isDraft": True,
-          "mergeable": "MERGEABLE", "statusCheckRollup": rollup, "mergedAt": None, "autoMergeRequest": None,
-          "comments": [{"body": c} for c in [ENVOI_PC, ECHEC_127] * 3], "url": "https://x/pull/50", "title": "x"}
-
-    def faux_gh(argv, entree):
-        args = argv[1:]
-        if args[:2] == ["issue", "list"]:
-            return 0, json.dumps([issue] if args[args.index("--state") + 1] == "open" else []), ""
-        if args[:2] == ["issue", "view"]:
-            return 0, json.dumps(issue), ""
-        if args[:2] in (["pr", "list"], ["pr", "view"]):
-            return 0, json.dumps(pr if args[1] == "view" else [pr]), ""
-        if args[0] == "api":
-            return 0, json.dumps([{"number": 1, "title": "J1 — Le pont", "state": "open",
-                                   "open_issues": 1, "closed_issues": 0}]), ""
-        return 0, "[]", ""
-
-    pilote = Pilote(projet, GitHubASec("moi/essai", executeur=faux_gh), DepotASec(tmp_path, "master"),
-                    executeur_agents=executeur_a_sec, journal=tmp_path / "j.jsonl",
-                    maintenant=lambda: datetime(2026, 9, 28, 8, 0, tzinfo=timezone.utc))
     pilote.tour()
-    dit = capsys.readouterr().out
-    assert "lot repris" in dit and "lancer lot-pc.yml" in dit
-    assert "+['bloque']" not in dit
-
-
-def test_un_jalon_sans_lot_ouvert_est_atteint(projet, gh, depot, tmp_path):
-    gh.jalons_[0].update(open_issues=0, closed_issues=4)
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert ("fermer_jalon", 1) in gh.gestes
-
-
-def test_rien_a_faire_se_dit(projet, gh, depot, tmp_path):
-    assert _pilote(projet, gh, depot, Agents(), tmp_path).tour() == ["RIEN"]
-
-
-CAP_NEUF = """# CAP
-
-## Jalon 1 — Le pont
-
-## Jalon 2 — Le monde de 1400
-
-## Jalon 3 — Le lieu et son maître
-
-## La réserve
-"""
-
-
-def _ecrire_cap(projet, texte=CAP_NEUF):
-    (projet.racine / "CAP.md").write_text(texte, encoding="utf-8")
-
-
-def _etiquettes(gh, numero):
-    return {e["name"] for e in gh.issues_[numero]["labels"]}
-
-
-def test_les_jalons_suivent_cap_et_le_jalon_qui_commence_se_fait_decouper(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.jalons_[0]["state"] = "closed"  # le pont est atteint : J2 devient le jalon courant
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert [j["title"] for j in gh.jalons_] == ["J1 — Le pont", "J2 — Le monde de 1400",
-                                                "J3 — Le lieu et son maître", "Réserve"]
-    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
-    assert decoupe["title"] == "Découper le jalon J2 — Le monde de 1400"
-    assert decoupe["milestone"]["title"] == "J2 — Le monde de 1400"
-    assert _etiquettes(gh, decoupe["number"]) == {"lot", "pret"}
-
-
-def test_le_chef_decoupe_le_jalon_et_chaque_sous_lot_dit_sa_machine(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.jalons_[0]["state"] = "closed"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    texte = ("DECISION: DECOUPE\n- La table de 1400 :: les sources publiques, citées\n"
-             "- La carte de 1400 :: Unity montre les royaumes :: pc\n")
-    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
-    decoupe, table, carte = 101, 102, 103
-    assert gh.issues_[decoupe]["state"] == "CLOSED"
-    assert "pc" not in _etiquettes(gh, table) and "pc" in _etiquettes(gh, carte)
-    assert gh.issues_[carte]["body"].startswith("Unity montre les royaumes\n")
-    assert Lot.de(gh.issues_[carte]).dependances == frozenset({table})
-    # Découpé une fois : le tour suivant ne rouvre pas de découpe.
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/102-la-table-de-1400.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert len([i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]) == 1
-
-
-def test_un_jalon_deja_lance_ne_se_decoupe_pas(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon J1")]
-    # J1 n'a plus rien à prendre : c'est le jalon suivant qui se découpe, en avance.
-    assert [i["title"] for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")] == [
-        "Découper le jalon J2 — Le monde de 1400"]
-
-
-def test_la_decoupe_d_un_jalon_passe_apres_ses_lots_deja_ouverts(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(20, "La cellule se peuple de lieux", ("lot", "idee"), "J2 — Le geste revient")
-    gh.ajouter_issue(21, "Un lot bloqué", ("lot", "bloque"), "J2 — Le geste revient")
-    j2 = lots.jalons(gh.jalons_)[1]
-    _pilote(projet, gh, depot, Agents(), tmp_path)._faire_decouper(j2, [Lot.de(i) for i in gh.issues("open")])
-    decoupe = Lot.de(gh.issues_[101])
-    assert decoupe.dependances == frozenset({20}) and decoupe.etat == "pret" and decoupe.jalon == 2
-
-
-def test_l_etiquette_reserve_range_le_lot_et_le_formulaire_ne_le_rappelle_pas(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
-    gh.ajouter_issue(30, "Audio de ville", ("lot", "idee", "reserve"), "J2 — Le geste revient")
-    gh.ajouter_issue(31, "Venu du formulaire", ("lot", "idee"), "Réserve",
-                     corps="### Jalon\n\nJ2 — Le monde de 1400")
-    gh.ajouter_issue(32, "Rangé d'emblée", ("lot",), None, corps="### Jalon\n\nRéserve")
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert gh.issues_[30]["milestone"]["title"] == "Réserve" and "reserve" not in _etiquettes(gh, 30)
-    assert gh.issues_[31]["milestone"]["title"] == "Réserve"
-    assert gh.issues_[32]["milestone"]["title"] == "Réserve"
-
-
-def test_sans_reserve_dans_cap_l_etiquette_attend(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(30, "Audio de ville", ("lot", "idee", "reserve"), "J2 — Le geste revient")
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert gh.issues_[30]["milestone"]["title"] == "J2 — Le geste revient" and "reserve" in _etiquettes(gh, 30)
-    assert not _gestes(gh, "creer_jalon")
-
-
-# La fenêtre de deux jalons. Le 29 septembre 2026, J1 n'avait plus que des
-# lots « pc » (#120 en cours, #121 qui l'attend) : le VPS ne faisait rien
-# pendant que le PC finissait, alors que J2 ne demande que `sim/`.
-
-def _j1_occupe_le_pc(gh):
-    """J1 n'a plus qu'un lot « pc », en cours, dont le travail est parti sur le PC."""
-    _en_cours(gh, commentaires=[ENVOI_PC], etiquettes=("lot", "en-cours", "pc"))
-
-
-def _brief_du_lot(numero, titre):
-    return {f"docs/briefs/{numero}-{lots.slug(titre)}.md": BRIEF_BON}
-
-
-def test_le_vps_sans_travail_dans_le_jalon_courant_prend_dans_le_suivant(projet, gh, depot, tmp_path):
-    _j1_occupe_le_pc(gh)
-    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(40, "La table de 1400")))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][1:] == ("lot/40-la-table-de-1400", "Lot #40 — La table de 1400")
-    pr = gh.prs_[max(gh.prs_)]
-    assert "Jalon : J2 — Le geste revient" in pr["body"]
-    prompt = agents.appels[0][2]
-    assert "pris en avance" in prompt and "J1 — Le pont" in prompt
-
-
-def test_le_jalon_courant_passe_avant_le_suivant(projet, gh, depot, tmp_path):
-    # Contre-épreuve : le VPS a encore un lot dans J1, il le prend, et son
-    # chef ne se croit pas en avance.
-    _j1_occupe_le_pc(gh)
-    gh.ajouter_issue(11, "Le panneau lit l'horloge", ("lot", "idee"))
-    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "Le panneau lit l'horloge")))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — Le panneau lit l'horloge"
-    assert "pris en avance" not in agents.appels[0][2]
-
-
-def test_la_fenetre_s_arrete_au_troisieme_jalon(projet, gh, depot, tmp_path):
-    _j1_occupe_le_pc(gh)
-    for n, titre in ((3, "J3 — Le lieu et son maître"), (4, "J4 — La capitale")):
-        gh.jalons_.append({"number": n, "title": titre, "state": "open", "open_issues": 1, "closed_issues": 0})
-    gh.ajouter_issue(60, "Le plan de la capitale", ("lot", "pret"), "J4 — La capitale")
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "creer_pr")
-
-
-def test_le_jalon_suivant_sans_lot_se_decoupe_en_avance(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
-    _j1_occupe_le_pc(gh)
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
-    assert decoupe["title"] == "Découper le jalon J2 — Le monde de 1400"
-    assert "en avance" in decoupe["body"] and "J1 — Le pont" in decoupe["body"]
-    assert lots.jalon_a_decouper_par(Lot.de(decoupe)) == 2
-    # Le VPS la prend au tour suivant, et la découpe ne se refait pas.
-    texte = "DECISION: DECOUPE\n- La table de 1400 :: les sources publiques, citées\n"
-    agents = Agents((0, texte))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "pris en avance" in agents.appels[0][2]
-    assert gh.issues_[decoupe["number"]]["state"] == "CLOSED"
-    (table,) = [i for i in gh.issues_.values() if i["title"] == "La table de 1400"]
-    assert table["milestone"]["title"] == "J2 — Le monde de 1400"
-
-
-def test_une_machine_occupee_n_ouvre_pas_la_fenetre(projet, gh, depot, tmp_path):
-    # Le PC et le VPS ont chacun leur lot en cours : rien ne se découpe en
-    # avance, rien ne se prend.
-    _ecrire_cap(projet)
-    _j1_occupe_le_pc(gh)
-    gh.ajouter_issue(12, "Le service compte ses ticks", ("lot", "en-cours"))
-    gh.ajouter_pr(52, "lot/12-le-service-compte-ses-ticks", ci="attente", commentaires=[FAIT_CODEUR])
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert not [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
-    assert not _gestes(gh, "creer_pr")
-
-
-# La fenêtre du PC a trois jalons. Le 30 septembre 2026, J2 et J3 ne
-# demandaient que `sim/` et la 3D n'arrivait qu'au jalon 4 : le PC attendait.
-
-def _j3(gh, titre="J3 — Le lieu et son maître"):
-    gh.jalons_.append({"number": 3, "title": titre, "state": "open", "open_issues": 1, "closed_issues": 0})
-
-
-def test_le_pc_sans_travail_dans_la_fenetre_prend_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
-    _vps_attend_sa_ci(gh)
-    _j3(gh)
-    gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(60, "La caméra survole la ville")))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #60 — La caméra survole la ville"
-    prompt = agents.appels[0][2]
-    assert "pris en avance" in prompt and "les jalons d'avant" in prompt
-
-
-def test_le_vps_sans_travail_dans_les_deux_premiers_prend_dans_le_troisieme_jalon(projet, gh, depot, tmp_path):
-    # Le 1er octobre 2026, le VPS est resté trois heures sans rien faire, J2 et
-    # J3 en file derrière un lot, alors que #253, de J4, n'attendait rien.
-    _j3(gh)
-    gh.ajouter_issue(60, "La cellule se peuple de lieux", ("lot", "pret"), "J3 — Le lieu et son maître")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(60, "La cellule se peuple de lieux")))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #60 — La cellule se peuple de lieux"
-    assert "pris en avance" in agents.appels[0][2]
-
-
-def test_la_fenetre_du_pc_s_arrete_au_troisieme_jalon(projet, gh, depot, tmp_path):
-    _j3(gh)
-    gh.jalons_.append({"number": 4, "title": "J4 — La capitale", "state": "open", "open_issues": 1,
-                       "closed_issues": 0})
-    gh.ajouter_issue(70, "Le kit de pisé", ("lot", "pret", "pc"), "J4 — La capitale")
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "creer_pr")
-
-
-def test_le_pc_passe_d_abord_par_le_jalon_suivant(projet, gh, depot, tmp_path):
-    _vps_attend_sa_ci(gh)
-    _j3(gh)
-    gh.ajouter_issue(40, "La carte de 1400", ("lot", "pret", "pc"), "J2 — Le geste revient")
-    gh.ajouter_issue(60, "La caméra survole la ville", ("lot", "pret", "pc"), "J3 — Le lieu et son maître")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(40, "La carte de 1400")))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #40 — La carte de 1400"
-
-
-def test_le_troisieme_jalon_sans_plan_se_decoupe_en_avance(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.ajouter_issue(9, "Le contrat parle en cell_id", ("lot", "livre"), etat="CLOSED")
-    _vps_attend_sa_ci(gh)
-    gh.ajouter_issue(40, "La table de 1400", ("lot", "pret"), "J2 — Le geste revient")
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    (decoupe,) = [i for i in gh.issues_.values() if i["title"].startswith("Découper le jalon")]
-    assert decoupe["title"] == "Découper le jalon J3 — Le lieu et son maître"
-    assert "se découpe en avance" in decoupe["body"] and "déjà sur master" in decoupe["body"]
-    # Le VPS est toujours plein : la découpe part quand même, avec le PC libre.
-    texte = ("DECISION: DECOUPE\n- La caméra :: survole la ville :: pc :: après rien\n"
-             "- Le plan de la ville :: vit dans le monde :: vps\n"
-             "- La preuve :: la ville redessinée :: pc\n")
-    agents = Agents((0, texte))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "pris en avance" in agents.appels[0][2]
-    assert gh.issues_[decoupe["number"]]["state"] == "CLOSED"
-    (camera,) = [i for i in gh.issues_.values() if i["title"] == "La caméra"]
-    assert camera["milestone"]["title"] == "J3 — Le lieu et son maître" and "pc" in _etiquettes(gh, camera["number"])
-    assert Lot.de(camera).dependances == frozenset()
-
-
-# Les tours parallèles. Plusieurs tours tournent en même temps, chacun avec
-# son agent : deux instances de Verrous sur le même dossier se comportent
-# comme deux processus.
-
-def _parallele(projet, vps=2):
-    chemin = projet.racine / "atelier.toml"
-    sans = chemin.read_text(encoding="utf-8").split("\n[machines]\n")[0]
-    chemin.write_text(sans + f"\n[machines]\nvps = {vps}\n", encoding="utf-8")
-    return charger(projet.racine)
-
-
-def _pilote_verrouille(projet, gh, depot, agents, tmp_path):
-    verrous = Verrous(tmp_path / "verrous")
-    return Pilote(projet, gh, depot, executeur_agents=agents, journal=tmp_path / "journal.jsonl",
-                  maintenant=lambda: datetime(2026, 9, 28, 8, 0, tzinfo=timezone.utc), verrous=verrous)
-
-
-def _autre_tour(tmp_path):
-    return Verrous(tmp_path / "verrous")
-
-
-def _vps_attend_sa_ci(gh):
-    """#10 est en cours sur le VPS : codé, sa CI tourne ; aucun agent à lancer."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR], ci="attente")
-
-
-def test_le_vps_prend_un_second_lot_quand_sa_capacite_le_permet(projet, gh, depot, tmp_path):
-    _vps_attend_sa_ci(gh)
-    gh.ajouter_issue(11, "La pluie de 1400")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "La pluie de 1400")))
-    _pilote(_parallele(projet), gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — La pluie de 1400"
-
-
-def test_une_machine_pleine_ne_prend_rien(projet, gh, depot, tmp_path):
-    # Contre-épreuve : un lot par machine, comme avant la phase 2.
-    _vps_attend_sa_ci(gh)
-    gh.ajouter_issue(11, "La pluie de 1400")
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not _gestes(gh, "creer_pr")
-
-
-def test_un_lot_tenu_par_un_autre_tour_n_avance_pas_ici(projet, gh, depot, tmp_path):
-    _en_cours(gh)  # #10 attend son codeur…
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("lot-10")  # … qu'un autre tour fait déjà travailler
-    gh.ajouter_issue(11, "La pluie de 1400")
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(11, "La pluie de 1400")))
-    _pilote_verrouille(_parallele(projet), gh, depot, agents, tmp_path).tour()
-    assert not [g for g in depot.gestes if g[:2] == ("preparer", 10)]
-    assert _gestes(gh, "creer_pr")[0][2] == "Lot #11 — La pluie de 1400"
-    assert autre.prendre("lot-10") and not autre.pris_ailleurs("lot-11"), "le tour rend le lot qu'il a pris"
-
-
-def test_un_lot_que_prend_un_autre_tour_compte_dans_la_capacite(projet, gh, depot, tmp_path):
-    _vps_attend_sa_ci(gh)
-    gh.ajouter_issue(11, "La pluie de 1400")
-    gh.ajouter_issue(12, "Le Nil arrose sa vallée")
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("lot-11")  # son chef travaille : il est encore « pret »
-    agents = Agents()
-    _pilote_verrouille(_parallele(projet, vps=2), gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [], "#10 en cours et #11 en prise : le VPS est plein"
-    # Une place de plus : #12 part, et #11 n'est pas pris deux fois.
-    agents = Agents((0, "DECISION: BRIEF", _brief_du_lot(12, "Le Nil arrose sa vallée")))
-    _pilote_verrouille(_parallele(projet, vps=3), gh, depot, agents, tmp_path).tour()
-    assert [g[2] for g in _gestes(gh, "creer_pr")] == ["Lot #12 — Le Nil arrose sa vallée"]
-
-
-def test_la_tenue_ne_touche_pas_un_lot_qu_un_autre_tour_tient(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(9, "Le service", ("lot", "pret"))
-    _en_cours(gh, commentaires=[FAIT_CODEUR], ci="attente", etiquettes=("lot", "en-cours"))
-    gh.issues_[10]["body"] = "Dépend de : #9"
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("lot-10")
-    _pilote_verrouille(projet, gh, depot, Agents((1, "rien")), tmp_path).tour()
-    assert "en-cours" in _etiquettes(gh, 10), "un lot qu'un autre tour fait travailler ne se remet pas « pret »"
-    autre.lacher("lot-10")
-    _pilote_verrouille(projet, gh, depot, Agents((1, "rien")), tmp_path).tour()
-    assert "pret" in _etiquettes(gh, 10)
-
-
-def test_un_seul_mecanicien_a_la_fois(projet, gh, depot, tmp_path):
-    gh.dernier_run = lambda workflow, branche: {"status": "completed", "conclusion": "failure",
-                                                "databaseId": 7, "url": "https://x/run/7"}
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("meca")
-    agents = Agents()
-    _pilote_verrouille(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == []
-
-
-def test_la_reparation_du_mecanicien_se_relit_dans_son_chantier(projet, gh, depot, tmp_path):
-    fait = marque(role="mecanicien_master", etat="fait", essai=1, agent="claude/sonnet", sha="a" * 40)
-    gh.ajouter_pr(629, "meca/20261014-2304-master-rouge", ci="vert", commentaires=[fait])
-    _pilote(projet, gh, depot, Agents((0, "DECISION: OK")), tmp_path).tour()
-    assert ("preparer", "meca", "meca/20261014-2304-master-rouge") in depot.gestes
-
-
-def test_le_relecteur_de_la_reparation_juge_contre_la_ci_rouge_de_master(projet, gh, depot, tmp_path):
-    fait = marque(role="mecanicien_master", etat="fait", essai=1, agent="claude/sonnet", sha="a" * 40)
-    pr = gh.ajouter_pr(629, "meca/20261014-2304-master-rouge", ci="vert", commentaires=[fait])
-    pr["body"] = "La CI de `master` est rouge : https://x/run/7.\n\nLe tick dépassait son budget."
-    agents = Agents((0, "Réparation juste.\nVERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    prompt = next(a for a in agents.appels[0] if "Tu es le relecteur" in a)
-    assert "docs/briefs/" not in prompt, "la réparation de master n'a pas de brief"
-    assert "https://x/run/7" in prompt and "Le tick dépassait son budget." in prompt
-    assert "La référence est la CI rouge de `master`" in prompt
-
-
-def _master_rouge(gh):
-    gh.dernier_run = lambda workflow, branche: {"status": "completed", "conclusion": "failure",
-                                                "databaseId": 7, "url": "https://x/run/7"}
-
-
-def test_une_reparation_de_master_en_panne_se_dit_et_les_lots_continuent(projet, gh, depot, tmp_path):
-    """Le 15 octobre 2026, une DepotErreur de la réparation de master a fait
-    planter chaque tour pendant 15 h, sans une ligne lisible au journal : plus
-    aucun lot ne partait."""
-    _master_rouge(gh)
-    preparer = depot.preparer
-
-    def preparer_sauf_meca(nom, branche):
-        if nom == "meca":
-            raise DepotErreur("la branche est déjà extraite ailleurs")
-        return preparer(nom, branche)
-
-    depot.preparer = preparer_sauf_meca
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "#master erreur — la branche est déjà extraite ailleurs" in lignes
-    assert _gestes(gh, "creer_pr"), "aucun agent n'est parti pour master : le lot suivant part"
-
-
-def test_une_reparation_en_panne_apres_son_mecanicien_arrete_le_tour(projet, gh, depot, tmp_path):
-    _master_rouge(gh)
-
-    def pousser(chemin, branche):
-        raise DepotErreur("poussée refusée")
-
-    depot.pousser = pousser
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((0, "Réparé.", {"jeu/sim/x.py": "mieux"}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "#master erreur — poussée refusée" in lignes
-    assert len(agents.appels) == 1 and not _gestes(gh, "creer_pr"), "un seul agent par tour"
-
-
-def test_claude_a_son_plafond_le_lot_attend_sans_essai(projet, gh, depot, tmp_path):
-    # Claude est le seul outil (5 novembre 2026) : un autre lot tient sa
-    # seule place, aucun secours de la ligne n'est libre, et le lot attend.
-    chemin = projet.racine / "atelier.toml"
-    chemin.write_text(chemin.read_text(encoding="utf-8") + "\n[outils]\nclaude = 1\n", encoding="utf-8")
-    _en_cours(gh)
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("outil-claude-1")  # un autre lot code déjà avec Claude
-    agents = Agents()
-    _pilote_verrouille(charger(projet.racine), gh, depot, agents, tmp_path).tour()
-    assert agents.appels == []
-    journal = (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
-    assert "claude/sonnet : occupé" in journal and "claude/haiku : occupé" in journal
-
-
-def test_les_tours_ne_s_empilent_pas(projet, gh, depot, tmp_path, monkeypatch, capsys):
-    # Un lot par machine (vps 1, pc 1), plus le mécanicien et un tour qui
-    # range : quatre places. Si GitHub ne répond plus, le cinquième passe.
-    from atelier import __main__ as cli
-    monkeypatch.setattr(cli, "_pilote", lambda args: _pilote_verrouille(projet, gh, depot, Agents(), tmp_path))
-    autres = [_autre_tour(tmp_path) for _ in range(4)]
-    for i, autre in enumerate(autres, start=1):
-        assert autre.prendre(f"tour-{i}")
-    assert cli._cmd_tour(None) == 0
-    assert capsys.readouterr().out.strip() == "RIEN — 4 tours tournent déjà"
-    autres[2].lacher("tour-3")
-    assert cli._cmd_tour(None) == 0
-    assert capsys.readouterr().out.strip() == "RIEN"
-
-
-def test_une_decoupe_fait_avancer_ensemble_ce_qui_ne_s_attend_pas(projet, gh, depot, tmp_path):
-    _ecrire_cap(projet)
-    gh.jalons_[0]["state"] = "closed"
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()  # ouvre « Découper le jalon J2 »
-    texte = ("DECISION: DECOUPE\n"
-             "- L'aridité :: le moteur apprend l'aridité\n"
-             "- Les puissances de l'Ouest :: la table de l'Ouest :: après rien\n"
-             "- Les puissances de l'Orient :: la table de l'Orient :: après rien\n"
-             "- Les grandes maisons :: elles tiennent leurs cellules :: après 2, 3\n"
-             "- La preuve du jalon 2 :: la table de référence contre le monde :: après 4\n")
-    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
-    aridite, ouest, orient, maisons, preuve = 102, 103, 104, 105, 106
-    dep = {n: Lot.de(gh.issues_[n]).dependances for n in (aridite, ouest, orient, maisons, preuve)}
-    assert dep[aridite] == dep[ouest] == dep[orient] == frozenset()
-    assert dep[maisons] == frozenset({ouest, orient})
-    assert dep[preuve] == frozenset({aridite, ouest, orient, maisons}), "la preuve attend tout le jalon"
-
-
-def test_une_decoupe_qui_attend_vers_l_avant_ne_cree_rien(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Un gros lot")
-    texte = "DECISION: DECOUPE\n- a :: le premier :: après 2\n- b :: le second\n"
-    _pilote(projet, gh, depot, Agents((0, texte)), tmp_path).tour()
-    assert set(gh.issues_) == {10}, "aucun sous-lot n'est créé"
-    assert "ne le précède pas" in gh.issues_[10]["comments"][-1]["body"]
-
-
-def test_un_lot_se_relit_sous_son_verrou(projet, gh, depot, tmp_path):
-    # Entre la relecture du tour et la prise du verrou, un autre tour a bloqué
-    # #10 : ce tour ne le fait pas avancer sur une vue périmée.
-    _en_cours(gh)
-    lire = gh.issue
-    gh.issue = lambda n: dict(lire(n), labels=[{"name": "lot"}, {"name": "bloque"}]) if n == 10 else lire(n)
-    agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and not [g for g in depot.gestes if g[:2] == ("preparer", 10)]
-
-
-def test_une_ci_rouge_renvoie_au_codeur_l_extrait_de_son_journal(projet, gh, depot, tmp_path, monkeypatch):
-    """Le 30 septembre 2026, `traces.lire` n'existait pas : chaque tour qui
-    tombait sur une CI rouge plantait, et avec lui toute la chaîne."""
+    numero_pr = _pr_du_lot(gh, 10)
+    assert "en-cours" in gh.etiquettes(10) and gh.prs_[numero_pr]["isDraft"]
+    assert "- [ ] **1. La règle de la levée**" in gh.prs_[numero_pr]["body"]
+    assert "Closes #10" in gh.prs_[numero_pr]["body"]
+    assert not depot.changements(depot.racine / "chantiers" / "10"), "le plan n'écrit aucun fichier"
+
+    pilote.tour()
+    assert "- [x] **1. La règle de la levée**" in gh.prs_[numero_pr]["body"]
+    assert "- [ ] **2. Les données**" in gh.prs_[numero_pr]["body"] and gh.prs_[numero_pr]["isDraft"]
+
+    pilote.tour()
+    assert not gh.prs_[numero_pr]["isDraft"], "le plan fini, la PR sort du brouillon"
+    assert pilote.tour() == ["#10 attendre_ci — PR #%d" % numero_pr]
+
+    gh.ci(numero_pr, "vert")
+    pilote.tour()
+    assert ("fusion_auto", numero_pr) in gh.gestes
+    assert agents.modeles() == ["opus", "opus", "opus", "opus"]
+    # Une seule session pour le meneur, reprise à chaque étape ; le relecteur a la sienne.
+    plan, etape1, etape2, relecture = agents.appels
+    assert not plan["reprise"] and etape1["reprise"] and etape2["reprise"]
+    assert plan["session"] == etape1["session"] == etape2["session"] != ""
+    assert relecture["session"] == "" and "--permission-mode" in relecture["argv"]
+
+    gh.prs_[numero_pr].update(state="MERGED", mergedAt="2026-11-16T12:00:00Z")
+    pilote.tour()
+    assert "livre" in gh.etiquettes(10) and gh.issues_[10]["state"] == "CLOSED"
+
+
+def test_la_session_reprise_ne_recoit_que_sa_tache_et_la_session_perdue_recoit_tout(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    perdue = {"code": 1, "brut": "", "erreur": "No conversation found with session ID: abc"}
+    agents = Agents(PLAN, faite(), perdue, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    _, etape1, refusee, rouverte = agents.appels
+    assert "ÉTAPE 1 SUR 2" in etape1["consigne"] and "Je lève une armée" not in etape1["consigne"]
+    assert refusee["reprise"] and not rouverte["reprise"], "la session introuvable est rouverte sous le même nom"
+    assert "Je lève une armée" in rouverte["consigne"] and "ÉTAPE 2 SUR 2" in rouverte["consigne"]
+    assert "[faite] La règle de la levée" in rouverte["consigne"]
+
+
+def test_le_chef_confie_au_developpeur_dans_sa_session(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, faite(), faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    plan, _, etape2 = agents.appels
+    sous = json.loads(etape2["argv"][etape2["argv"].index("--agents") + 1])
+    assert sous["developpeur"]["model"] == "sonnet"
+    permis = etape2["argv"][etape2["argv"].index("--allowedTools") + 1]
+    assert "Agent" in permis.split(",") and "Confie-la au sous-agent `developpeur`" in etape2["consigne"]
+    assert "--agents" not in plan["argv"], "le plan ne confie rien"
+    # Un sous-agent lancé en arrière-plan laisserait la session rendre la main sans son résultat.
+    assert etape2["env"]["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+    assert not any(cle in etape2["env"] for cle in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"))
+
+
+def test_un_lot_simple_est_mene_par_le_developpeur_seul(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Les noms des villes", ("lot", "pret", "interface", "simple"), corps=FICHE)
+    agents = Agents(PLAN, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    pilote.tour()
+    assert agents.modeles() == ["sonnet", "sonnet"]
+    assert "--agents" not in agents.appels[1]["argv"]
+    assert _marques(gh, _pr_du_lot(gh, 10), pr=True)[0]["role"] == "developpeur"
+
+
+def test_le_plan_lit_sans_ecrire_et_la_garde_refuse_la_suite_entiere(projet, gh, depot, tmp_path):
+    """Le défaut : l'agent qui écrivait le brief lançait la suite entière ou
+    dix ans de simulation, et se faisait couper, travail perdu."""
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN)
+    piloter(projet, gh, depot, agents, tmp_path).tour()
+    argv = agents.appels[0]["argv"]
+    assert argv[argv.index("--permission-mode") + 1] == "default"
+    interdits = argv[argv.index("--disallowedTools") + 1]
+    assert "Edit" in interdits and "Write" in interdits and "Bash(git push:*)" in interdits
+    reglages = json.loads(argv[argv.index("--settings") + 1])
+    commande = reglages["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert "garde_commandes.py" in commande and commande.endswith(" 400")
+
+    assert garde_commandes.refus("python3 -m pytest jeu -q", 400)
+    assert garde_commandes.refus("cd jeu && py -m pytest sim/tests/ -q -n auto", 400)
+    assert garde_commandes.refus("python3 -m forge --ticks 3650 --seed 0", 400)
+    assert not garde_commandes.refus("python3 -m pytest jeu/sim/tests/test_lieux.py -q -k ouverture", 400)
+    assert not garde_commandes.refus("python3 -m pytest atelier/tests -q", 400)
+    assert not garde_commandes.refus("python3 -m forge --ticks 365 --seed 0", 400)
+    assert not garde_commandes.refus("git log --oneline -5", 400)
+
+
+def test_un_appel_coupe_garde_son_cout_sa_trace_et_son_travail(projet, gh, depot, tmp_path, sans_le_vrai_dossier_personnel):
+    """Le défaut : un appel coupé par son délai n'écrivait ni coût ni trace, et son travail était perdu."""
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    coupee = {"coupe": True, "fichiers": {"jeu/sim/armees.py": "x = 1\n"}}
+    agents = Agents(PLAN, coupee, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    pilote.tour()
+    numero_pr = _pr_du_lot(gh, 10)
+    coupe = _marques(gh, numero_pr, pr=True)[-1]
+    assert coupe["etat"] == lots.COUPE and coupe["mesure"]["coupe"] is True
+    assert coupe["mesure"]["modeles"]["claude-opus-5-5"]["sortie"] == 200, "les jetons d'un appel coupé sont relevés"
+    assert coupe["mesure"]["limites"] == {"cinq_heures": 0.2, "semaine": 0.05}
+    assert ("enregistrer", "Lot #10 — étape 1, coupée par le délai") in depot.gestes, "ce qui était écrit part"
+    faits = [json.loads(l) for l in (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [f for f in faits if f["action"] == "appel" and f["mesure"].get("coupe")]
+    trace = agents.appels[1]["trace"]
+    assert trace is not None and Path(trace).is_file() and sans_le_vrai_dossier_personnel in Path(trace).parents
+
+    pilote.tour()
+    assert agents.appels[2]["reprise"] and "coupé par son délai" in agents.appels[2]["consigne"]
+    assert lots.etapes_faites(_marques(gh, numero_pr, pr=True)) == {1}
+
+
+def test_trois_coupures_de_suite_arretent_le_lot(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, {"coupe": True}, {"coupe": True}, {"coupe": True})
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(5):
+        pilote.tour()
+    assert "bloque" in gh.etiquettes(10)
+    assert "coupé par son délai 3 fois de suite" in gh.dits(10)
+
+
+def test_le_quota_fait_attendre_sans_compter_d_essai(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    quota = {"code": 1, "brut": "", "erreur": "You've hit your 5-hour limit · resets 9:30pm"}
+    agents = Agents(quota, quota, PLAN)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    lignes = pilote.tour()
+    assert any("attente" in l and "quota épuisé" in l for l in lignes)
+    assert not [m for m in _marques(gh, 10) if m.get("role") == "chef"], "une attente ne laisse aucune marque"
+    pilote.tour()
+    pilote.tour()
+    assert lots.plan_du_lot(_marques(gh, _pr_du_lot(gh, 10), pr=True)) is not None
+
+
+def test_les_chemins_interdits_sont_retires(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, faite({"jeu/sim/armees.py": "x = 1\n", "atelier/pilote.py": "tricher\n",
+                                 ".github/workflows/tests.yml": "plus de tests\n"}))
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    pilote.tour()
+    retires = next(g[1] for g in depot.gestes if g[0] == "annuler")
+    assert set(retires) == {"atelier/pilote.py", ".github/workflows/tests.yml"}
+    assert "hors de portée d'un lot" in gh.dits(_pr_du_lot(gh, 10), pr=True)
+
+
+def test_deux_lots_qui_s_attendent_sont_vus_et_le_cto_denoue_la_boucle(projet, gh, depot, tmp_path):
+    """Le défaut : deux lots s'attendaient l'un l'autre, et rien ne le disait."""
+    gh.ajouter_issue(10, "La règle", corps=FICHE + "\nDépend de : #11\n")
+    gh.ajouter_issue(11, "L'écran", ("lot", "pret", "interface"), corps=FICHE + "\nDépend de : #10\n")
+    denoue = {"sortie": {"decision": "relancer", "pourquoi": "l'écran attend la règle, pas l'inverse",
+                         "consigne": "Rien à changer : la dépendance vers #10 était la bonne.",
+                         "dependances_a_retirer": [10]}}
+    agents = Agents(denoue, PLAN)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    assert lots.boucles([lots.Lot.de(gh.issue(n)) for n in (10, 11)]) == [(10, 11)]
+
+    pilote.tour()
+    assert "boucle de dépendances : #10 → #11 → #10" in gh.dits(11)
+    assert any(m.get("etat") == lots.BLOQUE and m.get("boucle") == [10, 11] for m in _marques(gh, 11))
+    assert "boucle de dépendances" in gh.dits(10)
+    assert agents.modeles() == ["fable"], "le CTO est appelé dans le même tour"
+    assert "boucle de dépendances" in agents.appels[0]["consigne"]
+    assert "#10" not in gh.issues_[11]["body"].split("Les preuves")[1], "la dépendance de trop est retirée"
+    assert "pret" in gh.etiquettes(11)
+
+    pilote.tour()
+    assert not lots.boucles([lots.Lot.de(gh.issue(n)) for n in (10, 11)])
+    assert lots.Lot.de(gh.issue(10)).dependances == {11}
+
+
+def test_la_decision_du_cto_arrive_en_entier_au_meneur(projet, gh, depot, tmp_path):
+    """Le défaut : une décision n'arrivait au développeur que par sa lettre, sans ses raisons ni ses bornes."""
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    question = {"sortie": {"decision": "question", "question": {
+        "texte": "La levée prend-elle un homme par foyer ?",
+        "options": [{"lettre": "A", "reponse": "un homme par foyer", "cout": "vide les champs"},
+                    {"lettre": "B", "reponse": "un homme pour dix foyers", "cout": "de petites armées"}],
+        "recommandation": {"lettre": "B", "pourquoi": "le monde doit tenir"}}}}
+    tranche = {"sortie": {"decision": "trancher", "reponse": "b", "pourquoi": "la décision 35 garde les champs",
+                          "bornes": "ne touche pas à la natalité",
+                          "a_revoir_samedi": "la levée prend un homme pour dix foyers"}}
+    agents = Agents(question, tranche, PLAN)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+
+    pilote.tour()
+    assert "bloque" in gh.etiquettes(10) and "La levée prend-elle un homme par foyer ?" in gh.dits(10)
+    pilote.tour()
+    assert agents.modeles()[-1] == "fable" and "pret" in gh.etiquettes(10)
+    decision = next(m for m in _marques(gh, 10) if m.get("etat") == lots.DECISION)
+    assert decision["reponse"] == "B — un homme pour dix foyers" and decision["a_revoir"]
+    pilote.tour()
+    consigne = agents.appels[-1]["consigne"]
+    for attendu in ("La levée prend-elle un homme par foyer ?", "B — un homme pour dix foyers",
+                    "la décision 35 garde les champs", "ne touche pas à la natalité"):
+        assert attendu in consigne
+    assert agents.appels[-1]["reprise"], "le meneur reprend la session où il a posé sa question"
+
+
+def test_la_consigne_du_proprietaire_suit_le_lot(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    gh.commentaire_humain(10, "La caserne d'abord, les soldats après.")
+    pilote, agents, _ = _jusqu_a_la_relecture_deja_ouvert(projet, gh, depot, tmp_path)
+    pilote.tour()
+    for appel in agents.appels:
+        assert "La caserne d'abord, les soldats après." in appel["consigne"]
+
+
+def _jusqu_a_la_relecture_deja_ouvert(projet, gh, depot, tmp_path):
+    agents = Agents(PLAN, faite(), faite(), ACCEPTE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    gh.ci(_pr_du_lot(gh, 10), "vert")
+    return pilote, agents, _pr_du_lot(gh, 10)
+
+
+def test_un_test_change_sans_raison_est_dit_et_juge(projet, gh, depot, tmp_path):
+    """Le défaut : des tests existants étaient basculés sur un « monde d'avant » au lieu de juger le monde livré."""
+    depot.etats_ = [("M", "jeu/sim/tests/test_faim.py"), ("M", "jeu/sim/tests/test_part.py"),
+                    ("A", "jeu/sim/tests/test_armees.py"), ("M", "jeu/sim/armees.py")]
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    declare = faite(tests_changes=[{"fichier": "jeu/sim/tests/test_faim.py", "pourquoi": "les soldats ne mangent plus au foyer"}])
+    complaisant = {"sortie": {"verdict": "ACCEPTE", "resume": "Bien.", "constats": [],
+                              "promesse_joueur_tenue": True, "tests_changes_justifies": False}}
+    agents = Agents(PLAN, declare, faite(), complaisant)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    numero_pr = _pr_du_lot(gh, 10)
+    corps = gh.prs_[numero_pr]["body"]
+    assert "- `jeu/sim/tests/test_faim.py` : les soldats ne mangent plus au foyer" in corps
+    assert "- `jeu/sim/tests/test_part.py` : ⚠️ modifié sans raison donnée" in corps
+    assert "test_armees.py" not in corps.split("## Tests changés")[1], "un test ajouté n'est pas un test changé"
+
+    gh.ci(numero_pr, "vert")
+    pilote.tour()
+    consigne = agents.appels[-1]["consigne"]
+    assert "modifiés sans qu'une raison soit donnée : `jeu/sim/tests/test_part.py`" in consigne
+    assert "monde d'avant" in consigne
+    verdict = next(m for m in _marques(gh, numero_pr, pr=True) if m.get("verdict"))
+    assert verdict["verdict"] == "CORRIGER", "un ACCEPTE qui dit les tests changés injustifiés se contredit"
+    assert ("fusion_auto", numero_pr) not in gh.gestes
+
+
+def test_la_relecture_garde_tout_ce_que_le_relecteur_a_ecrit(projet, gh, depot, tmp_path):
+    """Le défaut : le texte d'une relecture pouvait se réduire à sa dernière phrase."""
+    corriger = {"texte": "CORRIGER.", "sortie": {
+        "verdict": "CORRIGER", "resume": "La levée crée des hommes qui n'existent pas.",
+        "constats": [{"fichier": "jeu/sim/armees.py", "ligne": 42, "gravite": "bloquant",
+                      "quoi": "les soldats ne sont pas retirés des foyers"},
+                     {"fichier": "jeu/data/armees.toml", "gravite": "mineur", "quoi": "un seuil sans son niveau"}],
+        "promesse_joueur_tenue": False, "tests_changes_justifies": True,
+        "tests_rejoues": [{"commande": "pytest test_armees.py", "resultat": "3 passed"}]}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, corriger, faite())
+    pilote.tour()
+    revue = gh.prs_[numero_pr]["comments"][-1]["body"]
+    for attendu in ("## Relecture — CORRIGER", "La levée crée des hommes qui n'existent pas.",
+                    "`jeu/sim/armees.py`:42 — les soldats ne sont pas retirés des foyers",
+                    "un seuil sans son niveau", "La promesse au joueur est tenue : non", "3 passed"):
+        assert attendu in revue
+    pilote.tour()
+    correction = agents.appels[-1]
+    assert correction["reprise"] and "les soldats ne sont pas retirés des foyers" in correction["consigne"]
+    assert "un seuil sans son niveau" in correction["consigne"]
+    assert _marques(gh, numero_pr, pr=True)[-1]["etat"] == lots.CORRECTION
+
+
+def test_le_meneur_conteste_et_le_cto_tranche(projet, gh, depot, tmp_path):
+    corriger = {"sortie": {"verdict": "CORRIGER", "resume": "Un nombre est décidé dans la vue.",
+                           "constats": [{"fichier": "a.cs", "gravite": "bloquant", "quoi": "calcul dans la vue"}],
+                           "promesse_joueur_tenue": True, "tests_changes_justifies": True}}
+    conteste = {"sortie": {"etat": "conteste", "compte_rendu": "C'est un affichage.",
+                           "conteste": [{"constat": "calcul dans la vue", "pourquoi": "le nombre vient du service"}]}}
+    arbitre = {"sortie": {"decision": "meneur", "pourquoi": "le service rend déjà ce nombre"}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, corriger, conteste, arbitre)
+    for _ in range(3):
+        pilote.tour()
+    assert agents.modeles()[-1] == "fable"
+    assert "le nombre vient du service" in agents.appels[-1]["consigne"]
+    assert ("fusion_auto", numero_pr) in gh.gestes
+    assert _marques(gh, numero_pr, pr=True)[-1]["verdict"] == "ACCEPTE"
+
+
+def test_le_cto_relit_le_coeur_du_moteur(projet, gh, depot, tmp_path):
+    depot.fichiers_ = ["jeu/sim/engine.py", "jeu/sim/tests/test_armees.py"]
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, ACCEPTE)
+    pilote.tour()
+    assert agents.modeles()[-1] == "fable" and "le cœur du moteur" in agents.appels[-1]["consigne"]
+    assert _marques(gh, numero_pr, pr=True)[-1]["role"] == "cto"
+
+
+def test_une_ci_rouge_est_resumee_par_le_lecteur_puis_corrigee_dans_la_session(projet, gh, depot, tmp_path):
+    resume = {"sortie": {"resume": "Un test de la levée est rouge.", "echecs": [
+        {"travail": "sim (2)", "test": "test_levee", "erreur": "AssertionError: 12 != 10",
+         "fichier": "jeu/sim/tests/test_armees.py", "ligne": 31}]}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, resume, faite())
+    gh.ci(numero_pr, "rouge")
+    pilote._erreur_ci = lambda numero: "## sim (2)\nAssertionError: 12 != 10"
+    pilote.tour()
+    lecteur = agents.appels[-1]
+    assert lecteur["modele"] == "haiku" and lecteur["argv"][lecteur["argv"].index("--tools") + 1] == ""
+    assert "AssertionError: 12 != 10" in lecteur["consigne"]
+    assert "`jeu/sim/tests/test_armees.py`:31" in gh.dits(numero_pr, pr=True)
+    pilote.tour()
+    correction = agents.appels[-1]
+    assert correction["modele"] == "opus" and correction["reprise"]
+    assert "AssertionError: 12 != 10" in correction["consigne"] and "C'EST UNE CORRECTION" in correction["consigne"]
+
+
+def test_le_journal_brut_part_si_le_lecteur_se_tait(projet, gh, depot, tmp_path):
+    muet = {"code": 1, "brut": "", "erreur": "panne"}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, muet, faite())
+    gh.ci(numero_pr, "rouge")
+    pilote._erreur_ci = lambda numero: "## sim (2)\nAssertionError: 12 != 10"
+    pilote.tour()
+    pilote.tour()
+    assert "AssertionError: 12 != 10" in agents.appels[-1]["consigne"], "le lot n'attend pas un résumé"
+
+
+def test_deux_corrections_puis_le_cto_regarde(projet, gh, depot, tmp_path):
+    corriger = {"sortie": {"verdict": "CORRIGER", "resume": "Non.", "promesse_joueur_tenue": True,
+                           "tests_changes_justifies": True,
+                           "constats": [{"fichier": "a.py", "gravite": "bloquant", "quoi": "faux"}]}}
+    reporte = {"sortie": {"decision": "reporter", "pourquoi": "la règle est mal posée",
+                          "a_revoir_samedi": "la levée est à repenser"}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, corriger, faite(), corriger,
+                                                      faite(), corriger, reporte, faite())
+    for _ in range(6):
+        pilote.tour()
+    assert "relecture « CORRIGER » après 2 correction(s)" in gh.dits(10)
+    pilote.tour()
+    assert agents.modeles()[-1] == "fable" and "bloque" in gh.etiquettes(10)
+    assert "reporte le lot à samedi" in gh.dits(10)
+    assert pilote.tour() == ["RIEN"], "un lot reporté n'est pas regardé une seconde fois"
+    # Ce que le propriétaire écrit le fait repartir, et suit le lot.
+    gh.commentaire_humain(10, "Garde la levée, mais un homme pour vingt foyers.")
+    pilote.tour()
+    assert "en-cours" in gh.etiquettes(10), "le lot repart dans le même tour, essais remis à zéro"
+    assert "un homme pour vingt foyers" in agents.appels[-1]["consigne"]
+    assert "la règle est mal posée" in agents.appels[-1]["consigne"], "la décision du CTO suit le lot aussi"
+
+
+def test_le_cto_redecoupe_un_lot_trop_gros(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "La guerre entière", ("lot", "bloque", "monde"), corps=FICHE)
+    gh.issues_[10]["comments"].append({"body": lots.marque(role="pilote", etat=lots.BLOQUE, raison="étape trop grosse")})
+    fiche = {"piste": "monde", "machine": "vps", "meneur": "chef", "joueur": "Je lève.", "samedi": "Une armée.",
+             "regle": "Niveau 2.", "preuves": ["pytest test_armees.py"]}
+    decoupe = {"sortie": {"decision": "redecouper", "pourquoi": "deux gestes en un",
+                          "fiches": [dict(fiche, titre="Lever"), dict(fiche, titre="Marcher", apres=[1], machine="pc",
+                                                                      meneur="developpeur")]}}
+    piloter(projet, gh, depot, Agents(decoupe), tmp_path).tour()
+    assert gh.issues_[10]["state"] == "CLOSED"
+    lever, marcher = gh.issues_[101], gh.issues_[102]
+    assert lever["title"] == "Lever" and "Découpé du lot #10 par le CTO" in lever["body"]
+    assert "Dépend de : #101" in marcher["body"]
+    assert {"lot", "pret", "monde", "pc", "simple"} <= set(gh.etiquettes(102))
+    assert marcher["milestone"]["title"] == gh.issues_[10]["milestone"]["title"]
+
+
+def test_seuls_l_irreversible_l_argent_et_les_droits_arrivent_au_proprietaire(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Un pack de l'Asset Store", ("lot", "bloque", "ville"), corps=FICHE)
+    gh.issues_[10]["comments"].append({"body": lots.marque(role="pilote", etat=lots.BLOQUE, raison="il faut une licence")})
+    laisse = {"sortie": {"decision": "proprietaire", "pourquoi": "une licence payante"}}
+    pilote = piloter(projet, gh, depot, Agents(laisse), tmp_path)
+    pilote.tour()
+    assert "@moi" in gh.dits(10) and "bloque" in gh.etiquettes(10)
+    assert pilote.tour() == ["RIEN"]
+
+
+def test_master_rouge_ouvre_un_lot_de_reparation_pris_avant_tout_autre(projet, gh, depot, tmp_path, monkeypatch):
     from atelier import traces
-    table = "sim\tfail\t1m\thttps://github.com/moi/essai/actions/runs/7/job/42\t\n"
-    gh._executer = lambda argv, entree: (1, table, "") if argv[1:3] == ["pr", "checks"] else (1, "", "non")
-    journal = "2026-09-30T08:00:00Z E   assert 406 == 407\n2026-09-30T08:00:01Z ##[error]Process completed\n"
-    monkeypatch.setattr(traces, "_gh", lambda *args: __import__("subprocess").CompletedProcess(args, 0, journal, ""))
-    _en_cours(gh, commentaires=[FAIT_CODEUR], ci="rouge")
-    agents = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["sonnet"]
-    assert "assert 406 == 407" in _prompt(agents.appels[0])
-
-
-CHRONOMETRE = "https://github.com/moi/essai/actions/runs/77/job/7"
-VERTS = [(n, "SUCCESS", "07:00") for n in ("sim (1)", "sim (2)", "vues", "forge", "atelier")]
-
-
-def _travail(nom, conclusion, heure):
-    """Un travail de `tests.yml` : sa conclusion (None tant qu'il tourne) et l'heure où il est parti."""
-    return {"__typename": "CheckRun", "name": nom, "workflowName": "tests",
-            "status": "COMPLETED" if conclusion else "IN_PROGRESS", "conclusion": conclusion or "",
-            "startedAt": f"2026-09-28T{heure}:00Z", "detailsUrl": CHRONOMETRE if nom == "chronometre" else ""}
-
-
-def _ci(gh, *travaux):
-    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in travaux] + [
-        {"__typename": "CheckRun", "name": "gitleaks", "workflowName": "security", "status": "COMPLETED",
-         "conclusion": "SUCCESS", "startedAt": "2026-09-28T07:00:00Z"}]
-
-
-def test_un_rouge_du_seul_chronometre_se_rejoue_une_fois_sans_compter_d_essai(projet, gh, depot, tmp_path):
-    """Les 14 et 15 octobre 2026, #625 (du C# seul) a gâché deux fois ses deux
-    corrections sur un rouge de `chronometre` qu'il ne pouvait pas corriger,
-    puis s'est bloqué : la chaîne n'avait aucun geste qui rejoue la CI."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.fichiers_[50] = ["3d/unity/Assets/Pont/Reperes.cs", "docs/briefs/10-le-service-lit-un-lieu.md"]
-    rien = Agents()
-    # Le run tourne encore : rejouer attend qu'il finisse, sans codeur.
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", None, "07:00"), *VERTS)
-    lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert any("`chronometre` rouge seul" in l for l in lignes) and not _gestes(gh, "rejouer_les_echecs")
-    # Le run est fini, seul `chronometre` est rouge : il se rejoue.
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
-    assert {k: v for k, v in marques(gh.prs_[50]["comments"])[-1].items() if k != "quand"} == {
-        "role": "pilote", "etat": "rejeu", "sha": "a" * 40}
-    # Tant que le rejeu n'est pas parti, le rouge d'avant lui est périmé.
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and len(_gestes(gh, "rejouer_les_echecs")) == 1
-    # Rouge encore : le codeur corrige, et c'est sa première correction.
-    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
-                                         _travail("tests", "FAILURE", "08:20")]
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["sonnet"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
-    assert marques(gh.prs_[50]["comments"])[-1]["essai"] == 2, "le rejeu n'a pas compté d'essai"
-
-
-GITLEAKS = "https://github.com/moi/essai/actions/runs/88/job/8"
-PANNE = [{"name": "Set up job", "conclusion": "success"},
-         {"name": "Run actions/checkout@11bd719", "conclusion": "success"},
-         {"name": "Install gitleaks", "conclusion": "failure"},
-         {"name": "Scan the working tree for secrets", "conclusion": "skipped"}]
-FUITE = [{"name": "Install gitleaks", "conclusion": "success"},
-         {"name": "Scan the working tree for secrets", "conclusion": "failure"}]
-
-
-def _gitleaks(conclusion, heure):
-    return {"__typename": "CheckRun", "name": "gitleaks", "workflowName": "security",
-            "status": "COMPLETED" if conclusion else "IN_PROGRESS", "conclusion": conclusion or "",
-            "startedAt": f"2026-09-28T{heure}:00Z", "detailsUrl": GITLEAKS}
-
-
-def _ci_gitleaks(gh, *passages):
-    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in (*VERTS, ("tests", "SUCCESS", "07:30"))] + [
-        _gitleaks(*p) for p in passages]
-
-
-def test_une_panne_de_la_ci_se_rejoue_sans_codeur_puis_bloque_en_nommant_l_etape(projet, gh, depot, tmp_path):
-    """Les 8 et 9 novembre 2026, #1031 et #1046 ont usé leurs deux corrections
-    sur un 504 reçu en téléchargeant gitleaks, puis se sont bloqués : la
-    chaîne est restée deux jours sans rien faire."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.etapes_[8] = PANNE
-    rien = Agents()
-    _ci_gitleaks(gh, ("FAILURE", "07:00"))
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 88)]
-    derniere = marques(gh.prs_[50]["comments"])[-1]
-    assert (derniere["role"], derniere["etat"], derniere["sha"]) == ("pilote", "rejeu_panne", "a" * 40)
-    assert "Install gitleaks" in gh.prs_[50]["comments"][-1]["body"]
-    # Tant que le rejeu n'est pas parti, le rouge d'avant lui est périmé.
-    lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert len(_gestes(gh, "rejouer_les_echecs")) == 1 and any("panne de la CI rejouée" in l for l in lignes)
-    # La panne dure : deux rejeux de plus, puis le lot se bloque, sans codeur.
-    for n in (2, 3):
-        gh.prs_[50]["statusCheckRollup"].append(_gitleaks("FAILURE", "23:5%d" % n))
-        _pilote(projet, gh, depot, rien, tmp_path).tour()
-        assert len(_gestes(gh, "rejouer_les_echecs")) == n
-    gh.prs_[50]["statusCheckRollup"].append(_gitleaks("FAILURE", "23:59"))
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and len(_gestes(gh, "rejouer_les_echecs")) == 3
-    assert "bloque" in _etiquettes(gh, 10)
-    raison = gh.issues_[10]["comments"][-1]["body"]
-    assert "panne de la CI" in raison and "Install gitleaks" in raison
-
-
-def test_un_controle_qui_a_vraiment_echoue_n_est_pas_une_panne(projet, gh, depot, tmp_path):
-    """Contre-épreuve : gitleaks qui trouve un secret (l'étape du contrôle est
-    rouge), ou un travail dont on ne lit pas les étapes, revient au codeur."""
-    for etapes in (FUITE, []):
-        _en_cours(gh, commentaires=[FAIT_CODEUR])
-        gh.etapes_[8] = etapes
-        _ci_gitleaks(gh, ("FAILURE", "07:00"))
-        codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-        _pilote(projet, gh, depot, codeur, tmp_path).tour()
-        assert codeur.outils() == ["sonnet"] and not _gestes(gh, "rejouer_les_echecs")
-
-
-def test_une_panne_a_cote_d_un_vrai_rouge_revient_au_codeur(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.etapes_[8] = PANNE
-    gh.prs_[50]["statusCheckRollup"] = [_travail(*t) for t in (*VERTS, ("sim (3)", "FAILURE", "07:00"),
-                                                                ("tests", "FAILURE", "07:30"))] + [
-        _gitleaks("FAILURE", "07:00")]
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["sonnet"] and not _gestes(gh, "rejouer_les_echecs")
-
-
-def test_panne_d_infrastructure_ne_reconnait_que_les_etapes_qui_preparent():
-    from atelier.lots import panne_d_infrastructure, rejeu_de_panne_en_vol
-    assert panne_d_infrastructure(PANNE) == "Install gitleaks"
-    assert panne_d_infrastructure([{"name": "Run python -m pip install --upgrade pip pytest", "conclusion": "failure"}])
-    assert panne_d_infrastructure([{"name": "Run actions/setup-python@0b93645", "conclusion": "failure"}])
-    assert panne_d_infrastructure(FUITE) == ""
-    assert panne_d_infrastructure([{"name": "Les tests du moteur, tranche 1 sur 3", "conclusion": "failure"}]) == ""
-    assert panne_d_infrastructure([]) == "", "un échantillon vide ne prouve pas une panne"
-    rejeu = [{"role": "pilote", "etat": "rejeu_panne", "quand": "2026-09-28T08:00:00+00:00"}]
-    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, rejeu, 0.1) == "attendre"
-    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, rejeu, 2.5) == "abandonner"
-    assert rejeu_de_panne_en_vol(["2026-09-28T08:05:00Z"], False, rejeu, 0.2) == ""
-    assert rejeu_de_panne_en_vol(["2026-09-28T07:00:00Z"], False, []) == ""
-
-
-def test_un_rouge_du_chronometre_remet_la_branche_sur_une_base_qui_a_bouge(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    depot.en_retard = lambda chemin: True
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert ("pousser", BRANCHE) in depot.gestes and not _gestes(gh, "rejouer_les_echecs")
-    assert "la branche reçoit `master`" in gh.prs_[50]["comments"][-1]["body"]
-
-
-def test_un_rouge_du_chronometre_sur_un_lot_du_jeu_se_rejoue_aussi(projet, gh, depot, tmp_path):
-    """Le 16 octobre 2026, #414 (du moteur) s'est bloqué sur des médianes de
-    110 ms qu'un tick de master à 98 ms expliquait seul : le codeur n'y pouvait
-    rien non plus. Le rejeu passe d'abord, le codeur ensuite."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    gh.fichiers_[50] = ["jeu/sim/monde.py"]
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and _gestes(gh, "rejouer_les_echecs") == [("rejouer_les_echecs", 77)]
-    gh.prs_[50]["statusCheckRollup"] += [_travail("chronometre", "FAILURE", "08:05"),
-                                         _travail("tests", "FAILURE", "08:20")]
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["sonnet"] and len(_gestes(gh, "rejouer_les_echecs")) == 1
-
-
-FAIT_PC = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/opus", sha="a" * 40)
-
-
-def test_un_rouge_que_master_porte_encore_attend_sans_user_d_essai(projet, gh, depot, tmp_path):
-    """Le 22 octobre 2026, #785 (du Blender seul, sur le PC) a usé ses deux
-    corrections sur le rouge `chronometre` de master, puis s'est bloqué : le
-    PC lui répondait deux fois « rien à changer ». Le lot attend master."""
-    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert", "tests": "rouge"},
-                   "master": {"chronometre": "rouge", "tests": "rouge"}}
-    rien = Agents()
-    for _ in range(2):
-        lignes = _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and not _gestes(gh, "lancer_workflow") and not _gestes(gh, "rejouer_les_echecs")
-    assert any("attendre_base" in l and "`chronometre`" in l for l in lignes)
-    dits = [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
-    assert dits == [{"role": "pilote", "etat": "base_rouge", "sha": "a" * 40}], "la PR le dit une fois"
-    # Master a fini de jouer le même rouge sans l'avoir guéri : le lot attend encore.
-    gh.travaux_["master"] = {"chronometre": "attente"}
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
-
-
-def test_un_rouge_que_master_a_gueri_remet_la_branche_sur_master(projet, gh, depot, tmp_path):
-    _en_cours(gh, commentaires=[FAIT_PC], etiquettes=("lot", "en-cours", "pc"))
-    _ci(gh, ("chronometre", "FAILURE", "07:00"), ("sim (3)", "SUCCESS", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    gh.travaux_ = {"c" * 40: {"chronometre": "rouge"}, "master": {"chronometre": "vert", "build": "rouge"}}
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and not _gestes(gh, "lancer_workflow")
-    assert ("pousser", BRANCHE) in depot.gestes and not _gestes(gh, "rejouer_les_echecs")
-    assert "la branche le reçoit" in gh.prs_[50]["comments"][-1]["body"]
-
-
-def test_un_rouge_que_la_base_n_avait_pas_va_au_codeur(projet, gh, depot, tmp_path):
-    """La base rouge sur un autre travail ne couvre pas celui du lot."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    _ci(gh, ("chronometre", "SUCCESS", "07:00"), ("sim (3)", "FAILURE", "07:00"), ("tests", "FAILURE", "07:30"),
-        *VERTS)
-    gh.travaux_ = {"c" * 40: {"chronometre": "rouge", "sim (3)": "vert"}, "master": {"chronometre": "rouge"}}
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert codeur.outils() == ["sonnet"]
-    assert not [m for m in marques(gh.prs_[50]["comments"]) if m.get("etat") == "base_rouge"]
-
-
-def test_le_rouge_de_la_base():
-    from atelier.lots import rouge_de_la_base
-    rouge = {"chronometre": "rouge", "sim (1)": "vert"}
-    assert rouge_de_la_base({"chronometre"}, rouge, rouge) == "attendre"
-    assert rouge_de_la_base({"chronometre"}, rouge, {"chronometre": "vert"}) == "fusionner"
-    assert rouge_de_la_base({"chronometre"}, rouge, {}) == "attendre", "master sans mesure n'a rien guéri"
-    assert rouge_de_la_base({"chronometre", "sim (1)"}, rouge, {"chronometre": "vert"}) == ""
-    assert rouge_de_la_base(set(), rouge, rouge) == ""
-    assert rouge_de_la_base({"chronometre"}, {}, rouge) == "", "une base sans mesure ne prouve rien"
-
-
-def test_les_travaux_d_un_commit_se_lisent_a_leur_dernier_passage():
-    from atelier.github import GitHub
-    bruts = [{"name": "chronometre", "status": "completed", "conclusion": "failure", "started_at": "2026-10-22T04:00:00Z"},
-             {"name": "chronometre", "status": "completed", "conclusion": "success", "started_at": "2026-10-22T05:00:00Z"},
-             {"name": "sim (1)", "status": "completed", "conclusion": "timed_out", "started_at": "2026-10-22T04:00:00Z"},
-             {"name": "sim (2)", "status": "in_progress", "conclusion": None, "started_at": "2026-10-22T04:00:00Z"},
-             {"name": "forge", "status": "completed", "conclusion": "cancelled", "started_at": "2026-10-22T04:00:00Z"}]
-    vus = []
-    gh = GitHub("moi/essai", executeur=lambda argv, entree: (vus.append(argv), (0, json.dumps(bruts), ""))[1])
-    assert gh.travaux_du_commit("master") == {"chronometre": "vert", "sim (1)": "rouge", "sim (2)": "attente"}
-    assert vus[0][:3] == ["gh", "api", "repos/moi/essai/commits/master/check-runs?per_page=100"]
-
-
-def test_une_tranche_annulee_compte_parmi_les_rouges():
-    """Une tranche arrêtée par son délai (`timeout-minutes` de tests.yml)
-    rend `tests` rouge : le codeur doit lire son journal, pas une table."""
-    from atelier import traces
-    table = ("sim (1)\tfail\t1h\thttps://github.com/moi/essai/actions/runs/7/job/41\t\n"
-             "sim (2)\tcancel\t3h\thttps://github.com/moi/essai/actions/runs/7/job/42\t\n"
-             "vues\tpass\t9m\thttps://github.com/moi/essai/actions/runs/7/job/43\t\n"
-             "sim (3)\tpending\t0\thttps://github.com/moi/essai/actions/runs/7/job/44\t\n")
-    assert [(r.nom, r.travail) for r in traces.rouges(table)] == [("sim (1)", "41"), ("sim (2)", "42")]
-
-
-def test_deux_relectures_sans_verdict_bloquent_le_lot_sans_rappeler_le_codeur(projet, gh, depot, tmp_path):
-    echec = marque(role="relecteur", etat="echec", sha="a" * 40, agent="claude/opus")
-    _en_cours(gh, commentaires=[FAIT_CODEUR, echec])
-    agents = Agents((0, "texte sans verdict"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]  # la relecture se rejoue, le codeur n'est pas appelé
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "deux fois" in gh.issues_[10]["comments"][-1]["body"]
-
-
-# ------------------------------------------------------------ le dépanneur
-REVUE_CORRIGER = ("## Relecture — CORRIGER\n\n- SC6 : décris la planche.\n\n"
-                  + marque(role="relecteur", verdict="CORRIGER", sha="a" * 40, agent="claude/opus"))
-BLOQUE_CORRIGER = ("🤖 **pilote** : lot bloqué.\n\n"
-                   + marque(role="pilote", etat="bloque", raison="relecture « CORRIGER » après 2 correction(s)"))
-
-
-def _bloque(gh, commentaires_issue=(BLOQUE_CORRIGER,)):
-    _en_cours(gh, commentaires=[FAIT_CODEUR, REVUE_CORRIGER], etiquettes=("lot", "bloque"))
-    gh.issues_[10]["comments"] += [{"body": c, "author": {"login": "pilote"}} for c in commentaires_issue]
-
-
-def test_le_depanneur_relance_un_lot_bloque_avec_sa_consigne(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    agents = Agents((0, "Le relecteur n'a pas pu ouvrir l'image : elle est en LFS.\n"
-                        "DECISION: REPRENDRE :: Relecteur : la planche est dans .atelier/lfs/, ouvre-la."))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus"]
-    prompt = next(a for a in agents.appels[0] if "Tu es le dépanneur" in a)
-    assert "Tu es le dépanneur" in prompt and "relecture « CORRIGER » après 2 correction(s)" in prompt
-    assert "SC6 : décris la planche" in prompt  # il lit la PR
-    etiquettes = [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "pret" in etiquettes and "bloque" not in etiquettes
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "lot relancé (1/2)" in corps and "**Consigne** : Relecteur : la planche" in corps
-    # Au tour suivant, le lot reprend où il en est, et la consigne suit.
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
-    assert codeur.outils() == ["sonnet"]
-    assert "RELANCÉ PAR LE DÉPANNEUR" in _prompt(codeur.appels[0]) and "ouvre-la" in _prompt(codeur.appels[0])
-
-
-def test_le_depanneur_pose_la_question_au_proprietaire_et_ne_la_regarde_plus(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    agents = Agents((0, "Le brief contredit le plancher du Caire.\n"
-                        "DECISION: QUESTION :: Le Caire garde-t-il ses 360 000 habitants sans crue ?\n"
-                        "- A :: oui, SC3 exclut sa cellule :: la mesure ne voit plus le Caire\n"
-                        "- B :: non :: le test du Caire change\n"
-                        "RECOMMANDATION :: A :: aucun test existant ne change"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "le dépanneur attend ta décision" in corps and "Le dépanneur recommande **A**" in corps
-    assert "Le brief contredit le plancher du Caire" in corps
-    m = marques([{"body": corps}])[-1]
-    assert m["etat"] == "bloque" and m["question"].startswith("Le Caire") and m["par"] == "depanneur"
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == []
-
-
-def test_le_depanneur_renvoie_la_chaine_au_mode_direct(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "git-lfs manque sur le VPS.\n"
-                                           "DECISION: MODE-DIRECT :: installer git-lfs sur le VPS")), tmp_path).tour()
-    m = marques(gh.issues_[10]["comments"])[-1]
-    assert m["etat"] == "bloque" and m["par"] == "depanneur" and "installer git-lfs" in m["raison"]
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == []
-
-
-DECOUPE_DU_DEPANNEUR = """Le codeur a dépassé trois fois son heure : le lot est trop gros.
-**DECISION: DECOUPE**
-- Les essais bâtissent après un départ choisi :: les essais et la preuve J4 choisissent d'abord leur maison
-- La garde des terres :: le joueur ne bâtit que sur ses terres :: après 1
-"""
-
-
-def test_le_depanneur_decoupe_un_lot_trop_gros_et_ouvre_chaque_moitie(projet, gh, depot, tmp_path):
-    """Le 9 octobre 2026, le dépanneur a décidé de couper #408 en deux : il
-    n'en est sorti qu'une consigne, la PR de la première moitié a fermé le lot,
-    et la seconde n'a jamais existé. #413, qui l'attendait, et la file du VPS
-    de J3 à J5 derrière lui sont restés bloqués trois jours."""
-    _bloque(gh)
-    gh.ajouter_issue(20, "Le lanceur", corps="Dépend de : #10")
-    agents = Agents((0, DECOUPE_DU_DEPANNEUR))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "DECISION: DECOUPE" in next(a for a in agents.appels[0] if "Tu es le dépanneur" in a)
-    essais, garde = 101, 102
-    assert [g[1] for g in _gestes(gh, "creer_issue")] == ["Les essais bâtissent après un départ choisi",
-                                                          "La garde des terres"]
-    assert Lot.de(gh.issues_[garde]).dependances == frozenset({essais})
-    assert {Lot.de(gh.issues_[n]).decoupe_de for n in (essais, garde)} == {10}
-    assert f"git show origin/{BRANCHE}:docs/briefs/10-le-service-lit-un-lieu.md" in gh.issues_[essais]["body"]
-    assert ("fermer_pr", 50) in gh.gestes, "fusionnée, la PR d'avant la découpe fermerait le lot entier"
-    assert ("fermer_issue", 10, True) in gh.gestes
-    # Au tour suivant, le chef prend la première moitié ; le lanceur attend les deux.
-    brief = "docs/briefs/101-les-essais-batissent-apres-un-depart-choisi.md"
-    _pilote(projet, gh, depot, Agents((0, "DECISION: BRIEF", {brief: BRIEF_BON})), tmp_path).tour()
-    assert _gestes(gh, "creer_pr")[-1][1] == "lot/101-les-essais-batissent-apres-un-depart-choisi"
-
-
-def test_une_decoupe_illisible_du_depanneur_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "Trop gros.\nDECISION: DECOUPE\nen deux, je pense")), tmp_path).tour()
-    assert not _gestes(gh, "creer_issue") and not _gestes(gh, "fermer_pr")
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "découpe illisible" in gh.issues_[10]["comments"][-1]["body"]
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == []
-
-
-def test_un_depanneur_sans_decision_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    agents = Agents((0, "Je ne sais pas."), (0, "Moi non plus."))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus", "sonnet"]  # le secours a lu, lui aussi
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert "pas de décision" in gh.issues_[10]["comments"][-1]["body"]
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == []
-
-
-def test_le_depanneur_ne_relance_pas_un_lot_plus_de_depannages_max_fois(projet, gh, depot, tmp_path):
-    relance = "relancé\n\n" + marque(role="depanneur", etat=lots.ETAT_DEPANNE, consigne="x")
-    _bloque(gh, (BLOQUE_CORRIGER, relance, BLOQUE_CORRIGER, relance, BLOQUE_CORRIGER))
-    rien = Agents()
-    _pilote(projet, gh, depot, rien, tmp_path).tour()
-    assert rien.appels == [] and "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_le_relecteur_lit_les_fichiers_lfs_du_lot(projet, gh, depot, tmp_path, monkeypatch):
-    """Le 1er octobre 2026, le relecteur de #270 n'avait que le pointeur de la
-    planche Unity : il a fait décrire l'image au codeur, et le lot s'est bloqué."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR])
-    oid = "6" * 64
-    planche = "3d/sorties/planche.png"
-    vue = depot.preparer(10, BRANCHE) / planche
-    vue.parent.mkdir(parents=True)
-    vue.write_text(f"version https://git-lfs.github.com/spec/v1\noid sha256:{oid}\nsize 4\n", encoding="utf-8")
-    monkeypatch.setattr(depot, "fichiers_du_lot", lambda chemin: [planche, "absent.png"])
-    demandes = []
-
-    def telechargeur(depot_gh, o, taille):
-        demandes.append((depot_gh, o, taille))
-        return b"\x89PNG"
-
-    agents = Agents((0, "Vu.\nVERDICT: ACCEPTE"))
-    Pilote(projet, gh, depot, executeur_agents=agents, journal=tmp_path / "j.jsonl",
-           lfs_telechargeur=telechargeur).tour()
-    assert demandes == [("moi/essai", oid, 4)]
-    assert (depot.racine / "chantiers" / "10" / ".atelier" / "lfs" / planche).read_bytes() == b"\x89PNG"
-    prompt = next(a for a in agents.appels[0] if "Tu es le relecteur" in a)
-    assert f"`.atelier/lfs/{planche}`" in prompt
-
-
-def test_le_depanneur_se_lit_en_gras_avec_sa_consigne_a_la_ligne(projet, gh, depot, tmp_path):
-    """Le 1er octobre 2026, sa décision sur #235 est restée illisible."""
-    _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "Quota épuisé, rien d'autre.\n\n**DECISION: REPRENDRE**\n"
-                                           "Codeur : reprends là où le délai t'a coupé.")), tmp_path).tour()
-    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
-    assert lots.consigne_du_depanneur(gh.issues_[10]["comments"]) == "Codeur : reprends là où le délai t'a coupé."
-
-
-def test_un_depanneur_illisible_laisse_lire_ce_qu_il_a_ecrit(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    _pilote(projet, gh, depot, Agents((0, "Je relis."), (0, "La cause est un quota.")), tmp_path).tour()
-    assert "La cause est un quota." in gh.issues_[10]["comments"][-1]["body"]
-
-
-def test_un_depanneur_coupe_par_son_delai_passe_la_main_a_son_secours(projet, gh, depot, tmp_path):
-    """Le 7 octobre 2026, Claude a dépassé son délai sur #343 et #391 : sans
-    décision, les deux lots sont restés au propriétaire, son secours jamais appelé."""
-    _bloque(gh)
-    agents = Agents((124, "Je lis la suite des tests…"),
-                    (0, "Le codeur a manqué le test rouge.\nDECISION: REPRENDRE :: Codeur : relis SC6."))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.outils() == ["opus", "sonnet"]
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "dépanneur** (claude/sonnet) : lot relancé (1/2)" in corps and "relis SC6" in corps
-    assert "pret" in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_un_depanneur_coupe_sans_secours_libre_laisse_le_lot_au_proprietaire(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    agents = Agents((124, "Je lis…"), (1, "ERROR: You've hit your usage limit."))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "dépanneur** (claude/opus) : pas de décision (code 124)" in corps
-    assert "bloque" in [e["name"] for e in gh.issues_[10]["labels"]]
-
-
-def test_le_chef_et_le_depanneur_posent_toutes_les_decisions_d_un_lot_en_une_question(projet):
-    """Le 30 septembre 2026, #207 a posé deux questions à quatre minutes
-    d'écart : le propriétaire a répondu à la première, pas à la seconde."""
-    from atelier import prompts
-    chef = prompts.chef(projet, numero=1, titre="t", corps="", commentaires="", jalon=2, jalon_titre="J2",
-                        machine="vps", chemin_brief="b.md")
-    depanneur = prompts.depanneur(projet, numero=1, titre="t", corps="", raison="r", chemin_brief="b.md",
-                                  issue="", pr="")
-    assert "Une seule question par lot, qui porte TOUTES ses décisions" in chef
-    assert "chaque test existant qui rougira" in chef
-    assert "Une seule question, qui porte toutes les décisions" in depanneur
-    # Le 7 octobre 2026, #343 et #391 : le dépanneur a dépassé son délai.
-    assert "Jamais `python3 -m pytest jeu -q` en entier" in depanneur.replace("py -m", "python3 -m")
-    assert "lis-la au lieu de la rejouer" in depanneur
-
-
-def test_le_codeur_repond_a_une_revue_sans_changer_de_fichier_et_le_relecteur_relit(projet, gh, depot, tmp_path):
-    """Le 1er octobre 2026, #270 : le constat ne demandait qu'une description
-    écrite ; « n'a rien changé » comptait comme un échec, et le lot s'est bloqué."""
-    _en_cours(gh, commentaires=[FAIT_CODEUR, REVUE_CORRIGER])
-    _pilote(projet, gh, depot, Agents((0, "La planche montre trois rangées : maison, scierie, four.")), tmp_path).tour()
-    m = marques(gh.prs_[50]["comments"])[-1]
-    assert m["role"] == "codeur" and m["etat"] == "reponse"
-    relecteur = Agents((0, "La description suffit.\nVERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
-    prompt = next(a for a in relecteur.appels[0] if "Tu es le relecteur" in a)
-    assert "maison, scierie, four" in prompt
-    assert ("fusion_auto", 50) in gh.gestes
-
-
-def test_la_branche_recoit_la_base_avant_que_le_codeur_travaille(projet, gh, depot, tmp_path, monkeypatch):
-    """Le 1er octobre 2026, la branche de #208 partait d'avant #207, livré
-    quatre minutes plus tôt : le codeur ne pouvait pas la mettre à jour."""
-    _en_cours(gh)
-    monkeypatch.setattr(depot, "en_retard", lambda chemin: True)
-    agents = Agents((0, "Fait.", {"jeu/sim/x.py": "code"}))
-    lignes = _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert any("base fusionnée" in l for l in lignes)
-    assert depot.gestes.index(("pousser", BRANCHE)) < depot.gestes.index(("enregistrer", "Lot #10 — code"))
-
-
-QUESTION_TECHNIQUE = """Deux tests figent la photographie.
-DECISION: QUESTION :: Puis-je réécrire les deux tests de la photographie ?
-- A :: oui aux deux :: ils restent aussi stricts
-- B :: non :: une seconde photographie
-RECOMMANDATION :: A :: c'est ce que demande l'issue
-NATURE :: technique"""
-
-
-def test_une_question_technique_suit_la_recommandation_sans_bloquer(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "La photographie")
-    agents = Agents((0, QUESTION_TECHNIQUE))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
-    assert "NATURE :: jeu" in prompt and "NATURE :: technique" in prompt
-    assert "pret" in _etiquettes(gh, 10) and "bloque" not in _etiquettes(gh, 10)
-    corps = gh.issues_[10]["comments"][-1]["body"]
-    assert "tranchée seul" in corps and "Décision : **A** — oui aux deux (c'est ce que demande l'issue)" in corps
-    m = marques([{"body": corps}])[-1]
-    assert m["etat"] == "decision" and m["nature"] == "technique"
-    assert "décision technique" in (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
-    # Au tour suivant, le chef relit sa question avec la décision, et écrit le brief.
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-la-photographie.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    prompt = next(a for a in agents.appels[0] if "Tu es le chef" in a)
-    assert "la décision du pilote" in prompt and "Décision : **A** — oui aux deux" in prompt
-    assert _gestes(gh, "creer_pr")
-
-
-def test_une_question_de_jeu_attend_toujours_le_proprietaire(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "Les grandes villes")
-    _pilote(projet, gh, depot, Agents((0, QUESTION_DU_CHEF + "\nNATURE :: jeu")), tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10)
-    assert "le chef attend ta décision" in gh.issues_[10]["comments"][-1]["body"]
-
-
-def test_au_dela_de_deux_decisions_seules_la_question_va_au_proprietaire(projet, gh, depot, tmp_path):
-    gh.ajouter_issue(10, "La photographie")
-    for _ in range(lots.DECISIONS_SEULES_MAX):
-        _pilote(projet, gh, depot, Agents((0, QUESTION_TECHNIQUE)), tmp_path).tour()
-        assert "bloque" not in _etiquettes(gh, 10)
-    _pilote(projet, gh, depot, Agents((0, QUESTION_TECHNIQUE)), tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10)
-    assert "le chef attend ta décision" in gh.issues_[10]["comments"][-1]["body"]
-
-
-def test_une_question_technique_du_depanneur_relance_la_pr_avec_la_decision(projet, gh, depot, tmp_path):
-    _bloque(gh)
-    agents = Agents((0, "Le brief contredit un test du format.\n"
-                        "DECISION: QUESTION :: Le test du format suit-il le nouveau champ ?\n"
-                        "- A :: oui, il l'exige :: plus strict\n- B :: non :: le champ attend\n"
-                        "RECOMMANDATION :: A :: aucun test ne s'assouplit\nNATURE :: technique"))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "pret" in _etiquettes(gh, 10) and "bloque" not in _etiquettes(gh, 10)
-    assert "Le brief contredit un test du format" in gh.issues_[10]["comments"][-1]["body"]
-    codeur = Agents((0, "Corrigé.", {"jeu/sim/x.py": "mieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
-    assert "Décision : A — oui, il l'exige" in _prompt(codeur.appels[0])
-
-def _en_conflit(gh, depot):
-    pr = _en_cours(gh, commentaires=[FAIT_CODEUR])
-    pr["mergeable"] = "CONFLICTING"
-    depot.fusionner_base = lambda chemin: ["jeu/sim/lieux.py"]
-    return pr
-
-
-def test_un_mecanicien_coupe_par_le_delai_ne_bloque_pas_au_premier_essai(projet, gh, depot, tmp_path):
-    # #235 : le mécanicien coupé deux fois à 30 minutes a été présenté comme
-    # un « conflit non résolu » et le lot s'est bloqué au premier essai.
-    pr = _en_conflit(gh, depot)
-    _pilote(projet, gh, depot, Agents((124, "")), tmp_path).tour()
-    assert "bloque" not in _etiquettes(gh, 10)
-    dernier = pr["comments"][-1]["body"]
-    assert "délai dépassé" in dernier and "conflit non résolu" not in dernier
-    assert marques([{"body": dernier}])[0] | {"agent": None} == {"role": "mecanicien", "etat": "echec", "agent": None}
-    _pilote(projet, gh, depot, Agents((124, "")), tmp_path).tour()
-    assert "bloque" not in _etiquettes(gh, 10), "un deuxième échec se réessaie encore"
+    monkeypatch.setattr(traces, "lire_run", lambda depot, run, lignes=80: "FAILED test_faim.py::test_soudure")
+    gh.run_master = {"status": "completed", "conclusion": "failure", "databaseId": 77, "url": "https://x/run/77"}
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    fiche = {"sortie": {"titre": "Réparer la soudure", "piste": "monde", "machine": "vps", "meneur": "chef",
+                        "joueur": "Tous les lots attendent.", "samedi": "master est vert",
+                        "regle": "faim.py ligne 12", "preuves": ["pytest test_faim.py -k soudure"]}}
+    agents = Agents(fiche, PLAN)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    assert agents.modeles() == ["fable"] and "FAILED test_faim.py::test_soudure" in agents.appels[0]["consigne"]
+    assert {"lot", "pret", "urgent", "monde"} <= set(gh.etiquettes(101))
+    pilote.tour()
+    assert "en-cours" in gh.etiquettes(101) and "pret" in gh.etiquettes(10), "la réparation passe d'abord"
+    assert len([g for g in gh.gestes if g[0] == "creer_issue"]) == 1, "une seule réparation par run rouge"
+
+
+def test_un_lot_pc_part_sur_le_pc_et_y_reste(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "La caserne", ("lot", "pret", "ville", "pc"), corps=FICHE)
     agents = Agents()
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert agents.appels == [] and "bloque" in _etiquettes(gh, 10)
-    assert "le mécanicien a échoué 2 fois" in gh.issues_[10]["comments"][-1]["body"]
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    assert ("lancer_workflow", "lot-pc.yml", {"issue": "10"}) in gh.gestes
+    assert _marques(gh, 10)[-1]["etat"] == lots.ENVOYE and not agents.appels
+    assert pilote.tour() == ["#10 attendre_pc — le plan est parti sur le PC"]
+    assert len([g for g in gh.gestes if g[0] == "lancer_workflow"]) == 1
 
 
-def test_un_conflit_dont_les_marqueurs_restent_bloque_tout_de_suite(projet, gh, depot, tmp_path):
-    _en_conflit(gh, depot)
-    agents = Agents((0, "fait", {"jeu/sim/lieux.py": "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> origin/master\n"}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert "bloque" in _etiquettes(gh, 10)
-    assert "conflit non résolu : jeu/sim/lieux.py" in gh.issues_[10]["comments"][-1]["body"]
+def test_un_pc_en_pause_ne_recoit_rien(projet, gh, depot, tmp_path):
+    gh.variables_["PC_ACTIF"] = "non"
+    gh.ajouter_issue(10, "La caserne", ("lot", "pret", "ville", "pc"), corps=FICHE)
+    gh.ajouter_issue(11, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN)
+    piloter(projet, gh, depot, agents, tmp_path).tour()
+    assert "pret" in gh.etiquettes(10) and "en-cours" in gh.etiquettes(11)
+    assert not [g for g in gh.gestes if g[0] == "lancer_workflow"]
 
 
-def test_un_lot_remis_pret_avec_sa_pr_attend_une_place_pour_reprendre(projet, gh, depot, tmp_path):
-    # #235 le 3 octobre 2026 : repris sur un VPS que deux lots tenaient déjà.
-    projet = _parallele(projet, vps=2)
-    _en_cours(gh, commentaires=[FAIT_CODEUR], etiquettes=("lot", "pret"))
-    for n in (11, 12):
-        gh.ajouter_issue(n, f"Lot {n}", ("lot", "en-cours"))
-    autre = _autre_tour(tmp_path)
-    assert autre.prendre("lot-11") and autre.prendre("lot-12")  # ils travaillent ailleurs
-    agents = Agents()
-    _pilote_verrouille(projet, gh, depot, agents, tmp_path).tour()
-    assert "pret" in _etiquettes(gh, 10) and "en-cours" not in _etiquettes(gh, 10)
-    assert "reprise" not in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
-    assert agents.appels == [], "ni reprise ni chef : sa PR attend une place"
-    # Une place se libère : il reprend où il en est.
-    autre.lacher("lot-12")
-    gh.etiqueter(12, ["livre"], ["en-cours"])
-    gh.issues_[12]["state"] = "CLOSED"
-    _pilote_verrouille(projet, gh, depot, Agents((0, "VERDICT: ACCEPTE")), tmp_path).tour()
-    assert "reprise" in [m.get("etat") for m in marques(gh.prs_[50]["comments"])]
-    assert "en-cours" in _etiquettes(gh, 10)
+def test_une_machine_ne_prend_pas_plus_que_sa_capacite(projet, gh, depot, tmp_path):
+    for numero in (10, 11, 12):
+        gh.ajouter_issue(numero, f"Lot {numero}", corps=FICHE)
+    gh.ajouter_issue(13, "Hors palier", jalon=None, corps=FICHE)
+    agents = Agents(PLAN, faite(), PLAN, faite(), faite(), faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(4):
+        pilote.tour()
+    assert "en-cours" in gh.etiquettes(10) and "pret" in gh.etiquettes(11), "le VPS tient un lot par défaut"
+    assert "pret" in gh.etiquettes(13), "un lot hors du palier en cours ne se prend pas"
 
 
-def _lot_unity_fait(gh, depot, photo, photo_du_brief="le chantier se voit pousser"):
-    fait = marque(role="codeur_3d", etat="fait", essai=1, agent="claude/sonnet", sha="a" * 40, unity="vert", photo=photo)
-    _en_cours(gh, commentaires=[fait], etiquettes=("lot", "en-cours", "pc"))
-    brief = depot.racine / "chantiers" / "10" / "docs" / "briefs" / "10-le-service-lit-un-lieu.md"
-    brief.parent.mkdir(parents=True, exist_ok=True)
-    brief.write_text(BRIEF_BON + f"## Photo\n{photo_du_brief}\n", encoding="utf-8")
+def test_un_lot_attend_sa_dependance(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "L'écran", ("lot", "pret", "interface"), corps=FICHE + "\nDépend de : #11\n")
+    gh.ajouter_issue(11, "La règle", corps=FICHE)
+    agents = Agents(PLAN)
+    piloter(projet, gh, depot, agents, tmp_path).tour()
+    assert "pret" in gh.etiquettes(10) and "en-cours" in gh.etiquettes(11)
 
 
-@pytest.mark.parametrize("photo", ["absente", "identique"])
-def test_un_lot_unity_dont_la_photo_ne_montre_rien_retourne_au_codeur(projet, gh, depot, tmp_path, photo):
-    _lot_unity_fait(gh, depot, photo)
-    relecteur = Agents()
-    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
-    assert relecteur.appels == [], "le pilote refuse sans relecteur"
-    corps = gh.prs_[50]["comments"][-1]["body"]
-    assert "## Relecture — CORRIGER" in corps and "relu par le pilote" in corps
-    assert marques([{"body": corps}])[0] == {"role": "relecteur", "verdict": "CORRIGER", "sha": "a" * 40,
-                                                  "agent": "pilote"}
+def test_aucun_test_n_ecrit_dans_le_vrai_journal(projet, gh, depot, tmp_path, sans_le_vrai_dossier_personnel):
+    """Le défaut : les tests de l'atelier écrivaient dans le vrai journal du PC."""
+    from atelier import agents as agents_mod
+    from atelier.__main__ import journal_local
+    with pytest.raises(TypeError):
+        Pilote(projet, gh, depot)  # le journal n'a pas de chemin par défaut
+    assert journal_local() == sans_le_vrai_dossier_personnel / ".atelier" / "journal.jsonl"
+    assert agents_mod.dossier_des_traces() == sans_le_vrai_dossier_personnel / ".atelier" / "appels"
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    piloter(projet, gh, depot, Agents(PLAN), tmp_path).tour()
+    assert (tmp_path / "journal.jsonl").is_file()
+    ecrits = [p for p in sans_le_vrai_dossier_personnel.rglob("*") if p.is_file()]
+    assert ecrits and all(p.parent.name == "appels" for p in ecrits), "seule la trace de l'appel, dans le faux dossier"
 
 
-@pytest.mark.parametrize("photo, brief", [("propre", "le chantier se voit pousser"),
-                                          ("absente", "sans objet : Blender seul, rien à l'écran")])
-def test_une_photo_propre_ou_sans_objet_va_au_relecteur(projet, gh, depot, tmp_path, photo, brief):
-    _lot_unity_fait(gh, depot, photo, brief)
-    relecteur = Agents((0, "VERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
-    assert len(relecteur.appels) == 1 and ("fusion_auto", 50) in gh.gestes
-
-
-def test_le_codeur_d_un_lot_unity_apprend_a_ecrire_sa_photo(projet, gh, depot, tmp_path):
-    prompt = prompts.codeur(projet, numero=235, titre="x", chemin_brief="b.md", pc=True)
-    assert "Captures/Lot235.cs" in prompt and "[ScenarioDeCapture(235," in prompt
-    assert "ScenarioDeCapture" not in prompts.codeur(projet, numero=235, titre="x", chemin_brief="b.md")
-
-
-def test_une_decision_du_proprietaire_va_au_codeur_et_au_relecteur_apres_un_blocage(projet, gh, depot, tmp_path):
-    # #235 : la réponse A autorisait la chronique ; le brief l'excluait, le
-    # codeur ne lisait que lui, et la CI est restée rouge trois fois.
-    question = lots.Question("Le lot peut-il toucher la chronique ?",
-                             (("A", "oui, capture.py transporte les lieux", ""), ("B", "non", "")), ("A", ""))
-    _en_cours(gh)
-    gh.issues_[10]["comments"] += [
-        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="q", **question.marque())},
-        {"body": "A", "author": {"login": "PLiagre"}},
-        {"body": "bloqué\n\n" + marque(role="pilote", etat="bloque", raison="CI rouge après 2 correction(s)")},
-        {"body": "repris\n\n" + marque(role="pilote", etat="reponse")}]
-    attendu = "Réponse du propriétaire : A — oui, capture.py transporte les lieux"
-    codeur = Agents((0, "Fait.", {"jeu/vues/chronique/capture.py": "lieux"}))
-    _pilote(projet, gh, depot, codeur, tmp_path).tour()
-    prompt = _prompt(codeur.appels[0])
-    assert "LES DÉCISIONS DU PROPRIÉTAIRE" in prompt and attendu in prompt
-    relecteur = Agents((0, "VERDICT: ACCEPTE"))
-    _pilote(projet, gh, depot, relecteur, tmp_path).tour()
-    prompt = next(a for a in relecteur.appels[0] if "Tu es le relecteur" in a)
-    assert attendu in prompt and "élargi par les décisions du propriétaire" in prompt
-
-
-def test_le_journal_ne_tient_pas_un_jalon_ouvert(projet, gh, depot, tmp_path):
-    # Le 4 octobre 2026 : le journal titrait « ### Jalon J2 — … », le pilote
-    # le rangeait dans J2, et J2, livré, ne se fermait jamais.
-    corps = "### Jalon J1 — Le pont — 96 %\n\n- [x] #9 Le service"
-    gh.ajouter_issue(311, "Journal du 04/10/2026", ("journal",), jalon=None, corps=corps)
-    gh.ajouter_issue(312, "Journal du 03/10/2026", ("journal",), jalon="J1 — Le pont", corps=corps)
-    _pilote(projet, gh, depot, Agents(), tmp_path).tour()
-    assert gh.issues_[311]["milestone"] is None, "le journal du jour ne se range pas"
-    assert gh.issues_[312]["milestone"] is None, "un journal déjà rangé en sort"
-    assert ("sortir_du_jalon", 312) in gh.gestes
-
-
-def test_sortir_du_jalon_passe_par_l_api_que_connait_le_gh_du_vps():
-    # Le 4 octobre 2026 : `gh issue edit --remove-milestone` n'existe pas dans
-    # le gh 2.45 du VPS, et chaque tour du pilote s'arrêtait là.
-    from atelier.github import GitHub
-    vus = []
-    GitHub("moi/essai", executeur=lambda argv, entree: vus.append((argv, entree)) or (0, "{}", "")).sortir_du_jalon(311)
-    argv, entree = vus[0]
-    assert argv[:5] == ["gh", "api", "-X", "PATCH", "repos/moi/essai/issues/311"]
-    assert json.loads(entree) == {"milestone": None} and "--remove-milestone" not in argv
-
-
-def test_un_journal_qui_ne_sort_pas_de_son_jalon_n_arrete_pas_le_tour(projet, gh, depot, tmp_path):
-    from atelier.github import GitHubErreur
-
-    def refuse(numero):
-        raise GitHubErreur("gh issue edit 311 : unknown flag: --remove-milestone")
-
-    gh.sortir_du_jalon = refuse
-    gh.ajouter_issue(311, "Journal du 04/10/2026", ("journal",), jalon="J1 — Le pont", corps="### Jalon J1 — x")
-    gh.ajouter_issue(10, "Le service lit un lieu")
-    agents = Agents((0, "DECISION: BRIEF", {"docs/briefs/10-le-service-lit-un-lieu.md": BRIEF_BON}))
-    _pilote(projet, gh, depot, agents, tmp_path).tour()
-    assert _gestes(gh, "creer_pr"), "le tour continue jusqu'au lot"
-    assert "journal non sorti du jalon" in (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
+def test_un_tour_pour_un_seul_lot_ne_touche_a_aucun_autre(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "La règle", corps=FICHE + "\nDépend de : #11\n")
+    gh.ajouter_issue(11, "L'écran", ("lot", "pret", "interface"), corps=FICHE + "\nDépend de : #10\n")
+    gh.ajouter_issue(12, "Un vieux lot", ("lot", "bloque", "monde"), corps=FICHE)
+    gh.issues_[12]["comments"].append({"body": lots.marque(role="pilote", etat=lots.BLOQUE, raison="vieux")})
+    gh.ajouter_issue(20, "Le lot d'essai", jalon=None, corps=FICHE)
+    gh.run_master = {"status": "completed", "conclusion": "failure", "databaseId": 77, "url": "https://x/run/77"}
+    agents = Agents(PLAN, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path, seul=20)
+    pilote.tour()
+    pilote.tour()
+    assert "en-cours" in gh.etiquettes(20) and lots.etapes_faites(_marques(gh, _pr_du_lot(gh, 20), pr=True)) == {1}
+    assert agents.modeles() == ["opus", "opus"], "ni le CTO pour le vieux lot, ni la réparation de master"
+    touches = {g[1] for g in gh.gestes if g[0] in ("etiqueter", "commenter_issue")}
+    assert touches == {20}, "la boucle, le lot bloqué et master rouge restent où ils sont"

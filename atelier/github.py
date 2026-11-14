@@ -65,7 +65,7 @@ class GitHub:
 
     def issue(self, numero: int) -> dict:
         return self.json("issue", "view", str(numero), "-R", self.depot, "--json",
-                         "number,title,body,labels,milestone,state,comments,url")
+                         "number,title,body,labels,milestone,state,comments,url,createdAt")
 
     def creer_issue(self, titre: str, corps: str, etiquettes: Iterable[str] = (),
                     jalon: str | None = None) -> int:
@@ -151,6 +151,9 @@ class GitHub:
             argv.append("--draft")
         url = self.gh(*argv, entree=corps).strip().splitlines()[-1]
         return int(url.rstrip("/").rsplit("/", 1)[-1])
+
+    def corps_de_pr(self, numero: int, texte: str) -> None:
+        self.gh("pr", "edit", str(numero), "-R", self.depot, "--body-file", "-", entree=texte)
 
     def pr_prete(self, numero: int) -> None:
         self.gh("pr", "ready", str(numero), "-R", self.depot)

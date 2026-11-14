@@ -51,8 +51,7 @@ pour refondre ou réparer, l'agent modifie directement :
    fichiers.
 
 Le travail du jeu passe par la chaîne. Seul le mode direct touche `atelier/`,
-`.github/`, `atelier.toml`, `AGENTS.md`, `CLAUDE.md` et, hors du samedi,
-`CAP.md`.
+`.github/`, `atelier.toml`, `AGENTS.md`, `CLAUDE.md` et `CAP.md`.
 
 ## 3. Les principes du jeu, non négociables
 

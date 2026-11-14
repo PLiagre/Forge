@@ -114,19 +114,6 @@ class Depot:
             fichiers.append(nom)
         return fichiers
 
-    def lignes_changees(self, chemin: Path, fichier: str) -> list[str]:
-        """Les lignes qu'un changement non enregistré ajoute ou retire dans ce
-        fichier ; toutes ses lignes s'il est neuf. C'est ce que lit la garde
-        d'une réparation de la chaîne (`garde.lignes_sensibles`)."""
-        _, diff, _ = self.git_code("diff", "HEAD", "--", fichier, cwd=chemin)
-        if diff.strip():
-            return [l[1:] for l in diff.splitlines()
-                    if l[:1] in "+-" and not l.startswith(("+++", "---"))]
-        try:
-            return (Path(chemin) / fichier).read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError:
-            return []
-
     def annuler(self, chemin: Path, fichiers: list[str]) -> None:
         """Remet ces fichiers comme la tête les porte ; efface les nouveaux."""
         suivis = set(self.git("ls-files", "-z", cwd=chemin).split("\0"))
@@ -138,10 +125,12 @@ class Depot:
                 if cible.is_file():
                     cible.unlink()
 
-    def enregistrer(self, chemin: Path, message: str) -> str:
+    def enregistrer(self, chemin: Path, message: str, *, vide: bool = False) -> str:
+        """Enregistre tout ce qui a changé. `vide` : même si rien n'a changé —
+        le plan d'un lot ouvre sa PR sans toucher un fichier."""
         self.git("add", "-A", cwd=chemin)
         identite = ["-c", f"user.name={self.nom}"] + (["-c", f"user.email={self.email}"] if self.email else [])
-        self.git(*identite, "commit", "--quiet", "-m", message, cwd=chemin)
+        self.git(*identite, "commit", "--quiet", *(["--allow-empty"] if vide else []), "-m", message, cwd=chemin)
         return self.git("rev-parse", "HEAD", cwd=chemin).strip()
 
     def pousser(self, chemin: Path, branche: str) -> None:
@@ -190,3 +179,14 @@ class Depot:
 
     def fichiers_du_lot(self, chemin: Path) -> list[str]:
         return self.git("diff", "--name-only", f"origin/{self.base}...HEAD", cwd=chemin).split()
+
+    def etats_du_lot(self, chemin: Path) -> list[tuple[str, str]]:
+        """Chaque fichier que le lot change, avec son état (`A` ajouté, `M`
+        modifié, `D` retiré, `R` renommé) : c'est de là qu'on lit les tests
+        existants qu'un lot touche."""
+        lus = []
+        for ligne in self.git("diff", "--name-status", f"origin/{self.base}...HEAD", cwd=chemin).splitlines():
+            morceaux = ligne.split("	")
+            if len(morceaux) >= 2:
+                lus.append((morceaux[0], morceaux[1]))
+        return lus

@@ -80,6 +80,18 @@ class GitHubASec(GitHub):
     def pr_prete(self, numero):
         _dire(f"PR #{numero} prête")
 
+    def corps_de_pr(self, numero, texte):
+        _dire(f"récrire le texte de la PR #{numero}")
+
+    def corps_de(self, numero, texte):
+        _dire(f"récrire le texte de l'issue #{numero}")
+
+    def epingler(self, numero):
+        _dire(f"épingler #{numero}")
+
+    def desepingler(self, numero):
+        _dire(f"désépingler #{numero}")
+
     def commenter_pr(self, numero, texte):
         _dire(f"commenter la PR #{numero} : {texte.splitlines()[0][:100]}")
         self._commentaires_pr.setdefault(numero, []).append(texte)
@@ -114,9 +126,21 @@ class DepotASec(Depot):
     def annuler(self, chemin, fichiers):
         _dire(f"annuler {fichiers}")
 
-    def enregistrer(self, chemin, message):
+    def enregistrer(self, chemin, message, *, vide=False):
         _dire(f"commit : {message.splitlines()[0]}")
         return "0" * 40
+
+    def tete(self, chemin):
+        return "0" * 40
+
+    def en_retard(self, chemin):
+        return False
+
+    def fichiers_du_lot(self, chemin):
+        return []
+
+    def etats_du_lot(self, chemin):
+        return []
 
     def pousser(self, chemin, branche):
         _dire(f"pousser {branche}")
@@ -126,6 +150,7 @@ class DepotASec(Depot):
         return []
 
 
-def executeur_a_sec(argv, cwd, env, delai):
+def executeur_a_sec(argv, cwd, env, delai, consigne, trace):
+    """Aucun agent n'est invoqué : l'appel rend une erreur, que le pilote à sec ne fait que dire."""
     _dire(f"invoquer {argv[0]} (modèle {argv[argv.index('--model') + 1] if '--model' in argv else '?'})")
-    return 0, "à sec : aucun agent invoqué", ""
+    return 1, "", "à sec : aucun agent invoqué"

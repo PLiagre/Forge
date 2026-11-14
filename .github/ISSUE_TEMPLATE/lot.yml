@@ -1,78 +1,49 @@
 name: Demander un lot
-description: Une chose que le joueur ou le monde saura faire après. Une seule.
+description: L'avancée d'une piste pour un palier, écrite comme une fiche.
 title: ""
-labels: ["lot", "idee"]
+labels: ["lot", "pret"]
 body:
   - type: markdown
     attributes:
       value: |
-        Un lot est une issue. La chaîne la prend quand elle appartient au
-        **jalon courant** de [CAP.md](../blob/master/CAP.md), ou au suivant
-        quand sa machine n'a plus rien dans le courant : le chef écrit
-        son brief dans la branche du lot, le codeur code, le relecteur rend
-        son verdict, et ACCEPTE fusionne tout seul.
+        Un lot est l'avancée d'une piste pour un palier
+        ([CAP.md](../blob/master/CAP.md)). Le samedi, c'est le CTO qui écrit
+        les fiches ; ce formulaire sert à en ajouter une à la main.
 
-        **Un lot = une ligne du CAP** : un gain que le joueur voit, et sa
-        preuve dans la même PR, jusqu'à 1 500 lignes environ. Jamais un lot
-        qui code et un autre qui prouve ; si deux gains pourraient être livrés
-        et joués séparément, ce sont deux demandes (le chef découpe de toute
-        façon ce qui est trop gros).
-
-        Étiquettes : `idee` (recensé) → `pret` (à prendre en premier) →
-        `en-cours` → `livre`. `bloque` dit qu'une décision vous attend ; la
-        raison est en commentaire.
-  - type: dropdown
-    id: jalon
+        Après l'avoir créée, range l'issue dans le jalon de son palier
+        (« Palier n — … ») et pose ses étiquettes : sa piste (`monde`,
+        `ville` ou `interface`), `pc` si elle demande Unity ou Blender,
+        `simple` si le développeur peut la mener seul. La chaîne prend les
+        lots `pret` du palier en cours, au plus petit numéro d'abord.
+  - type: textarea
+    id: joueur
     attributes:
-      label: Jalon
-      description: Le jalon de CAP.md que ce lot sert, ou la Réserve s'il n'en sert aucun pour l'instant. Obligatoire.
-      options:
-        - "J1 — Le pont"
-        - "J2 — Le monde de 1400"
-        - "J3 — Le lieu et son maître"
-        - "J4 — La capitale"
-        - "J5 — Le monde vivant"
-        - "J6 — Le pays et sa dynastie"
-        - "J7 — La guerre"
-        - "J8 — L'argent"
-        - "J9 — Le premier siècle"
-        - "Réserve"
+      label: Ce que je joue de plus
+      description: Le geste, et ce qu'il décide.
     validations:
       required: true
-  - type: dropdown
-    id: machine
+  - type: textarea
+    id: samedi
     attributes:
-      label: Machine
-      description: « vps » pour Python seul (jeu/) ; « pc » si le lot demande Unity ou Blender (3d/).
-      options:
-        - vps
-        - pc
+      label: Ce que je vois samedi
+      description: L'écran, en mots de joueur.
     validations:
       required: true
+  - type: textarea
+    id: regle
+    attributes:
+      label: La règle du monde
+      description: Comment ça marche, son niveau de fidélité, la section de jeu/sim/MODELE.md qui change. « sans objet » pour un écran.
+    validations:
+      required: true
+  - type: textarea
+    id: preuves
+    attributes:
+      label: Les preuves
+      description: Des commandes qui peuvent échouer, et, pour un écran, la capture qu'on regarde.
   - type: input
     id: depend
     attributes:
       label: Dépend de
       description: Les issues qui doivent être livrées avant celle-ci (« #12, #13 »). Vide si elle n'attend personne.
       placeholder: "#12, #13"
-  - type: textarea
-    id: joueur
-    attributes:
-      label: Le joueur
-      description: >
-        Ce que le joueur peut faire, voir ou décider après ce lot, et ce qu'il
-        en sent. Un lot de fond nomme le geste du jalon qu'il prépare. Le chef
-        refuse un lot qui ne rapproche le joueur d'aucun geste de son jalon
-        (CAP.md, « La règle d'un lot »).
-    validations:
-      required: true
-  - type: textarea
-    id: quoi
-    attributes:
-      label: Ce que ça doit faire
-      description: >
-        Ce que le joueur fait, ce qu'on voit, ou ce que le monde sait faire
-        après. Le périmètre et les conditions de succès que vous imaginez
-        sont les bienvenus : le chef les reprend dans le brief.
-    validations:
-      required: true

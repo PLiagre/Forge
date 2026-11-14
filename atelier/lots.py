@@ -1,15 +1,17 @@
 """L'état d'un lot, dérivé de GitHub, et l'action qui vient ensuite.
 
-Un lot est une issue. Son état est une étiquette (idee, pret, en-cours,
-bloque, livre), son jalon est un milestone (« J1 — Le pont »), sa machine est
-l'étiquette `pc` quand il demande Unity ou Blender. Son travail est une
-branche et une PR. Ce que la chaîne y a fait est écrit par le pilote, dans
-les commentaires de la PR, sous une marque invisible :
+Un lot est une issue : l'étiquette `lot`, un état (`pret`, `en-cours`,
+`bloque`, `livre`), une piste (`monde`, `ville`, `interface`), `pc` s'il
+demande Unity ou Blender, `simple` si le développeur le mène seul, et le
+jalon GitHub de son palier (« Palier 1 — La première guerre »). Son travail
+est une branche et une PR. Ce que la chaîne y a fait est écrit par le pilote,
+dans les commentaires, sous une marque invisible :
 
     <!-- atelier {"role": "relecteur", "sha": "…", "verdict": "ACCEPTE"} -->
 
 Rien n'est gardé ailleurs. Le pilote peut s'arrêter au milieu d'un tour : le
-tour suivant relit GitHub et reprend où les faits disent qu'on en est.
+tour suivant relit GitHub et reprend où les faits disent qu'on en est. Tout
+ce module est fait de fonctions pures : il décide, le pilote fait les gestes.
 """
 
 from __future__ import annotations
@@ -20,27 +22,23 @@ from datetime import datetime
 import json
 import re
 import unicodedata
+import uuid
 
+from .projet import CHEF, CTO, DEVELOPPEUR, RELECTEUR, ROLES_MENEURS
 
-ETATS =("idee", "pret", "en-cours", "bloque", "livre")
+ETATS = ("pret", "en-cours", "bloque", "livre")
+ETIQUETTE_LOT = "lot"
 ETIQUETTE_PC = "pc"
-# Le milestone des lots qui ne servent aucun jalon. Son titre ne commence pas
-# par « J » : le pilote ne le prend jamais pour le jalon courant.
-RESERVE = "Réserve"
-# L'étiquette qui y range un lot, d'un geste, même depuis le téléphone.
-ETIQUETTE_RESERVE = "reserve"
+# Le développeur mène seul ce lot (données, écran courant).
+ETIQUETTE_SIMPLE = "simple"
+# Une réparation de master : elle passe avant tout autre lot.
+ETIQUETTE_URGENT = "urgent"
+# L'issue d'un palier : le propriétaire y écrit le samedi, le CTO y répond.
+ETIQUETTE_PALIER = "palier"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
-# « attend #396 », « attendent #396, #397 et #398 » : ce qu'un refus du chef attend.
-_ATTEND = re.compile(r"\battend(?:ent)?\s+((?:#\d+\s*(?:,|\bet\b)?\s*)+)", re.I)
-# La phrase que le pilote écrit dans chaque sous-lot d'une découpe.
 _DECOUPE = re.compile(r"D[ée]coup[ée] du lot #(\d+)", re.I)
-_JALON = re.compile(r"^J(\d+)\b")
-# Dans CAP.md, un jalon est une section « ## Jalon 2 — Le monde de 1400 », et
-# la réserve une section « ## La réserve ». Rien d'autre ne se devine.
-_JALON_DU_CAP = re.compile(r"^##[ \t]+Jalon[ \t]+(\d+)[ \t]+[—–-][ \t]+(.+?)[ \t]*$", re.M)
-_RESERVE_DU_CAP = re.compile(r"^##[ \t]+La r[ée]serve[ \t]*$", re.M | re.I)
-ROLES_CODEURS = ("codeur", "codeur_3d", "mecanicien_master")
+_PALIER = re.compile(r"^Palier (\d+)\b")
 
 
 def slug(titre: str, longueur: int = 48) -> str:
@@ -49,13 +47,14 @@ def slug(titre: str, longueur: int = 48) -> str:
     return mots[:longueur].rstrip("-") or "lot"
 
 
-def numero_de_jalon(titre: str | None) -> int | None:
-    m = _JALON.match(titre or "")
+def numero_de_palier(titre: str | None) -> int | None:
+    m = _PALIER.match(titre or "")
     return int(m.group(1)) if m else None
 
 
 def marque(**champs) -> str:
-    return f"<!-- atelier {json.dumps(champs, ensure_ascii=False, sort_keys=True)} -->"
+    """La marque du pilote. « --> » fermerait le commentaire qui la porte."""
+    return "<!-- atelier " + json.dumps(champs, ensure_ascii=False, sort_keys=True).replace("-->", "→") + " -->"
 
 
 def marques(commentaires: list[dict]) -> list[dict]:
@@ -70,80 +69,34 @@ def marques(commentaires: list[dict]) -> list[dict]:
     return trouvees
 
 
+def sans_marque(texte: str) -> str:
+    return _MARQUE.sub("", texte or "").strip()
+
+
+def session_du_lot(depot: str, numero: int, generation: int = 0) -> str:
+    """L'identifiant de la session du lot : le même à chaque tour, pour que le
+    chef reprenne sa session. `generation` en ouvre une autre."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"https://github.com/{depot}/issues/{numero}#{generation}"))
+
+
 @dataclass(frozen=True)
-class Jalon:
+class Palier:
     numero: int
     titre: str
     id: int
     ouvert: bool
-    ouvertes: int
-    fermees: int
-
-    @property
-    def pourcentage(self) -> int:
-        total = self.ouvertes + self.fermees
-        return round(100 * self.fermees / total) if total else 0
 
 
-def jalons(bruts: list[dict]) -> list[Jalon]:
-    trouves = []
-    for m in bruts:
-        n = numero_de_jalon(m.get("title"))
-        if n is None:
-            continue
-        trouves.append(Jalon(numero=n, titre=m["title"], id=m["number"], ouvert=m.get("state") == "open",
-                             ouvertes=m.get("open_issues", 0), fermees=m.get("closed_issues", 0)))
-    return sorted(trouves, key=lambda j: j.numero)
+def paliers(jalons: list[dict]) -> list[Palier]:
+    """Les jalons GitHub qui sont des paliers, dans l'ordre."""
+    trouves = [Palier(numero=n, titre=m["title"], id=m["number"], ouvert=m.get("state") == "open")
+               for m in jalons if (n := numero_de_palier(m.get("title"))) is not None]
+    return sorted(trouves, key=lambda p: p.numero)
 
 
-def jalon_courant(liste: list[Jalon]) -> Jalon | None:
-    """Le premier jalon ouvert, dans l'ordre de CAP.md."""
-    return next((j for j in liste if j.ouvert), None)
-
-
-def jalon_suivant(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
-    """Le jalon ouvert qui suit le courant : le second de la fenêtre. Une
-    machine qui n'a plus rien à prendre dans le courant y prend son travail."""
-    if courant is None:
-        return None
-    return next((j for j in liste if j.ouvert and j.numero > courant.numero), None)
-
-
-def troisieme_jalon(liste: list[Jalon], courant: Jalon | None) -> Jalon | None:
-    """Le troisième jalon ouvert, le bout de la fenêtre. Une machine qui n'a
-    plus rien dans les deux premiers y prend (Pilote._plus_loin)."""
-    return jalon_suivant(liste, jalon_suivant(liste, courant))
-
-
-def jalons_du_cap(cap: str) -> dict[int, str]:
-    """Les jalons que CAP.md déclare : numéro → titre du milestone
-    (« J2 — Le monde de 1400 »), tirés de ses sections « ## Jalon n — Titre ».
-    Un CAP.md sans section de jalon n'en déclare aucun."""
-    trouves: dict[int, str] = {}
-    for m in _JALON_DU_CAP.finditer(cap or ""):
-        trouves.setdefault(int(m.group(1)), f"J{m.group(1)} — {m.group(2)}")
-    return dict(sorted(trouves.items()))
-
-
-def accord_des_jalons(cap: str, bruts: list[dict]) -> list[tuple]:
-    """Ce qu'il faut faire pour que les milestones disent ce que dit CAP.md :
-    `("creer", titre)` ou `("renommer", numero, ancien, titre)`.
-
-    Jamais de suppression ni de fermeture : un jalon atteint reste fermé, et
-    un milestone que CAP.md ne nomme plus reste tel quel, avec ses issues.
-    Deux milestones du même numéro : c'est l'ouvert qui porte le titre."""
-    gestes: list[tuple] = []
-    for n, titre in jalons_du_cap(cap).items():
-        memes = [m for m in bruts if numero_de_jalon(m.get("title")) == n]
-        if not memes:
-            gestes.append(("creer", titre))
-            continue
-        garde = next((m for m in memes if m.get("state") == "open"), None) or max(memes, key=lambda m: m["number"])
-        if garde.get("title") != titre:
-            gestes.append(("renommer", garde["number"], garde.get("title"), titre))
-    if _RESERVE_DU_CAP.search(cap or "") and not any(m.get("title") == RESERVE for m in bruts):
-        gestes.append(("creer", RESERVE))
-    return gestes
+def palier_courant(liste: list[Palier]) -> Palier | None:
+    """Le premier palier ouvert : c'est dans lui que le pilote prend."""
+    return next((p for p in liste if p.ouvert), None)
 
 
 @dataclass(frozen=True)
@@ -152,48 +105,57 @@ class Lot:
     titre: str
     corps: str
     etiquettes: tuple[str, ...]
-    jalon: int | None
-    jalon_titre: str | None
+    palier: int | None
+    palier_titre: str | None
 
     @classmethod
     def de(cls, issue: dict) -> "Lot":
         etiquettes = tuple(e["name"] for e in issue.get("labels") or [])
-        titre_jalon = (issue.get("milestone") or {}).get("title")
+        titre = (issue.get("milestone") or {}).get("title")
         return cls(numero=issue["number"], titre=issue["title"], corps=issue.get("body") or "",
-                   etiquettes=etiquettes, jalon=numero_de_jalon(titre_jalon), jalon_titre=titre_jalon)
+                   etiquettes=etiquettes, palier=numero_de_palier(titre), palier_titre=titre)
+
+    @property
+    def est_un_lot(self) -> bool:
+        return ETIQUETTE_LOT in self.etiquettes
 
     @property
     def etat(self) -> str:
-        return next((e for e in ETATS if e in self.etiquettes), "idee")
+        return next((e for e in ETATS if e in self.etiquettes), "pret")
 
     @property
     def machine(self) -> str:
         return "pc" if ETIQUETTE_PC in self.etiquettes else "vps"
 
     @property
-    def slug(self) -> str:
-        return slug(self.titre)
+    def meneur(self) -> str:
+        """Le rôle qui mène le lot : le chef, ou le développeur seul pour un lot simple."""
+        return DEVELOPPEUR if ETIQUETTE_SIMPLE in self.etiquettes else CHEF
+
+    @property
+    def urgent(self) -> bool:
+        return ETIQUETTE_URGENT in self.etiquettes
+
+    def piste(self, pistes: Iterable[str]) -> str:
+        return next((p for p in pistes if p in self.etiquettes), "")
 
     def branche(self, prefixe: str) -> str:
-        return f"{prefixe}{self.numero}-{self.slug}"
-
-    def brief(self, dossier: str) -> str:
-        return f"{dossier}/{self.numero}-{self.slug}.md"
+        return f"{prefixe}{self.numero}-{slug(self.titre)}"
 
     @property
     def dependances(self) -> frozenset[int]:
-        """Les issues que ce lot attend : « Dépend de : #12, #13 » dans son texte,
-        ou le champ « Dépend de » du formulaire (la valeur sur les lignes qui
-        suivent, jusqu'au titre suivant)."""
+        """Les issues que ce lot attend : « Dépend de : #12, #13 » dans son
+        texte, ou le champ « Dépend de » du formulaire, dont la valeur est au
+        paragraphe suivant."""
         trouvees: set[int] = set()
         for m in _DEPEND.finditer(self.corps):
             lignes = self.corps[m.start():].splitlines()
             bloc = [lignes[0]]
-            # « Dépend de : #12 » tient sur sa ligne ; le champ du formulaire
-            # porte sa valeur au paragraphe suivant, jusqu'au titre suivant.
-            if not re.search(r"#\d+", lignes[0]):
+            # Seul le titre nu du formulaire porte sa valeur plus bas : une
+            # ligne qui dit autre chose (« aucune ») a déjà tout dit.
+            if not m.group(1).strip():
                 for ligne in lignes[1:]:
-                    if ligne.startswith("##") or (not ligne.strip() and any(b.strip() for b in bloc[1:])):
+                    if ligne.startswith("#") and not re.match(r"#\d", ligne) or (not ligne.strip() and any(b.strip() for b in bloc[1:])):
                         break
                     bloc.append(ligne)
             trouvees |= {int(n) for n in re.findall(r"#(\d+)", " ".join(bloc))}
@@ -201,17 +163,15 @@ class Lot:
 
     @property
     def decoupe_de(self) -> int | None:
-        """Le lot dont celui-ci est un morceau, quand le chef l'a découpé."""
+        """Le lot dont celui-ci est un morceau, quand le CTO l'a redécoupé."""
         m = _DECOUPE.search(self.corps)
         return int(m.group(1)) if m else None
 
 
 def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
     """Les issues qu'un lot qui en dépend attend encore : chaque issue
-    ouverte, et un lot découpé tant qu'un de ses descendants est ouvert. Sans
-    cela, « Dépend de : #119 » se libérait dès la découpe de #119, avant ses
-    morceaux (mesuré le 28 septembre 2026 sur #120). Les découpes s'emboîtent
-    (#119 → #183 → #185) : les lots fermés disent de qui ils descendent."""
+    ouverte, et un lot redécoupé tant qu'un de ses morceaux est ouvert. Les
+    découpes s'emboîtent : les lots fermés disent de qui ils descendent."""
     parents = {l.numero: l.decoupe_de for l in (*ouvertes, *fermees) if l.decoupe_de is not None}
     resultat = {l.numero for l in ouvertes}
     for lot in ouvertes:
@@ -223,22 +183,39 @@ def bloquantes(ouvertes: list[Lot], fermees: list[Lot] = ()) -> frozenset[int]:
     return frozenset(resultat)
 
 
-def attendus_du_refus(motif: str, ouvertes: Iterable[int], lot: Lot) -> list[int]:
-    """Les issues encore ouvertes qu'un refus du chef dit attendre (« attend
-    #396 ») et que le lot ne déclare pas dans son « Dépend de ». Un refus
-    pour une autre raison, ou qui n'attend que des issues déjà livrées, n'en
-    nomme aucune : le lot reste bloqué. Mesuré le 10 octobre 2026 : #413 était
-    refusé parce qu'il attendait #396, mais le refus le bloquait au lieu de le
-    faire attendre."""
-    dites = {int(n) for m in _ATTEND.finditer(motif) for n in re.findall(r"#(\d+)", m.group(1))}
-    return sorted((dites & set(ouvertes)) - lot.dependances - {lot.numero})
+def boucles(ouvertes: list[Lot]) -> list[tuple[int, ...]]:
+    """Les lots ouverts qui s'attendent en rond : chaque boucle est rendue une
+    fois, du plus petit numéro au suivant (« 12 attend 15, qui attend 12 »).
+    Des lots pris dans une boucle n'avanceraient jamais, sans que rien ne le
+    dise."""
+    attend = {l.numero: sorted(l.dependances) for l in ouvertes}
+    trouvees: set[tuple[int, ...]] = set()
+
+    def suivre(depart: int, courant: int, chemin: list[int]) -> None:
+        for suivant in attend.get(courant, ()):
+            if suivant == depart:
+                trouvees.add(tuple(chemin))
+            elif suivant > depart and suivant not in chemin and suivant in attend:
+                suivre(depart, suivant, chemin + [suivant])
+
+    for numero in sorted(attend):
+        suivre(numero, numero, [numero])
+    return sorted(trouvees)
+
+
+def ferme_une_boucle(lot: Lot, nouvelles: Iterable[int], ouvertes: list[Lot]) -> tuple[int, ...] | None:
+    """La boucle que créerait l'ajout de ces dépendances à ce lot, ou None."""
+    essai = Lot(numero=lot.numero, titre=lot.titre, etiquettes=lot.etiquettes, palier=lot.palier,
+                palier_titre=lot.palier_titre, corps=avec_dependances(lot.corps, nouvelles))
+    autres = [l for l in ouvertes if l.numero != lot.numero]
+    return next((b for b in boucles([*autres, essai]) if lot.numero in b), None)
 
 
 def avec_dependances(corps: str, numeros: Iterable[int]) -> str:
-    """Le texte d'une issue avec ces issues de plus dans son « Dépend de » :
-    la dernière ligne « Dépend de : #12 » s'allonge, sinon une ligne s'ajoute
-    à la fin."""
+    """Le texte d'une issue avec ces issues de plus dans son « Dépend de »."""
     ajout = ", ".join(f"#{n}" for n in numeros)
+    if not ajout:
+        return corps
     lignes = corps.split("\n")
     for i in range(len(lignes) - 1, -1, -1):
         m = _DEPEND.match(lignes[i])
@@ -249,145 +226,47 @@ def avec_dependances(corps: str, numeros: Iterable[int]) -> str:
     return corps.rstrip("\r\n") + f"\n\nDépend de : {ajout}\n"
 
 
-def a_prendre(lots: list[Lot], jalon: int | None, machine_libre: dict[str, bool],
-              ouvertes: frozenset[int] = frozenset()) -> Lot | None:
-    """Le lot suivant du jalon `jalon` : `pret` d'abord, puis `idee`, dans
-    l'ordre des numéros d'issue. Une machine occupée ne prend rien ; un lot
-    dont une dépendance est encore ouverte attend ; un lot marqué `reserve`
-    sort de son jalon, il ne se prend pas."""
-    if jalon is None:
-        return None
-    for etat in ("pret", "idee"):
-        for lot in sorted(lots, key=lambda l: l.numero):
-            if (lot.jalon == jalon and lot.etat == etat and machine_libre.get(lot.machine, False)
-                    and not (lot.dependances & ouvertes) and ETIQUETTE_RESERVE not in lot.etiquettes):
-                return lot
-    return None
+def sans_dependances(corps: str, numeros: Iterable[int]) -> str:
+    """Le texte d'une issue sans ces issues dans son « Dépend de »."""
+    retirer = {int(n) for n in numeros}
 
+    def garder(ligne: str) -> str:
+        return ", ".join(f"#{n}" for n in re.findall(r"#(\d+)", ligne) if int(n) not in retirer)
 
-# La marque que porte le lot ouvert par le pilote pour faire découper un jalon.
-ETAT_DECOUPE_JALON = "decoupe-jalon"
-
-# Les options qu'une ligne de découpe porte à sa fin, dans n'importe quel
-# ordre : « :: pc » ou « :: vps » (sa machine), « :: après 1, 3 » ou
-# « :: après rien » (les sous-lots de la même liste qu'il attend).
-_OPTION_MACHINE = re.compile(r"\s*::\s*(pc|vps)\s*$", re.I)
-_OPTION_APRES = re.compile(r"\s*::\s*apr[èe]s\s*:?\s*(rien|[\d\s,#et]+?)\s*$", re.I)
-
-
-@dataclass(frozen=True)
-class SousLot:
-    """Une ligne de découpe du chef. `apres` : None quand elle ne dit rien
-    (le sous-lot part tout de suite), () pour « après rien », sinon les
-    rangs, dans la liste, des sous-lots qu'il attend."""
-
-    titre: str
-    quoi: str
-    machine: str
-    apres: tuple[int, ...] | None = None
-
-
-def sous_lot(titre: str, quoi: str, machine_par_defaut: str) -> SousLot:
-    """Lit « <titre> :: <ce qu'il fait> [:: pc|vps] [:: après …] ». Sans
-    machine, le sous-lot garde celle du lot découpé."""
-    machine, apres = None, None
-    while True:
-        m = _OPTION_MACHINE.search(quoi)
-        if m and machine is None:
-            machine, quoi = m.group(1).lower(), quoi[:m.start()]
-            continue
-        m = _OPTION_APRES.search(quoi)
-        if m and apres is None:
-            valeur = m.group(1).strip().lower()
-            apres = () if valeur == "rien" else tuple(int(n) for n in re.findall(r"\d+", valeur))
-            quoi = quoi[:m.start()]
-            continue
-        break
-    return SousLot(titre.strip(), quoi.strip(), machine or machine_par_defaut, apres)
-
-
-def dependances_des_sous_lots(sous: list[SousLot], *, preuve_en_dernier: bool = False) -> list[tuple[int, ...]]:
-    """Pour chaque sous-lot (rang 1…n), les rangs des sous-lots qu'il attend.
-
-    Sans « après », ou « après rien », il part tout de suite ; « après 1, 3 »,
-    quand 1 et 3 sont livrés. Jusqu'au 1er octobre 2026, une ligne muette
-    attendait la précédente : J2 et J4 sont devenus des files de sept lots,
-    et le VPS, qui en tient deux, n'en faisait avancer qu'un.
-    Des sous-lots qui ne s'attendent pas avancent en même temps. Le dernier
-    d'une découpe de jalon porte la preuve du jalon : il attend tous les
-    autres, quoi que dise sa ligne. Un rang qui ne précède pas le sous-lot se
-    refuse (ValueError) : les issues naissent dans l'ordre de la liste, et une
-    dépendance vers l'avant ne se devine pas."""
-    rangs: list[tuple[int, ...]] = []
-    for i, s in enumerate(sous, start=1):
-        if preuve_en_dernier and i == len(sous):
-            rangs.append(tuple(range(1, i)))
-            continue
-        if s.apres is None:
-            rangs.append(())
-            continue
-        fautifs = [k for k in s.apres if not 1 <= k < i]
-        if fautifs:
-            raise ValueError(f"le sous-lot {i} (« {s.titre} ») attend {', '.join(map(str, fautifs))}, "
-                             "qui ne le précède pas dans la liste")
-        rangs.append(tuple(sorted(set(s.apres))))
-    return rangs
-
-
-def jalon_a_decouper_par(lot: Lot) -> int | None:
-    """Le jalon que ce lot fait découper, quand le pilote l'a ouvert pour ça."""
-    for m in marques([{"body": lot.corps}]):
-        if m.get("role") == "pilote" and m.get("etat") == ETAT_DECOUPE_JALON:
-            return m.get("jalon")
-    return None
-
-
-def a_decouper(jalon: Jalon | None, cap: str, ouvertes: list[Lot], fermees: list[Lot] = ()) -> bool:
-    """Un jalon de la fenêtre (le courant, ou le suivant quand une machine
-    n'a plus rien dans le courant) se fait découper, une seule fois, quand
-    CAP.md le décrit et qu'il n'a encore aucun lot prêt, en cours ou livré :
-    un jalon que personne n'a planifié ne laisse pas la chaîne sans travail,
-    et un jalon lancé à la main ne se redécoupe pas."""
-    if jalon is None or jalon.numero not in jalons_du_cap(cap):
-        return False
-    siens = [l for l in (*ouvertes, *fermees) if l.jalon == jalon.numero]
-    if any(jalon_a_decouper_par(l) == jalon.numero for l in siens):
-        return False
-    ouverts = {l.numero for l in ouvertes}
-    # Un lot fermé encore « en-cours » vient d'être fusionné : le pilote le
-    # livre dans ce même tour, il compte déjà comme livré.
-    return not any(l.etat in ("livre", "en-cours") or (l.numero in ouverts and l.etat == "pret")
-                   for l in siens if "lot" in l.etiquettes)
-
-
-def corps_de_la_decoupe(jalon: Jalon, avant: list[int], courant: Jalon | None = None) -> str:
-    """Le texte du lot qui fait découper un jalon. Les lots déjà ouverts dans
-    le jalon passent d'abord : la découpe vient après eux et les complète.
-    Un jalon découpé en avance (il suit le `courant`) le dit : ses lots
-    partent pendant que le courant se termine."""
-    en_avance = courant is not None and jalon.numero > courant.numero
-    if en_avance:
-        tete = (f"Le jalon {jalon.titre} n'a encore aucun lot prêt, et une machine n'a plus rien à prendre "
-                f"avant lui depuis le jalon courant, {courant.titre} : il se découpe en avance. Ses lots partent "
-                "pendant que les jalons d'avant se terminent ; ils ne s'appuient sur rien que ceux-ci doivent "
-                "encore livrer. Place d'abord ceux qui ne s'appuient que sur ce qui est déjà sur master.")
-    else:
-        tete = f"Le jalon courant, {jalon.titre}, n'a encore aucun lot prêt : personne ne l'a découpé."
-    lignes = [
-        tete,
-        "",
-        "Ce lot ne se code pas. Le chef le découpe (« DECISION: DECOUPE ») d'après la section "
-        f"« Jalon {jalon.numero} » de `CAP.md` et d'après `docs/VISION.md` : les lots qu'il faut, dans "
-        "l'ordre où ils se font, chacun à la taille d'un lot. Le dernier porte la preuve du jalon et sa "
-        "capture au journal : il attend tous les autres. Un lot qui demande Unity ou Blender finit sa ligne "
-        "par « :: pc ». Les lots qui ne s'attendent pas avancent en même temps : chaque ligne dit ceux "
-        "qu'elle attend vraiment (« :: après 1, 3 », ou « :: après rien »).",
-    ]
-    if avant:
-        lignes += ["", "Les lots déjà ouverts dans ce jalon passent d'abord ; la découpe les complète, "
-                   "elle ne les refait pas.", "", "Dépend de : " + ", ".join(f"#{n}" for n in avant)]
-    lignes += ["", marque(role="pilote", etat=ETAT_DECOUPE_JALON, jalon=jalon.numero)]
+    lignes, dans_le_champ = [], False
+    for ligne in corps.split("\n"):
+        m = _DEPEND.match(ligne)
+        if m and m.group(1).strip():
+            # « Dépend de : #12, #13 » : la ligne garde ce qui reste, ou disparaît.
+            reste = garder(ligne)
+            if reste:
+                lignes.append(f"Dépend de : {reste}")
+            dans_le_champ = False
+        elif m:
+            # Le titre du formulaire : sa valeur est au paragraphe suivant.
+            lignes.append(ligne)
+            dans_le_champ = True
+        elif dans_le_champ and re.search(r"#\d+", ligne):
+            lignes.append(garder(ligne))
+            dans_le_champ = False
+        else:
+            if dans_le_champ and ligne.startswith("#"):
+                dans_le_champ = False
+            lignes.append(ligne)
     return "\n".join(lignes)
+
+
+def a_prendre(lots: list[Lot], palier: int | None, machine_libre: dict[str, bool],
+              ouvertes: frozenset[int] = frozenset()) -> Lot | None:
+    """Le lot suivant : une réparation urgente d'abord, quel que soit son
+    palier ; puis le lot prêt du palier courant au plus petit numéro. Une
+    machine occupée ne prend rien ; un lot dont une dépendance est encore
+    ouverte attend."""
+    prets = [l for l in sorted(lots, key=lambda l: l.numero)
+             if l.est_un_lot and l.etat == "pret" and machine_libre.get(l.machine, False)
+             and not (l.dependances & ouvertes)]
+    return next((l for l in prets if l.urgent), None) or next((l for l in prets if l.palier == palier
+                                                               and palier is not None), None)
 
 
 @dataclass(frozen=True)
@@ -397,120 +276,148 @@ class Action:
     essai: int = 0
 
 
-# Ce que le PC répond à un envoi. `attente` : aucun de ses agents n'a pu
-# répondre (quota, session, installation) ; ce n'est pas un passage du codeur.
-# `reponse` : le codeur a répondu à une revue sans changer de fichier.
-REPONSES_PC = ("fait", "echec", "attente", "reponse")
-# Après une attente du PC, on renvoie au bout d'une heure ; sans réponse du
-# tout (PC éteint : GitHub garde le travail en file un jour), au bout de 24 h.
+# Ce que le PC répond à un envoi : une étape faite, un échec, une coupure, ou
+# une attente (aucun de ses agents n'a pu répondre : ce n'est pas un passage).
 HEURES_ATTENTE_PC = 1
 HEURES_SILENCE_PC = 24
+# Les marques d'un passage du meneur.
+PLAN, ETAPE, CORRECTION, REPONSE, COUPE, ECHEC, ENVOYE, ATTENTE = (
+    "plan", "etape", "correction", "reponse", "coupe", "echec", "envoye", "attente")
+# Les marques du pilote.
+REPRISE, BLOQUE, DECISION, BOUCLE = "reprise", "bloque", "decision", "boucle"
+# Un passage qui a compté : il a rendu quelque chose, bon ou non.
+_PASSAGES = (PLAN, ETAPE, CORRECTION, REPONSE, ECHEC, COUPE)
+# Deux échecs de suite du meneur, et le lot est bloqué : le CTO regarde.
+ECHECS_MAX = 2
+# Une étape rendue inachevée se poursuit ; trois fois de suite, elle est trop grosse.
+POURSUITES_MAX = 3
 
 
 def depuis_reprise(liste: list[dict]) -> list[dict]:
-    """Les marques depuis la dernière reprise : un lot bloqué que le
-    propriétaire remet « pret » recompte ses essais de zéro."""
+    """Les marques depuis la dernière reprise : un lot bloqué qui repart
+    recompte ses essais de zéro."""
     for i in range(len(liste) - 1, -1, -1):
-        if liste[i].get("etat") == "reprise":
+        if liste[i].get("etat") == REPRISE:
             return liste[i + 1:]
     return list(liste)
 
 
-def echecs_du_chef(liste: list[dict]) -> int:
-    """Les échecs du chef sur une issue, depuis son dernier blocage ou sa
-    dernière reprise : remettre « pret » un lot bloqué redonne ses essais."""
-    debut = 0
-    for i, m in enumerate(liste):
-        if m.get("etat") in ("bloque", "reprise"):
-            debut = i + 1
-    return sum(1 for m in liste[debut:] if m.get("role") == "chef" and m.get("etat") == "echec")
+def du_meneur(liste: list[dict]) -> list[dict]:
+    return [m for m in liste if m.get("role") in ROLES_MENEURS]
 
 
-def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *,
-                    corrections_max: int, role_codeur: str = "codeur",
-                    heures_depuis_envoi_pc: float | None = None,
+def plan_du_lot(liste: list[dict]) -> dict | None:
+    """La marque du dernier plan : ses étapes, et la session qui l'a écrit."""
+    return next((m for m in reversed(liste) if m.get("role") in ROLES_MENEURS and m.get("etat") == PLAN), None)
+
+
+def etapes_faites(liste: list[dict]) -> set[int]:
+    """Les étapes du dernier plan que le meneur a finies."""
+    plan = plan_du_lot(liste)
+    if plan is None:
+        return set()
+    apres = liste[max(i for i, m in enumerate(liste) if m is plan):]
+    return {int(m["etape"]) for m in apres if m.get("role") in ROLES_MENEURS and m.get("etat") == ETAPE
+            and m.get("fini") and m.get("etape")}
+
+
+def _de_suite(passages: list[dict], etat: str) -> int:
+    """Combien de passages de cet état se suivent, à la fin."""
+    n = 0
+    for m in reversed(passages):
+        if m.get("etat") != etat:
+            break
+        n += 1
+    return n
+
+
+def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *, corrections_max: int,
+                    coupures_max: int, heures_depuis_envoi_pc: float | None = None,
                     heures_depuis_attente_pc: float | None = None) -> Action:
     """Ce que le pilote fait ensuite pour un lot en cours. Fonction pure.
 
-    Un lot a droit à 1 + `corrections_max` passages du codeur : le premier,
-    puis une correction par CI rouge ou relecture « CORRIGER ». Au-delà, il
-    est bloqué, avec sa raison. Les compteurs partent de la dernière reprise ;
-    l'état du travail (code écrit, verdicts), de tout l'historique.
-    """
+    Le chemin : le plan, puis ses étapes une à une, puis la CI, puis la
+    relecture, puis la fusion. Une CI rouge ou une relecture « CORRIGER »
+    renvoie au meneur, `corrections_max` fois au plus ; au-delà, le lot est
+    bloqué et le CTO le regarde. Les compteurs partent de la dernière
+    reprise ; l'état du travail (plan, étapes, verdicts), de tout
+    l'historique."""
     if pr is None:
-        return Action("chef")
+        return Action("planifier")
     if pr.get("state") == "MERGED" or pr.get("mergedAt"):
         return Action("livrer")
     if pr.get("state") == "CLOSED":
         return Action("bloquer", "la PR a été fermée sans fusion")
     tete = pr.get("headRefOid") or ""
-    codeurs = [m for m in depuis_reprise(liste) if m.get("role") == role_codeur]
-    essais = sum(1 for m in codeurs if m.get("etat") in ("fait", "echec", "reponse"))
-    max_essais = 1 + corrections_max
+    siens = du_meneur(depuis_reprise(liste))
 
     # Un envoi au PC attend sa réponse ; sans réponse en un jour, on renvoie.
-    # Seul le dernier envoi attend : une relance remplace l'envoi resté muet.
-    # Le 17 octobre 2026, #654 attendait encore après le retour du PC : le
-    # passage du 16 avait cassé sans marque, deux envois pour une réponse.
-    if codeurs and codeurs[-1].get("etat") == "envoye":
+    if siens and siens[-1].get("etat") == ENVOYE:
         if heures_depuis_envoi_pc is not None and heures_depuis_envoi_pc > HEURES_SILENCE_PC:
-            return Action("relancer_pc", "le PC n'a pas répondu en 24 h", essai=essais)
+            return Action("relancer_pc", "le PC n'a pas répondu en 24 h")
         return Action("attendre_pc", "le travail est parti sur le PC")
-    if (codeurs and codeurs[-1].get("etat") == "attente" and heures_depuis_attente_pc is not None
+    if (siens and siens[-1].get("etat") == ATTENTE and heures_depuis_attente_pc is not None
             and heures_depuis_attente_pc < HEURES_ATTENTE_PC):
         return Action("attendre_pc", "aucun agent du PC n'a pu répondre : renvoi au bout d'une heure")
+
+    passages = [m for m in siens if m.get("etat") in _PASSAGES]
+    if _de_suite(passages, COUPE) >= coupures_max:
+        return Action("bloquer", f"le {passages[-1].get('role')} a été coupé par son délai {coupures_max} fois de suite")
+    if _de_suite(passages, ECHEC) >= ECHECS_MAX:
+        return Action("bloquer", f"le {passages[-1].get('role')} a échoué {ECHECS_MAX} fois de suite")
 
     if pr.get("mergeable") == "CONFLICTING":
         return Action("conflit", "la branche est en conflit avec la base")
 
-    reussis = [m for m in liste if m.get("role") == role_codeur and m.get("etat") == "fait"]
-    if not reussis:
-        if essais >= max_essais:
-            return Action("bloquer", f"le codeur a échoué {essais} fois")
-        return Action("coder", essai=essais)
+    plan = plan_du_lot(liste)
+    if plan is None:
+        return Action("planifier")
+    faites = etapes_faites(liste)
+    suivante = next((k for k in range(1, int(plan.get("etapes") or 0) + 1) if k not in faites), None)
+    if suivante is not None:
+        poursuites = 0
+        for m in reversed(passages):
+            if not (m.get("etat") == ETAPE and m.get("etape") == suivante and not m.get("fini")):
+                break
+            poursuites += 1
+        if poursuites >= POURSUITES_MAX:
+            return Action("bloquer", f"l'étape {suivante} a été rendue inachevée {POURSUITES_MAX} fois : "
+                                     "elle est trop grosse pour un passage")
+        return Action("etape", essai=suivante)
 
+    corrections = sum(1 for m in siens if m.get("etat") == CORRECTION)
     if etat_ci == "attente":
         return Action("attendre_ci")
     if etat_ci == "rouge":
-        if essais >= max_essais:
-            return Action("bloquer", f"CI rouge après {essais - 1} correction(s)")
-        return Action("corriger_ci", "CI rouge", essai=essais)
+        if corrections >= corrections_max:
+            return Action("bloquer", f"CI rouge après {corrections} correction(s)")
+        resume = any(m.get("role") == "lecteur" and m.get("sha") == tete for m in liste)
+        return Action("corriger_ci" if resume else "resumer_ci", "CI rouge", essai=corrections + 1)
 
-    verdicts = [m for m in liste if m.get("role") == "relecteur" and m.get("sha") == tete]
-    # Une relecture sans verdict (délai, verdict illisible) n'est pas un
-    # « CORRIGER » : elle se rejoue, et `_relire` bloque à deux échecs. Le
-    # 30 septembre 2026, elle renvoyait au codeur une revue vide (#126).
-    if not verdicts or not verdicts[-1].get("verdict"):
+    verdicts = [(i, m) for i, m in enumerate(liste) if m.get("role") in (RELECTEUR, CTO) and m.get("verdict")
+                and m.get("sha") == tete]
+    if not verdicts:
         return Action("relire")
-    dernier = verdicts[-1].get("verdict")
-    # Le codeur a répondu à cette revue sans changer de fichier (le constat ne
-    # demandait qu'une réponse écrite) : le relecteur relit avec sa réponse.
-    # Le 1er octobre 2026, #270 s'est bloqué sur un « n'a rien changé ».
-    i_verdict = max(i for i, m in enumerate(liste) if m.get("role") == "relecteur" and m.get("sha") == tete)
-    i_reponse = max((i for i, m in enumerate(liste) if m.get("role") == role_codeur and m.get("etat") == "reponse"),
-                    default=-1)
-    if dernier == "CORRIGER" and i_reponse > i_verdict:
-        return Action("relire")
-    if dernier == "ACCEPTE":
-        if pr.get("autoMergeRequest"):
-            return Action("attendre_fusion")
-        return Action("fusionner")
-    if essais >= max_essais:
-        return Action("bloquer", f"relecture « CORRIGER » après {essais - 1} correction(s)")
-    return Action("corriger_relecture", "relecture « CORRIGER »", essai=essais)
+    rang, dernier = verdicts[-1]
+    if dernier["verdict"] == "ACCEPTE":
+        return Action("attendre_fusion" if pr.get("autoMergeRequest") else "fusionner")
+    # Le meneur a contesté ce verdict sans changer de fichier : le CTO tranche.
+    suite = liste[rang + 1:]
+    conteste = any(m.get("role") in ROLES_MENEURS and m.get("etat") == REPONSE for m in suite)
+    arbitre = any(m.get("role") == CTO and m.get("etat") == "arbitrage" for m in suite)
+    if conteste and not arbitre:
+        return Action("arbitrer", "le meneur conteste la relecture")
+    if corrections >= corrections_max:
+        return Action("bloquer", f"relecture « CORRIGER » après {corrections} correction(s)")
+    return Action("corriger_relecture", "relecture « CORRIGER »", essai=corrections + 1)
 
 
-# Le travail de la CI qui chronomètre le moteur (`pytest -m chronometre`). Au
-# bord de son budget sur les runners partagés, il rougit sans que le lot y
-# soit pour rien. Les 14 et 15 octobre 2026, #625 (du C# seul) a gâché deux
-# fois ses deux corrections sur ce rouge, puis s'est bloqué. Le pilote rejoue
-# le travail une fois avant d'appeler le codeur, sans compter d'essai (marque
-# « rejeu » sur la PR). Un lot qui touche `jeu/` se rejoue aussi : le 16
-# octobre, #414 s'est bloqué sur des médianes de 110 ms qu'un tick de master à
-# 98 ms et des mesures à 179 ms expliquaient seuls.
+# Le travail de la CI qui chronomètre le moteur. Au bord de son budget sur
+# les runners partagés, il rougit sans que le lot y soit pour rien : le pilote
+# le rejoue une fois avant d'appeler le meneur, sans compter d'essai.
 TRAVAIL_CHRONOMETRE = "chronometre"
 ETAT_REJEU = "rejeu"
-# Un rejeu qui n'a rien rendu au bout de ce temps rend la main au codeur.
+# Un rejeu qui n'a rien rendu au bout de ce temps rend la main au meneur.
 HEURES_REJEU = 2
 
 
@@ -521,20 +428,22 @@ def _instant(texte: str) -> datetime | None:
         return None
 
 
-def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str,
-                         liste: list[dict], *, role_codeur: str = "codeur",
-                         heures_depuis_rejeu: float | None = None) -> str:
-    """Ce que fait le pilote d'une CI rouge avant d'appeler le codeur.
+def _depuis_le_dernier_passage(liste: list[dict]) -> list[dict]:
+    """Les marques depuis le dernier passage du meneur (et la dernière reprise)."""
+    passages = [i for i, m in enumerate(liste) if m.get("role") in ROLES_MENEURS and m.get("etat") in _PASSAGES]
+    return depuis_reprise(liste[passages[-1] + 1:] if passages else liste)
 
-    `travaux` : ceux du workflow de `chronometre` (`github.travaux`), dont
-    `agregat`, le travail qui les attend tous. « rejouer » : seul
-    `chronometre` est rouge, le run est fini, et rien n'a été rejoué depuis
-    le dernier passage du codeur.
+
+def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str, liste: list[dict], *,
+                         heures_depuis_rejeu: float | None = None) -> str:
+    """Ce que fait le pilote d'une CI rouge avant d'appeler le meneur.
+
+    `travaux` : ceux du workflow de `chronometre`, dont `agregat`, le travail
+    qui les attend tous. « rejouer » : seul `chronometre` est rouge, le run
+    est fini, et rien n'a été rejoué depuis le dernier passage du meneur.
     « attendre » : ce run, ou le rejeu, tourne encore ; un rouge d'avant le
-    rejeu est périmé. « » : le codeur corrige."""
-    passages = [i for i, m in enumerate(liste) if m.get("role") == role_codeur
-                and m.get("etat") in ("fait", "echec", "reponse")]
-    depuis = depuis_reprise(liste[passages[-1] + 1:] if passages else liste)
+    rejeu est périmé. « » : le meneur corrige."""
+    depuis = _depuis_le_dernier_passage(liste)
     rejeu = next((m for m in reversed(depuis) if m.get("role") == "pilote" and m.get("etat") == ETAT_REJEU), None)
     if rejeu is not None:
         if heures_depuis_rejeu is not None and heures_depuis_rejeu > HEURES_REJEU:
@@ -556,19 +465,13 @@ def rejeu_du_chronometre(travaux: dict[str, dict[str, str]], agregat: str,
 
 
 # Un travail de CI tombé avant d'avoir rien contrôlé (un téléchargement, une
-# installation, le checkout) n'a rien dit du lot. Les 8 et 9 novembre 2026,
-# #1031 et #1046 ont usé leurs deux corrections sur un 504 reçu en
-# téléchargeant gitleaks, puis se sont bloqués : le codeur n'avait rien à
-# corriger, le dépanneur a écrit le remède sans pouvoir le poser, et la chaîne
-# est restée deux jours sans rien faire. Le pilote rejoue ces travaux lui-même,
-# sans compter d'essai (marque « rejeu_panne » sur la PR), `PANNES_MAX` fois
-# au plus depuis le dernier passage du codeur ; au-delà, le lot se bloque en
-# nommant l'étape, sans rappeler le codeur.
+# installation, le checkout) n'a rien dit du lot. Le pilote le rejoue
+# lui-même, sans compter d'essai, `PANNES_MAX` fois au plus depuis le dernier
+# passage du meneur ; au-delà, le lot se bloque en nommant l'étape.
 ETAT_REJEU_PANNE = "rejeu_panne"
 PANNES_MAX = 3
 # Le nom que GitHub donne aux étapes qui préparent un travail : celles d'une
-# action (`uses:`, « Run actions/… »), les siennes (« Set up job »…), et nos
-# étapes d'installation (« Install … », « Run python -m pip install … »).
+# action (`uses:`), les siennes (« Set up job »…), et nos installations.
 _ETAPE_D_INFRASTRUCTURE = re.compile(
     r"^(Set up job|Complete job|Post |Run actions/|Install |Run (python3?|py) -m pip install)", re.IGNORECASE)
 
@@ -576,21 +479,16 @@ _ETAPE_D_INFRASTRUCTURE = re.compile(
 def panne_d_infrastructure(etapes: list[dict]) -> str:
     """Le nom de l'étape en panne quand un travail rouge est tombé en se
     préparant, « » quand c'est un contrôle qui a échoué ou qu'on ne sait pas.
-
-    `etapes` : celles du travail, dans l'ordre (`github.etapes_du_travail`).
     Seule la première étape en échec compte : les suivantes sont sautées."""
     rouge = next((e for e in etapes if e.get("conclusion") == "failure"), None)
     nom = (rouge or {}).get("name") or ""
     return nom if _ETAPE_D_INFRASTRUCTURE.match(nom) else ""
 
 
-def rejeux_de_panne(liste: list[dict], *, role_codeur: str = "codeur") -> list[dict]:
-    """Les marques « rejeu_panne » du pilote depuis le dernier passage du
-    codeur (et la dernière reprise) : ce sont elles que `PANNES_MAX` borne."""
-    passages = [i for i, m in enumerate(liste) if m.get("role") == role_codeur
-                and m.get("etat") in ("fait", "echec", "reponse")]
-    depuis = depuis_reprise(liste[passages[-1] + 1:] if passages else liste)
-    return [m for m in depuis if m.get("role") == "pilote" and m.get("etat") == ETAT_REJEU_PANNE]
+def rejeux_de_panne(liste: list[dict]) -> list[dict]:
+    """Les marques « rejeu_panne » du pilote depuis le dernier passage du meneur."""
+    return [m for m in _depuis_le_dernier_passage(liste)
+            if m.get("role") == "pilote" and m.get("etat") == ETAT_REJEU_PANNE]
 
 
 def rejeu_de_panne_en_vol(dates_des_rouges: Iterable[str], en_cours: bool, rejeux: list[dict],
@@ -616,10 +514,7 @@ def rejeu_de_panne_en_vol(dates_des_rouges: Iterable[str], en_cours: bool, rejeu
     return "attendre"
 
 
-# Un rouge que la base de la PR portait déjà n'est pas au lot. Le 22 octobre
-# 2026, #785 (du Blender seul) a usé ses deux corrections sur le rouge
-# `chronometre` de master, rouge depuis #772 : deux réponses sans changement,
-# puis bloqué, alors que le mécanicien réparait master le même matin.
+# Un rouge que la base de la PR portait déjà n'est pas au lot.
 ETAT_BASE_ROUGE = "base_rouge"
 
 
@@ -628,10 +523,10 @@ def rouge_de_la_base(rouges: set[str], base: dict[str, str], master: dict[str, s
 
     `rouges` : les travaux rouges de la PR, sans l'agrégat ; `base` et
     `master` : l'état des travaux du commit d'où part la PR et de la tête de
-    master (`github.travaux_du_commit`). « » : un des rouges est au lot, le
-    codeur corrige. « attendre » : master porte encore ce rouge, ou n'a pas
-    fini de le jouer ; le mécanicien de master répare, le lot ne compte pas
-    d'essai. « fusionner » : master l'a guéri depuis, la branche le reçoit."""
+    master. « » : un des rouges est au lot, le meneur corrige. « attendre » :
+    master porte encore ce rouge, ou n'a pas fini de le jouer ; le lot ne
+    compte pas d'essai. « fusionner » : master l'a guéri depuis, la branche le
+    reçoit."""
     if not rouges or not rouges <= {n for n, e in base.items() if e == "rouge"}:
         return ""
     if any(master.get(n) != "vert" for n in rouges):
@@ -639,287 +534,132 @@ def rouge_de_la_base(rouges: set[str], base: dict[str, str], master: dict[str, s
     return "fusionner"
 
 
-# La question que le chef pose au propriétaire, quand un lot demande une
-# décision que lui seul peut prendre (un test ou une règle du monde à
-# changer) : « DECISION: QUESTION :: <la question> », une ligne par réponse
-# possible, « - A :: <la réponse> :: <ce qu'elle coûte> », et
-# « RECOMMANDATION :: A :: <pourquoi> ». Le 29 septembre 2026, #209 a attendu
-# une décision que le journal ne posait pas : « lire sa raison ».
-_OPTION = re.compile(r"^\s*-\s*([A-Z])\s*::\s*(.+?)(?:\s*::\s*(.+?))?\s*$", re.M)
-_RECOMMANDATION = re.compile(r"^\s*RECOMMANDATION\s*::\s*([A-Z])\s*(?:::\s*(.+?))?\s*$", re.M)
-# « NATURE :: jeu » ou « NATURE :: technique ». Le propriétaire tranche ce qui
-# oriente le jeu ; une question technique (un test, un format, une règle de
-# code) suit la recommandation sans l'attendre : le 3 octobre 2026, il
-# répondait toujours la recommandée, et J2, J3, J4 attendaient ses lettres.
-# Sans nature lisible, la question est « jeu » : dans le doute, on demande.
-_NATURE = re.compile(r"^\s*NATURE\s*::\s*(jeu|technique)\b", re.M | re.I)
-NATURE_JEU, NATURE_TECHNIQUE = "jeu", "technique"
-# La marque du pilote qui a suivi seul la recommandation d'une question
-# technique ; au-delà de DECISIONS_SEULES_MAX par lot, la question suivante
-# va au propriétaire : un lot qui pose question sur question tourne en rond.
-ETAT_DECISION = "decision"
-DECISIONS_SEULES_MAX = 2
-
-
 @dataclass(frozen=True)
 class Question:
+    """Ce que le meneur demande quand le lot exige une décision qu'il n'a pas
+    le droit de prendre : la question, deux à quatre réponses avec ce
+    qu'elles coûtent, et sa recommandation."""
+
     texte: str
     options: tuple[tuple[str, str, str], ...] = ()  # (lettre, réponse, ce qu'elle coûte)
     recommandation: tuple[str, str] | None = None    # (lettre, pourquoi)
-    nature: str = NATURE_JEU
-
-    def marque(self) -> dict:
-        return {"question": self.texte, "options": [list(o) for o in self.options],
-                "recommandation": list(self.recommandation) if self.recommandation else None,
-                "nature": self.nature}
 
     @classmethod
-    def de_marque(cls, m: dict) -> "Question | None":
-        if not m.get("question"):
+    def de(cls, lu: dict | None) -> "Question | None":
+        """La question, lue dans la sortie d'un agent ou dans une marque."""
+        if not isinstance(lu, dict) or not (lu.get("texte") or lu.get("question")):
             return None
-        reco = m.get("recommandation")
-        return cls(texte=m["question"], options=tuple(tuple(o) for o in m.get("options") or []),
-                   recommandation=tuple(reco) if reco else None, nature=m.get("nature") or NATURE_JEU)
+        options = tuple((str(o.get("lettre", "")).strip().upper(), str(o.get("reponse", "")).strip(),
+                         str(o.get("cout", "")).strip())
+                        for o in lu.get("options") or [] if isinstance(o, dict) and o.get("lettre"))
+        reco = lu.get("recommandation") if isinstance(lu.get("recommandation"), dict) else None
+        lettre = str((reco or {}).get("lettre", "")).strip().upper()
+        return cls(texte=str(lu.get("texte") or lu.get("question")).strip(), options=options,
+                   recommandation=(lettre, str(reco.get("pourquoi", "")).strip())
+                   if lettre and lettre in {o[0] for o in options} else None)
 
-    def se_decide_seule(self) -> bool:
-        """Une question technique dont la recommandation nomme une réponse."""
-        return self.nature == NATURE_TECHNIQUE and self.recommandation is not None
+    def marque(self) -> dict:
+        return {"question": self.texte,
+                "options": [{"lettre": l, "reponse": r, "cout": c} for l, r, c in self.options],
+                "recommandation": ({"lettre": self.recommandation[0], "pourquoi": self.recommandation[1]}
+                                   if self.recommandation else None)}
 
-    def reponse_recommandee(self) -> str:
-        lettre = self.recommandation[0] if self.recommandation else ""
-        return next((r for l, r, _ in self.options if l == lettre), "")
+    def reponse(self, lettre: str) -> str:
+        return next((r for l, r, _ in self.options if l == lettre.strip().upper()), "")
 
-    def en_une_ligne(self) -> str:
-        """Pour le journal : la question, ses réponses, et le choix du chef."""
-        ligne = self.texte.rstrip(" ?") + " ?"
-        if self.options:
-            ligne += " " + " ; ".join(f"{l} : {r}" for l, r, _ in self.options) + "."
+    def en_clair(self) -> str:
+        lignes = [f"**{self.texte}**"] + [f"- **{l}** — {r}" + (f" ({c})" if c else "") for l, r, c in self.options]
         if self.recommandation:
-            lettre, pourquoi = self.recommandation
-            ligne += f" Le chef recommande {lettre}" + (f" ({pourquoi})" if pourquoi else "") + "."
-        return ligne
+            lignes.append(f"Recommandation : **{self.recommandation[0]}**"
+                          + (f" — {self.recommandation[1]}" if self.recommandation[1] else ""))
+        return "\n".join(lignes)
 
 
-def question_du_chef(texte: str, question: str) -> Question:
-    """La question du chef, lue dans sa réponse : ses options et sa
-    recommandation, s'il en a écrit. Une recommandation qui ne nomme aucune
-    des options est ignorée."""
-    options = tuple((l, r.strip(), (c or "").strip()) for l, r, c in _OPTION.findall(texte))
-    reco = None
-    trouvees = _RECOMMANDATION.findall(texte)
-    if trouvees:
-        lettre, pourquoi = trouvees[-1]
-        if not options or lettre in {o[0] for o in options}:
-            reco = (lettre, (pourquoi or "").strip())
-    natures = _NATURE.findall(texte)
-    return Question(texte=question.strip() or "le chef n'a pas écrit sa question", options=options,
-                    recommandation=reco, nature=natures[-1].lower() if natures else NATURE_JEU)
-
-
-def decisions_seules(commentaires: list[dict]) -> int:
-    """Les questions techniques que le pilote a déjà tranchées seul sur ce lot."""
-    return sum(1 for m in marques(commentaires) if m.get("role") == "pilote" and m.get("etat") == ETAT_DECISION
-               and m.get("par") != PAR_DIRECTION)
-
-
-# La direction (`pilote._diriger`) lit une question posée au propriétaire avant
-# lui. Du 27 septembre au 10 novembre 2026, 47 questions lui ont été posées :
-# 19 h de médiane avant sa réponse, et il répondait presque toujours la
-# recommandation ; le 10 novembre, sept lots attendaient ainsi depuis deux à
-# neuf jours et la chaîne ne faisait plus rien. Elle tranche ce que
-# docs/VISION.md, CAP.md ou une décision déjà écrite tranchent, et ce qui est
-# réversible ; elle laisse au propriétaire la vision, l'irréversible et toute
-# preuve rendue moins exigeante (AGENTS.md, « L'échelle de décision »). Sa
-# décision s'écrit comme celle du pilote (marque « decision », `par`
-# « direction ») : le chef, le codeur et le relecteur la lisent de même.
-PAR_DIRECTION = "direction"
-ETAT_AVIS = "avis"
-DECISIONS_DIRECTION_MAX = 2
-ACTION_DIRECTION = "décision de la direction"
-# Un appel d'agent qui a dit ce qu'il a coûté (`agents.lire_sortie`), au journal du pilote.
-ACTION_APPEL = "appel"
-
-
-def decisions_de_la_direction(commentaires: list[dict]) -> int:
-    """Les questions que la direction a déjà tranchées sur ce lot."""
-    return sum(1 for m in marques(commentaires) if m.get("etat") == ETAT_DECISION and m.get("par") == PAR_DIRECTION)
-
-
-def question_pour_la_direction(commentaires: list[dict],
-                               decisions_max: int = DECISIONS_DIRECTION_MAX) -> "Question | None":
-    """La question que la direction doit lire, ou None : le dernier blocage du
-    lot est une question, la direction n'a rien dit depuis, personne n'y a
-    répondu, et elle n'a pas déjà tranché `decisions_max` fois sur ce lot."""
+def dernier_blocage(commentaires: list[dict]) -> tuple[int, dict] | None:
+    """Le rang et la marque du dernier blocage du lot."""
     liste = marques(commentaires)
-    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
-    if dernier is None:
-        return None
-    question = Question.de_marque(liste[dernier])
-    if question is None or not question.options:
-        return None
-    if any(m.get("role") == PAR_DIRECTION for m in liste[dernier + 1:]):
-        return None
-    if reponse_apres_blocage(commentaires) or decisions_de_la_direction(commentaires) >= decisions_max:
-        return None
-    return question
+    rang = max((i for i, m in enumerate(liste) if m.get("etat") == BLOQUE), default=None)
+    return None if rang is None else (rang, liste[rang])
 
 
-def reponse_apres_blocage(commentaires: list[dict]) -> bool:
-    """Un humain a-t-il écrit sur l'issue depuis son dernier blocage ? Ce
-    commentaire vaut réponse : le pilote remet le lot en route. Un lot
-    bloqué à la main, sans marque du pilote, n'est pas concerné ; les
-    commentaires du pilote (marqués) et des robots ne comptent pas."""
+def deblocage_a_faire(commentaires: list[dict]) -> bool:
+    """Le CTO doit-il regarder ce lot bloqué ? Oui si son dernier blocage
+    n'est pas le sien (il ne se relit pas), et qu'il n'a rien dit depuis."""
+    trouve = dernier_blocage(commentaires)
+    if trouve is None:
+        return False
+    rang, blocage = trouve
+    if blocage.get("par") == CTO:
+        return False
+    return not any(m.get("role") == CTO for m in marques(commentaires)[rang + 1:])
+
+
+def relances_du_cto(commentaires: list[dict]) -> int:
+    """Combien de fois le CTO a déjà relancé ce lot."""
+    return sum(1 for m in marques(commentaires) if m.get("role") == CTO and m.get("etat") == DECISION
+               and m.get("decision") == "relancer")
+
+
+def reponse_apres_blocage(commentaires: list[dict], proprietaire: str) -> bool:
+    """Le propriétaire a-t-il écrit sur l'issue depuis son dernier blocage ?
+    Ce commentaire vaut réponse : le pilote remet le lot en route. Les
+    commentaires du pilote (marqués) et ceux d'un autre compte ne comptent pas."""
     dernier = None
     for i, c in enumerate(commentaires or []):
-        if any(m.get("etat") == "bloque" for m in marques([c])):
+        if any(m.get("etat") == BLOQUE for m in marques([c])):
             dernier = i
     if dernier is None:
         return False
-    return any(_ecrit_par_un_humain(c) for c in commentaires[dernier + 1:])
+    return any(ecrit_par_le_proprietaire(c, proprietaire) for c in commentaires[dernier + 1:])
 
 
-# Le dépanneur (`pilote._depanner`) regarde un lot que le pilote vient de
-# bloquer, avant le propriétaire. Il le relance avec une consigne (marque
-# « depanne »), pose une question au propriétaire, ou dit que la chaîne est en
-# cause ; il ne relance pas un même lot plus de `depannages_max` fois. Le
-# 1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois
-# pour un quota, une relecture vide ou une image illisible, que la chaîne
-# pouvait lever seule.
-ETAT_DEPANNE = "depanne"
-PAR_DEPANNEUR = "depanneur"
-
-
-def depannage_a_faire(commentaires: list[dict], depannages_max: int) -> bool:
-    """Le dépanneur doit-il regarder ce lot ? Oui si son dernier blocage
-    vient du pilote, n'est ni une question au propriétaire ni un blocage posé
-    par le dépanneur lui-même, que le dépanneur n'a rien dit depuis, et qu'il
-    n'a pas déjà relancé le lot `depannages_max` fois."""
-    liste = marques(commentaires)
-    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
-    if dernier is None:
-        return False
-    blocage = liste[dernier]
-    if blocage.get("question") or blocage.get("par") == PAR_DEPANNEUR:
-        return False
-    if any(m.get("role") == "depanneur" for m in liste[dernier + 1:]):
-        return False
-    relances = sum(1 for m in liste if m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE)
-    return relances < depannages_max
-
-
-# La chaîne se répare (`pilote._reparer_la_chaine`) : un lot que le dépanneur
-# a bloqué en disant que la chaîne est en cause reçoit une réparation du
-# mécanicien, dans une PR `meca/chaine-<lot>-…`. La marque « reparation » sur
-# l'issue dit où elle en est : `pr` (ouverte), puis `fin` (« fusionnee », le
-# lot repart ; « abandonnee » ou « echec », il attend le mode direct).
-ETAT_REPARATION = "reparation"
-RAISON_CHAINE = "la chaîne est en cause"
-PREFIXE_REPARATION = "meca/chaine-"
-
-
-def chaine_en_cause(commentaires: list[dict]) -> "tuple[str, dict | None] | None":
-    """La raison du dépanneur et la dernière marque de réparation posée
-    depuis, quand le dernier blocage du lot dit que la chaîne est en cause ;
-    None sinon, ou si un humain a répondu depuis (c'est lui qui a la main)."""
-    liste = marques(commentaires)
-    dernier = max((i for i, m in enumerate(liste) if m.get("etat") == "bloque"), default=None)
-    if dernier is None:
-        return None
-    blocage = liste[dernier]
-    raison = blocage.get("raison") or ""
-    if blocage.get("par") != PAR_DEPANNEUR or not raison.startswith(RAISON_CHAINE):
-        return None
-    if reponse_apres_blocage(commentaires):
-        return None
-    reparations = [m for m in liste[dernier + 1:] if m.get("etat") == ETAT_REPARATION]
-    return raison, (reparations[-1] if reparations else None)
-
-
-def consigne_du_depanneur(commentaires: list[dict]) -> str:
-    """La consigne du dépanneur qui vaut encore : celle de sa dernière
-    relance, tant que le lot n'a pas été rebloqué depuis."""
-    consigne = ""
-    for m in marques(commentaires):
-        if m.get("etat") == "bloque":
-            consigne = ""
-        elif m.get("role") == "depanneur" and m.get("etat") == ETAT_DEPANNE:
-            consigne = m.get("consigne") or ""
-    return consigne
-
-
-def _ecrit_par_un_humain(c: dict) -> bool:
-    """Ni le pilote (ses commentaires sont marqués), ni un robot."""
+def ecrit_par_le_proprietaire(c: dict, proprietaire: str) -> bool:
+    """Ce commentaire est-il la parole du propriétaire ? Il porte son compte,
+    et pas de marque (le pilote écrit sous le même compte, mais il marque ce
+    qu'il écrit). Le dépôt est public : ce qu'un autre compte écrit sur une
+    issue n'est ni une réponse, ni une consigne, ni un accord, et n'arrive
+    jamais à un agent."""
     corps = (c.get("body") or "").strip()
     auteur = ((c.get("author") or {}).get("login") or "").lower()
-    return bool(corps) and "<!-- atelier" not in corps and not auteur.endswith("[bot]") and auteur != "github-actions"
+    return bool(corps) and "<!-- atelier" not in corps and bool(proprietaire) and auteur == proprietaire.lower()
 
 
-def decisions_du_lot(commentaires: list[dict]) -> list[str]:
-    """Ce qui a été décidé sur ce lot : chaque question posée au propriétaire,
-    avec la réponse qu'il a écrite ensuite, et chaque question technique que
-    le pilote a tranchée seul. Rien ne les efface, ni un blocage ni une
-    reprise : le 3 octobre 2026, #235 avait l'accord du propriétaire pour
-    toucher la chronique, mais le codeur ne lisait que le brief, qui
-    l'excluait, et le lot s'est bloqué trois fois sur la même CI rouge.
-
-    Ce que le propriétaire écrit après un blocage qui n'était pas une
-    question est sa consigne, et suit le lot de même : jusqu'au 11 novembre
-    2026, ce commentaire levait le blocage sans jamais arriver au codeur ni au
-    relecteur (ou leur arrivait sous une vieille question du lot)."""
+def decisions_du_lot(commentaires: list[dict], proprietaire: str) -> list[str]:
+    """Ce qui a été décidé sur ce lot, en entier : chaque décision du CTO
+    avec ses raisons et ses bornes, et tout ce que le propriétaire a écrit sur
+    l'issue. Rien ne les efface, ni un blocage ni une reprise : le meneur et
+    le relecteur les reçoivent à chaque passage, comme une consigne qui prime
+    sur la fiche là où elle la contredit."""
     decisions: list[str] = []
-    question: Question | None = None
-    blocage: str | None = None  # la raison du dernier blocage sans question, tant qu'il attend sa réponse
     for c in commentaires or []:
         faites = marques([c])
         for m in faites:
-            if m.get("role") != "pilote":
+            if m.get("role") != CTO or m.get("etat") != DECISION:
                 continue
-            if m.get("etat") == "bloque" and m.get("question"):
-                question, blocage = Question.de_marque(m), None
-            elif m.get("etat") == "bloque":
-                question, blocage = None, (m.get("raison") or "lot bloqué")
-            elif m.get("etat") == "reponse":
-                blocage = None  # le pilote a pris la réponse : la suite n'en est plus une
-            elif m.get("etat") == ETAT_DECISION and (q := Question.de_marque(m)) and q.recommandation:
-                lettre = q.recommandation[0]
-                reponse = q.reponse_recommandee()
-                if m.get("par") == PAR_DIRECTION:
-                    decisions.append(f"Question : {q.texte} Décision : {lettre}" + (f" — {reponse}" if reponse else "")
-                                     + " (prise par la direction, à la place du propriétaire).")
-                    continue
-                decisions.append(f"Question technique : {q.texte} Décision : {lettre}"
-                                 + (f" — {reponse}" if reponse else "")
-                                 + " (prise par le pilote, selon la recommandation).")
-        if faites or not _ecrit_par_un_humain(c):
-            continue
-        texte = (c.get("body") or "").strip()
-        if question is None:
-            if blocage is not None:
-                decisions.append(f"Blocage : {blocage}. Consigne du propriétaire : {texte[:2000]}")
-            continue
-        choisie = next((f"{l} — {r}" for l, r, _ in question.options if texte.rstrip(" .").upper() == l), None)
-        decisions.append(f"Question : {question.texte} Réponse du propriétaire : {choisie or texte}")
+            quoi = {"relancer": "Le CTO a relancé le lot", "trancher": "Le CTO a tranché",
+                    "reporter": "Le CTO a reporté le lot"}.get(m.get("decision"), "")
+            if not quoi:
+                continue
+            morceaux = [quoi]
+            if m.get("question"):
+                morceaux.append(f"Question : {m['question']}")
+            if m.get("reponse"):
+                morceaux.append(f"Réponse : {m['reponse']}")
+            if m.get("consigne"):
+                morceaux.append(f"Consigne : {m['consigne']}")
+            if m.get("pourquoi"):
+                morceaux.append(f"Pourquoi : {m['pourquoi']}")
+            if m.get("bornes"):
+                morceaux.append(f"Bornes : {m['bornes']}")
+            decisions.append(". ".join(x.rstrip(". ") for x in morceaux) + ".")
+        if not faites and ecrit_par_le_proprietaire(c, proprietaire):
+            decisions.append(f"Le propriétaire a écrit sur l'issue : {(c.get('body') or '').strip()[:3000]}")
     return decisions
 
 
-# La photo d'un lot Unity (`pc.regarder_avec_unity`) : « propre » quand un
-# scénario de capture du lot a rendu une image différente du plan fixe. Du 30
-# septembre au 3 octobre 2026, treize captures de lots Unity étaient le même
-# plan fixe à l'octet près, et des lots « vérifiés jusqu'à Unity » ont été
-# acceptés sur une image qui ne pouvait rien prouver.
-PHOTO_PROPRE, PHOTO_ABSENTE, PHOTO_IDENTIQUE = "propre", "absente", "identique"
-_PHOTO_SANS_OBJET = re.compile(r"^##\s*Photo\b[^\n]*\n+\s*sans objet\s*:\s*\S", re.M | re.I)
-
-
-def refus_de_photo(marque_du_codeur: dict | None, brief: str) -> str | None:
-    """Pourquoi la photo du dernier passage du PC ne prouve rien ; None si elle
-    est propre au lot, si Unity n'a pas rendu (le relecteur le voit déjà), ou
-    si le brief dit « sans objet »."""
-    photo = (marque_du_codeur or {}).get("photo")
-    if photo not in (PHOTO_ABSENTE, PHOTO_IDENTIQUE) or _PHOTO_SANS_OBJET.search(brief or ""):
-        return None
-    if photo == PHOTO_ABSENTE:
-        return ("aucune photo propre au lot : le PC n'a photographié que le plan fixe de la scène, qui ne montre "
-                "pas ce que le lot ajoute. Écris le scénario de capture que demande la section « Photo » du brief.")
-    return ("la photo du lot est identique au plan fixe : presque aucun pixel n'a changé, son scénario de capture ne montre rien "
-            "de ce que le lot ajoute. Pose ce qu'il ajoute, ou joue son geste, et place la caméra pour qu'on le voie.")
+def tests_changes(noms_et_etats: Iterable[tuple[str, str]]) -> list[str]:
+    """Les fichiers de test qu'un lot modifie ou retire, d'après `git diff
+    --name-status` : ceux-là doivent figurer, avec leur raison, dans la section
+    « Tests changés » de la PR. Un fichier de test ajouté n'y figure pas."""
+    return sorted(nom for etat, nom in noms_et_etats
+                  if etat[:1] in "MDR" and re.search(r"(^|/)tests?/|(^|/)test_[^/]+\.py$|Tests?\.cs$", nom, re.I))

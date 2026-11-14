@@ -25,20 +25,6 @@ on:
       issue:
         description: "l'issue du lot"
         required: true
-      branche:
-        description: "la branche du lot"
-        required: true
-      pr:
-        description: "la PR du lot"
-        required: true
-      essai:
-        description: "le passage du codeur (0 = premier)"
-        required: false
-        default: "0"
-      action:
-        description: "coder, corriger_ci ou corriger_relecture"
-        required: false
-        default: "coder"
 
 permissions:
   contents: read
@@ -52,10 +38,6 @@ jobs:
         shell: powershell
         env:
           ISSUE: ${{ inputs.issue }}
-          BRANCHE: ${{ inputs.branche }}
-          PR: ${{ inputs.pr }}
-          ESSAI: ${{ inputs.essai }}
-          ACTION: ${{ inputs.action }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Le service ne voit pas le PATH de la session : on y remet les agents
@@ -67,30 +49,21 @@ jobs:
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
           git -C $atelier checkout --quiet --force --detach origin/master
           $env:PYTHONPATH = $atelier
-          py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE --branche $env:BRANCHE `
-            --pr $env:PR --essai $env:ESSAI --action $env:ACTION --vendor D:\Forge\3d\unity\Assets\Vendor
+          py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE `
+            --vendor D:\Forge\3d\unity\Assets\Vendor
 
-  # Un passage qui tombe hors de Python (runner coupé, PC en veille, processus
-  # tué, PowerShell qui casse avant `atelier pc`) ne laisse aucune marque : le
-  # pilote attendait 24 h avant de renvoyer. Ce travail répond à sa place par
-  # une attente, renvoyée dans l'heure ; un envoi qui a déjà sa réponse la
-  # garde. Un travail à part, pas une étape de `lot` : le 16 octobre 2026
-  # (run 38864468926), le runner avait perdu GitHub, et une étape de `lot`
-  # n'aurait jamais tourné. Celui-ci attend en file le retour du runner.
-  # Pas de GITHUB_TOKEN (il ne lit que le code) : le `gh` de la session du
-  # propriétaire, comme `atelier pc`.
   repondre:
     needs: lot
     if: ${{ always() && needs.lot.result != 'success' }}
     runs-on: [self-hosted, Windows, unity]
     timeout-minutes: 10
     steps:
-      - name: L'attente, sur la PR du lot
+      - name: L'attente, sur le lot
         shell: powershell
         # La raison passe par l'environnement : PowerShell 5.1 peut lire le
         # script en ANSI, et abîmer ses accents.
         env:
-          PR: ${{ inputs.pr }}
+          ISSUE: ${{ inputs.issue }}
           RAISON: "le passage du PC est tombé sans répondre (travail `lot` : ${{ needs.lot.result }}, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         run: |
           $ErrorActionPreference = 'Stop'
@@ -98,4 +71,4 @@ jobs:
           # peut-être cassé là.
           $atelier = 'D:\Forge\.atelier\pilote-pc'
           $env:PYTHONPATH = $atelier
-          py -m atelier --projet $atelier marquer-attente --pr $env:PR --raison $env:RAISON
+          py -m atelier --projet $atelier marquer-attente --issue $env:ISSUE --raison $env:RAISON
