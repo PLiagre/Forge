@@ -2962,6 +2962,11 @@ sans arrondi ; la mesure vient de `maisons_actives_30j` (trente derniers jours),
 Sans option, cette route rend 404 et demande `--ia` ; les autres routes gardent leur forme.
 La durée du tick inclut l'IA. Mesure sur la base, VPS, 06/10/2026, graine 0,
 30 ticks : médianes IA ≈ 275 ms, tick ≈ 91 ms, soit environ 2,7 jours/s au plus.
+`GET /horloge` (et la réponse de `POST /vitesse`) sert deux durées, en millisecondes de temps réel :
+`duree_dernier_tick_ms`, le mois des jauges, l'IA et le tick, sans la publication ;
+`duree_dernier_jour_ms`, `ServeurMonde.jouer_un_tick()` en entier, publication de l'état comprise,
+mesurée depuis le même début et donc au moins égale à la première. Les deux valent −1 avant le premier jour ;
+les montages d'épreuve qui republient l'état sans jouer de jour gardent les deux durées du dernier jour.
 
 **La liste des maisons de l'IA, une fois.** Le placement des capitales par
 polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC, 7 novembre 2026,

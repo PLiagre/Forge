@@ -2845,6 +2845,8 @@ MILLISECONDES_PAR_SECONDE_TEST = 1000
 DUREE_PAUSE_TEST_S = 1.5
 DUREE_OBSERVATION_HORLOGE_S = 2.5
 DUREE_APRES_PAUSE_TEST_S = 1
+PAS_TICK_FACTICE_S = 0.125
+RETARD_PUBLICATION_FACTICE_S = 0.375
 VITESSE_HORLOGE_TEST = 4
 BUDGET_TICK_ATTENDU_MS = 100
 DELAI_DEMARRAGE_SERVICE_S = 5
@@ -2883,6 +2885,7 @@ def test_horloge_pause_vitesse_et_budget():
         initiale = requete_service(port, "/horloge")[1]
         assert initiale["tick"] == 0
         assert initiale["duree_dernier_tick_ms"] == -1
+        assert initiale["duree_dernier_jour_ms"] == -1
         assert initiale["budget_tick_ms"] == BUDGET_TICK_ATTENDU_MS
         time.sleep(DUREE_PAUSE_TEST_S)
         assert requete_service(port, "/horloge")[1]["tick"] == 0
@@ -4960,16 +4963,68 @@ def test_service_ia_ordre(monkeypatch):
         s.jouer_un_tick()
         assert len(s.world.intentions_en_attente) == 2 and s.world.intentions_en_attente[:1] == joueur
         assert s.world.intentions_en_attente[1] != joueur[0]
-        instants = iter([0, .2, .5])
+        # Quatre lectures : le début, l'IA, la fin du tick, la fin de la publication.
+        instants = iter([0, .2, .5, .9])
         monkeypatch.setattr(service.time, 'perf_counter', lambda: next(instants))
         monkeypatch.setattr(service, 'jouer_ia', lambda *a: service.time.perf_counter())
-        assert s.jouer_un_tick().duree_dernier_tick_ms == 500
+        etat = s.jouer_un_tick()
+        assert etat.duree_dernier_tick_ms == 500 and etat.duree_dernier_jour_ms == 900
     monkeypatch.setattr(service, 'maisons_actives_30j', lambda *a: pytest.fail('mesure calculée sans option'))
     with _service_ia_en_processus(False) as (s, port):
         monkeypatch.setattr(service, 'jouer_ia', lambda *a: pytest.fail('IA appelée sans option'))
         monkeypatch.setattr(service.time, 'perf_counter', lambda: 0)
         s.jouer_un_tick()
         assert s.etat_publie.ia is None and s.releve == []
+
+
+def test_horloge_duree_du_jour_couvre_le_tick():
+    """Le jour servi par /horloge et /vitesse vaut au moins le tick : la publication y est comprise."""
+    with _service_ia_en_processus(False) as (s, port):
+        assert requete_service(port, '/horloge')[1]['duree_dernier_jour_ms'] == -1
+        assert requete_service(port, '/tick?n=1', 'POST')[0] == HTTPStatus.OK
+        horloge = requete_service(port, '/horloge')[1]
+        assert horloge['duree_dernier_jour_ms'] >= horloge['duree_dernier_tick_ms'] > 0
+        statut, vitesse, _ = requete_service(port, '/vitesse?jours_par_seconde=0', 'POST')
+        assert statut == HTTPStatus.OK
+        assert vitesse['duree_dernier_jour_ms'] == horloge['duree_dernier_jour_ms']
+        assert vitesse['duree_dernier_tick_ms'] == horloge['duree_dernier_tick_ms']
+
+
+def test_horloge_publication_lente_ne_compte_que_dans_le_jour(monkeypatch):
+    """Une publication lente allonge le jour, jamais le tick : les deux durées ne se confondent pas."""
+    from sim import service
+    from sim.service import ServeurMonde
+    instant = [0.0]
+    monkeypatch.setattr(service.time, 'perf_counter', lambda: instant[0])
+    def tick_factice(*a): instant[0] += PAS_TICK_FACTICE_S
+    monkeypatch.setattr(service, 'tick', tick_factice)
+    pas_ms = PAS_TICK_FACTICE_S * MILLISECONDES_PAR_SECONDE_TEST
+    retard_ms = RETARD_PUBLICATION_FACTICE_S * MILLISECONDES_PAR_SECONDE_TEST
+    with _service_ia_en_processus(False) as (s, port):
+        assert requete_service(port, '/tick?n=1', 'POST')[0] == HTTPStatus.OK
+        horloge = requete_service(port, '/horloge')[1]
+        assert (horloge['duree_dernier_tick_ms'], horloge['duree_dernier_jour_ms']) == (pas_ms, pas_ms)
+        construire = ServeurMonde._construire_etat
+        def construire_lent(self, *a, **kw):
+            instant[0] += RETARD_PUBLICATION_FACTICE_S
+            return construire(self, *a, **kw)
+        monkeypatch.setattr(ServeurMonde, '_construire_etat', construire_lent)
+        assert requete_service(port, '/tick?n=1', 'POST')[0] == HTTPStatus.OK
+        horloge = requete_service(port, '/horloge')[1]
+        assert horloge['duree_dernier_tick_ms'] == pas_ms
+        assert horloge['duree_dernier_jour_ms'] == pas_ms + retard_ms
+
+
+def test_horloge_epreuve_garde_la_duree_du_jour():
+    """Un montage d'épreuve republie l'état sans perdre la durée du dernier jour."""
+    with _service_epreuve(epreuve=True) as (s, port):
+        assert requete_service(port, '/tick?n=1', 'POST')[0] == HTTPStatus.OK
+        avant = requete_service(port, '/horloge')[1]
+        assert avant['duree_dernier_jour_ms'] > 0 and avant['duree_dernier_tick_ms'] > 0
+        cellule = next(c for c in s.world.cells.values() if len(c.lieux) > 1 and all(l.population > 0 for l in c.lieux))
+        statut, _, _ = requete_service(port, f'/epreuve/vider-panier?cell={cellule.cell_id}', 'POST')
+        assert statut == HTTPStatus.OK
+        assert requete_service(port, '/horloge')[1] == avant
 
 
 @pytest.mark.parametrize('erreur', ['donnee', 'intention'])
