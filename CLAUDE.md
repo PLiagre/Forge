@@ -21,8 +21,17 @@ python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_co
 python3 -m pytest atelier/tests -q
 ```
 
-La suite entière du jeu (`python3 -m pytest jeu -q`) est le travail de la CI :
-sur le VPS elle prend près d'une heure et gêne tout le reste.
+La CI joue deux suites. La **suite rapide** est celle qu'une PR doit passer :
+tout sauf les preuves longues (une année du monde, dix ans), qui portent la
+marque `longue` d'après leurs durées mesurées (`jeu/conftest.py`). La **nuit**
+(`nuit.yml`) joue tout. Sur le PC, la suite rapide prend une minute et demie :
+
+```bash
+cd jeu && py -m pytest . -q -n 8 -m "not chronometre and not longue"
+```
+
+La suite entière (`python3 -m pytest jeu -q`) reste le travail de la nuit : sur
+le VPS elle prend des heures et gêne tout le reste.
 
 Unity, sur le PC seulement, une instance à la fois (détail et pièges dans
 `3d/unity/CLAUDE.md`) :
