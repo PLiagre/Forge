@@ -1,585 +1,118 @@
-# La chaîne — comment un lot avance sans personne
+# La chaîne — la semaine, les rôles, le chemin d'un lot
 
-> Les règles font foi dans [AGENTS.md](../AGENTS.md) ; l'ordre des jalons dans
-> [CAP.md](../CAP.md) ; la table des rôles dans [atelier.toml](../atelier.toml)
-> (`python3 -m atelier agents`). Ce fichier explique la mécanique.
+La chaîne fait le travail de la semaine sans le propriétaire. Un pilote en
+Python (`python3 -m atelier tour`, sur le VPS, toutes les deux minutes) relit
+GitHub, fait avancer chaque lot d'un pas, et lance au plus un agent par tour.
+Le PC Windows fait tourner Unity quand il est allumé. Tout l'état vit sur
+GitHub : un tour interrompu ne perd rien.
 
-## En une phrase
+## La semaine
 
-Une issue devient une branche et une PR ; le chef l'explique, le codeur la
-code avec sa preuve, la CI la teste, un relecteur la relit dans sa propre
-session — Opus si elle touche le moteur, Sonnet sinon —, et `ACCEPTE` la
-fusionne toute seule.
-
-## Le schéma
-
-```
- issue « lot »  ──►  CHEF (Claude Code, opus, high, seul : sans Opus, le lot attend) ─── brief dans la branche lot/<n>-<slug>, PR brouillon
- (jalon courant, ou le    │ plus de 1 500 lignes : découpe, chaque morceau avec sa preuve · hors de son jalon : bloque
-  suivant en avance)      │
-                          ▼
-                    CODEUR (Claude Code, sonnet, high, seul ; lot « pc » : le même, sur le PC) — le code et sa preuve
-                          │ le pilote commit, pousse, capture
-                          ▼
-                    CI : tests + gitleaks ── rouge (dès le premier travail rouge) ──► CODEUR corrige (2 fois au plus)
-                          │ vert
-                          ▼
-                    RELECTEUR — touche jeu/sim/ : Claude Code, opus, high ; sinon : Claude Code, sonnet, high (lecture seule)
-                     ├─ ACCEPTE  ──► fusion automatique (squash) ──► issue « livre »
-                     └─ CORRIGER ──► CODEUR corrige (2 fois au plus) ──► puis « bloque »
-                                                                                     │
-                    DÉPANNEUR (Claude Code, sonnet, high, en lecture seule) ◄────────┘
-                     ├─ REPRENDRE   ──► le lot repart, avec sa consigne (2 fois au plus par lot)
-                     ├─ QUESTION    ──► question au propriétaire
-                     ├─ DECOUPE     ──► sous-lots ouverts ; le lot et sa PR se ferment
-                     └─ MODE-DIRECT ──► MÉCANICIEN répare la chaîne, sous garde, relu par la DIRECTION ; sinon reste « bloque »
-```
-
-**Un lot a la taille d'une ligne du CAP** (refonte du 7 novembre 2026) : un
-gain que le joueur voit, et sa preuve dans la même PR — conditions de succès,
-contre-épreuve, photo d'un lot `pc` —, jusqu'à `lignes_max` = 1 500 lignes
-environ. Le chef ne découpe qu'au-delà, en morceaux qui gardent chacun leur
-phrase du joueur et leur preuve ; jamais en un lot qui code et un autre qui
-prouve, juge, monte ou réécrit ses tests. À 300 lignes, une ligne du CAP du
-jalon 4 devenait 3,9 issues, et depuis le 28 octobre un lot livré sur trois
-n'était qu'une preuve, un juge, un montage ou un test réécrit
-([mesure](mesures/2026-11-07-refonte/RAPPORT.md), section 3).
-
-Le **renfort**, qui faisait le dernier passage avant blocage par un autre
-modèle que le codeur, est retiré le 7 novembre 2026 : avec un seul abonnement,
-c'était Sonnet encore une fois. Les trois passages sont ceux du codeur.
-
-Un rouge du seul travail `chronometre` (les tests qui chronomètrent le moteur,
-au bord de leur budget sur les runners partagés) ne part pas d'abord au codeur,
-même quand le lot touche `jeu/` : le bruit des runners suffit à le rougir. Le
-pilote attend la fin du run, puis le rejoue une fois, sans compter d'essai :
-la branche reçoit master s'il a bougé, sinon le travail rouge se rejoue (`gh run rerun --failed`). Le
-codeur ne corrige que s'il rougit encore.
-
-Un travail de CI **tombé avant d'avoir rien contrôlé** (le checkout, une
-installation, un téléchargement : `lots.panne_d_infrastructure` le lit au nom
-de l'étape en échec) ne part pas non plus au codeur. Quand tous les travaux
-rouges d'une PR sont de telles pannes, le pilote les rejoue lui-même
-(`gh run rerun --failed`), sans compter d'essai, trois fois au plus depuis le
-dernier passage du codeur ; ensuite il bloque le lot en nommant l'étape, sans
-rappeler le codeur. Un contrôle qui a vraiment échoué, même à côté d'une
-panne, revient au codeur. Les 8 et 9 novembre 2026, #1031 et #1046 se sont
-bloqués sur un 504 reçu en téléchargeant gitleaks, et la chaîne est restée
-deux jours sans rien faire.
-
-Le **mécanicien** (Claude Code, sonnet, medium) répare master quand sa CI est rouge
-et résout les conflits d'une branche de lot. Le **chroniqueur** (Claude Code,
-sonnet, medium, en lecture seule : le journal le moins cher, et le pilote
-l'écrit seul s'il se tait) écrit le journal chaque matin ; la **boussole**
-(Claude Code, sonnet, high) compare chaque lundi les lots livrés à CAP.md.
-
-**Chaque agent dit son harnais, son modèle et son effort** :
-`harnais/modèle@effort` dans [`atelier.toml`](../atelier.toml), et
-`python3 -m atelier agents` en fait la table. Claude Code reçoit l'effort par
-`--effort` (low, medium, high, xhigh, max). Un effort qu'il ne connaît pas se
-refuse au chargement : Claude Code, lui, l'ignorerait sans rien dire (mesuré
-le 29 septembre 2026). Chaque commentaire de la chaîne nomme l'agent avec son
-effort (`claude/claude-sonnet-5-5@high`).
-
-**Plus rien que Claude.** L'abonnement Claude (Opus, Sonnet) est le seul qui
-reste au propriétaire : GPT et Codex sont retirés le 30 octobre 2026, Cursor
-(grok, composer) le 5 novembre, quand son forfait était épuisé depuis le 2.
-L'atelier ne sait plus appeler que Claude Code, et le chargement de
-`atelier.toml` refuse tout modèle qui n'est pas de Claude (choix du
-propriétaire).
-
-**Qui code, qui relit** (refonte du 7 novembre 2026). Il n'y a plus qu'un
-abonnement, et une seule réserve de quota pour tous les rôles : **Opus est
-réservé au brief et à la relecture des lots qui touchent le moteur**
-(`[projet].chemins_du_moteur` = `jeu/sim/`, rôle `relecteur_moteur`), où un
-défaut coûte le plus cher. **Sonnet code tous les lots**, ceux du PC compris,
-et fait tout le reste : il relit les autres lots (vues, Unity, données,
-outils), dépanne, répare master, écrit le journal et la boussole. Un
-relecteur est toujours une autre session, en lecture seule, qui n'a pas écrit
-le code : la relecture « par une autre famille de modèle » n'existe plus.
-Aucun rôle n'a de secours d'un autre modèle : un quota épuisé ou une session
-Claude perdue fait **attendre** le lot, sans brûler d'essai ; le journal du
-matin dit le geste qui la rouvre. Claude tient quatre agents à la fois.
-
-**Un brief ne s'écrit qu'avec Claude Opus 5.5** : le chef n'a pas de secours,
-et un lot dont Opus est à court de quota attend (choix du propriétaire,
-30 octobre 2026).
-
-## Qui fait quoi
-
-| acteur | fait | ne fait jamais |
+| quand | qui | quoi |
 |---|---|---|
-| le propriétaire | ouvre des issues, lit le journal, travaille en mode direct | valider une PR de lot |
-| le pilote (`atelier/pilote.py`) | lit GitHub, décide en fonction pure (`atelier/lots.py`), fait **tous** les gestes : commit, poussée, PR, commentaires, étiquettes, fusion | écrire du code du jeu |
-| un agent | édite des fichiers dans le worktree du lot, ou rend un texte | `git commit`, `git push`, `gh` |
-| la CI | joue `tests` (jeu + atelier) et `gitleaks` | décider d'entrer |
+| **samedi** | le propriétaire | joue la démo, et écrit sur l'issue du palier ce qu'il veut réorienter |
+| | le CTO | en tire le palier suivant : un lot par piste au moins, chacun une fiche ; il les propose sur la même issue |
+| | le propriétaire | valide d'un mot (« oui »), ou corrige : le CTO repropose. Au « oui », les lots sont ouverts et la chaîne part |
+| **la semaine** | la chaîne | fait les lots |
+| **chaque matin** | le lecteur | écrit le journal : ce qui est livré, en cours, bloqué, ce que le CTO a décidé seul (« à revoir samedi »), et ce que les appels ont coûté |
+| **vendredi soir** | le PC, le CTO | un build figé du palier, et une note d'une page sur l'issue du palier : quoi essayer, ce qui marche, ce qui manque |
 
-## Les états d'un lot (étiquettes de l'issue)
+Pendant la semaine, aucune question n'attend le propriétaire. Le CTO prend le
+choix réversible, le note dans « à revoir samedi », et le lot continue. Seuls
+l'irréversible, l'argent et les droits lui arrivent tout de suite : le lot est
+bloqué, et l'issue le dit.
 
-| étiquette | veut dire | qui la pose |
-|---|---|---|
-| `idee` | recensé ; la chaîne le prend après les `pret` de son jalon | le formulaire |
-| `pret` | à prendre en premier | le propriétaire, ou le chef en découpant |
-| `en-cours` | branche et PR ouvertes | le pilote |
-| `bloque` | une décision attend ; la raison est en commentaire | le pilote |
-| `livre` | fusionné | le pilote |
-| `pc` | demande Unity ou Blender : le travail part sur le PC | le formulaire |
-| `reserve` | à ranger dans la Réserve ; le pilote l'y range et retire l'étiquette | qui veut, même depuis le téléphone |
+## Les rôles
 
-## Les jalons suivent CAP.md
+Cinq, par niveau de jugement. Leur modèle, leur effort et leur délai sont une
+ligne chacun dans [`atelier.toml`](../atelier.toml) ; `python3 -m atelier
+agents` les affiche.
 
-Chaque section « ## Jalon n — Titre » de [CAP.md](../CAP.md) est un
-milestone « Jn — Titre ». À chaque tour, le pilote crée celui qui manque et
-renomme celui dont le titre a changé ; il ne supprime ni ne ferme rien (un
-jalon se ferme quand ses lots sont livrés). Changer l'échelle, c'est donc
-changer CAP.md en mode direct : les milestones suivent seuls au tour d'après.
+| rôle | modèle | quand il est appelé | ce qu'il rend |
+|---|---|---|---|
+| **le CTO** | Fable, lecture seule | le samedi ; un lot bloqué ; un désaccord entre le chef et le relecteur ; un lot qui touche le cœur du moteur, à relire ; master rouge ; le vendredi soir | des fiches ; une décision avec ses raisons et ses bornes ; un verdict ; la note de démo |
+| **le chef de lot** | Opus | à la prise du lot, puis à chaque étape et à chaque correction, **dans la même session** | un plan en étapes, puis du code et un compte rendu par étape |
+| **le développeur** | Sonnet | par le chef, dans sa session, pour une tâche bornée ; ou à la place du chef pour un lot simple (données, écran courant) | des fichiers, et un compte rendu d'une ligne au chef |
+| **le relecteur** | Opus, autre session, lecture seule | quand la CI est verte | un verdict structuré : `ACCEPTE` ou `CORRIGER`, ses constats (fichier, ligne, gravité), la promesse au joueur tenue ou non, les tests changés justifiés ou non |
+| **le lecteur** | Haiku, lecture seule | une CI rouge ; chaque matin | le résumé d'un journal de CI (quel test, quelle erreur, quelle ligne) ; le journal du matin |
 
-La **Réserve** (la section « ## La réserve » de CAP.md) est le milestone des
-lots qui ne servent aucun jalon pour l'instant. Son titre ne commence pas par
-« J » : le pilote ne la prend jamais pour le jalon courant, et il n'en fait
-sortir aucun lot. Un lot y entre par le formulaire (jalon « Réserve »), par
-l'étiquette `reserve`, ou à la main ; un jalon qui en a besoin l'en tire.
+Le lecteur ne juge jamais. Le CTO ne code jamais. Le chef ne relit jamais son
+propre lot. Le développeur ne décide jamais d'une règle du monde : il la
+demande au chef, qui la demande au CTO.
 
-### Le jalon suivant
-
-Le pilote prend d'abord dans le jalon courant. Une machine libre qui n'y a
-plus rien à prendre (tout est en cours, livré, ou attend une dépendance)
-prend dans le **jalon suivant**, puis dans le troisième (ci-dessous). Le 29 septembre 2026, J1
-n'avait plus que des lots `pc` : le VPS attendait sans rien faire que le PC
-finisse, alors que J2 ne demande que `sim/`.
-
-Le chef d'un lot pris en avance le sait : son lot ne s'appuie sur rien que le
-jalon courant doit encore livrer (ce qui n'est pas sur master n'existe pas) ;
-s'il en a besoin, il refuse, et le lot est bloqué avec sa raison. Le journal
-annonce ces lots à part, sous « EN AVANCE ». Un lot marqué `reserve` ne se
-prend jamais : il sort de son jalon.
-
-### La fenêtre a trois jalons
-
-Une machine qui n'a plus rien à prendre dans le courant ni dans le suivant
-prend dans le **troisième jalon ouvert**, jamais plus loin. Le 30 septembre
-2026, la 3D n'arrivait qu'à J4 et le PC attendait ; le 1er octobre, le VPS
-est resté trois heures sans rien faire, J2 et J3 en file derrière un lot,
-alors que #253, de J4, n'attendait rien (choix du propriétaire : la fenêtre
-passe à trois jalons pour les deux machines).
-
-Un troisième jalon sans plan se découpe en avance, dès qu'une machine est
-libre. Le journal annonce ses lots sous « EN AVANCE, DU TROISIÈME JALON ».
-
-### Un jalon qui commence se fait découper
-
-Depuis le 7 octobre 2026, les lots de chaque jalon sont écrits sous sa section
-de [CAP.md](../CAP.md), en mode direct, chacun avec ce que le joueur y gagne
-(« La règle d'un lot ») : ce qui suit ne sert plus qu'à un jalon qu'on aurait
-laissé sans lot. Le 6 octobre, les découpes du chef avaient livré dix lots du
-jalon 3 sans qu'aucun ne donne un maître à un lieu.
-
-Quand le jalon courant n'a encore aucun lot prêt, en cours ou livré, le
-pilote ouvre un lot « Découper le jalon Jn — Titre » (`pret`). Le jalon
-suivant se découpe de même, en avance, quand la fenêtre s'ouvre : le courant
-a déjà sa découpe ou ses lots, et une machine libre n'y a plus rien à
-prendre. Le chef le prend comme un autre, et le découpe d'après la section du jalon dans
-CAP.md et d'après [VISION.md](VISION.md) : les lots qu'il faut, dans l'ordre,
-le dernier portant la preuve du jalon. Les lots déjà ouverts dans le jalon
-passent d'abord (la découpe « dépend » d'eux), et la découpe ne se refait
-jamais : son lot porte une marque que le pilote relit. Un jalon qu'on a
-lancé à la main, avec un lot `pret`, n'est pas redécoupé.
-
-### Découper un lot trop gros
-
-Le chef découpe en sous-lots (`pret`, même jalon), écrits « Découpé du lot
-#N », et ferme le lot d'origine. Un sous-lot garde la machine du lot
-découpé, sauf si le chef finit sa ligne par « :: pc » ou « :: vps ». Chaque
-ligne dit aussi ce qu'elle attend : « :: après 1, 3 » (les rangs, dans la
-liste, des sous-lots dont elle a besoin), « :: après rien » (elle part tout
-de suite) ; sans « après », elle part aussi tout de suite (jusqu'au 1er
-octobre 2026, elle attendait la précédente : J2 et J4 étaient devenus des
-files de sept lots). Les sous-lots qui ne
-s'attendent pas avancent en même temps. Le dernier d'une découpe de jalon
-porte la preuve : il attend tous les autres. Une ligne qui attend un
-sous-lot placé après elle rend la découpe illisible, et rien n'est créé. Un
-lot qui « dépend de #N » attend tous les sous-lots de #N (et les leurs, si
-un sous-lot est découpé à son tour), pas seulement sa fermeture.
-
-Un lot **en cours** dont une dépendance est encore ouverte redevient `pret`
-et rend sa machine ; la reprise le relance quand elle est livrée, essais
-remis à zéro.
-
-### Le dépanneur, avant le propriétaire
-
-Un lot que le pilote vient de bloquer (le codeur a échoué trois fois, la CI
-reste rouge, la relecture dit encore `CORRIGER`, le relecteur n'a pas rendu de
-verdict) est lu par le **dépanneur**, au tour suivant, avant le propriétaire.
-Il est en lecture seule dans le chantier du lot. Il lit la demande, la raison
-du blocage, les comptes rendus du codeur, les revues et la CI rouge, et il
-peut rejouer un test. Puis il rend une décision :
-
-- `DECISION: REPRENDRE :: <consigne>` : la cause est passagère (quota, délai,
-  relecture vide), le codeur tourne en rond, ou le relecteur demande ce que
-  personne ne peut lui donner. Le lot redevient `pret` et reprend où il en
-  est, essais remis à zéro. La consigne entre dans le prompt du codeur et du
-  relecteur jusqu'au blocage suivant. Il relance un même lot
-  `depannages_max` fois au plus (`atelier.toml`), puis le laisse au
-  propriétaire ;
-- `DECISION: QUESTION` (le format du chef, ci-dessous) : le brief contredit un
-  test existant ou une règle du monde. Le pilote pose la question, et le
-  journal du matin la reprend ;
-- `DECISION: DECOUPE`, suivie des lignes de découpe du chef : le lot est trop
-  gros pour un passage du codeur. Le pilote ouvre les sous-lots, que le chef
-  prend comme d'autres lots, puis ferme le lot et sa PR. Un découpage ne passe
-  jamais par une question ni une consigne : le 9 octobre 2026, la consigne
-  « couper #408 en deux » a laissé la PR de la première moitié fermer le lot,
-  et la seconde n'a jamais existé ;
-- `DECISION: MODE-DIRECT :: <quoi>` : la chaîne elle-même est en cause (un
-  outil manque, un défaut dans `atelier/`). Le lot reste bloqué, avec cette
-  raison.
-
-Il ne regarde jamais une question au propriétaire, ni un blocage qu'il a lui-même
-posé. Sans décision lisible, il le dit, et le lot attend le propriétaire. Le
-1er octobre 2026, cinq lots attendaient le propriétaire au matin : trois pour
-un quota, une relecture vide ou une image que le relecteur ne pouvait pas
-ouvrir.
-
-### La direction, avant le propriétaire
-
-Une question posée au propriétaire — par le chef ou par le dépanneur — est
-d'abord lue par la **direction** (Claude Code, fable, high, en lecture seule),
-au tour suivant. C'est le niveau N2 de l'échelle de décision
-([AGENTS.md](../AGENTS.md)). Elle vérifie dans le code et les tests ce que la
-question affirme, puis rend :
-
-- `DECISION: TRANCHE :: <lettre> :: <pourquoi>`, suivie de
-  `FONDEMENT :: <ce qui la fonde>` : `docs/VISION.md`, `CAP.md` ou une
-  décision déjà écrite donnent la réponse, ou le choix est réversible (un
-  seuil, une durée, une donnée de `jeu/data/`, une définition de preuve au
-  moins aussi exigeante). Le pilote écrit la décision sur l'issue et remet le
-  lot `pret` : elle suit le lot comme une réponse du propriétaire, le chef, le
-  codeur et le relecteur la lisent ;
-- `DECISION: PROPRIETAIRE :: <pourquoi>`, suivie de `AVIS :: <lettre> ::
-  <pourquoi>` : la question touche la vision, une règle que le joueur ressent
-  et que la vision ne tranche pas, une preuve de jalon ou un test rendu moins
-  exigeant, ou l'irréversible. Le lot reste bloqué, avec son avis.
-
-Elle ne choisit qu'une des lettres proposées, et dit toujours ce qui fonde sa
-décision : une lettre inventée, une décision sans fondement, un texte
-illisible ou un échec laissent la question au propriétaire, comme avant. Elle
-ne tranche pas plus de deux fois sur un même lot, et ne relit pas une question
-qu'elle a déjà lue. Sans ligne `direction` dans `atelier.toml`, toute question
-de jeu va au propriétaire.
-
-Le journal du matin rappelle pendant sept jours ce qu'elle a tranché, sous
-« Décidé sans toi ». Pour revenir sur une décision : bloquer le lot, écrire sa
-réponse sur l'issue, puis remettre `pret`. Du 27 septembre au 10 novembre
-2026, 47 questions ont attendu le propriétaire, 19 h de médiane chacune, et il
-répondait presque toujours la recommandation ; le 10 novembre, sept lots
-attendaient ainsi et la chaîne ne faisait plus rien.
-
-### La chaîne se répare, sous garde
-
-Quand le dépanneur rend `DECISION: MODE-DIRECT`, le lot est bloqué avec sa
-raison, comme avant ; au tour suivant, le **mécanicien** ouvre une réparation
-de la chaîne (`pilote._reparer_la_chaine`), une à la fois :
-
-1. il travaille sur une branche `meca/chaine-<lot>-<date>`, avec la cause et
-   le diagnostic du dépanneur, et doit ajouter le test qui aurait rougi ;
-2. **la garde** ([`atelier/garde.py`](../atelier/garde.py)) retire, avant tout
-   enregistrement, ce qui sort de `[projet].reparables` (`atelier/`,
-   `tests.yml`, `security.yml`, ce fichier), ce qui est dans `sensibles` (la
-   garde et ses tests, `atelier/crons/`), et tout workflow dont une ligne
-   ajoutée ou retirée touche aux droits (`permissions`), aux secrets, à la
-   machine (`runs-on`), aux déclencheurs ou aux actions appelées (`uses`).
-   `atelier.toml`, `AGENTS.md`, `CAP.md` et les workflows du PC restent au
-   mode direct. La PR dit ce qui a été retiré ;
-3. la CI joue, puis la **direction** relit (à défaut le relecteur du moteur,
-   puis le relecteur) : la réparation corrige la cause dite et rien d'autre,
-   n'affaiblit aucune garde ni aucun test de la chaîne, et la suite de
-   l'atelier passe. `ACCEPTE` la fusionne ; `CORRIGER` renvoie le mécanicien,
-   deux fois au plus, par la même garde ;
-4. fusionnée, le pilote remet le lot `pret` : il reprend, essais remis à zéro.
-
-Si le mécanicien ne change rien, ne change que ce qui est gardé, demande
-lui-même le mode direct (une installation sur une machine, un secret, un
-réglage de GitHub), ou si sa PR est abandonnée, le lot attend le mode direct,
-comme avant, et la réparation ne se retente pas. Un commentaire du
-propriétaire sur l'issue lui rend la main. Sans `reparables` dans
-`atelier.toml`, la chaîne ne se répare pas seule.
-
-La garde n'est pas un bac à sable — les agents tournent déjà sur le VPS et
-sur le PC — : elle empêche une réparation de sortir de la chaîne ou de toucher
-à ce qui la garde. Jusqu'au 10 novembre 2026, 21 lots ont attendu le
-propriétaire pour une réparation de la chaîne, dont deux jours pour un
-`--retry` que le dépanneur avait écrit sans pouvoir le poser.
-
-### Une empreinte épinglée qui change
-
-Plusieurs tests figent un hachage du monde ou de la photographie
-(`EMPREINTES_365` dans `jeu/sim/tests/test_modificateurs.py`). Un lot qui
-change les données du monde ou une règle change ce hachage : ce n'est pas un
-défaut, et le recapturer n'assouplit rien. Le **chef** inscrit le fichier du
-test au Périmètre, « seulement son empreinte », et dit quelles parties du
-monde doivent différer ; le **codeur** recapture, en donnant dans son compte
-rendu la mesure avant et après (les parties qui diffèrent, et elles seules),
-même quand le brief l'a oublié ; il ne change que la valeur du système où il
-mesure, et retire celle qu'il ne peut pas mesurer ; le **relecteur** vérifie
-cette mesure, et rend `CORRIGER` sans elle. Une empreinte qui change sans
-qu'on sache dire pourquoi reste un défaut. Le 11 novembre 2026, #1052 (deux
-chefs de plus au registre) est resté rouge une matinée : son brief n'avait pas
-le test au Périmètre, et personne n'avait le droit de recapturer.
-
-### Reprendre un lot bloqué
-
-Corriger la cause s'il le faut (en mode direct si elle est dans la chaîne),
-puis **écrire un commentaire sur l'issue** : ce qui a été fait, ou la
-décision. Ce commentaire suit ensuite le lot : le codeur et le relecteur le
-reçoivent comme une consigne du propriétaire, que le blocage ait été une
-question ou non. Tout commentaire d'un humain écrit après le dernier blocage vaut
-réponse ; ceux du pilote (marqués) et des robots ne comptent pas, et un lot
-bloqué à la main, sans marque du pilote, ne se lève pas tout seul. Au tour
-suivant, le pilote écrit « réponse reçue » et remet le lot `pret` ; retirer
-`bloque` et remettre `pret` à la main revient au même. Le pilote décide
-ensuite selon ce qui existe :
-
-- **la PR du lot est ouverte** : le lot est **repris** où il en est. Le pilote
-  écrit une marque `reprise` sur la PR et le remet `en-cours`, sans relancer
-  le chef ; le travail déjà poussé reste, et les essais du codeur, du chef et
-  du relecteur repartent de zéro (ils se comptent depuis la dernière
-  reprise) ;
-- **pas de PR** (le chef avait échoué, refusé ou posé une question) : le chef
-  reprend le lot, ses essais comptés depuis le dernier blocage ; il relit sa
-  question et la réponse du propriétaire.
-
-### Quand le chef a besoin d'une décision
-
-Un lot qui ne peut se faire qu'en changeant un test existant ou une règle du
-monde, ou qui oblige à trancher entre deux lectures de `CAP.md` ou de
-`docs/VISION.md`, n'est pas au chef de trancher. Il rend :
+## Le chemin d'un lot
 
 ```
-DECISION: QUESTION :: <la question, en une phrase>
-- A :: <une réponse possible> :: <ce qu'elle coûte>
-- B :: …
-RECOMMANDATION :: A :: <pourquoi>
-NATURE :: jeu | technique
+ la fiche        le CTO écrit l'issue : ce que je joue de plus, ce que je vois
+    │            samedi, la règle du monde, les preuves, la piste
+    ▼
+ le plan         le chef de lot ouvre sa session, lit la fiche et le code, et
+    │            rend son plan en étapes ; le pilote ouvre la PR, le plan dedans
+    ▼
+ les étapes      la session est reprise pour chaque étape : le chef code le
+    │            difficile, confie les tâches bornées au développeur, joue les
+    │            tests de ce qu'il touche ; le pilote enregistre, pousse, coche
+    ▼
+ la CI           verte : relecture. Rouge : le lecteur résume le journal, la
+    │            session du chef reprend avec ce résumé et corrige
+    ▼
+ la relecture    une autre session, en lecture seule, rend son verdict
+    │            CORRIGER : la session du chef reprend avec les constats
+    ▼
+ la fusion       ACCEPTE et CI verte : la PR entre seule, l'issue est livrée
 ```
 
-Une seule question par lot, qui porte toutes ses décisions : le chef recense
-d'abord chaque test existant qui rougira et chaque règle du monde touchée. Le
-30 septembre 2026, #207 a posé deux questions à quatre minutes d'écart, et le
-propriétaire n'a vu que la première.
+- **Un lot = une issue = une session = une PR.** L'issue porte l'étiquette
+  `lot`, son état (`pret`, `en-cours`, `bloque`, `livre`), sa piste (`monde`,
+  `ville`, `interface`), `pc` s'il demande Unity, et le jalon GitHub de son
+  palier.
+- **La session ne repart jamais à froid.** Elle est reprise (`--resume`) à
+  chaque étape et à chaque correction ; coupée par son délai, elle reprend au
+  tour suivant où elle en était, et ce qu'elle avait déjà écrit est gardé.
+- **Le plan vit dans la PR**, pas dans un fichier du dépôt : une liste
+  d'étapes que le pilote coche. Une étape dit ce qu'elle fait, qui la fait
+  (le chef ou le développeur) et les tests qu'elle joue.
+- **Les tests avant la poussée.** Chaque étape joue les tests de ce qu'elle
+  touche, jamais la suite entière ni une simulation longue : la CI joue la
+  suite rapide, la nuit joue les longues preuves.
+- **Les tests changés se disent.** Tout fichier de test modifié figure dans
+  la section « Tests changés » de la PR, avec la règle qui a changé ; le
+  pilote la compare au diff, le relecteur la juge.
+- **Le pilote fait les gestes** : commit, poussée, PR, commentaire,
+  étiquette, fusion. Il retire tout changement d'un lot sur les chemins
+  interdits (`atelier/`, `.github/`, `atelier.toml`, `AGENTS.md`,
+  `CLAUDE.md`, `CAP.md`).
 
-Le pilote bloque le lot avec la question, les réponses possibles et la
-recommandation, lisibles sur un téléphone ; le journal du matin les reprend
-dans « À faire ». Le propriétaire répond d'un commentaire (« A » suffit) :
-le lot repart au tour suivant. Le 29 septembre 2026, #209 attendait une telle
-décision derrière une ligne « lire sa raison ».
+## Quand ça coince
 
-Le propriétaire ne tranche que **le jeu** : ce que le joueur voit, choisit ou
-vit, ce que le monde fait et comment il raisonne, le niveau de vraisemblance.
-Une question **technique** (un test réécrit, un format, un découpage, le jeu
-restant le même quelle que soit la réponse) ne bloque pas : le pilote suit la
-recommandation, l'écrit sur l'issue (« tranchée seul »), et le lot repart. Le
-chef relit cette décision ; une PR ouverte la reçoit comme consigne. Une
-recommandation qui rend un test moins exigeant est toujours « jeu », et sans
-nature lisible, la question va au propriétaire. Au-delà de deux décisions
-seules sur un lot, la suivante lui va aussi. Pour revenir sur une décision :
-bloquer le lot, écrire sa réponse, puis remettre « pret ». Le 3 octobre 2026, le propriétaire
-répondait toujours la recommandée, et trois jalons attendaient ses lettres.
-
-Chaque décision suit le lot jusqu'au bout : la réponse du propriétaire à une
-question, ou la décision prise seule, est relue sur l'issue à chaque passage
-et donnée au codeur et au relecteur, avec le brief. Elle prime sur lui là où
-il la contredit (un fichier qu'elle autorise entre dans le Périmètre), et ni un
-blocage ni une reprise ne l'efface. Le 3 octobre 2026, #235 avait l'accord du
-propriétaire pour toucher la chronique, mais le brief l'excluait encore, et
-le lot s'est bloqué sur la même CI rouge.
-
-Pour repartir de zéro avec un nouveau brief : fermer la PR, supprimer sa
-branche, puis remettre `pret`.
-
-Remettre `en-cours` à la main ne suffit pas : sans marque de reprise, le
-pilote recompte les échecs et rebloque.
-
-## Plusieurs lots en même temps
-
-Le cron lance un tour toutes les deux minutes, même si d'autres tournent
-encore ; chaque tour n'invoque qu'un agent, et un tour dont l'agent code
-pendant quarante minutes n'empêche plus les autres lots d'avancer. Ce qui
-ne doit se faire qu'une fois se tient par des verrous de fichier
-([`atelier/verrous.py`](../atelier/verrous.py), dans `~/.atelier/verrous`),
-que le système rend seul quand un tour meurt :
-
-| verrou | ce qu'il garde |
+| ce qui arrive | ce que fait la chaîne |
 |---|---|
-| `lot-<n>` | un lot n'avance que dans un tour à la fois |
-| `decider` | relire GitHub, ranger, reprendre, livrer, choisir le lot suivant : un tour après l'autre, en quelques secondes |
-| `git` | un geste git à la fois sur le dépôt partagé (les worktrees partagent ses références) |
-| `captures` | une publication à la fois sur la branche `journal` (le journal du matin compris) |
-| `meca` | un mécanicien de master à la fois |
-| `outil-<outil>-<i>` | les places d'un outil, jusqu'à son plafond |
-| `tour-<i>` | les places des tours : si GitHub ne répond plus, ils ne s'empilent pas |
+| le quota manque, la session a expiré, l'outil ne démarre pas | le lot **attend**, sans essai compté ; le tour suivant réessaie |
+| un appel est coupé par son délai | son coût et sa trace sont écrits ; la session reprend au tour suivant ; à la troisième coupure de suite, le lot est bloqué |
+| la CI tombe avant d'avoir rien contrôlé (réseau, installation) | le pilote rejoue le travail, trois fois au plus, sans appeler personne |
+| seul le test chronométré est rouge | le pilote le rejoue une fois avant d'appeler le chef |
+| master est rouge | les lots attendent ; le CTO écrit une fiche de réparation, prise avant toute autre |
+| le chef a une question | il la pose avec deux à quatre réponses et sa recommandation ; le CTO tranche, et sa décision arrive au chef en entier : la réponse, ses raisons, ses bornes |
+| le relecteur dit `CORRIGER` | le chef corrige dans sa session, deux fois au plus ; s'il conteste un constat et que le relecteur le maintient, le CTO tranche |
+| un lot est bloqué (essais épuisés, coupures, CI rouge qui dure) | le CTO lit tout et décide : le relancer avec une consigne, le redécouper en lots neufs, ou, pour l'irréversible, l'argent et les droits seulement, le laisser au propriétaire |
+| deux lots s'attendent l'un l'autre | le pilote voit la boucle, la nomme sur les deux issues, et le CTO retire la dépendance de trop |
+| le propriétaire écrit sur une issue | sa consigne suit le lot : le chef et le relecteur la reçoivent ; un lot bloqué repart |
 
-Les réglages sont dans [`atelier.toml`](../atelier.toml) :
+## Ce que coûte la chaîne
 
-- `[machines]` : combien de lots chaque machine fait avancer en même temps
-  (le VPS en tient plusieurs, chacun dans son worktree ; le PC n'a qu'un
-  runner). Un lot dont un autre tour écrit le brief compte déjà.
-- `[outils]` : combien d'agents de chaque outil tournent ensemble. Claude
-  est le seul outil : quand il tient toutes ses places, le lot attend, sans
-  compter d'essai.
+Chaque appel écrit ce qu'il a coûté, même coupé : le rôle, le lot, la durée,
+les jetons par modèle, le coût au prix de l'API (notionnel sous un
+abonnement), et la part de la limite de cinq heures et de la limite
+hebdomadaire de l'abonnement avant et après. Ces mesures vivent dans les
+marques des commentaires, sur GitHub : celles du PC remontent comme celles du
+VPS. Le journal du matin les additionne par rôle et par lot.
 
-Deux lots qui touchent les mêmes fichiers finissent en conflit : le
-mécanicien le résout. Le chef les fait s'attendre quand il le voit.
-`atelier-boucle etat` montre les verrous en vol.
+## Les machines
 
-## Ce que le pilote retient, et où
-
-Rien en local. Ce que la chaîne a fait vit dans les commentaires de la PR, sous
-une marque invisible que le pilote écrit et relit :
-
-```
-<!-- atelier {"role": "relecteur", "sha": "…", "verdict": "ACCEPTE", "agent": "claude/claude-opus-5-5"} -->
-```
-
-Un tour interrompu ne perd rien : le suivant relit GitHub. Le journal local
-(`~/.atelier/journal.jsonl`) ne sert qu'à dire pourquoi la chaîne a attendu.
-
-## Ce que coûte un appel
-
-Chaque agent est appelé avec `--output-format json` : Claude Code rend, avec
-le texte de l'agent, ce que l'appel a coûté (`agents.lire_sortie` : dollars au
-prix de l'API, tours, durée, jetons). Le pilote l'écrit dans son journal
-(`~/.atelier/journal.jsonl`, action « appel », avec le rôle et le lot), et le
-journal du matin en fait le total de la veille, rôle par rôle, dans les
-détails de la chaîne. Sous un abonnement ces dollars sont notionnels : ils ne
-sont pas une facture, ils disent où part le quota. Une sortie qui n'est pas ce
-JSON (un appel coupé par son délai, une version ancienne) est lue telle
-quelle, sans mesure : on ne devine pas un coût. Jusqu'au 10 novembre 2026, la
-sortie était en texte : 1 071 appels en cinq semaines, et personne ne savait
-ce que coûtait un lot.
-
-## Quotas et sessions
-
-Un agent qui répond « quota épuisé » ou « session expirée », dont l'outil
-ne démarre pas (binaire introuvable : une panne d'installation, pas un échec
-du codeur), ou dont le harnais refuse l'appel (une option ou une valeur de
-réglage qu'il ne connaît pas : sa version ou sa ligne est en cause, le journal
-le dit), passe la main à son secours (la suite de sa ligne dans
-`atelier.toml`). Si personne ne répond, le lot **attend** : ce n'est pas un
-échec, aucun essai n'est compté, le tour suivant réessaie, et une ligne le dit
-dans le journal avec la raison de chaque agent. Les clés d'API sont retirées
-de l'environnement de chaque agent ; le jeton longue durée de Claude Code se
-lit dans `~/.atelier/claude.token` (mode 600).
-
-## Les lots « pc »
-
-Le pilote lance `.github/workflows/lot-pc.yml` par `workflow_dispatch` (jamais
-`pull_request` : une fourche ne lance rien sur le PC). Le runner `pc-forge`
-travaille dans des worktrees de `D:\Forge` : `.atelier\pilote-pc` (le code de
-la chaîne), `.atelier\chantiers\pc` (le lot, avec sa `Library` Unity et une
-jonction vers les packs de l'Asset Store). Unity compile la révision poussée
-et photographie la scène en Play ; ce qu'il a vu entre dans le compte rendu du
-codeur, que lit le relecteur (qui n'a pas Unity), et les images s'y affichent.
-
-**La photo d'un lot Unity lui est propre.** Unity prend d'abord le plan fixe
-(la caméra de la scène du désert, sans rien toucher), qui ne montre ni un
-bâtiment du kit qu'on n'a pas posé, ni une route qu'on n'a pas tracée, ni une
-caméra qui bouge. Puis il joue les scénarios de capture du lot : des méthodes
-`[ScenarioDeCapture(<lot>, "<nom>")] static IEnumerator X(Camera camera)` que
-le codeur écrit dans `3d/unity/Assets/ForgeLocal3D/Editor/Captures/Lot<n>.cs`
-(modèle : `ScenarioExemple.cs`). Chacune pose ce que le lot ajoute ou joue son
-geste, place la caméra, et rend une photo `<scène>--<nom>.png`. Le brief d'un
-lot `pc` a une section « Photo » qui dit ce qu'elle montre. Le pilote renvoie
-au codeur, comme une revue « CORRIGER », un lot sans photo propre ou dont la
-photo est identique au plan fixe (Unity mesure la part des pixels
-changés ; il en faut 2 %), sauf si la section « Photo »
-dit « sans objet : <raison> ». Du 30 septembre au 3 octobre 2026, treize
-captures de lots Unity étaient le même plan fixe, et des lots « vérifiés
-jusqu'à Unity » ont été acceptés sur une image qui ne pouvait rien prouver.
-
-**La partie PC n'avance que quand le PC est allumé.** Un PC éteint ou en
-veille garde le travail en file chez GitHub ; il part au réveil. Le PC répond
-toujours sur la PR : un compte rendu, ou une **attente** (aucun de ses agents
-n'a pu répondre, ou le passage a cassé avant) qui ne compte pas comme un essai
-et que le pilote renvoie au bout d'une heure. Sans réponse du tout en 24 h, il
-renvoie le même travail. Sous Windows, un agent livré en `.cmd`
-(un shim npm) est lancé par son `node.exe`, jamais par
-`cmd.exe` : le prompt y serait coupé et interprété. Prouver les agents du PC
-là où ils tournent : `gh workflow run sonde-pc.yml -R PLiagre/Forge`.
-
-**Mettre le PC en pause pour la chaîne.** La variable d'Actions `PC_ACTIF`
-du dépôt est l'interrupteur : sur `non`, le pilote ne prend aucun lot `pc`
-neuf, n'en reprend aucun et n'envoie rien au PC (le lot attend, sans compter
-d'essai ni écrire sur sa PR) ; le build de nuit et Unity sur une poussée se
-sautent d'eux-mêmes. Le VPS continue. Absente, vide ou sur autre chose que
-`non`, elle laisse le PC travailler ; une variable que le pilote ne peut pas
-lire ne le met jamais en pause. Un lancement à la main (`workflow_dispatch`)
-part toujours. Elle se bascule dans GitHub (Settings → Secrets and variables →
-Actions → Variables, du téléphone aussi) ou par la fenêtre
-[`pc\Disponibilite.cmd`](../pc/Disponibilite.cmd), qui montre aussi la charge
-du processeur, le travail du runner, le **mode discret** (Python, Unity et
-Blender en priorité basse : le PC reste fluide sous des tests lancés à la
-main) et l'arrêt du service `pc-forge` (élévation Windows ; il interrompt un
-travail en cours). La pause n'arrête pas un travail déjà parti : le
-*Cancel workflow* de l'onglet Actions le fait. Le journal du matin la rappelle
-sous « à faire ».
-
-## Les captures et le journal
-
-Un lot qui touche `jeu/` est photographié par `python3 -m forge` (la carte du
-monde) ; un lot `pc`, par Unity. Les images vivent sur la branche orpheline
-`journal` et s'affichent par leur adresse `raw.githubusercontent.com`, sur
-téléphone comme ailleurs. Chaque matin à 07:15, le journal paraît dans sa
-propre issue, épinglée, « Journal du JJ/MM/AAAA » ; celle de la veille se
-désépingle et se ferme (la boussole du lundi fait de même). Le pilote relève les faits
-(`atelier/journal.py`) : pour chaque lot livré, la section « Le joueur » de
-son brief, ce qu'en dit le compte rendu du codeur, son nombre de passages,
-le verdict du relecteur et ses captures ;
-à part, les changements de la machine (mode direct) ; ce que la chaîne a
-vécu, lot par lot, d'après le journal du pilote (attentes et leur raison,
-secours, découpes, reprises) ; les lots bloqués et en cours ; le jalon et son
-pourcentage (lots fermés / lots du jalon) ; et **ce que le propriétaire doit
-faire** (une session à rouvrir, sur le VPS ou le PC, avec sa commande ; le
-plafond Claude ; une ligne de veille en échec ; un lot bloqué). Les images
-du matin viennent du monde que master joue pendant un an : la terre du
-joueur, cerclée de rouge parmi ses voisins, et la faim en Europe ; un lot
-qui parle de grenier, de dette ou de population reçoit la carte de cette
-lecture, s'il n'a pas sa propre capture (Unity). La carte d'Europe que le
-pilote prend de chaque lot n'y paraît plus : elle est la même pour tous. Le
-chroniqueur écrit en langage de joueur, sans jargon de code : un bandeau
-court (la nouveauté la plus forte, ce qui bloque, à faire), ce qui a changé
-dans le jeu (les lots visibles groupés par jalon, chacun avec son image ;
-les lots de fond en une ligne, « En coulisses »), aujourd'hui, et les
-décisions qui attendent le propriétaire. Il lit, pour chaque lot, la section
-« Le joueur » du brief (son « But » pour un brief plus ancien), son jalon et
-ce que sa photo doit montrer. Le plan fixe de la ville, le même à chaque lot
-du PC, ne paraît qu'une fois. Sous le bandeau, le pilote écrit lui-même
-« Où en est le jeu », tiré de l'échelle de [CAP.md](../CAP.md) : ce qui est
-déjà jouable, puis les trois jalons en route, avec leur geste, leur écran et
-leur avancement. Le pilote ajoute aussi, replié, l'avancement
-du jalon, lot par lot, et les détails de la chaîne, repliés. Un texte qui
-sort du gabarit, ou cite une image ou un numéro absent des faits, est
-écarté : le pilote écrit alors le journal seul, dans le même gabarit.
-
-## La cadence (VPS, heure de Paris)
-
-| quand | quoi |
-|---|---|
-| toutes les 2 min | un tour du pilote (au plus un agent), même si d'autres tournent encore : un par lot en cours, voir « Plusieurs lots en même temps » |
-| 06:45 | la veille : outils, jetons, accès GitHub |
-| 07:15 | le journal |
-| lundi 07:45 | la boussole |
-| 02:30 (PC) | le build Windows de la nuit, dans `D:\Forge\builds\dernier` ; PC en veille, il part au réveil |
-
-Armer : `atelier/crons/atelier-boucle jour`. Arrêter : `atelier-boucle arret`.
-Regarder : `atelier-boucle etat`. Installer : [atelier/crons/README.md](../atelier/crons/README.md).
-
-## Quand ça casse
-
-| symptôme | ce que ça veut dire | le geste |
-|---|---|---|
-| issue `bloque` | trois passages du codeur n'ont pas suffi, un conflit ne s'est pas résolu, le chef a refusé, ou il pose une question | lire la raison (ou la question) en commentaire ; corriger en mode direct s'il le faut ; puis répondre d'un commentaire sur l'issue (reprise, ci-dessus) |
-| « attente » répétée au journal | quotas épuisés, session expirée, ou outil qui ne démarre pas (la raison de chaque agent est écrite) | `python3 -m atelier veille`, puis `claude setup-token` si c'est la session Claude |
-| un lot `pc` n'avance pas | le PC est éteint ou en veille, ou ses agents attendent (marque d'attente sur la PR) | allumer le PC ; `gh workflow run sonde-pc.yml` |
-| un lot `pc` attend « PC en pause » | la variable `PC_ACTIF` vaut `non` | la remettre sur `oui` (fenêtre `pc\Disponibilite.cmd`, ou GitHub → Variables) |
-| rien ne bouge | profil `arret`, copie principale hors de master, ou un jalon courant que CAP.md ne décrit pas (le pilote ne découpe que ce que CAP.md décrit) | `atelier-boucle etat` ; ajouter la section du jalon à CAP.md, ou des lots |
-| master rouge | le mécanicien ouvre une PR `meca/…` ; s'il ne peut pas, le journal le dit | mode direct |
+- **Le VPS** (deux processeurs) : le pilote et les lots du monde, deux à la
+  fois au plus.
+- **Le PC** : Unity, un passage à la fois, envoyé par `workflow_dispatch`
+  (`lot-pc.yml`). Il répond toujours sur la PR. `PC_ACTIF = non` le met en
+  pause.
+- **Arrêter et relancer** : `atelier/crons/atelier-boucle arret` et
+  `atelier-boucle jour`, sur le VPS.
