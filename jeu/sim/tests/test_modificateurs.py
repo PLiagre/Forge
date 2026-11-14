@@ -64,8 +64,13 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère (deux
 # fiches nouvelles, deux changées : `personne-seigneurie-2` et `personne-seigneurie-3`),
 # et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1085) : deux compléments et trois états
+# entrent dans le registre, qui reste à 2 390 personnes (aucune fiche nouvelle). Mesuré sur
+# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère
+# (trois personnes changées : `personne-seigneurie-4` et `personne-seigneurie-5`, complément
+# et état, `personne-seigneurie-6`, état seul), et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("ca94b6e9f05395f8926d976a5e7150b29506cb363148f3b42de4034cf36b4cfd",
+    "linux": ("33ceef901d49da195f36f52d230bcf8eed834cf379d9fc6982ee00ff71405fd8",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
