@@ -70,7 +70,8 @@ jobs:
             $source = "$sortie\source"
             if (Test-Path $source) { Remove-Item -Recurse -Force $source }
             New-Item -ItemType Directory -Force $source | Out-Null
-            foreach ($chemin in @('jeu', 'pc', '3d\unity\Assets\ForgeLocal3D\Pont\Resources\ReglagesDesVues.json')) {
+            # Les sorties de la ville aussi : le jeu les lit depuis `source\3d\unity`, où son lanceur le démarre.
+            foreach ($chemin in @('jeu', 'pc', '3d\unity\Assets\ForgeLocal3D\Pont\Resources\ReglagesDesVues.json', '3d\local3d\desert\sorties\ville')) {
               $cible = Join-Path $source $chemin
               New-Item -ItemType Directory -Force (Split-Path $cible) | Out-Null
               Copy-Item -Recurse -Force (Join-Path $w $chemin) $cible

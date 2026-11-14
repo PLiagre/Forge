@@ -60,7 +60,7 @@ def port_refuse(port):
 # Le faux jeu embarque la même fonction `port_refuse`, recopiée par inspect :
 # le contrôle d'arrêt est unique, et sa contre-épreuve tourne pendant le jeu.
 FAUX_JEU = inspect.getsource(port_refuse) + '''
-import json, sys, time, urllib.error, urllib.request
+import json, os, sys, time, urllib.error, urllib.request
 
 _, sortie, code, port, *reste = sys.argv
 code, port = int(code), int(port)
@@ -83,7 +83,7 @@ resultat = {"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id
             "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
             "ticks": ticks, "refuse_pendant": port_refuse(port),
             "jours_par_seconde": horloge["jours_par_seconde"],
-            "forgeCarte": "-forgeCarte" in sys.argv}
+            "forgeCarte": "-forgeCarte" in sys.argv, "dossier": os.getcwd()}
 if reprise is not None:
     # Comme Unity à la reprise : la vitesse de la vue part au service, puis l'horloge se relit.
     requete = urllib.request.Request(f"{base}/vitesse?jours_par_seconde={reprise}", method="POST")
@@ -215,6 +215,8 @@ def test_chemin_nominal(faux_jeu, tmp_path):
     assert port_refuse(port), f"le service répond encore sur {port} après la sortie du lanceur"
     recu = json.loads(sortie.read_text(encoding="utf-8"))
     assert recu["forgeCell"] is None, f"-forgeCell reçu sans --cellule : {recu['forgeCell']!r}"
+    # Le jeu démarre dans le projet Unity, d'où il lit les fichiers de la ville, d'où que parte le lanceur.
+    assert Path(recu["dossier"]) == RACINE / "3d" / "unity" != Path(os.getcwd())
     assert recu["lu"] == "/monde"
     assert recu["statut"] == HTTPStatus.OK
     assert recu["maison_du_joueur"] is None
