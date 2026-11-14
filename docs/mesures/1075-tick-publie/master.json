@@ -1,0 +1,550 @@
+{
+ "jeu": "D:\\Forge\\.atelier\\chantiers\\forge-1075-master\\jeu",
+ "ticks": 90,
+ "alterer": null,
+ "mediane_tick_ms": 288.01140000001624,
+ "maximum_tick_ms": 372.1633999999767,
+ "mediane_duree_dernier_tick_ms": 94.67080000001715,
+ "jours": [
+  {
+   "jour": 1,
+   "tick_ms": 249.8600000000124,
+   "duree_dernier_tick_ms": 189.26250000004075,
+   "empreinte": "a138f030fb3055e28a53ee5814f48bf116ddab771faf78623230406dae94610d"
+  },
+  {
+   "jour": 2,
+   "tick_ms": 101.12720000000763,
+   "duree_dernier_tick_ms": 44.26050000000714,
+   "empreinte": "45aa0bca3ed102d75cfcce3f0f6eff2f66c3aaa14dd380ba6f35c607721ee9b7"
+  },
+  {
+   "jour": 3,
+   "tick_ms": 175.1158000000146,
+   "duree_dernier_tick_ms": 77.62819999999238,
+   "empreinte": "0a0802212d333f932e502bed7b98aa51c8d8dcba8c35dc39253af876fef4de4a"
+  },
+  {
+   "jour": 4,
+   "tick_ms": 202.01409999998532,
+   "duree_dernier_tick_ms": 79.35319999995727,
+   "empreinte": "9a9a87cd2f7977a6e9ec1f1a4483d1c3a58a9baa29ece5c7e6d7f48df2ce7df6"
+  },
+  {
+   "jour": 5,
+   "tick_ms": 182.95519999998078,
+   "duree_dernier_tick_ms": 81.88180000001921,
+   "empreinte": "ff27754e7b0a6bf4270dddd8149ed07370508c9c65b4c8756b6bc4ec3463c44d"
+  },
+  {
+   "jour": 6,
+   "tick_ms": 180.81389999997555,
+   "duree_dernier_tick_ms": 79.72089999998389,
+   "empreinte": "76cf283ec751663d237b2a0ced99c1fb523b3027fa57a3b96bc020440346c1c4"
+  },
+  {
+   "jour": 7,
+   "tick_ms": 183.754399999998,
+   "duree_dernier_tick_ms": 82.30409999998756,
+   "empreinte": "1c1194f9a704877bc9a83d08841aa3cb64dc76592bf3eed2b8f64214ff3d69ae"
+  },
+  {
+   "jour": 8,
+   "tick_ms": 250.33250000001317,
+   "duree_dernier_tick_ms": 130.98050000002104,
+   "empreinte": "2369b0271a5e4f8454953b85083af94fb21fe7119aca099bff6f46399cb8464c"
+  },
+  {
+   "jour": 9,
+   "tick_ms": 186.14400000001297,
+   "duree_dernier_tick_ms": 80.36509999999453,
+   "empreinte": "3e04c462245048889a4e17805a7e2b61eda9b0a8d5553abb9c8324c38ba08537"
+  },
+  {
+   "jour": 10,
+   "tick_ms": 186.63049999997838,
+   "duree_dernier_tick_ms": 82.14689999999791,
+   "empreinte": "67bbdc444b69771ab4761b004775976c27ab3909eaa36ac2b9b0e1669409249c"
+  },
+  {
+   "jour": 11,
+   "tick_ms": 225.81660000003012,
+   "duree_dernier_tick_ms": 84.95479999999134,
+   "empreinte": "1ffee851dfde4d798d7832e857ec97a46d7d6fbc52d89171d269516967a2d2bd"
+  },
+  {
+   "jour": 12,
+   "tick_ms": 195.21300000002384,
+   "duree_dernier_tick_ms": 85.08290000003171,
+   "empreinte": "656764efd731ecd66e9b7391e01b0681ce02bd0346eb43d4527ba56a7dd9d0db"
+  },
+  {
+   "jour": 13,
+   "tick_ms": 216.9994999999858,
+   "duree_dernier_tick_ms": 91.84320000002799,
+   "empreinte": "6690cacab863a71874c35e4dcd6de22f0da094f1613137daf0034554ceb578cd"
+  },
+  {
+   "jour": 14,
+   "tick_ms": 199.61119999999255,
+   "duree_dernier_tick_ms": 87.60610000001634,
+   "empreinte": "417a4f788010af9486a0057c86af4e49c97ad2068cdcb4adcf1cc1900439b1ac"
+  },
+  {
+   "jour": 15,
+   "tick_ms": 230.75649999998404,
+   "duree_dernier_tick_ms": 83.57230000001437,
+   "empreinte": "3cda88c7c53155ad4242143813796ff854775728751c9994edfda0049724156c"
+  },
+  {
+   "jour": 16,
+   "tick_ms": 200.94069999998965,
+   "duree_dernier_tick_ms": 82.85499999999502,
+   "empreinte": "b931c1fef6569e463b9e200085c5f8bc5df9aac5865806a70827b4c7984aeb80"
+  },
+  {
+   "jour": 17,
+   "tick_ms": 205.12489999998706,
+   "duree_dernier_tick_ms": 82.39869999999883,
+   "empreinte": "391bb4e7aa78f4c7155193b781ca9d189b5740683c96406a8dd0baf02bff1ae7"
+  },
+  {
+   "jour": 18,
+   "tick_ms": 205.6872999999655,
+   "duree_dernier_tick_ms": 81.5787999999884,
+   "empreinte": "c5109a46ebedd44900e06e1b8b12df073a2fafbba6589b367dd4bff2651e42e5"
+  },
+  {
+   "jour": 19,
+   "tick_ms": 247.38229999996975,
+   "duree_dernier_tick_ms": 92.07899999995561,
+   "empreinte": "8eaf3b05e33df20c1584f8f4add2cc0b6484444426c7e6513d35ccc103a96f16"
+  },
+  {
+   "jour": 20,
+   "tick_ms": 210.92979999997397,
+   "duree_dernier_tick_ms": 86.1641999999847,
+   "empreinte": "0888b16f1cf5e6e1c4058062004d748403085879123bf8df38943fab9e5b50c1"
+  },
+  {
+   "jour": 21,
+   "tick_ms": 211.44870000000537,
+   "duree_dernier_tick_ms": 84.83050000000958,
+   "empreinte": "faedd909ae7beeed1a426e7aed38db684b3759ca8be0fd3d824ac3f4189c12fe"
+  },
+  {
+   "jour": 22,
+   "tick_ms": 249.27480000002333,
+   "duree_dernier_tick_ms": 85.18209999999726,
+   "empreinte": "21593c2a74affef08f29328c82949821524817c537c01bd143e742f4662133bc"
+  },
+  {
+   "jour": 23,
+   "tick_ms": 213.04579999997486,
+   "duree_dernier_tick_ms": 85.56749999996782,
+   "empreinte": "fac7587b2854bca1c79c02d5429ec1eefb11fa2f3f9aa1444400b83d35501007"
+  },
+  {
+   "jour": 24,
+   "tick_ms": 214.84269999996286,
+   "duree_dernier_tick_ms": 82.69139999998742,
+   "empreinte": "fd859d9f72e647c6e39ab25f033cd4de08a3a9d0920b4a231e685c7a11b82350"
+  },
+  {
+   "jour": 25,
+   "tick_ms": 213.29620000000205,
+   "duree_dernier_tick_ms": 82.73769999999558,
+   "empreinte": "7044b2356f706b9eed0d3e5601c678158d8275a802f0c3872f8438bf5a7735d6"
+  },
+  {
+   "jour": 26,
+   "tick_ms": 251.21140000004516,
+   "duree_dernier_tick_ms": 86.22599999995373,
+   "empreinte": "32704d3d4fc458dc3b16546c1a7367e7a31aeb230606f097ee30812c24ce316a"
+  },
+  {
+   "jour": 27,
+   "tick_ms": 219.13249999994378,
+   "duree_dernier_tick_ms": 83.20579999997335,
+   "empreinte": "25229c982fec1d215419f0187214f7d189d34b6dc6c8d68ebfac34e860e9f2b8"
+  },
+  {
+   "jour": 28,
+   "tick_ms": 232.34059999998635,
+   "duree_dernier_tick_ms": 81.75520000003189,
+   "empreinte": "42a1825738ef20b792edbce6373e30a28ef780ffcd20169d008708894e91d5a2"
+  },
+  {
+   "jour": 29,
+   "tick_ms": 230.18899999999576,
+   "duree_dernier_tick_ms": 82.59309999999687,
+   "empreinte": "c96f43cc1ddc00912ad15e6edc3b422a20e779a8db9f5dde5f0057503ef80422"
+  },
+  {
+   "jour": 30,
+   "tick_ms": 261.74629999997023,
+   "duree_dernier_tick_ms": 85.36920000000237,
+   "empreinte": "5732bea85e82da1656598f1b98e6236985fbe6ade28059de9534da3adfac046a"
+  },
+  {
+   "jour": 31,
+   "tick_ms": 278.2555000000002,
+   "duree_dernier_tick_ms": 108.26859999997396,
+   "empreinte": "30d0c42512a81087c74753e6be69637b9a48334002aa719330bd35db9a55a2dc"
+  },
+  {
+   "jour": 32,
+   "tick_ms": 287.25389999999607,
+   "duree_dernier_tick_ms": 82.54349999998567,
+   "empreinte": "6d2bfe1c6100767b28624a3040326ac0f5562b1bfa589cf1b69f6d2ccf0b11a1"
+  },
+  {
+   "jour": 33,
+   "tick_ms": 255.45880000004217,
+   "duree_dernier_tick_ms": 88.66139999997813,
+   "empreinte": "e0cc815bebffb9fa59a339ceae2bebc4e276a60a2c75ec862acdc566a57701cd"
+  },
+  {
+   "jour": 34,
+   "tick_ms": 272.9674999999929,
+   "duree_dernier_tick_ms": 100.11270000001105,
+   "empreinte": "2f4acda01117d563e6b47bc07bb65ca2ffd60859c98e8b438f75a489a2d15390"
+  },
+  {
+   "jour": 35,
+   "tick_ms": 295.7870999999841,
+   "duree_dernier_tick_ms": 127.18650000005027,
+   "empreinte": "1d9645b8f884d312fad0c3854a3ca6624a7a355c3f0b744b96e4a334bfbc4f98"
+  },
+  {
+   "jour": 36,
+   "tick_ms": 257.9182999999716,
+   "duree_dernier_tick_ms": 88.51519999996071,
+   "empreinte": "3b2a286a9479e3eda5229d3968c4a4367679e9d47274fa7b978f7b42934c4068"
+  },
+  {
+   "jour": 37,
+   "tick_ms": 286.96639999998297,
+   "duree_dernier_tick_ms": 84.94509999997035,
+   "empreinte": "1c38d4f13aa1f0e77090e7f0928dae4de8fc5089014480205fda6fcb2759e6c7"
+  },
+  {
+   "jour": 38,
+   "tick_ms": 256.18539999999257,
+   "duree_dernier_tick_ms": 87.59459999998853,
+   "empreinte": "b86e61c2eb65d4b8c172422f676972da00281564c84fbccf06412add4e710e91"
+  },
+  {
+   "jour": 39,
+   "tick_ms": 302.059799999995,
+   "duree_dernier_tick_ms": 88.80369999997129,
+   "empreinte": "c0c2a3b89cfb1c06be0c9326649b4ff3499c06bcb1df3cf8f85992b8ad214988"
+  },
+  {
+   "jour": 40,
+   "tick_ms": 264.387499999998,
+   "duree_dernier_tick_ms": 91.24609999997801,
+   "empreinte": "710e3ced69d303d77e267a77dd2535f33f84e1f0ae1e9ecac92bb3e9237d9a83"
+  },
+  {
+   "jour": 41,
+   "tick_ms": 264.9226999999996,
+   "duree_dernier_tick_ms": 94.66650000001664,
+   "empreinte": "b6d1d264019ed9dcc17997998662487e7fd5510810851f6707b1392a7ecee6e4"
+  },
+  {
+   "jour": 42,
+   "tick_ms": 300.9084000000257,
+   "duree_dernier_tick_ms": 92.32159999999112,
+   "empreinte": "2b26c8f0213ce277fd62fef78e3c34bcc19b57d770d847dc1240d921b16c90bc"
+  },
+  {
+   "jour": 43,
+   "tick_ms": 262.32279999999264,
+   "duree_dernier_tick_ms": 90.82129999995914,
+   "empreinte": "8a1bcf8e2e28f631420d48b1fe5c7c8428725482c8b30e2a4947c6ef5966d897"
+  },
+  {
+   "jour": 44,
+   "tick_ms": 303.51229999996576,
+   "duree_dernier_tick_ms": 86.54460000002473,
+   "empreinte": "69260cf50ebc19f06470b1fdfc5be199d0177d30cd82c0e9251ccc16f0a4d999"
+  },
+  {
+   "jour": 45,
+   "tick_ms": 287.48940000002676,
+   "duree_dernier_tick_ms": 104.69499999999243,
+   "empreinte": "7a635098f0543dc69a863430a5a90fc3c78815d64ea0a5d902355248d050e2ad"
+  },
+  {
+   "jour": 46,
+   "tick_ms": 259.00619999998753,
+   "duree_dernier_tick_ms": 88.06210000000192,
+   "empreinte": "97122fcdaa0b32ce78fdc6b46394b1bc41e65d2d3b2c73207120d57a18dac809"
+  },
+  {
+   "jour": 47,
+   "tick_ms": 300.2983999999742,
+   "duree_dernier_tick_ms": 92.49229999994668,
+   "empreinte": "3a41555b922271e7b2512062f4a4eba8d90e4bbd313ba21881db4690e26b6d5d"
+  },
+  {
+   "jour": 48,
+   "tick_ms": 260.8754999999974,
+   "duree_dernier_tick_ms": 89.25110000001268,
+   "empreinte": "cb8045f34271f8ede23644eb90ab83d87186279ce5645515c9de6c137b7c51e3"
+  },
+  {
+   "jour": 49,
+   "tick_ms": 300.85769999999457,
+   "duree_dernier_tick_ms": 94.17539999998326,
+   "empreinte": "8dac34ba3f0d949b125855a96ac85b6fd8cd2d91198d55f4e7281fa95c26e52b"
+  },
+  {
+   "jour": 50,
+   "tick_ms": 259.79430000001,
+   "duree_dernier_tick_ms": 86.91579999998567,
+   "empreinte": "c9fe07b82e875bdd4a7281271981dc446235cb3eafbc53f0fa5867be6683e2c1"
+  },
+  {
+   "jour": 51,
+   "tick_ms": 300.1474000000144,
+   "duree_dernier_tick_ms": 90.35910000000058,
+   "empreinte": "6feb8fe81e1d3cd0c5dfe47b0bd9bed91c1edc104c9eb60de7a77c9b6589f2b6"
+  },
+  {
+   "jour": 52,
+   "tick_ms": 275.39719999998624,
+   "duree_dernier_tick_ms": 94.88089999996419,
+   "empreinte": "b30d1abae9388731fae15c3b8e99c4b6f8edc66bef0d632d5a2e91f2e666c013"
+  },
+  {
+   "jour": 53,
+   "tick_ms": 260.1280000000088,
+   "duree_dernier_tick_ms": 91.75069999997731,
+   "empreinte": "e793b5733becc02974d575d4d6ae1f1b7231e561e7162116c03c8bd050db0255"
+  },
+  {
+   "jour": 54,
+   "tick_ms": 307.35799999996516,
+   "duree_dernier_tick_ms": 91.6716000000406,
+   "empreinte": "607d965d1d2efe4e33b88d14b5625fb12914e194b3db25bd393c528d8ccff241"
+  },
+  {
+   "jour": 55,
+   "tick_ms": 250.5059000000074,
+   "duree_dernier_tick_ms": 85.17990000001419,
+   "empreinte": "cf181b60aa7ca1f81658252e5863e0246ab7ac79e25a9b74688af407f5d59bc2"
+  },
+  {
+   "jour": 56,
+   "tick_ms": 301.81160000000773,
+   "duree_dernier_tick_ms": 94.96719999998504,
+   "empreinte": "ad1908000300ced29d675bde3e6f76310a71a219ae8c82fb11cebb980008c2da"
+  },
+  {
+   "jour": 57,
+   "tick_ms": 260.9168999999838,
+   "duree_dernier_tick_ms": 87.9507000000217,
+   "empreinte": "4dba0bb9107b481d14ad5882aa63c8b192bf4938fd7da1e542a9df2f53083b87"
+  },
+  {
+   "jour": 58,
+   "tick_ms": 271.75629999999273,
+   "duree_dernier_tick_ms": 95.62760000000026,
+   "empreinte": "dcbe1cdfe91d641dbb59b16cb0998b7069448cf9841e0a475256b6370f3b81d9"
+  },
+  {
+   "jour": 59,
+   "tick_ms": 307.7985999999555,
+   "duree_dernier_tick_ms": 95.85540000000492,
+   "empreinte": "11d35fcac34f969e9a24c848a0e965fd929541effe16a8bb8773062469343056"
+  },
+  {
+   "jour": 60,
+   "tick_ms": 269.6336000000201,
+   "duree_dernier_tick_ms": 94.67510000001766,
+   "empreinte": "e30543fb3fb7bfc993ff320d995e8c69c2490c1780412d5a98430e0507f36133"
+  },
+  {
+   "jour": 61,
+   "tick_ms": 340.6120999999871,
+   "duree_dernier_tick_ms": 118.39290000000346,
+   "empreinte": "7c90f01fe5f289fde6b544b25d76dc8ea34436f52054120e5464ede253b592cd"
+  },
+  {
+   "jour": 62,
+   "tick_ms": 263.9836000000173,
+   "duree_dernier_tick_ms": 92.2081999999591,
+   "empreinte": "e4b8d830473bc3e03550bd82047ae36032249e7c80963676ea97a5b56f843126"
+  },
+  {
+   "jour": 63,
+   "tick_ms": 260.6073999999694,
+   "duree_dernier_tick_ms": 91.63909999995212,
+   "empreinte": "a836533a78f8d21f74b6054fe63362e05fa0a5aee5cd7508d23b0b19bea3118f"
+  },
+  {
+   "jour": 64,
+   "tick_ms": 325.7540999999833,
+   "duree_dernier_tick_ms": 143.7426999999616,
+   "empreinte": "e980ee0d23ecd1403f55a3f6cd8632e957ccf013f402cd3e1c3065c2799cf00a"
+  },
+  {
+   "jour": 65,
+   "tick_ms": 277.8084999999919,
+   "duree_dernier_tick_ms": 96.66479999998501,
+   "empreinte": "d9088b0b208a02a8670441d89ea8700275d1663026ca8dedaeffdb57ef3f3fd6"
+  },
+  {
+   "jour": 66,
+   "tick_ms": 302.7961000000232,
+   "duree_dernier_tick_ms": 88.75389999997196,
+   "empreinte": "ef5da691183094ed5808e1481cc75b143924c1593a1a3d960ac1f3f23905035e"
+  },
+  {
+   "jour": 67,
+   "tick_ms": 269.7270999999546,
+   "duree_dernier_tick_ms": 93.78810000004023,
+   "empreinte": "433929a1849e9c1686b65050dacd8403c76ca57680c75af4404b87494afe9d11"
+  },
+  {
+   "jour": 68,
+   "tick_ms": 302.07129999996596,
+   "duree_dernier_tick_ms": 94.3082000000004,
+   "empreinte": "44e65ee93298be1c5f23cacc20a9b6b09c468108516bafe5b432897b1b2803ca"
+  },
+  {
+   "jour": 69,
+   "tick_ms": 267.4976000000129,
+   "duree_dernier_tick_ms": 95.10189999997465,
+   "empreinte": "900d7766931ac1a73c218e817185be22127d24741141ff703c3c6d22daa25da4"
+  },
+  {
+   "jour": 70,
+   "tick_ms": 272.23670000000766,
+   "duree_dernier_tick_ms": 96.29430000001094,
+   "empreinte": "508fc29d28a6b2b696a494cc2e01bb783346ea4eb87d52293ae3380017d11d06"
+  },
+  {
+   "jour": 71,
+   "tick_ms": 315.09889999995266,
+   "duree_dernier_tick_ms": 99.13699999998471,
+   "empreinte": "142db1fbd95f41357ece735ca51800c1ef41bccb14fa2acb2ae6ec89639ad4c9"
+  },
+  {
+   "jour": 72,
+   "tick_ms": 296.4531000000079,
+   "duree_dernier_tick_ms": 98.2614000000126,
+   "empreinte": "da33c46058f35575263aa5d25e42bfb4898e0430025404c2a931c8b0eff6f443"
+  },
+  {
+   "jour": 73,
+   "tick_ms": 364.1269999999963,
+   "duree_dernier_tick_ms": 119.51010000001361,
+   "empreinte": "94e77625acc62079e63199201a880760f54616981d1a64210b13f1ede9be8cab"
+  },
+  {
+   "jour": 74,
+   "tick_ms": 265.3854999999794,
+   "duree_dernier_tick_ms": 95.03300000000081,
+   "empreinte": "6a36429921dcb4edd59322b5c43b6022e550c4453da108eee54f84522bbd3d60"
+  },
+  {
+   "jour": 75,
+   "tick_ms": 307.7812000000222,
+   "duree_dernier_tick_ms": 115.33500000001595,
+   "empreinte": "23f9157b40292830e436ee891cb10a22d1144a2633705ea459110c29efac9b49"
+  },
+  {
+   "jour": 76,
+   "tick_ms": 337.40499999998974,
+   "duree_dernier_tick_ms": 106.12480000003188,
+   "empreinte": "8b96f217deeea9885d01f4f340a28acf2a9508903f7ce02a48c40f80b901ed9a"
+  },
+  {
+   "jour": 77,
+   "tick_ms": 278.2247999999754,
+   "duree_dernier_tick_ms": 102.73269999999002,
+   "empreinte": "03b2779848748fdd3aaaf82c78c46bfa650a3ed1eb07394dd5210feb657de94f"
+  },
+  {
+   "jour": 78,
+   "tick_ms": 351.19429999997465,
+   "duree_dernier_tick_ms": 116.21260000003986,
+   "empreinte": "12b5a80a3eca5283cee554d3e6cc83e0b08aee391e1d3d67730879e523079f5b"
+  },
+  {
+   "jour": 79,
+   "tick_ms": 300.1553999999942,
+   "duree_dernier_tick_ms": 101.66869999994788,
+   "empreinte": "599932f42418960a5b7f817c0489bdfcd1392bd5c5889b4c46130852230f56c7"
+  },
+  {
+   "jour": 80,
+   "tick_ms": 349.74190000002636,
+   "duree_dernier_tick_ms": 102.67759999999271,
+   "empreinte": "783b306d81bddd187775852773bfff934bfc088915481eeab11ab830efd979ca"
+  },
+  {
+   "jour": 81,
+   "tick_ms": 269.7727000000327,
+   "duree_dernier_tick_ms": 88.33329999998796,
+   "empreinte": "ff775e9005461cc7ada0ddddd62229e2a03c4ef14a4d9f2d82abe914f095b261"
+  },
+  {
+   "jour": 82,
+   "tick_ms": 291.62070000000995,
+   "duree_dernier_tick_ms": 101.04059999997617,
+   "empreinte": "0ac6ffd1710a481ebf0977048db4f1a33a7864bb5c127aaeb25583003e6bc700"
+  },
+  {
+   "jour": 83,
+   "tick_ms": 372.1633999999767,
+   "duree_dernier_tick_ms": 105.95969999997124,
+   "empreinte": "74844a351aab91f055fc8f342f7b8031315152ed5b497b7bb05eb941dfba5364"
+  },
+  {
+   "jour": 84,
+   "tick_ms": 312.8661000000079,
+   "duree_dernier_tick_ms": 94.04889999996158,
+   "empreinte": "2904c8f69b8c06274f1b36f5842b79890afa33720d431661b183c76cf85abcf6"
+  },
+  {
+   "jour": 85,
+   "tick_ms": 288.5334000000057,
+   "duree_dernier_tick_ms": 89.85330000001568,
+   "empreinte": "59027a77b1c236998f635b4a41d6171539fa79f0af54b3267eb367dd599790c9"
+  },
+  {
+   "jour": 86,
+   "tick_ms": 277.10250000001224,
+   "duree_dernier_tick_ms": 98.52390000003197,
+   "empreinte": "f3fbf69344f070ca49684fa29ae7dac292af44a03271c3c9ed6fbeb9d6d67af0"
+  },
+  {
+   "jour": 87,
+   "tick_ms": 308.11460000001034,
+   "duree_dernier_tick_ms": 89.91350000002285,
+   "empreinte": "08e774d1c87d5c39feb35541f1cef19bf5bd02c419bf63026ec67adfdc4a696b"
+  },
+  {
+   "jour": 88,
+   "tick_ms": 303.50160000000415,
+   "duree_dernier_tick_ms": 98.01290000001472,
+   "empreinte": "51abb96e339d51c1a8c7b3392ee025f31668e2dd47dd6e322f65abce36e408b1"
+  },
+  {
+   "jour": 89,
+   "tick_ms": 343.77089999998134,
+   "duree_dernier_tick_ms": 106.08229999996865,
+   "empreinte": "2b7821fd297045bb0c99f483e1dba5fa5d2fe210c00ee0680ecfb4467ca8cfbc"
+  },
+  {
+   "jour": 90,
+   "tick_ms": 334.60189999999557,
+   "duree_dernier_tick_ms": 101.25289999996312,
+   "empreinte": "01d7ea9285224f8e7e5f6f5bfb0ec43dd38b944d035761fb0905f68696c66d21"
+  }
+ ]
+}

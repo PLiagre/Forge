@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, replace
+import gc
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -66,6 +68,57 @@ def _serialiser(document: dict) -> bytes:
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
+
+
+class OctetsDifferes(MutableMapping):
+    """Octets par cellule, sérialisés à la première lecture des documents copiés à la publication.
+
+    Ne garde ni le serveur, ni une méthode liée, ni un verrou : `copy.deepcopy` doit marcher, et une
+    lecture ne prend jamais `verrou_tick`. Deux lecteurs du même lieu en même temps le sérialisent
+    deux fois, avec les mêmes octets. Une écriture remplace les octets."""
+
+    def __init__(self, documents: dict, fabriquer=None, contexte=None):
+        self._documents = documents
+        self._octets = {}
+        self._fabriquer = _octets_du_document if fabriquer is None else fabriquer
+        self._contexte = contexte
+
+    def __getitem__(self, cell_id):
+        octets = self._octets.get(cell_id)
+        if octets is None:
+            octets = self._octets[cell_id] = self._fabriquer(self._documents[cell_id], self._contexte, cell_id)
+        return octets
+
+    def __setitem__(self, cell_id, octets):
+        self._documents.setdefault(cell_id, None)
+        self._octets[cell_id] = octets
+
+    def __delitem__(self, cell_id):
+        del self._documents[cell_id]
+        self._octets.pop(cell_id, None)
+
+    def __iter__(self):
+        return iter(self._documents)
+
+    def __len__(self):
+        return len(self._documents)
+
+    def __contains__(self, cell_id):
+        return cell_id in self._documents
+
+
+def _octets_du_document(document, contexte, cell_id) -> bytes:
+    return _serialiser(document)
+
+
+def _octets_du_bourg(bourg, lieux, cell_id) -> bytes:
+    """« bourg » est la première clé dans l'ordre canonique : on reprend les octets du lieu."""
+    return b'{"bourg":' + _serialiser(bourg) + b"," + lieux[cell_id][1:]
+
+
+def _octets_du_plan(document, contexte, cell_id) -> bytes:
+    prefixe, plan = document
+    return prefixe + _serialiser(plan)[1:]
 
 
 def _cellule_legere(cellule) -> dict:
@@ -186,10 +239,10 @@ class EtatPublie:
     """Photographie du tick ; plans et maisons se complètent à la première lecture."""
 
     monde: bytes
-    lieux: dict[int, bytes]
-    lieux_avec_bourg: dict[int, bytes]
-    plans: dict[int, bytes]
-    occupations: dict[int, bytes]
+    lieux: Mapping[int, bytes]
+    lieux_avec_bourg: Mapping[int, bytes]
+    plans: Mapping[int, bytes]
+    occupations: Mapping[int, bytes]
     tick: int
     date: dict[str, int]
     jours_par_seconde: float
@@ -365,13 +418,9 @@ class ServeurMonde(ThreadingHTTPServer):
             )
             for cellule in cellules
         }
-        lieux = {cid: _serialiser(document) for cid, document in documents_lieux.items()}
-        # « bourg » est la première clé dans l'ordre canonique : réutiliser
-        # les octets du lieu évite de sérialiser deux fois tout son document.
-        lieux_avec_bourg = {
-            cid: b'{"bourg":' + _serialiser(bourgs[cid]) + b"," + octets[1:]
-            for cid, octets in lieux.items()
-        }
+        # Les documents sont copiés ici ; leurs octets naissent à la première lecture.
+        lieux = OctetsDifferes(documents_lieux)
+        lieux_avec_bourg = OctetsDifferes(bourgs, _octets_du_bourg, lieux)
         document = {
             "tick": numero_tick,
             "date": date,
@@ -408,8 +457,8 @@ class ServeurMonde(ThreadingHTTPServer):
             plan = self.world.plans[cell_id]
             portes[cell_id] = portes_de_l_enceinte(plan.enceinte.contour, plan.rues, rues)
             controler_portes(plan.enceinte.contour, portes[cell_id], plan.rues, rues)
-        plans = {
-            cell_id: _serialiser(
+        documents_plans = {
+            cell_id: (
                 plan.to_dict()
                 | ({"portes": portes[cell_id]} if cell_id in portes else {})
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
@@ -418,9 +467,11 @@ class ServeurMonde(ThreadingHTTPServer):
             )
             for cell_id, plan in sorted(self.world.plans.items())
         }
+        # Le préfixe de base se lit ici, sous verrou_base, comme avant : seul le plan est sérialisé plus tard.
         with self.verrou_base:
-            plans = {cid: self._bases.get(cid, b"{") + octets[1:] for cid, octets in plans.items()}
-        occupations = {}
+            plans = OctetsDifferes({cid: (self._bases.get(cid, b"{"), document)
+                                    for cid, document in documents_plans.items()}, _octets_du_plan)
+        documents_occupations = {}
         for cid, plan in sorted(self.world.plans.items()):
             logement = documents_lieux[cid].get("logement")
             reste = logement["loges"] if logement is not None else 0
@@ -430,8 +481,9 @@ class ServeurMonde(ThreadingHTTPServer):
                 loges = -1 if reste == -1 else min(capacite, reste)
                 batiments.append(dict(identifiant=b.identifiant, capacite=capacite, loges=loges))
                 reste = -1 if reste == -1 else reste - loges
-            occupations[cid] = _serialiser(dict(cell_id=cid, rang=0, tick=numero_tick, date=date,
-                batiments=batiments, logement=logement))
+            documents_occupations[cid] = dict(cell_id=cid, rang=0, tick=numero_tick, date=date,
+                batiments=batiments, logement=logement)
+        occupations = OctetsDifferes(documents_occupations)
         return EtatPublie(
             monde=monde,
             lieux=lieux,
@@ -925,6 +977,15 @@ class RequetesMonde(BaseHTTPRequestHandler):
         self._refuser(HTTPStatus.NOT_FOUND, f"chemin inconnu : reçu {cible.path!r}")
 
 
+def regler_le_ramasse_miettes() -> None:
+    """Fige le monde chargé hors du ramasse-miettes : ses passes ne le reparcourent plus à chaque tick.
+
+    Appelée par `main()` après avoir construit le serveur, jamais dans `ServeurMonde.__init__` : les tests
+    construisent des centaines de serveurs, qui ne seraient plus jamais ramassés."""
+    gc.collect()
+    gc.freeze()
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Service local du monde Forge")
     parser.add_argument("--seed", type=int, default=DEFAULT_SERVICE_SEED)
@@ -961,6 +1022,7 @@ def main(argv: list[str] | None = None) -> None:
         ia=args.ia,
         epreuve=args.epreuve,
     )
+    regler_le_ramasse_miettes()
     port_reel = serveur.server_address[1]
     print(f"service prêt sur {SERVICE_HOST}:{port_reel}", flush=True)
     try:

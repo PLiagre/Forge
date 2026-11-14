@@ -3796,6 +3796,157 @@ def test_tick_sous_le_budget_du_service(monkeypatch):
             mesurer()
     assert appels
 
+@pytest.mark.chronometre
+def test_tick_publie_sous_le_budget_avec_l_ia(monkeypatch):
+    import gc
+    import statistics
+    import time
+    from sim import service
+    from sim.service import BUDGET_TICK_MS, ServeurMonde
+
+    if sys.platform != "win32":
+        pytest.skip("mesure du PC : le tick publié se juge sur la machine du joueur")
+
+    def mesurer(chauffe, mesures, regler=False):
+        totaux, ticks = [], []
+        with ServeurMonde(("127.0.0.1", 0), 0, 0, ia=True) as serveur:
+            if regler:
+                service.regler_le_ramasse_miettes()
+            try:
+                for _ in range(chauffe):
+                    serveur.jouer_un_tick()
+                for _ in range(mesures):
+                    debut = time.perf_counter()
+                    etat = serveur.jouer_un_tick()
+                    totaux.append((time.perf_counter() - debut) * 1000)
+                    ticks.append(etat.duree_dernier_tick_ms)
+            finally:
+                if regler:
+                    gc.unfreeze()
+        assert len(totaux) == mesures
+        mediane = statistics.median(totaux)
+        print(f"tick entier : médiane={mediane:.2f} ms maximum={max(totaux):.2f} ms ; "
+              f"duree_dernier_tick_ms : médiane={statistics.median(ticks):.2f} ms ; "
+              f"publication : {mediane - statistics.median(ticks):.2f} ms ; budget={BUDGET_TICK_MS} ms")
+        assert mediane < BUDGET_TICK_MS
+
+    mesurer(30, 60, regler=True)
+    # Contre-épreuves : la publication et l'IA sont dans la mesure.
+    construire, jouer = ServeurMonde._construire_etat, service.jouer_ia
+
+    def publication_lente(self, *args, **kwargs):
+        time.sleep(BUDGET_TICK_MS / 1000)
+        return construire(self, *args, **kwargs)
+
+    def ia_lente(*args, **kwargs):
+        time.sleep(BUDGET_TICK_MS / 1000)
+        return jouer(*args, **kwargs)
+
+    for cible, nom, lente in ((ServeurMonde, "_construire_etat", publication_lente),
+                              (service, "jouer_ia", ia_lente)):
+        with monkeypatch.context() as ctx:
+            ctx.setattr(cible, nom, lente)
+            with pytest.raises(AssertionError):
+                mesurer(5, 10)
+
+
+def _tout_lire_publie(serveur, etat):
+    """Tous les octets d'un état publié, dans un ordre fixé : ce que Unity et l'IA peuvent lire."""
+    lus = [etat.monde, etat.ia, etat.modificateurs]
+    for cid in sorted(etat.lieux):
+        lus += [etat.lieux[cid], etat.lieux_avec_bourg[cid],
+                serveur.octets_plan(etat, cid), serveur.octets_occupation(etat, cid)]
+    lus.append(serveur.octets_de_maison(etat))
+    lus += [serveur.octets_de_maison(etat, m.id) for m in sorted(etat.maisons.registre, key=lambda m: m.id)]
+    return lus
+
+
+def _lire_en_retard(ticks, alterer=False):
+    """Deux serveurs jumeaux : `tot` lit chaque état juste après son tick, `tard` après le tick suivant.
+
+    Rend les octets du dernier jour lus par `tot`, et ceux lus par `tard` (après avoir altéré son monde
+    en place si `alterer`) ; les jours d'avant sont comparés en chemin."""
+    from sim.service import ServeurMonde
+    with ServeurMonde(("127.0.0.1", 0), 0, 0, ia=True) as tot, ServeurMonde(("127.0.0.1", 0), 0, 0, ia=True) as tard:
+        cid = _preparer_occupation_service(tot)
+        assert _preparer_occupation_service(tard) == cid
+        gardes = None
+        for _ in range(ticks):
+            lus_tot = _tout_lire_publie(tot, tot.jouer_un_tick())
+            etat = tard.jouer_un_tick()
+            if gardes is not None:
+                assert _tout_lire_publie(tard, gardes[0]) == gardes[1]
+            gardes = (etat, lus_tot)
+        etat, lus_tot = gardes
+        if alterer:
+            monde = tard.world
+            monde.cells[cid].lieux[0].population += 1
+            monde.plans[cid].batiments.pop()
+            grenier = next(iter(monde.greniers.values()))
+            grenier[next(iter(grenier))] += 1000
+            monde.flux.jours[max(monde.flux.jours)].preleve[0] += 1
+        return lus_tot, _tout_lire_publie(tard, etat), tot, tard, cid
+
+
+def test_publication_differee_lit_le_tick_publie(monkeypatch):
+    from sim import service
+    lus_tot, lus_tard, tot, tard, cid = _lire_en_retard(35, alterer=True)
+    assert lus_tot == lus_tard
+    # Un échantillon vide ne prouve rien : au 35e jour, le monde a des poses, une maison achevée et un relevé de l'IA.
+    assert json.loads(tot.etat_publie.modificateurs)["poses"]
+    assert json.loads(tot.octets_occupation(tot.etat_publie, cid))["batiments"]
+    assert json.loads(tot.etat_publie.ia)["releve"]
+    # Contre-épreuve : un bourg qui garde le panier vivant au lieu d'une copie change après coup.
+    with monkeypatch.context() as ctx:
+        ctx.setattr(service, "copier_panier", lambda entite: entite.stocks)
+        with pytest.raises(AssertionError):
+            lus_tot, lus_tard, *_ = _lire_en_retard(3)
+            assert lus_tot == lus_tard
+
+
+def test_un_tick_ne_serialise_que_le_monde_l_ia_et_les_modificateurs(monkeypatch):
+    from sim import service
+    from sim.service import ServeurMonde
+
+    appels = []
+    serialiser = service._serialiser
+
+    def compter(document):
+        appels.append(1)
+        return serialiser(document)
+
+    def un_tick(serveur):
+        appels.clear()
+        etat = serveur.jouer_un_tick()
+        return etat, len(appels)
+
+    with ServeurMonde(("127.0.0.1", 0), 0, 0, ia=True) as serveur:
+        for _ in range(3):
+            serveur.jouer_un_tick()
+        monkeypatch.setattr(service, "_serialiser", compter)
+        etat, du_tick = un_tick(serveur)
+        cellules = len(etat.lieux)
+        assert cellules == len(serveur.world.cells) and du_tick <= 3 < cellules
+        cid = min(etat.lieux)
+        appels.clear()
+        octets = etat.lieux[cid]
+        assert len(appels) == 1
+        assert etat.lieux[cid] is octets and len(appels) == 1
+        assert octets == serialiser(json.loads(octets))
+        # Contre-épreuve : un tick qui lit tous les lieux avant de rendre sérialise une fois par cellule.
+        construire = ServeurMonde._construire_etat
+
+        def lit_tout(self, *args, **kwargs):
+            etat = construire(self, *args, **kwargs)
+            list(etat.lieux.values())
+            return etat
+
+        monkeypatch.setattr(ServeurMonde, "_construire_etat", lit_tout)
+        _, du_tick = un_tick(serveur)
+        assert du_tick >= cellules
+        with pytest.raises(AssertionError):
+            assert du_tick <= 3
+
 
 def _controler_raisons(releve, champ):
     """Chaque raison de route est celle de la route vers le champ et égale la lecture du monde à son tick."""

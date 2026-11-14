@@ -275,12 +275,15 @@ def _tenus(monde):
     return tenus
 
 
-def facteurs_du_monde(monde) -> dict:
-    """grandeur → {(cell_id, rang) → facteur} ; vide sans pose. Le tick le calcule une fois."""
+def facteurs_du_monde(monde, tenus=None) -> dict:
+    """grandeur → {(cell_id, rang) → facteur} ; vide sans pose. Le tick le calcule une fois.
+
+    `tenus` : les lieux de chaque maître, si l'appelant les a déjà lus ; sans lui, on les lit ici."""
     poses = getattr(monde, "modificateurs", None)
     if not poses:
         return {}
-    tenus = _tenus(monde) if any(p.cible[0] == "pays" for p in poses) else None
+    if tenus is None and any(p.cible[0] == "pays" for p in poses):
+        tenus = _tenus(monde)
     valeurs = {}
     for pose in sorted(poses, key=_ordre):
         par_lieu = valeurs.setdefault(pose.grandeur, {})
@@ -308,10 +311,13 @@ def ajuster_journees(monde, cell_id, journees):
     return max(1, math.ceil(journees * f))
 
 
-def detail(monde, cell_id, rang) -> dict:
-    """L'infobulle d'un lieu : par grandeur, chaque pose qui le touche, dans l'ordre, et le total."""
+def detail(monde, cell_id, rang, tenus=None) -> dict:
+    """L'infobulle d'un lieu : par grandeur, chaque pose qui le touche, dans l'ordre, et le total.
+
+    `tenus` : les lieux de chaque maître, si l'appelant les a déjà lus ; sans lui, on les lit ici."""
     poses = getattr(monde, "modificateurs", ())
-    tenus = _tenus(monde) if any(p.cible[0] == "pays" for p in poses) else None
+    if tenus is None and any(p.cible[0] == "pays" for p in poses):
+        tenus = _tenus(monde)
     lignes = {}
     for pose in sorted(poses, key=_ordre):
         if (cell_id, rang) in _lieux_touches(monde, pose.cible, tenus):
@@ -324,8 +330,10 @@ def detail(monde, cell_id, rang) -> dict:
 def document_des_modificateurs(monde) -> dict:
     """Pour le service et la photographie : les poses, et le détail de chaque lieu touché."""
     poses = sorted(getattr(monde, "modificateurs", ()), key=_ordre)
-    touches = sorted({cle for grandeur in facteurs_du_monde(monde).values() for cle in grandeur})
-    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": detail(monde, cid, rang)} for cid, rang in touches]
+    # Les maîtres se lisent une seule fois, et seulement si une pose vise un pays.
+    tenus = _tenus(monde) if any(p.cible[0] == "pays" for p in poses) else None
+    touches = sorted({cle for grandeur in facteurs_du_monde(monde, tenus).values() for cle in grandeur})
+    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": detail(monde, cid, rang, tenus)} for cid, rang in touches]
     if lieux:
         fichier = _lire_fichier()
         noms = {identifiant: g.nom for identifiant, g in lire_donnees(fichier).grandeurs.items()}
