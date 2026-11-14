@@ -95,6 +95,10 @@ def corps_de_pr(lot: Lot, projet: Projet, etapes: list[dict], faites: set[int], 
             f"{tests.strip() or 'Aucun test existant ne change.'}" + SIGNATURE)
 
 
+# Ce qui dit que master est rouge : la suite exigée pour fusionner, et la nuit, qui joue aussi les preuves longues.
+WORKFLOWS_DE_MASTER = ("tests.yml", "nuit.yml")
+
+
 class Pilote:
     def __init__(self, projet: Projet, gh: GitHub, depot: Depot, *, journal: Path,
                  executeur_agents: agents_mod.Executeur = agents_mod.executer, maintenant=None, verrous=None,
@@ -152,7 +156,9 @@ class Pilote:
         if res.attente:
             self.attentes += 1
         if res.mesure:
-            self.noter(lot, "appel", f"{role} : {_dit(res.mesure)}", str(res.agent or self.projet.agent(role)),
+            # Une session reprise rend son coût depuis son premier appel (`journal.couts_par_appel`).
+            cumul = " (coût : depuis le début de la session)" if appel.reprendre and not res.neuve else ""
+            self.noter(lot, "appel", f"{role} : {_dit(res.mesure)}{cumul}", str(res.agent or self.projet.agent(role)),
                        mesure={"role": role, **res.mesure})
         return res
 
@@ -1240,18 +1246,26 @@ class Pilote:
 
     # ----------------------------------------------------- master rouge
     def _master_rouge(self, vue: "_Vue") -> bool:
-        """Master rouge : tous les lots attendent. Le CTO écrit la fiche du lot
-        de réparation, que le pilote prend avant tout autre. Une réparation à
-        la fois, et une seule par run rouge."""
+        """Master rouge, ou sa nuit (les preuves longues) : le CTO écrit la
+        fiche du lot de réparation, que le pilote prend avant tout autre. Une
+        réparation à la fois, et une seule par run rouge."""
         if any(l.urgent and l.est_un_lot for l in vue.ouvertes):
             return False
-        run = self.gh.dernier_run("tests.yml", self.projet.branche_base)
-        if not run or run.get("status") != "completed" or run.get("conclusion") != "failure":
+        deja = {m.get("run") for l in vue.fermes for m in lots.marques([{"body": l.corps}])
+                if m.get("etat") == "reparation"}
+        run = None
+        for workflow in WORKFLOWS_DE_MASTER:
+            try:
+                dernier = self.gh.dernier_run(workflow, self.projet.branche_base)
+            except GitHubErreur:  # un workflow que GitHub ne connaît pas encore n'a pas de run rouge
+                continue
+            if (dernier and dernier.get("status") == "completed" and dernier.get("conclusion") == "failure"
+                    and dernier.get("databaseId") not in deja):
+                run = dernier
+                break
+        if run is None:
             return False
         identifiant = run.get("databaseId")
-        if any(m.get("etat") == "reparation" and m.get("run") == identifiant
-               for l in vue.fermes for m in lots.marques([{"body": l.corps}])):
-            return False
         if not self.verrous.prendre("reparation"):
             return False
         try:

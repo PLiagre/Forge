@@ -483,7 +483,7 @@ Rien d'autre que ces parties."""
 def reparation_de_master(projet: Projet, *, url: str, resume: str) -> str:
     return f"""{_contexte_cto(projet)}
 
-La CI de `{projet.branche_base}` est rouge ({url}) : tous les lots attendent. Écris la fiche du lot de réparation, qui passera avant tout autre. Ce dossier est une copie de `{projet.branche_base}`. Ce que dit la CI, résumé par le lecteur :
+La CI de `{projet.branche_base}` est rouge ({url}) : la suite exigée pour fusionner, ou les preuves longues de la nuit. Écris la fiche du lot de réparation, qui passera avant tout autre. Ce dossier est une copie de `{projet.branche_base}`. Ce que dit la CI, résumé par le lecteur :
 -----
 {resume.strip()[:8000] or "(journal illisible)"}
 -----

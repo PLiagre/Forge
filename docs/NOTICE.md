@@ -218,12 +218,18 @@ python3 -m pytest forge/tests/ -q        # la commande de bout en bout
 Les tests du moteur sont longs sur un seul cœur :
 `-n auto` les joue sur tous les cœurs (`pip install pytest-xdist`). La CI les
 répartit en trois tranches, test par test, chacune sur les cœurs de son
-runner ; une tranche se rejoue telle quelle en local :
+runner ; une tranche se rejoue telle quelle en local.
+
+Les **preuves longues** (une année du monde, dix ans) portent la marque
+`longue` : la suite qu'une PR doit passer ne les joue pas, la nuit les joue
+(`nuit.yml`). La marque se déduit des durées mesurées (`jeu/durees.json`,
+`jeu/conftest.py`).
 
 ```bash
-python3 -m pytest sim/tests/ -q -n auto -m "not chronometre"       # tous les cœurs
-FORGE_TRANCHE=2/3 python3 -m pytest sim/tests/ -q -n auto --dist worksteal -m "not chronometre"  # la tranche 2 de la CI
-python3 -m pytest -m chronometre sim/tests/ -q                      # les tests qui chronomètrent, seuls
+python3 -m pytest sim/tests/ -q -n auto -m "not chronometre"                 # tout, sur tous les cœurs
+python3 -m pytest sim/tests/ -q -n auto -m "not chronometre and not longue"  # la suite rapide
+FORGE_TRANCHE=2/3 python3 -m pytest sim/tests/ -q -n auto --dist worksteal -m "not chronometre and not longue"  # la tranche 2 de la CI
+python3 -m pytest -m chronometre sim/tests/ -q                               # les tests qui chronomètrent, seuls
 ```
 
 Quelques tests comparent un temps réel à un budget (un tick sous 100 ms, la
