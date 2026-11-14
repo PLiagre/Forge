@@ -1605,7 +1605,7 @@ def test_personnes_serialisation(monkeypatch, graine):
             if isinstance(v, (dict, list)) and v: alterer(v)
             else: objet[k] = 'Altéré'
     def alterer_iles(d):
-        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT)): alterer(f)
+        for f in (f for f in d['personnages'] if f['maison'] in ('grande-1', 'grande-2', 'grande-4', 'grande-5', 'grande-6', 'grande-7', 'grande-8', 'grande-10', 'grande-11', 'grande-12', 'grande-13', 'grande-14', 'grande-15', 'grande-16', *BALKANS_MAISONS, *MAGHREB_MAISONS, *MCA_MAISONS, BOURGOGNE, PALATINAT, BAR)): alterer(f)
     assert document['personnages'] == list(monde.personnages)
     altere = copy.deepcopy(document); alterer_iles(altere)
     copie = copy.copy(monde); copie.personnages = tuple(altere['personnages'])
@@ -1907,8 +1907,8 @@ def _etats_iberie(e):
 
 def _familles_historiques(familles, liens):
     famille = FAMILLE_1400 + [('sophie-baviere', 'Sophie de Bavière', '1376', 'annee')]
-    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) + len(FICHES_BOURGOGNE) + len(FICHES_PALATINAT) == 95
-    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT}
+    assert len(familles) == len(famille) + len(ILES_1400) + len(IBERIE_1400) + len(FIN_1400) + 4 + len(OTTOMANS) + len(BALKANS) + len(FICHES_MCA) + len(FICHES_BOURGOGNE) + len(FICHES_PALATINAT) + len(FICHES_BAR) == 102
+    assert {f['id'] for f in familles} == {'personne-' + i for i, *_ in famille + ILES_1400 + IBERIE_1400 + FIN_1400 + list(OTTOMANS)} | {'personne-marie-bourgogne', 'personne-helena-dragas', 'personne-jean-viii', 'personne-theodore-ii'} | {'personne-' + i for i in BALKANS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {'personne-' + i for i in FICHES_BAR}
     fiches = {f['id']: f for f in familles + liens}
     couples = {'personne-isabeau': 'personne-grande-3', 'personne-jeanne': 'personne-grande-28', 'personne-sophie-baviere': 'personne-grande-9'}
     couples.update({v: k for k, v in list(couples.items())})
@@ -1916,7 +1916,7 @@ def _familles_historiques(familles, liens):
         f = fiches['personne-' + i]
         assert (f['nom'], f['maison'], f['naissance']) == (nom, 'grande-9' if i == 'sophie-baviere' else 'grande-3', {'valeur': date, 'precision': precision})
         assert (f['pere'], f['mere']) == ((None, None) if i in ('isabeau', 'sophie-baviere') else ('personne-grande-3', 'personne-isabeau'))
-    assert len(liens) == 28 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')}
+    assert len(liens) == 29 and {f['id'] for f in liens} == {'personne-grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {CHEF_BAR}
     _iles_historiques(fiches)
     _iberie_historiques(fiches)
     _fin_historiques(fiches)
@@ -1928,8 +1928,9 @@ def _familles_historiques(familles, liens):
     _mca(fiches)
     _bourgogne(fiches)
     _palatinat(fiches)
+    _bar(fiches)
     for i, f in fiches.items():
-        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL}: continue
+        if i in {'personne-marie-bourgogne'} | {'personne-grande-' + m for m in VOISINS_CHEFS} | {'personne-' + r[0] for r in ILES_1400 + IBERIE_1400 + FIN_1400} | {'personne-grande-' + i for i in ('1', '2', '4', '5', '6', '7', '8', '10')} | {'personne-' + s for s in ('grande-15', 'helena-dragas', 'jean-viii', 'theodore-ii', 'grande-16')} | {'personne-' + o[0] for o in OTTOMANS} | {'personne-' + i for i in BALKANS} | {'personne-' + m for m in BALKANS_MAISONS} | {'personne-' + m for m in MAGHREB_MAISONS} | {'personne-' + i for i in FICHES_MCA} | {'personne-' + m for m in MCA_MAISONS} | {'personne-' + i for i in FICHES_BOURGOGNE} | {'personne-' + BOURGOGNE} | {'personne-' + i for i in FICHES_PALATINAT} | {CHEF_PAL} | {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR}: continue
         assert set(f['sources']) == set(f['lacunes']) == ({'identite', 'naissance'} if 'nom' in f else set()) | {'pere', 'mere', 'conjoints', 'presence'}
         assert f['presence'] == 'vivante'
         if i in ('personne-grande-9', 'personne-sophie-baviere'): assert f['sources']['conjoints'] and '2 mai 1389' in f['sources']['conjoints']['fait']
@@ -2008,10 +2009,12 @@ def test_familles_integration(tmp_path, monkeypatch):
     verifies |= {(k, (p, 'personne-' + i)) for i in ENFANTS_BOURGOGNE for p, ks in (('personne-grande-27', ('anteriorite',)), ('personne-marguerite-flandre', ('anteriorite', 'age_maternel'))) for k in ks}
     parents += [('grande-29', 'elisabeth-nuremberg', i) for i in ENFANTS_PALATINAT]
     verifies |= {(k, (p, 'personne-' + i)) for i in ENFANTS_PALATINAT if i != 'frederic-palatinat' for p, ks in ((CHEF_PAL, ('anteriorite',)), (EPOUSE_PAL, ('anteriorite', 'age_maternel'))) for k in ks}
-    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]] + ['frederic-palatinat']
-    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA) + ['frederic-palatinat']
-    assert len(paternels) == 14 and len(maternites) == 9
-    assert len(bilan['verifies']) == 77 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 118
+    parents += [(BAR, 'marie-valois', i) for i in ENFANTS_BAR]
+    verifies |= {(k, (p, 'personne-' + i)) for i in ('edouard-bar', 'jean-bar') for p, ks in ((CHEF_BAR, ('anteriorite',)), (EPOUSE_BAR, ('anteriorite', 'age_maternel'))) for k in ks}
+    paternels = [i for i, _, _, _, _, epoux, *_ in OTTOMANS if not epoux] + [i for i, v in BALKANS.items() if v[3]] + ['frederic-palatinat'] + list(SANS_BORNES_BAR)
+    maternites = [i for i, _, _, _, m, *_ in OTTOMANS if m] + [i for i, v in BALKANS.items() if v[4]] + list(ENFANTS_MCA) + ['frederic-palatinat'] + list(SANS_BORNES_BAR)
+    assert len(paternels) == 18 and len(maternites) == 13
+    assert len(bilan['verifies']) == 83 and len(bilan['indetermines']) == 86 + len(paternels) + 2 * len(maternites) == 130
     controles = {('anteriorite', ('personne-' + p, 'personne-' + e)) for p, m, e in parents} | {(k, ('personne-' + m, 'personne-' + e)) for p, m, e in parents if m for k in ('anteriorite', 'age_maternel')}
     assert {(c['contrainte'], c['personnes']) for c in bilan['verifies']} == verifies
     assert {(c['contrainte'], c['personnes']) for c in bilan['indetermines']} == controles - verifies
@@ -2033,6 +2036,9 @@ def test_familles_integration(tmp_path, monkeypatch):
     mutations += [(('familles', flandre, 'naissance'), _naissance_famille(v)) for v in ('1371-05-28', '1340-01-01')]
     nuremberg = next(i for i, f in enumerate(document['familles']) if f['id'] == EPOUSE_PAL)
     mutations += [(('familles', nuremberg, 'naissance'), _naissance_famille(v)) for v in ('1378-01-23', '1340-01-01')]
+    valois = next(i for i, f in enumerate(document['familles']) if f['id'] == EPOUSE_BAR)
+    # Marie de Valois placée après la naissance d'Édouard (juin 1377), puis assez tôt pour avoir 46 ans à la naissance de Jean (1380).
+    mutations += [(('familles', valois, 'naissance'), _naissance_famille(v)) for v in ('1377-07-01', '1334-01-01')]
     copies = [_alterer_personnages(document, k, v) for k, v in mutations]
     cycle = copy.deepcopy(document)
     cycle['familles'][mere]['pere'] = 'personne-charles'
@@ -2071,7 +2077,7 @@ def test_familles_integration(tmp_path, monkeypatch):
 
 
 def _etats_historiques(etats):
-    assert len(etats) == 28 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')}
+    assert len(etats) == 29 and {e['maison'] for e in etats} == {'grande-' + i for i in ('1', '2', '3', '28', '29', '9', '4', '5', '6', '7', '8', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '22', '23', '25', '26', '27', '30')} | {BAR}
     assert {f'grande-{n}' for n in range(11, 21)} <= {e['maison'] for e in etats}
     for e in etats:
         if e['maison'] in BALKANS_MAISONS: _balkans(etat=e); continue
@@ -2079,6 +2085,7 @@ def _etats_historiques(etats):
         if e['maison'] in MCA_MAISONS: _mca(etat=e); continue
         if e['maison'] == BOURGOGNE: _bourgogne(etat=e); continue
         if e['maison'] == PALATINAT: _palatinat(etat=e); continue
+        if e['maison'] == BAR: _bar(etat=e); continue
         if e['maison'] == 'grande-16':
             _ottomans(etat=e); continue
         if e['maison'] == 'grande-15':
@@ -3182,7 +3189,7 @@ def test_familles_historiques_maghreb(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _maghreb({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28
+    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29
     assert not any(f['maison'] == TLEMCEN for f in d['familles']) and not any(l['id'] == 'personne-' + TLEMCEN for l in d['liens']) and not any(e['maison'] == TLEMCEN for e in d['etats'])
     chef = next(c for c in d['chefs'] if c['maison'] == TLEMCEN)
     # Depuis #1052, le chef de Tlemcen est nommé (Abu Muhammad Ier) : sa fiche porte une source, plus de lacune d'identité.
@@ -3374,7 +3381,7 @@ def test_familles_historiques_mamelouks_chypre_autriche(tmp_path):
         refuse(_alterer_personnages(d, chemin, valeur))
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _mca({f['id']: f for f in d['familles'] + d['liens']})
-    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(CHEF_EXCLUSION_MCA) == 12
+    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(CHEF_EXCLUSION_MCA) == 12
     _preuve_monde_mca(list(monde.personnages))
     # La Horde : ni fiche, ni complément, ni état ; la lacune d'identité de son chef reste mot pour mot.
     chef = next(c for c in d['chefs'] if c['maison'] == HORDE)
@@ -3599,7 +3606,7 @@ def test_familles_historiques_bourgogne():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_bourgogne(next(c for c in d['chefs'] if c['maison'] == BOURGOGNE))
     _bourgogne({f['id']: f for f in d['familles'] + d['liens']}); _bourgogne(etat=next(e for e in d['etats'] if e['maison'] == BOURGOGNE))
-    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
+    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(BOURGOGNE_EXCLUSIONS) == 7 and len(FICHES_BOURGOGNE) == 6
     _preuve_monde_bourgogne(list(monde.personnages))
     assert [f['id'] for f in monde.personnages if f['maison'] == 'grande-12'] == [AMEDEE_BG, MARIE_BG]
     ids = {'personne-' + i for i in FICHES_BOURGOGNE} | {CHEF_BG, MARIE_BG, BOURGOGNE}
@@ -3679,7 +3686,7 @@ PALATINAT = 'grande-29'
 CHEF_PAL, EPOUSE_PAL, BLANCHE_PAL, LOUIS_PAL, AUTRICHE_PAL = 'personne-grande-29', 'personne-elisabeth-nuremberg', 'personne-blanche-angleterre', 'personne-louis-palatinat', 'personne-grande-30'
 ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palatinat', 'agnes-palatinat', 'elisabeth-palatinat', 'jean-neumarkt', 'etienne-simmern', 'otton-mosbach')
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
-MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'}
+MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {'seigneurie-1'}
 
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
@@ -3846,9 +3853,9 @@ def test_familles_historiques_palatinat():
     _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
     _chef_palatinat(next(c for c in d['chefs'] if c['maison'] == PALATINAT))
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
-    assert len(d['familles']) == 95 and len(d['liens']) == len(d['etats']) == 28 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
+    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2381
+    assert len(monde.personnages) == 2388
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -3922,3 +3929,281 @@ def test_familles_historiques_palatinat():
             else: clone['conjoints'] = [CHEF_PAL]; chef['conjoints'].append(clone['id'])
             with pytest.raises(AssertionError): _palatinat({f['id']: f for f in personnes + [clone]})
             with pytest.raises(AssertionError): _preuve_monde_palatinat(personnes + [clone])
+
+
+# Notices examinées le 14 novembre 2026 ; attentes indépendantes du catalogue.
+FWP = 'https://fr.wikipedia.org/wiki/'
+ROBERT_FR, GUILLAUME_FR, WALERAN_FR, MARIE_FR = (FWP + p for p in ('Robert_Ier_de_Bar#Mariage_et_enfants', 'Guillaume_II_de_Namur', 'Waléran_III_de_Luxembourg-Ligny', 'Marie_de_France_(1344-1404)'))
+(ROBERT_EN, MARIE_EN, VIOLANT, JEAN_A, HENRI_B, LOUIS_B, EDOUARD_B, JEAN_BAR, GUILLAUME_EN, WALERAN_EN, THEODORE_M, ADOLPHE_J) = (WP + p for p in (
+    'Robert,_Duke_of_Bar#Marriage_and_issue', 'Marie_of_France,_Duchess_of_Bar', 'Violant_of_Bar', 'John_I_of_Aragon', 'Henry_of_Bar', 'Louis_I,_Duke_of_Bar', 'Edward_III_of_Bar',
+    'John_of_Bar', 'William_II_of_Namur', 'Waleran_III_of_Ligny', 'Theodore_II_of_Montferrat', 'Adolf,_Duke_of_Jülich-Berg'))
+BAR = 'seigneurie-1'
+CHEF_BAR, EPOUSE_BAR, MARIE_FRANCE_ID, THEODORE_II_ID, YOLANDE_JEUNE_BAR = 'personne-seigneurie-1', 'personne-marie-valois', 'personne-marie', 'personne-theodore-ii', 'personne-yolande-jeune-bar'
+ENFANTS_BAR = ('yolande-bar', 'louis-bar', 'edouard-bar', 'yolande-jeune-bar', 'jean-bar', 'jeanne-bar')
+SANS_BORNES_BAR = ('yolande-bar', 'louis-bar', 'yolande-jeune-bar', 'jeanne-bar')
+PARENTS_BAR = 'de Robert Ier de Bar et de Marie de Valois'
+# La fiche de Marie de France (fille de Charles VI) : elle ne change pas, mot pour mot.
+_CF = 'https://en.wikipedia.org/wiki/Charles_VI_of_France#Marriage_and_issue'
+FICHE_MARIE_FRANCE = {
+    'id': 'personne-marie', 'maison': 'grande-3', 'nom': 'Marie de France', 'naissance': {'valeur': '1393-08-22', 'precision': 'jour'}, 'pere': 'personne-grande-3', 'mere': 'personne-isabeau',
+    'conjoints': [], 'presence': 'vivante', 'sources': {
+        'identite': {'url': _CF, 'fait': 'Marie de France figure dans la famille de Charles VI.'},
+        'naissance': {'url': _CF, 'fait': 'Marie de France : naissance 1393-08-22.'},
+        'presence': {'url': _CF, 'fait': 'Marie de France a une naissance antérieure au 1er janvier 1400 et un décès le 1438-08-19 ; présence vivante au départ.'},
+        'pere': {'url': _CF, 'fait': 'Marie de France est enfant de Charles VI et d’Isabeau de Bavière.'},
+        'mere': {'url': _CF, 'fait': 'Marie de France est enfant de Charles VI et d’Isabeau de Bavière.'}, 'conjoints': None},
+    'lacunes': {'identite': None, 'naissance': None, 'presence': None, 'pere': None, 'mere': None, 'conjoints': 'Relation non étudiée dans ce lot ; aucune absence attestée.'}}
+
+
+def _enfant_bar(nom, naissance, identite, fait_naissance, fait_presence, reperes, url_identite=ROBERT_EN, url_naissance=ROBERT_EN, url_presence=ROBERT_EN, lacune_naissance=None):
+    qualite = 'fille' if nom.split()[0] in ('Yolande', 'Jeanne') else 'fils'
+    filiation = (ROBERT_EN, f'{nom} est {qualite} {PARENTS_BAR} ; ' + ROBERT_FR + ', ' + MARIE_EN + ' et ' + MARIE_FR + ' donnent la même liste de onze enfants.')
+    sources = {'identite': (url_identite, identite), 'presence': (url_presence, fait_presence), 'pere': filiation, 'mere': filiation}
+    if fait_naissance: sources['naissance'] = (url_naissance, fait_naissance)
+    else: reperes = {**reperes, 'naissance': lacune_naissance}
+    return (nom, BAR, naissance, CHEF_BAR, EPOUSE_BAR, (), sources, reperes)
+
+
+# id : (nom, maison, naissance, père, mère, conjoints, sources {champ : (page, fait)}, repères des lacunes {champ : repères})
+FICHES_BAR = {
+    'marie-valois': ('Marie de Valois', BAR, {'valeur': '1344-09-18', 'precision': 'jour'}, None, None, (CHEF_BAR,), {
+        'identite': (MARIE_EN, 'Marie de Valois, fille de Jean II le Bon, épouse de Robert Ier de Bar ; ses pages la titrent « Marie de France » (' + MARIE_FR + ') ou « Marie of France » (' + MARIE_EN + '), '
+                     + ROBERT_EN + ' la nomme « Marie of Valois » ; le monde la distingue de personne-marie, Marie de France, fille de Charles VI née le 22 août 1393.'),
+        'naissance': (MARIE_EN, 'Marie de Valois : née le 18 septembre 1344 à Saint-Germain-en-Laye (' + MARIE_EN + ' ; ' + MARIE_FR + ').'),
+        'presence': (MARIE_EN, 'Marie de Valois, morte le 15 octobre 1404 (' + MARIE_EN + ' ; ' + MARIE_FR + ') ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.'),
+        'conjoints': (ROBERT_FR, 'Marie de Valois et Robert Ier de Bar sont mariés depuis le 5 octobre 1364, avec une dot de soixante mille livres (' + ROBERT_FR + ' ; ' + MARIE_FR + ') ; union active au départ.')},
+        {'pere': ('Marie de Valois', 'Jean II le Bon', MARIE_EN, 'Charles V', 'Philippe le Hardi', 'aucun lien de fratrie', 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+         'mere': ('Marie de Valois', 'Bonne de Luxembourg', 'Bonne of Bohemia', MARIE_FR, ROBERT_EN, MARIE_EN, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée')}),
+    'yolande-bar': _enfant_bar('Yolande de Bar', {'valeur': 'vers 1365', 'precision': 'vers'},
+        'Yolande de Bar, reine douairière d’Aragon, fille ' + PARENTS_BAR + ', « huitième de onze enfants » pour ' + VIOLANT + '.',
+        'Yolande de Bar : née « c. 1365 » (' + VIOLANT + ' ; ' + JEAN_A + ') ; ' + ROBERT_EN + ' et ' + ROBERT_FR + ' donnent 1365, divergence conservée ; aucune borne n’est inventée.',
+        'Yolande de Bar, morte le 3 juillet 1431 à Barcelone (' + VIOLANT + ') ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.',
+        {'conjoints': ('Yolande de Bar', 'veuve de Jean Ier d’Aragon', '2 février 1380', '1384', '19 mai 1396', '1395', JEAN_A, VIOLANT, MARIE_FR, 'aucune union active', 'personne-grande-6', 'Yolande d’Aragon', 'hors périmètre', 'aucune absence attestée')},
+        url_identite=VIOLANT, url_naissance=VIOLANT, url_presence=VIOLANT),
+    'louis-bar': _enfant_bar('Louis de Bar', {'valeur': 'entre 1370 et 1375', 'precision': 'intervalle'},
+        'Louis de Bar, cardinal, fils ' + PARENTS_BAR + ', « cinquième fils » (' + LOUIS_B + '), cardinal depuis 1391, évêque de Langres depuis 1397 (1395 pour ' + MARIE_FR + ') ; aîné des fils vivants au départ, aucun héritier n’est désigné.',
+        'Louis de Bar : né entre 1370 et 1375 (' + LOUIS_B + ' ; ' + ROBERT_EN + ') ; aucune borne n’est inventée.',
+        'Louis de Bar, mort le 23 juin 1430 (' + LOUIS_B + '), le 26 juin 1430 (' + ROBERT_EN + ') ou en 1431 (' + MARIE_EN + ' ; ' + MARIE_FR + ') ; vivant au 1er janvier 1400, divergence conservée.',
+        {'conjoints': ('Louis de Bar', 'homme d’Église', 'aucune épouse nommée', LOUIS_B, 'ni célibat ni veuvage', 'aucune absence attestée')}, url_identite=LOUIS_B, url_naissance=LOUIS_B, url_presence=LOUIS_B),
+    'edouard-bar': _enfant_bar('Édouard de Bar', {'valeur': '1377-06', 'precision': 'mois'},
+        'Édouard de Bar, fils ' + PARENTS_BAR + ', marquis de Pont-à-Mousson depuis 1399, héritier du duché après la mort de ses frères aînés (' + EDOUARD_B + ') ; aîné des fils laïcs vivants au départ, aucun héritier n’est désigné.',
+        'Édouard de Bar : né fin juin 1377 (« late June 1377 », ' + EDOUARD_B + ') ; ' + ROBERT_EN + ' et ' + ROBERT_FR + ' donnent 1377, divergence conservée.',
+        'Édouard de Bar, tué à Azincourt le 25 octobre 1415 (' + EDOUARD_B + ') ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        {'conjoints': ('Édouard de Bar', '« never married »', EDOUARD_B, 'aucune épouse nommée', 'enfants illégitimes', 'hors périmètre', 'aucune absence attestée')},
+        url_identite=EDOUARD_B, url_naissance=EDOUARD_B, url_presence=EDOUARD_B),
+    'yolande-jeune-bar': _enfant_bar('Yolande la Jeune de Bar', {'valeur': 'vers 1378', 'precision': 'vers'},
+        'Yolande la Jeune de Bar, fille ' + PARENTS_BAR + ' ; elle porte le prénom de sa sœur aînée « pour des raisons incertaines » (' + MARIE_EN + ').',
+        'Yolande la Jeune de Bar : née « c. 1378 » (' + ADOLPHE_J + ') ; aucune borne n’est inventée.',
+        'Yolande la Jeune de Bar, morte le 10 janvier 1421 (' + ADOLPHE_J + ' ; 1421 pour ' + ROBERT_EN + ' et ' + ROBERT_FR + ') ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.',
+        {'conjoints': ('Yolande la Jeune de Bar', 'Adolphe de Juliers et de Berg', 'château de Dun', ADOLPHE_J, ROBERT_EN, ROBERT_FR, 'sans jour', 'aucun conjoint actif', 'hors périmètre', 'aucune absence attestée')},
+        url_identite=MARIE_EN, url_naissance=ADOLPHE_J, url_presence=ADOLPHE_J),
+    'jean-bar': _enfant_bar('Jean de Bar', {'valeur': '1380', 'precision': 'annee'},
+        'Jean de Bar, fils ' + PARENTS_BAR + ', seigneur de Puisaye (' + JEAN_BAR + ').',
+        'Jean de Bar : né en 1380, année que donnent ' + JEAN_BAR + ', ' + ROBERT_EN + ' et ' + ROBERT_FR + '.',
+        'Jean de Bar, tué à Azincourt le 25 octobre 1415 (' + JEAN_BAR + ') ; vivant au 1er janvier 1400, décès cité pour la sélection initiale.',
+        {'conjoints': ('Jean de Bar', 'aucune épouse nommée', JEAN_BAR, ROBERT_EN, 'ni célibat ni veuvage', 'aucune absence attestée')}, url_identite=JEAN_BAR, url_naissance=JEAN_BAR, url_presence=JEAN_BAR),
+    'jeanne-bar': _enfant_bar('Jeanne de Bar', None,
+        'Jeanne de Bar, fille ' + PARENTS_BAR + ', marquise de Montferrat depuis 1393 (' + THEODORE_M + ').',
+        None,
+        'Jeanne de Bar, morte le 15 janvier 1402 (' + THEODORE_M + ' ; ' + MARIE_EN + ' ; 1402 pour ' + ROBERT_EN + ', ' + ROBERT_FR + ' et ' + MARIE_FR + ') ; vivante au 1er janvier 1400, décès cité pour la sélection initiale.',
+        {'conjoints': ('Jeanne de Bar', 'Théodore II Paléologue', 'Montferrat', '1393', THEODORE_M, ROBERT_EN, ROBERT_FR, MARIE_EN, MARIE_FR, 'sans fiche', 'personne-theodore-ii', 'aucune absence attestée')},
+        url_identite=THEODORE_M, url_presence=THEODORE_M,
+        lacune_naissance=('Jeanne de Bar', 'aucune page ne donne sa naissance', THEODORE_M, ROBERT_EN, ROBERT_FR, MARIE_EN, MARIE_FR, 'aucune borne')),
+}
+# conjoints, sources {champ : (page, fait)}, repères des lacunes
+LIEN_BAR = ((EPOUSE_BAR,), {
+    'presence': (ROBERT_FR, 'Robert Ier, duc de Bar jusqu’à sa mort, le 12 avril 1411 (' + ROBERT_FR + ' ; ' + ROBERT_EN + ') ; il cède le duché à Édouard en 1401 en gardant l’usufruit et écarte son petit-fils Robert, fils d’Henri, '
+                 'après le départ ; en fonction et vivant au 1er janvier 1400, aucune cession ni mort programmée.'),
+    'conjoints': (ROBERT_FR, 'Robert Ier et Marie de Valois sont mariés depuis le 5 octobre 1364, après dispense du pape Urbain V (' + ROBERT_FR + ') ; ' + ROBERT_EN + ' donne 1364 ; union active au départ.')},
+    {'pere': ('Robert Ier', 'Henri IV de Bar', ROBERT_FR, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée'),
+     'mere': ('Robert Ier', 'Yolande de Flandre', 'Yolande of Flanders', 'Yolande de Dampierre', ROBERT_FR, ROBERT_EN, 'hors périmètre', 'aucune fiche créée', 'aucune absence attestée')})
+ETAT_BAR = ('union', 'documentes', {
+    'conjoints': (ROBERT_FR, 'Robert Ier et Marie de Valois sont mariés depuis le 5 octobre 1364 ; état union, avant le départ.'),
+    'enfants': (ROBERT_EN, 'Robert Ier et Marie de Valois ont onze enfants (' + ROBERT_EN + ' ; ' + ROBERT_FR + ', ' + MARIE_EN + ' et ' + MARIE_FR + ' donnent la même liste), dont six vivants au 1er janvier 1400 : '
+                           'Yolande, Louis, Édouard, Yolande la Jeune, Jean et Jeanne ; Henri et Charles, morts avant 1400, sont exclus, ainsi que Philippe, Marie et Bonne, de présence indéterminée.')}, {}, {
+    'Henri de Bar': ((ROBERT_EN, 'Henri de Bar : fils aîné ' + PARENTS_BAR + ', né vers 1362, mort de la peste en octobre 1397 à Trévise, au retour de Nicopolis, avant le départ ; exclu, aucun événement programmé.'),
+                     (HENRI_B, 'Henri de Bar : mort à Trévise en octobre 1397 (' + MARIE_EN + ' ; ' + ROBERT_FR + ') ; la naissance de 1362, antérieure au mariage de 1364, est discutée par ' + ROBERT_EN + ' ; il n’a ni fiche ni résurrection.')),
+    'Philippe de Bar': ((ROBERT_EN, 'Philippe de Bar : fils ' + PARENTS_BAR + ', tué à Nicopolis en 1396 selon ' + ROBERT_EN + ' et ' + MARIE_FR + ', le 25 septembre 1396 selon ' + MARIE_EN + ', « at or soon after » la bataille selon '
+                         + EDOUARD_B + ' ; présence indéterminée au 1er janvier 1400, exclu des vivants, sans décès ni survie déduits.'),
+                        (ROBERT_FR, 'Philippe de Bar : ' + ROBERT_FR + ' le dit mort en 1404 dans une prison turque, marié en 1384 à Yolande d’Enghien ; divergence conservée ; il n’a ni fiche ni union active, aucun événement programmé.')),
+    'Charles de Bar': ((ROBERT_EN, 'Charles de Bar : fils ' + PARENTS_BAR + ', né en 1373, seigneur de Nogent-le-Rotrou, mort en 1392, avant le départ ; exclu, aucun événement programmé.'),
+                       (ROBERT_FR, 'Charles de Bar : mort en 1392 selon ' + ROBERT_FR + ', ' + MARIE_EN + ' et ' + MARIE_FR + ' ; mort avant 1400, il n’a ni fiche ni résurrection.')),
+    'Marie de Bar': ((ROBERT_EN, 'Marie de Bar : fille ' + PARENTS_BAR + ', comtesse de Namur, née en 1374, sans date de mort (« 1374 †? ») ; présence indéterminée au 1er janvier 1400, exclue des vivants sans décès inventé.'),
+                     (GUILLAUME_EN, 'Marie de Bar : mariée en 1384 à Guillaume II de Namur (' + ROBERT_EN + ' ; ' + ROBERT_FR + ' ; ' + MARIE_EN + ' ; ' + MARIE_FR + ') ; Guillaume II se remarie en 1393 avec Jeanne d’Harcourt ('
+                      + GUILLAUME_EN + ' ; ' + GUILLAUME_FR + ') ; elle n’a ni fiche ni union active, aucun événement programmé.')),
+    'Bonne de Bar': ((ROBERT_EN, 'Bonne de Bar : fille ' + PARENTS_BAR + ', comtesse de Saint-Pol, morte en 1436 selon ' + ROBERT_EN + ', en 1400 sans jour selon ' + MARIE_FR + ', ' + WALERAN_EN + ' et ' + WALERAN_FR + ' ; '
+                      + ROBERT_FR + ' écrit « † 1400 ou 1436 ? » ; présence indéterminée au 1er janvier 1400 : une mort en 1400 sans jour ne dit pas qui vit au départ ; exclue des vivants, ni vivante ni décédée par déduction.'),
+                     (WALERAN_EN, 'Bonne de Bar : mariée en 1393 à Waléran III de Luxembourg, comte de Ligny et de Saint-Pol (' + ROBERT_EN + ' ; ' + ROBERT_FR + ' ; ' + MARIE_EN + ' ; ' + WALERAN_FR
+                      + ' ; « c. 1392 » dans l’infobox de ' + WALERAN_EN + ') ; elle n’a ni fiche ni union active, aucun événement programmé.')),
+    'Adolphe de Juliers': ((ADOLPHE_J, 'Adolphe de Juliers : époux futur de Yolande la Jeune de Bar, marié en 1400 au château de Dun, sans jour (' + ADOLPHE_J + ' ; ' + ROBERT_EN + ' ; ' + ROBERT_FR
+                            + ') ; l’union n’est pas établie au départ : ni fiche ni conjoint actif, aucun événement programmé.'),)})
+BAR_EXCLUSIONS = ETAT_BAR[4]
+# Fiche de chef de Robert Ier (`chefs`) : nom, maison, naissance au jour, page d'identité et de naissance, repères de la naissance.
+CHEF_FICHE_BAR = ('Robert Ier de Bar', BAR, {'valeur': '1344-11-08', 'precision': 'jour'}, FWP + 'Robert_Ier_de_Bar', ('1344-11-08',))
+BAR_DIVERGENCES = ('5 octobre 1364', 'Urbain V', '12 avril 1411', '1401', 'Henri IV de Bar', 'Yolande de Flandre', 'Yolande of Flanders', 'Yolande de Dampierre', '18 septembre 1344', 'Saint-Germain-en-Laye',
+                   '15 octobre 1404', 'Jean II le Bon', 'Bonne de Luxembourg', 'Bonne of Bohemia', 'Marie of Valois', '22 août 1393', 'c. 1365', 'huitième de onze enfants', '3 juillet 1431', '2 février 1380',
+                   '1384', '19 mai 1396', '1395', 'entre 1370 et 1375', 'cinquième fils', '23 juin 1430', '26 juin 1430', '1431', 'late June 1377', '1399', 'never married', '25 octobre 1415', 'c. 1378',
+                   '10 janvier 1421', 'château de Dun', 'Puisaye', '15 janvier 1402', '1393', 'Montferrat', 'onze enfants', 'octobre 1397', 'Trévise', '25 septembre 1396', '1404', 'Yolande d’Enghien',
+                   'Nogent-le-Rotrou', 'Guillaume II de Namur', 'Jeanne d’Harcourt', '1436', 'Saint-Pol', 'présence indéterminée', 'ni célibat ni veuvage', 'aucune absence attestée')
+REPERES_BAR = {**{'personne-' + i: v[7] for i, v in FICHES_BAR.items()}, CHEF_BAR: LIEN_BAR[2], BAR: {}}
+
+
+def _bar(fiches=None, etat=None):
+    try: _bar_controle(fiches, etat)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de Bar malformée : {erreur!r}') from erreur
+
+
+def _bar_controle(fiches, etat):
+    if fiches is not None:
+        enfants = {'personne-' + i for i in ENFANTS_BAR}
+        assert {CHEF_BAR, MARIE_FRANCE_ID, THEODORE_II_ID, 'personne-grande-6', 'personne-grande-27'} | {'personne-' + i for i in FICHES_BAR} <= set(fiches)
+        assert {i for i, f in fiches.items() if f.get('maison') == BAR and i != CHEF_BAR} == {'personne-' + i for i in FICHES_BAR}
+        for i, (nom, maison, naissance, pere, mere, conjoints, sources, reperes) in FICHES_BAR.items():
+            f = fiches['personne-' + i]
+            assert (f['nom'], f['maison'], f['naissance'], f['pere'], f['mere'], tuple(f['conjoints']), f['presence']) == (nom, maison, naissance, pere, mere, conjoints, 'vivante')
+            _lacunes_b(f['sources'], f['lacunes'], sources, reperes)
+        conjoints, sources, reperes = LIEN_BAR
+        c = fiches[CHEF_BAR]
+        assert (c['pere'], c['mere'], tuple(c['conjoints']), c['presence']) == (None, None, conjoints, 'vivante')
+        champs = ('pere', 'mere', 'conjoints', 'presence')
+        _lacunes_b({k: c['sources'][k] for k in champs}, {k: c['lacunes'][k] for k in champs}, sources, reperes)
+        # Marie de Valois n'est pas Marie de France : la fille de Charles VI reste la seule de son nom, sa fiche inchangée mot pour mot.
+        assert [i for i, f in fiches.items() if f.get('nom') == 'Marie de France'] == [MARIE_FRANCE_ID]
+        assert [i for i, f in fiches.items() if f.get('nom') == 'Marie de Valois'] == [EPOUSE_BAR]
+        assert {k: v for k, v in fiches[MARIE_FRANCE_ID].items() if k != 'origine'} == FICHE_MARIE_FRANCE
+        # Seuls les six enfants ont Robert pour père et Marie de Valois pour mère ; une seule union, jamais d'union future ni d'enfant inventé.
+        assert {i for i, f in fiches.items() if f.get('pere') == CHEF_BAR} == {i for i, f in fiches.items() if f.get('mere') == EPOUSE_BAR} == enfants
+        assert {i for i, f in fiches.items() if CHEF_BAR in f.get('conjoints', [])} == {EPOUSE_BAR} and {i for i, f in fiches.items() if EPOUSE_BAR in f.get('conjoints', [])} == {CHEF_BAR}
+        # Aucun lien vers une autre maison : ni Aragon, ni Montferrat (Théodore II Paléologue de `grande-15`), ni Bourgogne, ni Marie de France.
+        famille = enfants | {CHEF_BAR, EPOUSE_BAR}
+        for i, f in fiches.items():
+            liens = {f.get('pere'), f.get('mere'), *f.get('conjoints', [])} - {None}
+            if i in famille: assert liens <= famille
+            else: assert not liens & famille
+        assert not any({'personne-grande-6', THEODORE_II_ID, 'personne-grande-27', MARIE_FRANCE_ID} & ({f.get('pere'), f.get('mere')} | set(f.get('conjoints', []))) for i, f in fiches.items() if i in famille)
+        assert fiches[THEODORE_II_ID]['conjoints'] == [] and fiches['personne-grande-6']['mere'] is None
+        # Les cinq autres seigneuries restent sans complément ni fiche.
+        assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR}
+        assert {f['maison'] for f in fiches.values() if f.get('maison', '').startswith('seigneurie-')} == {BAR}
+    if etat is not None:
+        conjoints, enfants, sources, reperes, exclusions = ETAT_BAR
+        assert etat['maison'] == BAR and (etat['conjoints'], etat['enfants']) == (conjoints, enfants) and set(etat['sources']) == set(etat['lacunes']) == {'conjoints', 'enfants'}
+        _lacunes_b(etat['sources'], etat['lacunes'], sources, reperes)
+        assert set(etat['exclusions']) == set(exclusions)
+        for nom, faits in exclusions.items():
+            x = etat['exclusions'][nom]
+            assert set(x) == {'motif', 'sources'} and x['motif'] == ' '.join(f for _, f in faits) and x['sources'] == [{'url': u, 'fait': f} for u, f in faits]
+
+
+def _chef_bar(chef):
+    try:
+        nom, maison, naissance, page, reperes = CHEF_FICHE_BAR
+        assert (chef['nom'], chef['maison'], chef['naissance']) == (nom, maison, naissance)
+        assert chef['sources']['identite']['url'] == chef['sources']['naissance']['url'] == page
+        assert chef['lacunes']['identite'] is None and chef['lacunes']['naissance'] is None
+        assert 'Robert Ier de Bar' in chef['sources']['identite']['fait'] and all(r in chef['sources']['naissance']['fait'] for r in reperes)
+    except (KeyError, TypeError, AttributeError) as erreur: raise AssertionError(f'fiche de chef de Bar malformée : {erreur!r}') from erreur
+
+
+def _preuve_monde_bar(personnes):
+    _chef_bar(next(f for f in personnes if f['id'] == CHEF_BAR))
+    _familles_historiques([f for f in personnes if f['id'] != 'personne-' + f['maison']],
+                          [f for f in personnes if f['id'] == 'personne-' + f['maison'] and CHAMPS_FAMILIAUX & f.keys()])
+    _etats_historiques([f['etat_familial'] for f in personnes if 'etat_familial' in f])
+
+
+def test_familles_historiques_bar():
+    d, monde = _personnages(), World.charger(0)
+    def resolus(c):
+        return c['familles'] + [{**h, **l} for l in c['liens'] for h in c['chefs'] if l['id'] == 'personne-' + h['maison']]
+    def refuse(c, controle=False, bar=False):
+        if controle: assert _controler_famille(resolus(c))
+        if bar:
+            with pytest.raises(AssertionError): _bar({f['id']: f for f in resolus(c)})
+        with pytest.raises(AssertionError): _familles_historiques(c['familles'], c['liens']); _etats_historiques(c['etats'])
+    def altere(chemin, valeur):
+        refuse(_alterer_personnages(d, chemin, valeur))
+    _familles_historiques(d['familles'], d['liens']); _etats_historiques(d['etats'])
+    _chef_bar(next(c for c in d['chefs'] if c['maison'] == BAR))
+    _bar({f['id']: f for f in d['familles'] + d['liens']}); _bar(etat=next(e for e in d['etats'] if e['maison'] == BAR))
+    assert len(d['familles']) == 102 and len(d['liens']) == len(d['etats']) == 29 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
+    assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
+    assert not any(e['maison'].startswith('seigneurie-') and e['maison'] != BAR for e in d['etats'] + [f['etat_familial'] for f in monde.personnages if 'etat_familial' in f])
+    assert len(monde.personnages) == 2388
+    _preuve_monde_bar(list(monde.personnages))
+    # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
+    ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
+    feuilles = []
+    for t in ('familles', 'liens', 'etats'):
+        for f in d[t]:
+            if f.get('id', f.get('maison')) not in ids: continue
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                if isinstance(valeur, str): feuilles.append(valeur)
+    assert all(any(r in v for v in feuilles) for r in BAR_DIVERGENCES)
+    for t in ('familles', 'liens', 'etats'):
+        for j, f in enumerate(d[t]):
+            if f.get('id', f.get('maison')) not in ids: continue
+            altere((t,), d[t][:j] + d[t][j+1:]); altere((t,), d[t] + [copy.deepcopy(f)])
+            for chemin in _feuilles(f):
+                valeur = f
+                for cle in chemin: valeur = valeur[cle]
+                altere((t, j, *chemin), ['personne-grande-9'] if valeur == [] else 'Altéré')
+                if isinstance(valeur, str):
+                    for repere in BAR_DIVERGENCES:
+                        if repere in valeur: altere((t, j, *chemin), valeur.replace(repere, 'inconnu'))
+            for nom in f.get('exclusions', {}): altere((t, j, 'exclusions', nom), 'SUPPRIMER')
+            if t == 'etats':
+                for champ, etats in (('conjoints', ('lacune', 'veuvage')), ('enfants', ('lacune', 'absence_attestee'))):
+                    for etat in etats: altere((t, j, champ), etat)
+            for champ, liste in REPERES_BAR.get(f.get('id', f.get('maison')), {}).items():
+                for repere in liste: altere((t, j, 'lacunes', champ), f['lacunes'][champ].replace(repere, 'inconnu'))
+                if f.get('maison') == BAR and champ == 'conjoints': altere((t, j, 'lacunes', champ), f['nom'] + ' : absence attestée de tout conjoint.')
+    # Une lacune d'enfant ne devient pas une absence attestée.
+    j = next(k for k, e in enumerate(d['etats']) if e['maison'] == BAR)
+    altere(('etats', j, 'enfants'), 'absence_attestee'); altere(('etats', j, 'conjoints'), 'lacune')
+    # La fiche du chef : nom, naissance (jour, précision), sources ; dans le monde aussi.
+    j = next(k for k, c in enumerate(d['chefs']) if c['maison'] == BAR)
+    chef = d['chefs'][j]
+    for chemin, valeur in ((('nom',), 'Robert II de Bar'), (('maison',), 'seigneurie-2'), (('naissance',), _naissance_famille('1344-11-09')), (('naissance',), _naissance_famille('1344', 'annee')),
+                           (('sources', 'identite', 'url'), ROBERT_EN), (('sources', 'naissance', 'url'), MARIE_EN), (('lacunes', 'naissance'), 'Naissance inconnue.')):
+        with pytest.raises(AssertionError): _chef_bar(_alterer_personnages(chef, chemin, valeur))
+    with pytest.raises(AssertionError): _chef_bar(_alterer_personnages(next(f for f in monde.personnages if f['id'] == CHEF_BAR), ('nom',), 'Robert II de Bar'))
+    modele = next(f for f in d['familles'] if f['id'] == 'personne-edouard-bar')
+    def relie(c, i, j):
+        a, b = (next(f for f in c['familles'] + c['liens'] if f['id'] == k) for k in (i, j))
+        a['conjoints'].append(j); b['conjoints'].append(i)
+    # « Marie de Valois » rebaptisée Marie de France ; une seconde Marie de France, de `seigneurie-1`, conjointe réciproque de Robert.
+    k = next(k for k, f in enumerate(d['familles']) if f['id'] == EPOUSE_BAR)
+    altere(('familles', k, 'nom'), 'Marie de France')
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-marie-intruse', nom='Marie de France', pere=None, mere=None, conjoints=[]))
+    relie(c, 'personne-marie-intruse', CHEF_BAR); refuse(c, controle=True, bar=True)
+    # Jeanne et Théodore II Paléologue (`grande-15`) ; Yolande de Bar et `grande-6` ; Yolande la Jeune et un conjoint actif.
+    c = copy.deepcopy(d); relie(c, 'personne-jeanne-bar', THEODORE_II_ID); refuse(c, controle=True, bar=True)
+    c = copy.deepcopy(d); relie(c, 'personne-yolande-bar', 'personne-grande-6'); refuse(c, controle=True, bar=True)
+    c = copy.deepcopy(d); c['familles'].append(dict(copy.deepcopy(modele), id='personne-adolphe-juliers', nom='Adolphe de Juliers', conjoints=[], pere=None, mere=None))
+    relie(c, YOLANDE_JEUNE_BAR, 'personne-adolphe-juliers'); refuse(c, controle=True, bar=True)
+    # Les naissances que le lot refuse de redevenir imprécises, et un état de plus.
+    for i, naissance in (('yolande-bar', _naissance_famille('1365', 'annee')), ('louis-bar', _naissance_famille('1370', 'annee')), ('edouard-bar', _naissance_famille('1377', 'annee'))):
+        k = next(k for k, f in enumerate(d['familles']) if f['id'] == 'personne-' + i)
+        altere(('familles', k, 'naissance'), naissance)
+    c = copy.deepcopy(d); c['etats'].append(dict(copy.deepcopy(next(e for e in d['etats'] if e['maison'] == BAR)), maison='seigneurie-2')); refuse(c)
+    c = copy.deepcopy(d); c['etats'] = [e for e in c['etats'] if e['maison'] != BAR]; refuse(c)
+    # Des copies d'Édouard : enfants morts avant 1400 ou de présence indéterminée, époux futur, héritier inventé.
+    base = next(f for f in monde.personnages if f['id'] == 'personne-edouard-bar')
+    intrus = [(nom, 'decedee', 'enfant') for nom in ('Henri de Bar', 'Charles de Bar')]
+    intrus += [(nom, presence, 'enfant') for nom in ('Philippe de Bar', 'Marie de Bar', 'Bonne de Bar') for presence in ('vivante', 'decedee')]
+    intrus += [('Adolphe de Juliers', 'vivante', 'conjoint'), ('Héritier inventé', 'vivante', 'enfant')]
+    for nom, presence, role in intrus:
+        c = copy.deepcopy(d); ajout = dict(copy.deepcopy(modele), id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[]); c['familles'].append(ajout)
+        if role == 'enfant': ajout['pere'], ajout['mere'] = CHEF_BAR, EPOUSE_BAR
+        else: ajout['conjoints'] = [YOLANDE_JEUNE_BAR]; next(x for x in c['familles'] if x['id'] == YOLANDE_JEUNE_BAR)['conjoints'].append(ajout['id'])
+        refuse(c, controle=True, bar=True)
+        clone = {k: copy.deepcopy(v) for k, v in base.items()}
+        clone.update(id='personne-intruse', nom=nom, presence=presence, pere=None, mere=None, conjoints=[])
+        personnes = [copy.deepcopy(f) for f in monde.personnages]
+        if role == 'enfant': clone.update(pere=CHEF_BAR, mere=EPOUSE_BAR)
+        else: clone['conjoints'] = [YOLANDE_JEUNE_BAR]; next(f for f in personnes if f['id'] == YOLANDE_JEUNE_BAR)['conjoints'].append(clone['id'])
+        with pytest.raises(AssertionError): _bar({f['id']: f for f in personnes + [clone]})
+        with pytest.raises(AssertionError): _preuve_monde_bar(personnes + [clone])

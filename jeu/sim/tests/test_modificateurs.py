@@ -53,8 +53,13 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # son complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la
 # clé `personnages` de `World.to_dict()` diffère (neuf fiches nouvelles, une changée :
 # `personne-grande-29`), et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1083) : sept fiches de la maison de
+# Bar entrent dans le registre (de 2 381 à 2 388 personnes), Robert Ier reçoit son
+# complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la clé
+# `personnages` de `World.to_dict()` diffère (sept fiches nouvelles, une changée :
+# `personne-seigneurie-1`), et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("1b99b9ff67330ab1abbb05b42c764a241fd31b5dec247738dc2fd90c38e3050a",
+    "linux": ("67935adb2529df5d9eeba397bb9346a53ecc4ac98cd030ffe594d00524141b9d",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
