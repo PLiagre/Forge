@@ -54,32 +54,73 @@ C'est une issue, écrite par le CTO comme une fiche courte :
 Celui qui conçoit le lot le construit : le chef de lot écrit son plan dans la
 PR et le réalise ([docs/WORKFLOW.md](docs/WORKFLOW.md)).
 
-## Le palier en cours : palier 1 — la première guerre
+## Les quatre premiers paliers
+
+Chaque palier a trois lots, un par piste. Les lots du palier en cours sont
+les issues de son jalon GitHub ; ils y font foi. Les paliers 2 à 4 sont
+écrits ici pour que le CTO en tire les lots le samedi, d'après ce que le
+propriétaire aura dit en jouant.
+
+### Palier 1 — la première guerre (en cours)
 
 Le joueur lève une armée, déclare la guerre, marche, assiège, et prend une
 terre qui change de couleur sur la carte.
 
 | piste | ce que je joue de plus | ce que je vois samedi |
 |---|---|---|
-| le monde | lever une armée, déclarer la guerre, marcher, assiéger, prendre une terre | la terre prise change de maître, et l'IA fait les mêmes gestes |
-| la ville | entrer dans sa capitale depuis la carte et y bâtir une caserne, qui donne le droit de lever (à confirmer en jouant) | la caserne dans la ville du désert, et la levée qui s'ouvre |
-| l'interface | suivre la guerre sur la carte | les frontières et les noms des pays, les armées dessinées, les textes de la ville dans le style du cabinet |
+| le monde | lever des hommes dans ses foyers, déclarer la guerre à une maison, faire marcher l'armée de lieu en lieu, assiéger une place, la prendre | les hommes levés manquent aux champs ; l'armée mange ce qu'elle porte et ce qu'elle prend ; la place affamée tombe et la terre change de maître ; les soldats rentrent ou ne reviennent pas ; l'IA fait les mêmes gestes |
+| la ville | entrer dans sa capitale depuis la carte et y bâtir une caserne, qui donne le droit de lever (à confirmer en jouant) | la caserne dans la ville du désert, son prix en matériaux et en journées, et la levée qui s'ouvre sur la carte quand elle est bâtie |
+| l'interface | suivre la guerre sur la carte | les frontières et les noms des pays ; les armées dessinées, avec leur nombre et leur route ; la terre prise qui change de couleur ; dans la ville, les textes de mise au point remplacés par le style du cabinet |
 
-Ses lots sont les issues du jalon GitHub « Palier 1 » ; ils y font foi.
+### Palier 2 — la paix et les alliés
 
-## Les paliers candidats
+La guerre se termine par un traité, et elle ne se fait plus seul.
+
+| piste | ce que je joue de plus | ce que je vois samedi |
+|---|---|---|
+| le monde | proposer la paix et ses conditions (céder une terre, rendre une place), s'allier, appeler ses alliés | la maison d'en face pèse l'offre et répond ; l'IA déclare la guerre, s'allie et traite avec des raisons qu'on peut lire ; le jour du monde tient la vitesse la plus rapide |
+| la ville | fermer sa capitale de murs, et la voir assiégée | l'enceinte et ses portes dans la ville du désert ; l'armée ennemie devant les murs pendant le siège |
+| l'interface | lire ses voisins et le monde | l'écran des relations (qui est en guerre, allié, et pourquoi) ; le fil des nouvelles ; la pause et les cinq vitesses |
+
+### Palier 3 — l'argent
+
+Les pièces entrent au monde : on les frappe, on les lève, on les dépense.
+
+| piste | ce que je joue de plus | ce que je vois samedi |
+|---|---|---|
+| le monde | frapper monnaie avec le métal de ses mines, lever l'impôt en pièces, payer la solde de l'armée | chaque maison a son trésor ; les pièces de 1400 sont déjà dans les bourses ; une armée qu'on ne paie plus se défait |
+| la ville | poser le marché, tracer les parcelles le long des rues | le marché et ses étals dans la capitale ; la route du commerce qui en part vers la ville voisine |
+| l'interface | suivre son argent, bâtir dans sa province depuis la carte | le trésor dans la barre du pays, avec ce qui entre et ce qui sort ; la carte des prix |
+
+### Palier 4 — la dynastie
+
+Le chef vieillit et meurt ; la partie continue avec son héritier.
+
+| piste | ce que je joue de plus | ce que je vois samedi |
+|---|---|---|
+| le monde | marier ses enfants, attendre un héritier, jouer l'héritier à la mort du chef | on vieillit, on naît, on meurt ; la loi de succession désigne l'héritier et partage les terres ; une dynastie sans terre a perdu |
+| la ville | poser le palais à la main | le palais dans la capitale, et le chef de la maison qui y marche |
+| l'interface | lire sa famille | l'arbre de la dynastie ; à la mort du chef, la carte montre l'héritier et le partage |
+
+## Les candidats, au-delà du palier 4
 
 Une ligne chacun. Le samedi choisit, change ou remplace.
 
-- **La paix et les alliés** : traiter la paix, s'allier, appeler ses alliés ;
-  les murs et le siège vus de la ville ; l'écran des relations.
-- **L'argent** : un trésor, l'impôt en pièces, la solde de l'armée ; le marché
-  dans la ville ; le trésor dans la barre du pays.
-- **La dynastie** : marier, hériter, jouer l'héritier ; le palais dans la
-  ville ; l'arbre de la famille.
-- **Le monde qui tient dix ans** : l'arrière-pays nourrit ses villes ; la
-  ville qui grandit seule entre deux visites ; le fil des nouvelles.
-- **La bataille sur la carte** : deux armées se rencontrent, la bataille dure
-  des jours et rend ses morts au monde.
-- **Un but** : les ambitions de l'héritier et le score de la dynastie.
-- **Le décor d'Occident** : une seconde ville, hors du désert.
+- **Le monde qui tient dix ans** : l'arrière-pays nourrit ses villes, les
+  petits seigneurs jouent aussi, l'IA garde des raisons d'agir chaque année.
+- **La bataille** : deux armées se rencontrent sur le terrain du monde, le
+  joueur la mène ou la confie à un général, elle rend ses morts au monde ;
+  l'artillerie ouvre une brèche, le siège se livre dans la ville bâtie.
+- **La révolte** : elle naît de la faim et d'une occasion.
+- **L'argent, suite** : le marché fait le prix, les marchands vont où c'est
+  cher, les banquiers prêtent, on dévalue, on achète une terre.
+- **La dynastie, suite** : les traits et l'éducation, changer sa loi de
+  succession, les ambitions de l'héritier, les républiques et l'Église.
+- **Le siècle** : sauvegarder et reprendre, déléguer ce qui se répète
+  (intendants, vassaux, lois), la chronique et le score de la dynastie.
+- **Le décor d'Occident et des Balkans** : des villes hors du désert, et la
+  ville conquise qui s'ouvre avec le kit de sa terre.
+- **La ville plus belle et plus vivante** : les matériaux, la lumière, les
+  animations, le son, les carrefours, soixante images par seconde.
+- **Le monde plus dur** : l'usure, la maladie, la foi, le crime, le feu.
+- **Le jeu en anglais.**
