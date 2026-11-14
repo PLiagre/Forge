@@ -54,6 +54,7 @@ class Regles:
     causes: dict
     gestes: dict
     amelioration: dict
+    ia: dict
 
 
 def _nombre(valeur, ou):
@@ -111,7 +112,20 @@ def lire_regles(document, modificateurs=None) -> Regles:
             raise JaugeInvalide(f"gestes.{nom}.effet : une jauge et un écart non nul attendus")
         gestes[nom] = {"nom": brute.get("nom", nom), "cout": dict(cout), "effet": dict(effet)}
     return Regles(domaines, cmin, cmax, jauges, points, causes, gestes,
-                  _lire_amelioration(document.get("amelioration_de_province"), points, donnees))
+                  _lire_amelioration(document.get("amelioration_de_province"), points, donnees),
+                  _lire_ia(document.get("ia"), jauges))
+
+
+def _lire_ia(brute, jauges) -> dict:
+    """La table `ia` : le seuil sous lequel une maison de l'IA juge son Droit bas, dans les bornes de la jauge."""
+    if not isinstance(brute, dict):
+        raise JaugeInvalide("ia.droit_bas : table [ia] attendue")
+    seuil = _nombre(brute.get("droit_bas"), "ia.droit_bas")
+    if "droit" not in jauges:
+        raise JaugeInvalide("jauges.droit : jauge que le seuil de l'IA juge, absente")
+    if not jauges["droit"]["minimum"] < seuil <= jauges["droit"]["maximum"]:
+        raise JaugeInvalide("ia.droit_bas : strictement au-dessus du minimum du Droit et au plus à son maximum attendu")
+    return {"droit_bas": seuil}
 
 
 def _lire_amelioration(brute, points, donnees) -> dict:
@@ -213,9 +227,14 @@ def avant_le_tick(monde, regles=None):
     maîtres des lieux, que le tick ne lit jamais (MODELE.md, « Les maisons du
     monde », « Les personnes »). Les trois boucles — le service, `python -m sim`
     et `python -m forge` — l'appellent avant `jouer_ia`, IA ou non, rejeu compris.
+    Juste après la mise à jour, les événements à choix du mois (`evenements.au_mois`) :
+    ils se ferment par défaut ou s'ouvrent sur la cause que le mois vient de lire.
     """
     if mois_ecoule(monde):
+        from sim import evenements
+        regles = charger_regles() if regles is None else regles
         mettre_a_jour(monde, regles)
+        evenements.au_mois(monde, regles)
 
 
 def mettre_a_jour(monde, regles=None, raisons=None):
@@ -300,23 +319,37 @@ def _points(valeur) -> str:
     return f"{texte} {_accord(valeur, 'point')}"
 
 
-def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True, ameliorations=()):
+def _deplacer(regles, valeurs, ecarts):
+    """Déplace chaque jauge de `valeurs` de son écart, borné."""
+    for nom, ecart in ecarts.items():
+        valeurs[nom] = _borner(regles, nom, valeurs[nom] + ecart)
+
+
+def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True, ameliorations=(), effets=()):
     """La raison du refus d'un geste, ou None : maison connue, points suffisants, jauge pas à sa borne.
 
     `registre=False` : la maison a été vérifiée au dépôt ; au tick, le registre ne se lit pas.
     `ameliorations` : les cellules que la maison a déjà déposées à améliorer pour le tick ;
     leur Plume est engagée comme celle des `engages`.
+    `effets` : les écarts de jauge des réponses à un événement déjà déposées pour le tick, chacun
+    avec son rang `(rang, écarts)` : le nombre d'`engages` déposés avant elle. Ils se jouent dans
+    l'ordre du dépôt, comme au tick, pour que l'étape des intentions ne lève jamais `JaugeInvalide`.
     """
     if not isinstance(maison_id, str) or (registre and not any(m.id == maison_id for m in monde.maisons)):
         return f"maison inconnue ou mal formée : {maison_id!r}"
     if geste not in regles.gestes:
         return f"geste inconnu : {geste!r} ({', '.join(sorted(regles.gestes))})"
     valeurs = etat(monde, maison_id, regles)
-    for precedent in engages or ():
-        for nom, cout in regles.gestes[precedent]["cout"].items():
-            valeurs[nom] -= cout
-        for nom, ecart in regles.gestes[precedent]["effet"].items():
-            valeurs[nom] = _borner(regles, nom, valeurs[nom] + ecart)
+    engages = list(engages or ())
+    for rang in range(len(engages) + 1):
+        for place, ecarts in effets:
+            if place == rang:
+                _deplacer(regles, valeurs, ecarts)
+        if rang < len(engages):
+            precedent = engages[rang]
+            for nom, cout in regles.gestes[precedent]["cout"].items():
+                valeurs[nom] -= cout
+            _deplacer(regles, valeurs, regles.gestes[precedent]["effet"])
     valeurs[regles.amelioration["reserve"]] -= _cout_des_ameliorations(monde, regles, ameliorations)
     for nom, cout in regles.gestes[geste]["cout"].items():
         if valeurs[nom] < cout:
@@ -327,6 +360,31 @@ def verifier_geste(monde, maison_id, geste, regles, engages=None, registre=True,
         if _borner(regles, nom, valeurs[nom] + ecart) == valeurs[nom]:
             return f"{regles.jauges[nom]['nom']} déjà à sa borne : {_points(valeurs[nom])}"
     return None
+
+
+def verifier_baisses(monde, maison_id, ecarts, regles, engages=()):
+    """La raison du refus d'un choix qui fait baisser une jauge déjà à son minimum, ou None.
+
+    Le texte est celui de `verifier_geste`. Une hausse au-delà du maximum n'est pas refusée :
+    elle est bornée. `engages` : les gestes de jauge déjà déposés pour le tick, joués d'abord.
+    """
+    valeurs = etat(monde, maison_id, regles)
+    for precedent in engages:
+        for nom, cout in regles.gestes[precedent]["cout"].items():
+            valeurs[nom] -= cout
+        _deplacer(regles, valeurs, regles.gestes[precedent]["effet"])
+    for nom, ecart in sorted(ecarts.items()):
+        if ecart < 0 and _borner(regles, nom, valeurs[nom] + ecart) == valeurs[nom]:
+            return f"{regles.jauges[nom]['nom']} déjà à sa borne : {_points(valeurs[nom])}"
+    return None
+
+
+def deplacer_les_jauges(monde, maison_id, ecarts, regles):
+    """Déplace les jauges d'une maison de leurs écarts, bornés, et repose les modificateurs des jauges."""
+    valeurs = etat(monde, maison_id, regles)
+    _deplacer(regles, valeurs, ecarts)
+    _ecrire(monde, maison_id, valeurs, regles)
+    poser_les_modificateurs(monde, regles)
 
 
 def appliquer_geste(monde, maison_id, geste, regles=None):

@@ -3,23 +3,23 @@ from copy import deepcopy
 import zlib
 
 import sim.constants as _constantes
-from sim.capitales import maisons_de_l_ia
+from sim.capitales import cle_du_registre, maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    BatirDansUneProvince, ChoixDepart, IntentionRefusee, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART,
-    TYPE_AMELIORER_UNE_PROVINCE, TYPE_OUVRIR_GRENIER,
-    _lieux_de_la_maison, recevoir_intention,
+    BatirDansUneProvince, ChoixDepart, IntentionRefusee, RepondreEvenement, TYPE_AMELIORER_UNE_PROVINCE,
+    TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT,
+    _lieux_de_la_maison, maison_choisie, recevoir_intention,
 )
-from sim.seigneuries import identifiant_de_seigneurie
+
+# Les trois réponses que l'IA sait lire, par leur identifiant dans `data/evenements.toml`.
+CHOIX_OUVRIR_LES_GRENIERS = 'ouvrir_les_greniers'
+CHOIX_LEVER_UNE_TAXE = 'lever_une_taxe_de_disette'
+CHOIX_LAISSER_FAIRE = 'laisser_faire'
 
 
 def _cle_du_grenier(maison):
     """Identifiant du registre : grande-<id>, ou celui d'une seigneurie."""
-    if maison.sorte == 'grande maison':
-        return f'grande-{maison.id}'
-    if maison.sorte == 'seigneurie':
-        return identifiant_de_seigneurie(maison.id)
-    return None
+    return cle_du_registre(maison)
 
 
 def _fenetre_pleine(monde):
@@ -214,20 +214,20 @@ def _proposition_de_concorde(monde, maison, cle, regles, valeurs):
 
 
 def _proposition_de_droit(monde, maison, cle, regles, valeurs):
-    """Assoit le droit quand il est sous son maximum et que le Sceau le paie (sim.jauges)."""
+    """Assoit le droit quand il est sous le seuil des données (`[ia] droit_bas`) et que le Sceau le paie (sim.jauges)."""
     from sim import jauges
     geste = 'asseoir_le_droit'
     if geste not in regles.gestes or 'droit' not in regles.jauges:
         return None
-    maximum = regles.jauges['droit']['maximum']
-    if not valeurs['droit'] < maximum:
+    seuil = regles.ia['droit_bas']
+    if not valeurs['droit'] < seuil:
         return None
     if jauges.verifier_geste(monde, cle, geste, regles) is not None:
         return None
     return {
         'maison': {'sorte': maison.sorte, 'id': maison.id},
         'intention': {'type': TYPE_DEPENSER_JAUGE, 'maison': cle, 'geste': geste},
-        'raison': {'regle': 'droit_sous_son_maximum', 'droit': valeurs['droit'], 'maximum': maximum,
+        'raison': {'regle': 'droit_sous_son_seuil', 'droit': valeurs['droit'], 'seuil': seuil,
                    'sceau': valeurs['sceau'], 'cout': dict(regles.gestes[geste]['cout']),
                    'concorde': valeurs['concorde'], 'plume': valeurs['plume']},
     }
@@ -275,6 +275,47 @@ def _proposition_de_points(monde, maison, cle, regles):
         if proposition is not None:
             return proposition
     return None
+
+
+def _proposition_de_reponse(monde, maison, cle, regles):
+    """Répond à l'événement à choix de la maison : le premier choix qui tient, avec sa raison.
+
+    1. ouvrir les greniers si le grenier, une fois la part versée, couvre encore la réserve voulue ;
+    2. sinon lever une taxe de disette si le grenier est sous la réserve et la Concorde au-dessus de son minimum ;
+    3. sinon laisser faire.
+    Se tait sans événement, ou si la réponse est déjà déposée. Le dépôt vérifie à son tour.
+    """
+    from sim import evenements, jauges
+    attente = getattr(monde, 'evenements', {}).get(cle)
+    noms = getattr(getattr(monde, 'routes_des_lieux', None), 'noms', ())
+    deja = any(isinstance(i, RepondreEvenement) and i.maison == cle for i in monde.intentions_en_attente)
+    if attente is None or cle not in noms or deja:
+        return None
+    definition = evenements.charger_evenements()[attente['identifiant']]
+    ouvrir = definition.choix_de(CHOIX_OUVRIR_LES_GRENIERS)
+    grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
+    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+    concorde = regles.jauges['concorde']
+    valeur = jauges.etat(monde, cle, regles)['concorde']
+    raison = {'evenement': attente['identifiant'], 'ouvert': attente['ouvert'],
+              'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve,
+              'part_du_grenier': None if ouvrir is None else ouvrir.grenier}
+    if ouvrir is not None and ouvrir.grenier is not None and grenier > 0 and grenier * (1 - ouvrir.grenier) >= reserve:
+        choix, raison = CHOIX_OUVRIR_LES_GRENIERS, {'regle': 'grenier_au_dessus_de_sa_reserve', **raison}
+    elif (definition.choix_de(CHOIX_LEVER_UNE_TAXE) is not None and grenier < reserve
+          and valeur > concorde['minimum']):
+        choix = CHOIX_LEVER_UNE_TAXE
+        raison = {'regle': 'grenier_sous_sa_reserve', **raison, 'concorde': valeur, 'minimum': concorde['minimum']}
+    elif definition.choix_de(CHOIX_LAISSER_FAIRE) is not None:
+        choix = CHOIX_LAISSER_FAIRE
+        raison = {'regle': 'ni_grain_ni_concorde', **raison, 'concorde': valeur, 'minimum': concorde['minimum']}
+    else:
+        return None
+    return {
+        'maison': {'sorte': maison.sorte, 'id': maison.id},
+        'intention': {'type': TYPE_REPONDRE_EVENEMENT, 'maison': cle, 'choix': choix},
+        'raison': raison,
+    }
 
 
 def _partis_et_arrives_30j(monde, cell_id):
@@ -349,18 +390,16 @@ def decider_intentions(monde, releve, maisons=None):
 
     `maisons` : la liste que la boucle de jeu a calculée une fois
     (`capitales.toutes_les_maisons_de_l_ia`) ; sans elle, la vue est refaite.
-    La maison du joueur, ou celle qu'il vient de choisir, est écartée ici.
+    La maison du joueur, ou celle qu'il vient de choisir, est écartée ici : seigneurie ou grande maison.
     """
     from sim import programme_ia
-    choix = monde.maison_du_joueur
-    if choix is None:
-        choix = next((identifiant_de_seigneurie(i.identifiant) for i in monde.intentions_en_attente if isinstance(i, ChoixDepart)), None)
+    choix = maison_choisie(monde)
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
     regles = types = None
     for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
-        if maison.hors_carte is not None or (maison.sorte == 'seigneurie' and identifiant_de_seigneurie(maison.id) == choix):
+        if maison.hors_carte is not None or (choix is not None and _cle_du_grenier(maison) == choix):
             continue
         cellule, plan = monde.cells.get(maison.cell_id), monde.plans.get(maison.cell_id)
         bourg = next((l for l in cellule.lieux if l.rang == 0), None) if cellule is not None else None
@@ -391,6 +430,13 @@ def decider_intentions(monde, releve, maisons=None):
                 if points is not None:
                     propositions.append(points)
             if jour_de_part:
+                # La réponse à son événement à choix, après le geste de points du jour (décision 41).
+                if regles is None:
+                    from sim import jauges
+                    regles = jauges.charger_regles()
+                reponse = _proposition_de_reponse(monde, maison, cle, regles)
+                if reponse is not None:
+                    propositions.append(reponse)
                 # Bâtir dans sa province, par le même chemin que le joueur (décision 38).
                 if types is None:
                     from sim import batiments

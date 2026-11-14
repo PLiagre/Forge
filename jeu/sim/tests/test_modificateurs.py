@@ -39,8 +39,38 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # reçu leur chef, le registre passe de 2 361 à 2 363 personnes. Seules les
 # parties `personnages` et `chefs` du monde diffèrent de l'empreinte d'avant,
 # et la photographie est inchangée (mesuré sur le PC et sur le VPS).
+# Le monde est recapturé le 12 novembre 2026 (lot #978) : trois fiches familiales
+# autrichiennes entrent dans le registre (de 2 363 à 2 366 personnes) et trois
+# chefs reçoivent leurs liens. Mesuré sur la base et sur le lot, sous Linux : seule la clé
+# `personnages` de `World.to_dict()` diffère, et la photographie est identique.
+# Le monde est recapturé le 13 novembre 2026 (lot #979) : six fiches de la maison de
+# Bourgogne entrent dans le registre (de 2 366 à 2 372 personnes), Philippe le Hardi
+# reçoit son complément et son état, Marie de Bourgogne ses deux parents. Mesuré sur
+# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()`
+# diffère (six fiches nouvelles, deux changées), et la photographie est identique.
+# Le monde est recapturé le 13 novembre 2026 (lot #980) : neuf fiches de la maison
+# palatine entrent dans le registre (de 2 372 à 2 381 personnes), Robert III reçoit
+# son complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la
+# clé `personnages` de `World.to_dict()` diffère (neuf fiches nouvelles, une changée :
+# `personne-grande-29`), et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1083) : sept fiches de la maison de
+# Bar entrent dans le registre (de 2 381 à 2 388 personnes), Robert Ier reçoit son
+# complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la clé
+# `personnages` de `World.to_dict()` diffère (sept fiches nouvelles, une changée :
+# `personne-seigneurie-1`), et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1084) : deux fiches de la maison de
+# Wurtemberg entrent dans le registre (de 2 388 à 2 390 personnes), Eberhard III reçoit
+# son complément et son état, Théodore Ier de Morée un état seul. Mesuré sur la base et
+# sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère (deux
+# fiches nouvelles, deux changées : `personne-seigneurie-2` et `personne-seigneurie-3`),
+# et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1085) : deux compléments et trois états
+# entrent dans le registre, qui reste à 2 390 personnes (aucune fiche nouvelle). Mesuré sur
+# la base et sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère
+# (trois personnes changées : `personne-seigneurie-4` et `personne-seigneurie-5`, complément
+# et état, `personne-seigneurie-6`, état seul), et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("101b586c7ee9f20668ea87b03ad9b502300f281779a1321c689a085c42ae9098",
+    "linux": ("33ceef901d49da195f36f52d230bcf8eed834cf379d9fc6982ee00ff71405fd8",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 

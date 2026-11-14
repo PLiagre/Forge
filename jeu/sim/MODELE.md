@@ -1172,6 +1172,21 @@ achevée avec porte peut y ajouter son débit. Les données invalides restent re
 qu'une arête a laissé passer en blé n'est plus disponible pour le fer. Il n'y a
 qu'un seul convoi.
 
+**Le rayon d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+sourcé). La formule ci-dessus ne change pas. Ce qui change, c'est la capacité
+du tick que `_apply_commerce` pose à l'appel extérieur : toute arête dont un
+bout est une cellule affamée (voir « Besoin, surplus et allocation ») voit sa
+capacité du tick multipliée par `R = rayon_ville_affamee_jours`, déclaré dans
+`jeu/data/commerce.toml` (décision 37). `R` vaut **6** : le charroi d'un rayon
+de six jours se rassemble sur la frontière de la ville. C'est la batellerie et
+le charroi qui montent vers une grande ville, pas une route de plus. Un
+entier de 1 au moins ; avec `R = 1`, la capacité est celle d'avant, au bit
+près. Sans relevé des champs (`populations_soutenables` vaut `None`), aucune
+cellule n'est affamée et rien ne change. La population lue est celle du début
+du maillon, et seules les arêtes des cellules affamées sont parcourues, par un
+index des arêtes par cellule (`_aretes_par_cellule`), bâti une fois par liste
+d'adjacence et gardé sur le monde, hors sauvegarde.
+
 ### Besoin, surplus et allocation
 
 Le commerce précède la consommation. Le « besoin » d'une cellule n'est donc pas
@@ -1181,7 +1196,9 @@ sa dette cumulée, mais le **manque prévisible du tick courant** :
 ration(c)  = population_c × consommation_unitaire(marchandise)
 garde(c)   = ration(c)                                              si c n'est pas affamée
            = max(ration(c), N × ration(c) / TICK_DURATION_DAYS)     si c est affamée
-besoin(c)  = max(0, ration(c) − stock_c)
+appel(c)   = P × (population_c − soutenable_c) × consommation_unitaire   si c est affamée
+           = 0                                                      sinon
+besoin(c)  = max(0, ration(c) − stock_c, appel(c))
 surplus(c) = max(0, stock_c − garde(c))
 ```
 
@@ -1202,8 +1219,8 @@ année (`test_soudure.py`) rougit à 30 : Le Caire tient alors sa réserve dès 
 330e jour et cesse de nourrir Alexandrie, qui perd 50,4 % de ses habitants par
 la faim (seuil 50 %) ; à 25 jours, 56,6 % ; à 21 jours, 32,7 %. Une ville
 affamée qui garde son grain n'en donne pas à sa voisine affamée : la réserve a
-un prix, et la durée la borne. Le besoin ne change pas : une ville affamée qui
-manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
+un prix, et la durée la borne. Le besoin ne change pas (avant #1071) : une ville
+affamée qui manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
 détruit. L'état « affamée » se relit à chaque commerce, sur la population du
 snapshot : une ville que la famine a fait passer sous ce que ses champs
 nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
@@ -1230,6 +1247,62 @@ Paris est affamé, mais sans port il n'exporte rien sous les deux règles :
 il ne compte pas comme preuve. L'effet de 21 jours est donc réel et modeste ;
 une réserve plus longue ne change qu'une ligne de `commerce.toml`, mais la
 preuve de la première année en fixe le plafond (25 jours la fait échouer).
+
+Ces chiffres (Alexandrie à 32,7 %, la table des sorties ci-dessus) ont été
+mesurés **sans l'appel** de #1071 : l'épreuve du lot les rejoue sous
+`couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, la pire
+cellule de `test_soudure.py` est Gand (cellule 10391) : 35,3 % de ses
+habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %),
+mesuré le 13 novembre 2026 ; sans l'appel elle est à 40,5 %, et Alexandrie à
+32,7 %.
+
+**L'appel d'une ville affamée** (lot #1071, niveau 2 : plausible, jamais
+sourcé). L'idée est médiévale : une grande ville draine le grain de son contado
+et de ses fleuves, bien au-delà d'une journée de route. Une cellule affamée ne
+demande plus seulement le manque de son tick : elle appelle chaque jour ce que
+ses champs ne lui donnent pas, avant d'avoir faim. `P = appel_ville_affamee_part`
+est déclaré dans `jeu/data/commerce.toml` (décision 37) et vaut **1,0**,
+décision B de la direction le 13 novembre 2026, à la place du propriétaire :
+elle appelle tout le manque. Ni cette part ni le rayon `R = rayon_ville_affamee_jours`
+(voir « La capacité d'une arête ») ne sont sourcés. Seul le besoin change : la
+garde, le surplus, l'allocation, l'écrêtage côté receveur, les quais, le passage
+par le bourg et les chemins intérieurs restent ceux d'avant. L'appel nourrit les
+deux passes qui lisent le besoin du snapshot : les voisines par terre l'envoient
+sur l'arête, le bassin le débarque au quai d'une ville qui a un port, dans la
+limite du quai. Une ville affamée dont le stock dépasse sa réserve peut le même
+jour recevoir par une arête et donner par une autre ou par la mer ; les deux se
+lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
+
+- Avec `P = 0` et `R = 1`, ou sans relevé des champs, le commerce est celui
+  d'avant, au bit près : `P = 0` rend `max(0, ration − stock)`, `R = 1` laisse la
+  capacité des arêtes. Le décor d'avant (`sim/tests/amorcage_d_avant.py`,
+  `couper_l_appel_des_villes`) rend 0 et 1.
+- Aucun kilo n'est créé ni détruit, et `food_deficit_kg` n'est pas touché.
+- Le Caire ne peut pas gagner d'habitants par ce lot : aucun mort de faim, aucune
+  perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
+
+Mesuré le 13 novembre 2026 (graine 0, IA active, 365 jours,
+`test_grain_monte_vers_les_villes_un_an` ; le script
+`docs/mesures/2026-11-12-grain-vers-les-villes/scripts/mesure_un_an.py` rejoue
+les quatre réglages) :
+
+| ville | habitants, avant → ce lot | grain au 365e jour, avant → ce lot |
+|---|---|---|
+| Paris | 153 052 → 284 985 | 956 t → 8 081 t |
+| Milan | 185 767 → 196 333 | 4 557 t → 50 292 t |
+| Gand | 33 669 → 89 260 | 0 t → 1 665 t |
+| Alexandrie | 22 305 → 42 231 | 0 t → 1 252 t |
+| Le Caire (grain seul) | 389 614 → 388 042 | 3 125 t → 23 196 t |
+
+Les deux réglages sont nécessaires. Le rayon seul (`P = 0`, `R = 6`) ne nourrit
+personne : Paris finit comme avant (153 052 habitants, 956 t), car son grenier ne
+descend jamais sous un jour de ration et il n'appelle donc rien ; Gand, Alexandrie
+et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
+habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
+à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
+3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
+Mesuré le 13 novembre 2026 par le script de mesure, qui rejoue les quatre
+réglages (`docs/mesures/2026-11-12-grain-vers-les-villes/RAPPORT.md`).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même
@@ -1783,8 +1856,10 @@ par `positions_du_monde` et refuse une position absente en nommant la cellule.
 tuple gelé : d'abord les grandes maisons triées par id, puis toutes les
 seigneuries de départ triées par id. Elle ne dépend que des tables de 1400 et
 de la carte, jamais du tick ni du joueur. `maisons_de_l_ia(monde, …)` en écarte
-la seigneurie dont `identifiant_de_seigneurie(s.id)` vaut
-`monde.maison_du_joueur`. Les ids des lignes restent entiers. Chaque ligne porte
+la maison dont `cle_du_registre` (`grande-<id>` ou `seigneurie-<n>`) vaut
+`monde.maison_du_joueur` — seigneurie ou grande maison — une fois le choix
+appliqué au tick ; le dépôt en attente n'y change rien (`ia.decider_intentions`
+écarte déjà, elle, la maison du choix en attente). Les ids des lignes restent entiers. Chaque ligne porte
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
@@ -1875,7 +1950,7 @@ Après les maîtres et leurs références aux suzerains, `World.charger` constru
 Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
 Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Autres familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
 
-Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (soixante-dix-sept fiches), `liens` (compléments aux vingt-trois chefs réutilisés) et `etats` (vingt-trois états, triés par maison). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
+Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (cent quatre fiches), `liens` (compléments aux trente-deux chefs réutilisés) et `etats` (trente-quatre états, triés par maison ; Théodore Ier de Morée et le chef du Zab ont un état sans complément). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
 Angleterre (`grande-1`) : Henri IV est veuf de Marie de Bohun (vers 1369/1370, morte le 4 juin 1394), mère référencée décédée sans conjoint actif. Leurs six enfants vivants sont Henri de Monmouth, Thomas, Jean et Humphrey de Lancastre, Blanche et Philippa d’Angleterre. Monmouth conserve exactement `1386 ou 1387`, précision `intervalle` ; les saisons et approximations des autres naissances restent déclarées. Jeanne de Navarre n’est pas épouse active avant le 7 février 1403 ; Edmund Leborde, né en 1401, est exclu du départ.
 Écosse (`grande-2`) : Robert III et Annabella Drummond (vers 1350) sont conjoints réciproques. Marguerite, Élisabeth (vers 1372/1373, divergence sourcée), David, Marie et Jacques Stuart sont leurs enfants vivants ; Jean Stuart d’Ardgowan est fils hors mariage de Robert III, mère inconnue motivée. Robert Stuart (mort après ou vers 1393), Egidia (1417 ou « morte jeune », naissance inconnue) et Jacques de Kilbride (sans dates) restent exclus des vivants : présences indéterminées, contradictions et limites des notices conservées, sans nier leurs filiations ni affirmer une mort avant 1400. Les deux états déclarent les enfants documentés ; les conjoints des enfants non intégrés restent des lacunes, sans preuve de célibat.
 Portugal (`grande-4`) : Jean Ier et Philippa de Lancastre (31 mars 1360) sont conjoints réciproques depuis le 2 février 1387. Leurs cinq enfants vivants sont Afonso (30 juillet 1390), Édouard (31 octobre 1391), Pierre (9 décembre 1392), Henri (4 mars 1394) et Isabelle (21 février 1397). Afonso vit encore : sa mort du 22 décembre 1400 ne sélectionne pas le départ. La notice portugaise diverge au 31 juillet dans son récit ; le 30 du tableau paternel et de l’infobox est retenu, divergence conservée dans la source.
@@ -1887,7 +1962,7 @@ Louis (1399 ou 1402) et Marguerite (dates contradictoires autour du départ) son
 Grenade (`grande-8`) : Muhammad VII conserve `conjoints=lacune` et `enfants=lacune`, sources nulles. Sa notice et celle de Yusuf III (enfants évoqués après 1408) n’établissent ni identités ni naissances en 1400. Ces inconnues font partie de la couverture ; elles n’attestent ni célibat, ni veuvage, ni absence d’enfant.
 Milan (`grande-10`) : Jean Galéas et Caterina Visconti (1361) sont conjoints réciproques depuis le 2 octobre 1380. Valentine (1371) est fille d’Isabelle de Valois (Vertus, 1er octobre 1348), mère référencée décédée en 1372 ou 1373 sans conjoint actif. Gian Maria (7 septembre 1388) et Filippo Maria (septembre 1392, jours 3/23 non départagés) ont pour mère Caterina ; Gabriele Maria (1385 ou 1386, contradiction entre année et âge narratif) est fils d’Agnese Mantegazza. Agnese reste de naissance inconnue, présence indéterminée et sans conjoint actif. Les trois fils morts d’Isabelle, la fille de Caterina morte le 9 juillet 1385 et Antonio (fils naturel mort enfant en 1391, distingué de ses homonymes) sont exclus. Navarre et Milan portent `union` et enfants `documentes` ; aucun mariage futur ou héritier imposé.
 Naples (`grande-11`) : Ladislas reste sans conjoint actif. Costanza Chiaramonte est exclue après l’annulation établie (1392 dans la notice anglaise, 1393 chez Treccani) ; Marie de Lusignan est future (1403 contre arrivée et noces en 1402), comme Marie d’Enghien. Le projet avec la fille de Bayezid ne devient jamais une union. `conjoints=lacune` déclare la limite du schéma sans catégorie d’annulation, sans veuvage fictif. Rinaldo/Reynold et Marie de Durazzo, enfants hors mariage sans dates ni mères établies, sont exclus des vivants pour présence indéterminée ; `enfants=lacune`, sans confondre mariages sans enfant et descendance totale.
-Savoie (`grande-12`) : une seule Marie de Bourgogne (`personne-marie-bourgogne`), née en 1386, précision `annee` ; septembre reste probable. Amédée VIII et Marie sont conjoints réciproques, état `union` : contrat de 1386, procuration du 30 octobre 1393, rencontre en 1401 et arrivée en 1403 restent distincts. Les décès divergents de Marie (1422/1428) prouvent sa présence au départ sans programmer sa mort. Les neuf enfants sont exclus individuellement comme futurs : Marguerite I (1405), Antoine I (1407), Antoine II (1408), Marie (1411), Amédée (1412), Louis (1413), Bonne (1415), Philippe (1417/1422), Marguerite II (1420). La notice française signale deux enfants supplémentaires chez FMG, inaccessible (403) : recherche non aboutie, aucune identité ni date inventée ; `enfants=lacune`, sans absence exhaustive attestée.
+Savoie (`grande-12`) : une seule Marie de Bourgogne (`personne-marie-bourgogne`), née en 1386, précision `annee` ; septembre reste probable. Marie est la fille de Philippe le Hardi (`personne-grande-27`) et de Marguerite III de Flandre (`personne-marguerite-flandre`), sans doublon : la page de Marguerite la dit née en septembre 1380, la fiche garde 1386. Amédée VIII et Marie sont conjoints réciproques, état `union` : contrat de 1386, procuration du 30 octobre 1393, rencontre en 1401 et arrivée en 1403 restent distincts. Les décès divergents de Marie (1422/1428) prouvent sa présence au départ sans programmer sa mort. Les neuf enfants sont exclus individuellement comme futurs : Marguerite I (1405), Antoine I (1407), Antoine II (1408), Marie (1411), Amédée (1412), Louis (1413), Bonne (1415), Philippe (1417/1422), Marguerite II (1420). La notice française signale deux enfants supplémentaires chez FMG, inaccessible (403) : recherche non aboutie, aucune identité ni date inventée ; `enfants=lacune`, sans absence exhaustive attestée.
 Kalmar (`grande-13`) : Éric garde `conjoints=lacune` par limite du schéma sans catégorie de célibat. Négociations de 1402, mariage avec Philippa le 26 octobre 1406 et union avec Cecilia après 1430 sont sourcés et exclus du départ. Philippa garde son identité anglaise et ses parents, sans nouveau conjoint. Le fils mort-né de la fin de sa vie est futur, jamais vivant en 1400 ; les notices n’excluent pas exhaustivement d’autres enfants antérieurs : `enfants=lacune`.
 Pologne (`grande-14`) : Jagellon porte `veuvage` depuis la mort de Jadwiga le 17 juillet 1399 et `absence_attestee` d’enfant vivant : Élisabeth Bonifacia, née le 22 juin, est morte le 13 juillet 1399. Les deux exclusions conservent leur existence ; Anne de Cilli (1402), Élisabeth de Pilica (1417), Sophie de Holszany (1422) et les enfants Jadwiga (1408), Ladislas (1424), Casimir (1426), Casimir André (1427) sont futurs. Aucun événement imposé. Ces recherches n’ajoutent aucune filiation : bilan chronologique inchangé, trente-cinq vérifiés et quatre-vingt-un indéterminés. Parents des conjoints et relations non intégrées restent des lacunes de périmètre.
 Constantinople (`grande-15`) : Manuel II et Hélène Dragaš (`personne-helena-dragas`, vers 1372) sont conjoints réciproques depuis le 10 février 1392, couronnement le lendemain ; l’état est `union`. Jean VIII (18 décembre 1392) et Théodore II (vers 1396) sont leurs enfants vivants, état `documentes`, dans l’ordre de Sphrantzès. Théodore II reste distinct de Théodore Ier (`seigneurie-3`), qui ne reçoit aucun lien et n’en perd aucun. Les parents de Manuel (Jean V, Hélène Cantacuzène), Constantin Dragaš, la mère non nommée d’Hélène et la fratrie restent des lacunes de périmètre, jamais des absences attestées. Neuf exclusions gardent l’existence et les divergences : Constantin l’aîné, Andronic et deux filles non nommées sont de présence indéterminée (morts seulement bornées entre 1400 et 1402, à Monemvasia pour l’aîné) ; la prétendue Zampia, fille de Manuel, est une filiation réfutée (Ganchou : fille naturelle non nommée de Jean V, demi-sœur de Manuel) ; Constantin XI (1404-02-08 contre 1405), Michel, Démétrios et Thomas sont futurs. Aucune présence `decedee` n’est déduite, aucun événement n’est programmé. Le bilan passe à trente-six vérifiés et quatre-vingt-six indéterminés : seule l’antériorité Manuel (1350-06-27) → Jean VIII (1392-12-18) est vérifiée ; Manuel → Théodore II et les quatre contrôles d’Hélène restent indéterminés.
@@ -1897,12 +1972,24 @@ Bosnie (`grande-18`) : Étienne Ostoja et Kujava Radinović (`personne-kujava-ra
 Valachie (`grande-19`) : Mircea l'Ancien et Maria Tolmay (`personne-maria-tolmay`, naissance inconnue, morte en 1420 ou 1427 ; le prénom Mara n'est qu'une reconstitution) sont conjoints réciproques, sans date d'union inventée. Mihail Ier, seul fils légitime, a pour parents Mircea et Maria ; Vlad II Dracul (vers 1395, « avant 1395 » dans le texte) et Alexandru Ier Aldea (1397) sont fils illégitimes de Mircea, mères inconnues motivées. État `union`, enfants `documentes` ; Doamna Anca, Radu II Praznaglava, Ana et Arina sont exclus (présences indéterminées).
 Moldavie (`grande-20`) : Iuga n'a ni conjoint ni enfant dans sa notice, qui hésite sur son père (Roman Ier ou Georges Koriatovitch) : `conjoints=lacune`, `enfants=lacune`, ni célibat ni absence d'enfant, aucune exclusion. Ces cinq fiches, quatre compléments et quatre états achèvent la couverture de `grande-11` à `grande-20`.
 Hafsides (`grande-23`) : Abu Faris Abd al-Aziz II garde `personne-grande-23` (né en 1361), vivant et en fonction depuis juin 1394. Son père Abu al-Abbas Ahmad II, mort le 3 juin 1394, n'a pas de fiche (lacune de périmètre) ; aucune épouse n'est nommée : `conjoints=lacune`, ni célibat ni veuvage. Al-Mansur, fils et héritier mort en 1430 sans naissance connue, est exclu (présence indéterminée) ; « un autre de ses fils » et des oncles dont al-Mu’tamid, sans dates ni filiation, ne sont pas inventés : `enfants=lacune`, aucune absence attestée.
-Tlemcen (`grande-24`) : le chef reste inconnu au 1er janvier 1400 (Abu Muhammad Ier ou Abu Abdallah Ier). Il n'a ni fiche familiale, ni complément, ni état : un état appartient à un chef résolu, et aucune personne de la maison ne porte `pere`, `mere`, `conjoints`, `presence` ni `etat_familial`.
+Tlemcen (`grande-24`) : le chef est nommé depuis #1052 (Abu Muhammad Ier, sultan de 1397 à 1400 ; la succession par Abu Abdallah Ier n'est pas datée), mais la maison reste sans famille. Elle n'a ni fiche familiale, ni complément, ni état : un état appartient à un chef résolu, et aucune personne de la maison ne porte `pere`, `mere`, `conjoints`, `presence` ni `etat_familial`.
 Mérinides (`grande-25`) : Abu Said Uthman III garde `personne-grande-25` (né en 1383), sultan depuis le 19 mars 1398, vivant ; la notice le dit monté sur le trône « à seize ans », divergence conservée avec sa naissance. Parents, fratrie et épouse sont des lacunes (ni célibat ni veuvage). Abd al-Haqq II, né en 1419, est exclu comme futur ; `enfants=lacune`, car le fils d'un an de 1420 ne prouve rien pour 1400. Ces deux compléments et deux états n'ajoutent aucune fiche ni aucune filiation.
+Mamelouks (`grande-22`) : Faraj garde `personne-grande-22` (né vers 1386), sultan depuis juin 1399, vivant ; il a treize ans environ. Son père Barquq (mort en juin 1399), sa mère Khawand Shirin et ses épouses sont des lacunes sans fiche : Khawand Fatima est « l'une de ses épouses », sans date d'union, ni célibat ni veuvage. Ses quatre enfants nommés (Ghars ad-Din Khalil, Khawand Asiya, Khawand Satita, Khawand Shakra) n'ont aucune naissance : `enfants=lacune`, aucune absence attestée. Sept exclusions : Khawand Fatima, deux concubines (le schéma n'a pas de concubinage) et les quatre enfants. Le frère est hors périmètre.
+Chypre (`grande-26`) : Janus garde `personne-grande-26` (né en 1375), couronné le 11 novembre 1398, vivant ; son père Jacques Ier (mort le 9 septembre 1398) et sa mère Helvis sont des lacunes sans fiche. Il n'a ni épouse ni enfant au 1er janvier 1400 : le mariage avec Anglesia Visconti a lieu après janvier 1400, une alliance reste possible, `conjoints=lacune` et `enfants=lacune` (neuf enfants dans la notice, tous futurs, une fille hors mariage sans nom ni naissance). Cinq exclusions : Anglesia, Charlotte de Bourbon (1411), Jean II (1414), Aloysius (1408) et Guy (1410).
+Autriche (`grande-30`) : Albert IV garde `personne-grande-30` (né le 19 septembre 1377), duc depuis 1395 ; père Albert III et mère Beatrix de Nuremberg sont des lacunes sans fiche. Jeanne-Sophie de Bavière (`personne-jeanne-sophie-baviere`, née vers 1373, vivante) est sa conjointe réciproque, mariage du 24 avril 1390 ou du 13 juin 1395 selon les pages (divergence conservée) ; elle reste distincte de Sophie et de Jeanne de Bavière. Marguerite (née le 26 juin 1395) et Albert V (août 1397, mois seul : le 16 ou le 10 août, aucun jour choisi) ont pour parents Albert IV et Jeanne-Sophie. État `union`, enfants `documentes`, sans exclusion.
+Bourgogne (`grande-27`) : Philippe le Hardi (né en janvier 1342, jour non départagé) garde `personne-grande-27`, duc jusqu'à sa mort le 27 avril 1404, vivant au départ et marié depuis le 19 juin 1369 à Marguerite III de Flandre (`personne-marguerite-flandre`, née le 13 avril 1350, veuve de Philippe de Rouvres sans fiche pour cette union passée), conjointe réciproque. Ses parents (Jean II de France, Bonne de Luxembourg ou « de Bohême ») et ceux de Marguerite (Louis II de Flandre, Marguerite de Brabant) sont des lacunes de périmètre sans fiche. Six enfants vivants ont pour père Philippe et pour mère Marguerite : Jean sans Peur (28 mai 1371, fils aîné, héritier adulte), Marguerite (octobre 1374), Catherine (avril 1378, décès divergent le 24 ou le 26 janvier 1425), Antoine (août 1384), Marie (la fiche de `grande-12`, sans doublon) et Philippe de Nevers (octobre 1389). Les mariages de Jean (Marguerite de Bavière, 1385), de Marguerite (Guillaume de Bavière, 1385) et de Catherine (Léopold IV d'Autriche, 1393, jamais Albert IV) sont des lacunes de périmètre sans fiche ; Antoine et Philippe n'ont pas de conjoint au départ, leurs mariages futurs (1402, 1409, 1409, 1413) laissent une alliance possible, ni célibat ni veuvage. État `union`, enfants `documentes` (neuf enfants dont six vivants) ; sept exclusions sourcées : Charles, Louis et Bonne, morts avant 1400, et les quatre épouses futures. Aucun événement ni héritier n'est programmé.
+Palatinat (`grande-29`) : Robert III (né le 5 mai 1352) garde `personne-grande-29`, électeur palatin jusqu'à sa mort le 18 mai 1410, vivant au départ et marié à Amberg depuis le 27 juin 1374 à Élisabeth de Nuremberg (`personne-elisabeth-nuremberg`, née le 13 décembre 1358, l'infobox ne donnant que 1358), conjointe réciproque ; son élection de roi des Romains, le 21 août 1400, vient après le départ et n'est pas programmée. Ses parents (Robert II, Béatrice de Sicile, « Beatrice of Aragon » dans le texte de la page) et ceux d'Élisabeth (Frédéric V de Nuremberg, Élisabeth de Misnie) sont des lacunes de périmètre sans fiche. Huit enfants vivants ont pour père Robert et pour mère Élisabeth : Marguerite (1376, mariée en 1393 à Charles II de Lorraine, lacune de périmètre), Frédéric (vers 1377, fils aîné vivant au départ, aucune épouse nommée, naissance sans bornes), Louis (23 janvier 1378, « troisième fils » pour sa page), Agnès (1379, mariée à Adolphe Ier de Clèves « peu avant mars 1400 » ou « peu avant l'année 1400 » : le monde ne tranche pas et ne lui donne aucun conjoint actif), Élisabeth (27 octobre 1381), Jean (1383), Étienne (23 juin 1385) et Otton (24 août 1390). Louis, Élisabeth, Jean, Étienne et Otton n'ont pas de conjoint au départ ; leurs mariages futurs (1402 et 1417, 1407, 1407, 1409 ou 1410, 1430) laissent une alliance possible, ni célibat ni veuvage. Blanche d'Angleterre garde sa seule fiche anglaise, sans conjoint, et n'est nommée que par une exclusion. État `union`, enfants `documentes` (neuf enfants dont huit vivants) ; sept exclusions sourcées : Robert Pipan, mort en 1397, et les six conjoints futurs. Aucun événement ni héritier n'est programmé. Avec le Palatinat, vingt-huit des trente grandes maisons ont leur état familial : la couverture des grandes maisons est achevée, sauf la Horde d'Or et Tlemcen, laissées sans famille pour leur motif.
+Bar (`seigneurie-1`) : Robert Ier (né le 8 novembre 1344, fiche de chef inchangée) garde `personne-seigneurie-1`, duc de Bar jusqu'à sa mort le 12 avril 1411, vivant au départ et marié depuis le 5 octobre 1364, après dispense du pape Urbain V, à Marie de Valois (`personne-marie-valois`, née le 18 septembre 1344 à Saint-Germain-en-Laye, fille de Jean II le Bon), conjointe réciproque ; ses pages la titrent « Marie de France », mais le monde la distingue de `personne-marie`, la fille de Charles VI née en 1393, dont la fiche ne change pas, et ne crée aucun lien de fratrie vers la France ni vers la Bourgogne. Les parents de Robert (Henri IV de Bar, Yolande de Flandre, dite aussi de Dampierre) et ceux de Marie (Jean II le Bon, Bonne de Luxembourg ou « de Bohême ») sont des lacunes de périmètre sans fiche. La cession du duché à Édouard en 1401 vient après le départ et n'est pas programmée. Six enfants vivants ont pour père Robert et pour mère Marie : Yolande (vers 1365, reine douairière d'Aragon, veuve depuis 1396, sans conjoint actif ni lien vers `grande-6`), Louis (entre 1370 et 1375, cardinal, évêque de Langres), Édouard (juin 1377, marquis de Pont-à-Mousson, sans épouse), Yolande la Jeune (vers 1378 ; son union de 1400 avec Adolphe de Juliers n'a pas de jour : aucun conjoint actif), Jean (1380, seigneur de Puisaye) et Jeanne (sans naissance, marquise de Montferrat depuis 1393 : l'époux est hors périmètre et reste distinct de Théodore II Paléologue, `personne-theodore-ii`). Louis et Jean n'ont pas d'épouse nommée, ni célibat ni veuvage ; Édouard « never married » reste une lacune, sans absence attestée ; aucun héritier n'est désigné. État `union`, enfants `documentes` (onze enfants dont six vivants) ; six exclusions sourcées : Henri (mort en octobre 1397) et Charles (mort en 1392), morts avant 1400 ; Philippe, Marie (comtesse de Namur) et Bonne (comtesse de Saint-Pol), de présence indéterminée, ni vivants ni décédés par déduction (les pages se contredisent ou ne donnent pas de jour) ; Adolphe de Juliers, dont l'union n'est pas établie au départ. Bar est la première seigneurie de départ à recevoir son état familial : la couverture des seigneuries commence ; Wurtemberg, Morée, Branković, Evrenos et le Zab suivent ci-dessous ; seules la Horde d'Or et Tlemcen restent sans état. Aucun événement ni héritier n'est programmé.
+Wurtemberg (`seigneurie-2`) : Eberhard III (né « nach 1362 », intervalle, fiche de chef inchangée) garde `personne-seigneurie-2`, comte de Wurtemberg jusqu'à sa mort le 16 mai 1417 à Göppingen, vivant au départ et marié à Urach depuis le 27 octobre 1380 (« 27.10.(?)1380 » ; dot de soixante-dix mille florins convenue à Milan le 1er juillet 1380) à Antonia Visconti (`personne-antonia-visconti`, née vers 1360, morte à Stuttgart en mars 1405, le 26 ou le 16 mars selon les pages), conjointe réciproque ; elle est la sœur de Caterina Visconti et la tante d'Isabeau, mais le monde ne crée aucun lien de fratrie vers Milan ni vers la France. Les parents d'Eberhard (Ulrich, tué à Döffingen le 23 août 1388, et Élisabeth de Bavière) et ceux d'Antonia (Bernabò Visconti, Beatrice Regina della Scala) sont des lacunes de périmètre sans fiche. Un seul fils vivant, Eberhard IV le Jeune (`personne-eberhard-iv-wurtemberg`, né vers 1388, le 23 août restant une divergence), a pour père Eberhard III et pour mère Antonia ; fiancé le 13 novembre 1397 à Henriette de Montbéliard, il n'a aucun conjoint actif (mariage « in 1407 at the latest », sans date), ni célibat ni veuvage. État `union`, enfants `documentes` (quatre enfants dont un vivant) ; cinq exclusions sourcées : Ulrich et Louis, fils d'Eberhard III, morts en bas âge sans date ni déduction ; Henriette de Montbéliard, fiancée ; Élisabeth de Nuremberg, fille de Jean III, seconde épouse future (contrat de mariage du 27 mars 1406), distincte de `personne-elisabeth-nuremberg` ; Élisabeth de Wurtemberg, née en 1412. Le mariage d'Eberhard le Jeune et le remariage de 1406 ne sont pas programmés ; aucun héritier n'est désigné.
+Morée (`seigneurie-3`) : un état sans complément. Théodore Ier (né vers 1355, fiche de chef inchangée) ne reçoit aucun complément, aucune fiche ni aucun lien : sa personne garde ses seules clés de chef, plus `etat_familial`. `conjoints=veuvage` (Bartolomea Acciaioli, épousée en 1385, morte vers 1396, sans fiche : aucune union active) ; `enfants=lacune` (aucun enfant connu, mais une fille illégitime : ce n'est pas une absence attestée) ; une exclusion, Théodora, fille illégitime qui épousera Süleyman Çelebi en 1404, sans fiche ni lien vers lui ni vers son père. La Morée est la première maison qui a un état sans complément : un état appartient toujours à un chef résolu, et les preuves du monde repèrent le complément par ses champs familiaux, jamais par l'état seul. Théodore II lui succède en 1407, sans programmation ni lien. Avec Branković, Evrenos et le Zab ci-dessous, trente-quatre états pour trente-deux compléments : toutes les grandes maisons et toutes les seigneuries ont leur état familial, sauf la Horde d'Or et Tlemcen ; les dix institutions et les maisons plausibles n'ont pas de dynastie, donc pas d'état.
+Branković (`seigneurie-4`) : Đurađ (né le 22 février 1377, fiche de chef inchangée) garde `personne-seigneurie-4`, vivant au départ à vingt-deux ans (despote de Serbie de 1427 à sa mort, le 24 décembre 1456) ; il tient les terres de son père Vuk, mort le 6 octobre 1397 (la page de Vuk le classe aussi dans « 1398 deaths » : divergence conservée), sans fiche. Sa mère, Mara Lazarević, fille du prince Lazar, mariée à Vuk en 1371 et morte le 12 avril 1426, vit au départ mais n'a pas de fiche ; elle est la sœur de Stefan Lazarević et d'Olivera Despina, sans aucun lien de fratrie dans le monde. Đurađ n'a aucune épouse connue au départ : Irène Cantacuzène l'épousera le 26 décembre 1414 (née vers 1400) et « according to some historians » sa première épouse aurait été Eleni de Trébizonde (1395–1410, « disputed », union non datée) ; ni célibat ni veuvage, aucune absence attestée. État `conjoints=lacune` et `enfants=lacune` (« at least six children » pour sa page, « five children » pour celle d'Irène, qui marque Todor d'un « (?) » : les deux listes divergent) ; huit exclusions sourcées : Eleni de Trébizonde, Irène Cantacuzène, Todor (« d. before 1429 », sans naissance : présence indéterminée) et cinq enfants futurs, Grgur (vers 1415), Stefan (vers 1417), Katarina (vers 1418), Mara (vers 1420) et Lazar (vers 1421), qui restent distincts de Stefan Lazarević, de Mara Lazarević et du prince Lazar. Le mariage de 1414 n'est pas programmé ; aucun héritier n'est désigné.
+Evrenos (`seigneurie-5`) : Gazi Evrenos Bey (naissance inconnue, fiche de chef inchangée : l'âge de plus de cent ans évoqué par la TDV ne sert pas à calculer une naissance) garde `personne-seigneurie-5`, vivant au départ ; il meurt en 1417 (en novembre pour la TDV) à Yenice-i Vardar, après avoir servi Bayezid Ier, Süleyman Çelebi et Mehmed Ier. Son père Îsâ « Prangi » Bey, que « certaines sources » disent fils de Bozoklu Han, est une lacune de périmètre sans fiche ; sa mère et son épouse ne sont nommées par aucune page : aucune n'est inventée. État `conjoints=lacune` et `enfants=lacune` ; huit exclusions sourcées : sept fils (Ali, İsa, Hızırşah, Yakub, Beğce, Süleyman, Barak), sans naissance, de présence indéterminée au départ, et les filles, sans nom, dont l'une épouse Çandarlı Halil Pasha le Jeune ; Süleyman Bey reste distinct de Süleyman Çelebi, dont la fiche ne change pas. Sa mort de 1417 n'est pas programmée.
+Zab (`seigneurie-6`) : un second état sans complément. « Abd al-Rahman ibn Mozni », nom plausible et déclaré (#1052), est un chef résolu : son état est permis, sa personne garde ses seules clés de chef, plus `etat_familial`, comme Théodore Ier. `conjoints=lacune` et `enfants=lacune` : la page ne nomme ni le titulaire, ni son épouse, ni ses enfants (les Banu Muzni à Biskra « from mid 14th century to 1402 ») ; ni célibat ni veuvage, aucune absence attestée, aucune exclusion, aucune fiche inventée. La conquête hafside de 1402 n'est pas programmée.
+Horde d'Or (`grande-21`) : rien n'est ajouté. Le khan du 1er janvier 1400 n'est pas établi (Shadi Beg ou son prédécesseur) : ni fiche, ni complément, ni état, ni famille inventée ; la lacune d'identité est inchangée.
 Les présences explicites sont `vivante`, `decedee` ou `indeterminee` ; seules les personnes vivantes ont des conjoints actifs. Une naissance familiale inconnue reste nulle, avec source nulle et lacune motivée.
 Les états distinguent `union`, `veuvage`, `lacune`, et, pour les enfants, `documentes`, `absence_attestee`, `lacune`. France : enfants documentés ; Bretagne et Bohême : absence sourcée au départ. Jeanne de Bavière, morte le 31 décembre 1386, est explicitement exclue du mariage actif. Une table vide ne prouve rien ; une présence indéterminée précise les pages examinées et leur limite. Chaque état est copié en profondeur dans `etat_familial` du chef.
 Chaque identité, naissance connue, état attesté, exclusion, parenté livrée et présence initiale porte une source `url`/`fait`. Les décès cités justifient la sélection de 1400, sans programmer de mort. Les relations non étudiées sont des lacunes motivées, jamais des absences attestées ; les autres chefs gardent leurs faits et lacunes.
-Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Les filiations anglaises et écossaises ajoutent trente-quatre contrôles indéterminés, soit quarante-huit avec les quatorze français. Les filiations ibériques ajoutent six antériorités paternelles et dix contrôles maternels vérifiés, puis huit indéterminés (Béatrice, Inês et Martin de Sicile) : bilan avant Navarre et Milan de vingt-trois vérifiés et cinquante-six indéterminés ; aucune approximation ne donne de borne exploitable. Navarre et Milan ajoutent treize antériorités paternelles et vingt-quatre contrôles maternels : douze vérifiés et vingt-cinq indéterminés, soit trente-cinq vérifiés et quatre-vingt-un indéterminés avant Constantinople. Les six antériorités paternelles vérifiées concernent Jeanne (Foix), Charles, Lancelot, Valentine, Gian Maria et Filippo ; les six vérifications maternelles concernent Valentine, Gian Maria et Filippo. Aucun âge exact ni règle d'âge au mariage n'est ajouté. Les Ottomans ajoutent dix antériorités paternelles et dix contrôles maternels des cinq maternités établies, tous indéterminés faute de bornes exploitables : bilan de trente-six vérifiés et cent six indéterminés. Les Balkans ajoutent trois antériorités paternelles valaques et les deux contrôles de la maternité de Maria Tolmay, tous indéterminés (père `vers`, naissances inconnues) : trente-six vérifiés et cent onze indéterminés. Le Maghreb n'ajoute aucune filiation : le bilan reste à trente-six et cent onze.
+Le même `valider_liens_familiaux` contrôle le catalogue résolu, la construction et `valider_personnages`, sans mutation ni hasard. **Niveau 2** : enfant strictement postérieur aux parents, mère de 15 à 45 ans révolus inclus. Isabeau reste née **vers 1370** : sept antériorités paternelles vérifiées, sept antériorités maternelles et sept âges maternels indéterminés, avec motif faute de bornes exploitables. Les filiations anglaises et écossaises ajoutent trente-quatre contrôles indéterminés, soit quarante-huit avec les quatorze français. Les filiations ibériques ajoutent six antériorités paternelles et dix contrôles maternels vérifiés, puis huit indéterminés (Béatrice, Inês et Martin de Sicile) : bilan avant Navarre et Milan de vingt-trois vérifiés et cinquante-six indéterminés ; aucune approximation ne donne de borne exploitable. Navarre et Milan ajoutent treize antériorités paternelles et vingt-quatre contrôles maternels : douze vérifiés et vingt-cinq indéterminés, soit trente-cinq vérifiés et quatre-vingt-un indéterminés avant Constantinople. Les six antériorités paternelles vérifiées concernent Jeanne (Foix), Charles, Lancelot, Valentine, Gian Maria et Filippo ; les six vérifications maternelles concernent Valentine, Gian Maria et Filippo. Aucun âge exact ni règle d'âge au mariage n'est ajouté. Les Ottomans ajoutent dix antériorités paternelles et dix contrôles maternels des cinq maternités établies, tous indéterminés faute de bornes exploitables : bilan de trente-six vérifiés et cent six indéterminés. Les Balkans ajoutent trois antériorités paternelles valaques et les deux contrôles de la maternité de Maria Tolmay, tous indéterminés (père `vers`, naissances inconnues) : trente-six vérifiés et cent onze indéterminés. Le Maghreb n'ajoute aucune filiation : le bilan reste à trente-six et cent onze. L'Autriche ajoute deux antériorités paternelles vérifiées (Albert IV, né le 19 septembre 1377, vers Marguerite et vers Albert V, août 1397) et quatre contrôles indéterminés de Jeanne-Sophie (`vers`, deux antériorités et deux âges maternels) : trente-huit vérifiés et cent quinze indéterminés. La Bourgogne ajoute dix-huit contrôles vérifiés (six antériorités de Philippe, né en janvier 1342, six antériorités et six âges maternels de Marguerite III, née le 13 avril 1350, de 21 ans pour Jean à 39 ans pour Philippe de Nevers) : cinquante-six vérifiés et cent quinze indéterminés. Le Palatinat ajoute vingt et un contrôles vérifiés (sept antériorités de Robert, né le 5 mai 1352, sept antériorités et sept âges maternels d'Élisabeth, née le 13 décembre 1358, de 17 ans pour Marguerite à 31 ans pour Otton) et trois indéterminés pour Frédéric (`vers`, sans bornes) : soixante-dix-sept vérifiés et cent dix-huit indéterminés. Bar ajoute dix-huit contrôles : six vérifiés (antériorités de Robert, né le 8 novembre 1344, et de Marie, née le 18 septembre 1344, et âges maternels de 32 ans pour Édouard, juin 1377, et de 35 ans pour Jean, 1380) et douze indéterminés pour Yolande (`vers`), Louis (`intervalle`), Yolande la Jeune (`vers`) et Jeanne (sans naissance) : quatre-vingt-trois vérifiés et cent trente indéterminés. Wurtemberg ajoute trois contrôles indéterminés pour Eberhard IV (`vers`) : l'antériorité d'Eberhard III (`intervalle`), celle d'Antonia (`vers`) et son âge maternel, faute de bornes exploitables : quatre-vingt-trois vérifiés et cent trente-trois indéterminés. La Morée n'ajoute aucune filiation. Branković, Evrenos et le Zab n'en ajoutent aucune non plus : le bilan reste à quatre-vingt-trois vérifiés et cent trente-trois indéterminés. Génération, évolution familiale, succession et partage restent non simulés.
 
 ## Le grenier d'une maison
 
@@ -2192,7 +2279,8 @@ La liste est fermée : `choisir_depart` appelle `deposer_intention`,
 `IntentionRefusee("type d'intention inconnu : <repr>")` sans effet.
 
 Le joueur dépose `{"type": "choisir_depart", "seigneurie": <id>}` par
-`POST /intention`. `python3 -m forge --depart ID` continue d'appeler
+`POST /intention`, ou `{"type": "choisir_depart", "maison": <id du registre>}`
+pour tout pays jouable (voir plus bas). `python3 -m forge --depart ID` continue d'appeler
 directement `deposer_intention`, toujours avec le numéro entier de la terre.
 La table se lit par `charger_seigneuries()` ; `cellule_du_siege` vérifie
 que le siège est dans la carte. Le dépôt vérifie aussi que `identifiant_de_seigneurie(n)`
@@ -2205,7 +2293,32 @@ Le dépôt refuse avant toute mise en attente, par `IntentionRefusee` :
   « seigneurie inconnue : <valeur reçue> » ; un siège hors carte est aussi refusé ;
 - un choix déjà retenu ou en attente : « départ déjà choisi : seigneurie-<n> ».
 
-Le choix accepté est un `ChoixDepart(identifiant)` gelé, placé dans
+**Tout pays jouable** (`sim/jouables.py`, pur, sans écriture ni aléa). Une maison
+de `World.maisons` est jouable si elle n'est pas une institution et si au moins
+un lieu du monde l'a pour maître actuel (`lieu.maitre`, relu sur les cellules).
+Les institutions sont les puissances de nature `république`, `Église` ou `ordre`
+(les ordres militaires sont refusés comme l'Église) ; leur nature se relit dans
+la table des puissances. `raison_de_refus(monde, identifiant)` rend `None` ou la
+raison, dans cet ordre : « maison inconnue ou mal formée : <repr> » (pas une
+chaîne, ou pas une fiche du registre) ; « maison non jouable : <id> (<nom>), une
+république élit ses magistrats » / « …, l'Église élit ses prélats » / « …, un
+ordre élit son maître » (Venise, sans lieu, est refusée comme république) ;
+« maison sans lieu : <id> ». `maisons_jouables(monde)` rend les jouables, chacun
+avec `id`, `nom`, `sorte` et `lieux` (nombre de lieux tenus en propre) : les six
+seigneuries de départ d'abord, par numéro, puis les grandes maisons, puis les
+petits seigneurs (`plausible`), chacun par identifiant.
+
+Avec le champ `maison`, `choisir_depart` refuse d'abord par cette raison, puis par
+« départ déjà choisi : <id> » (409 dans le service) ; les deux champs `seigneurie`
+et `maison` à la fois sont refusés : « choisir_depart : seigneurie ou maison, pas les
+deux ». Une maison `seigneurie-<n>` passe par l'ancien chemin et dépose le même
+`ChoixDepart(n)`. Toute autre maison jouable dépose un `ChoixDeMaison(maison)`
+gelé, dont `appliquer` pose `maison_du_joueur = maison` au tick suivant, sans relire
+le registre. `maison_choisie(monde)` rend la clé du registre du choix appliqué,
+sinon de celui en attente, quel que soit son chemin. La liste fermée des
+intentions ne change pas : aucun type neuf.
+
+Le choix accepté par l'ancien chemin est un `ChoixDepart(identifiant)` gelé, placé dans
 `World.intentions_en_attente` ; il garde le numéro entier. Il reste invisible dans `to_dict()` et les
 vues. Au tick suivant, `_appliquer_intentions` vient après la validation du
 numéro et avant la fabrication : elle appelle chaque intention par
@@ -2217,7 +2330,8 @@ Cette étape ignore les mondes sans attente et ne tire aucun aléa.
 Le choix de départ ne lit ni n'écrit aucune cellule. Le reste du tick ne consulte pas la maison du joueur.
 
 `maison_du_joueur` vaut `None` au chargement. Après application, `to_dict()`
-et `/monde` portent cette clé et l'identifiant du registre `seigneurie-<n>` ; sans choix, la clé est absente
+et `/monde` portent cette clé et l'identifiant du registre (`seigneurie-<n>`, `grande-<id>` ou
+`plausible-…`) ; sans choix, la clé est absente
 et les octets comme l'empreinte restent ceux d'avant. Même graine et même
 choix donnent le même monde ; un autre choix change son empreinte, sans
 changer les cellules, les plans ou l'état du générateur aléatoire.
@@ -2370,11 +2484,14 @@ porte les noms et populations de `charger_villes`, placés par
 `attribuer_villes` et triés par nom ; sans ville documentée, la liste est vide.
 
 À la racine, `villes_hors_carte` déclare les noms triés des villes non placées.
-`terre_choisie` vaut `null` sans choix, sinon porte la fiche actuelle de
+`terre_choisie` vaut `null` sans choix, ou pour un pays jouable qui n'est pas une
+seigneurie de départ (la fiche de terre ne décrit que les six) ; sinon elle porte la fiche actuelle de
 `fiche_de_seigneurie(numero_de_seigneurie(world.maison_du_joueur), …)`, dont l'id
 reste entier, avec siège, source, cellule, habitants, production,
 suzerain, sa maison (`null` si absente), ses cellules et habitants, et voisins
-dans l'ordre de la fiche. Un identifiant mal formé lève `SnapshotExportError`
+dans l'ordre de la fiche. Une institution ou une maison sans lieu posée à la main
+lève `SnapshotExportError` avec la raison de `raison_de_refus` ; tout autre
+identifiant (mal formé, entier, booléen, hors registre) lève `SnapshotExportError`
 « seigneurie inconnue », sans modifier le monde. **Le tick ne la lit pas.**
 
 Après `terre_choisie`, `maisons_du_joueur` porte `maison` et `suzerain` :
@@ -2440,6 +2557,10 @@ approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
 frontières réelles, comme dans la photographie.
 
 ## Les maisons servies, vue dérivée
+
+`GET /jouables` donne `{"tick", "date", "jouables": maisons_jouables(monde)}` sous
+`verrou_tick` : les six seigneuries de départ en tête, par numéro, puis les grandes
+maisons et les petits seigneurs ; ni institution, ni maison sans lieu.
 
 `GET /maisons` donne le registre complet trié par identifiant : nom, sorte,
 suzerain, siège (`cell_id`, `rang`, ou `null` hors carte) et nombre de lieux
@@ -2831,9 +2952,9 @@ par `recevoir_intention` comme le joueur (décision 38) :
 1. **Affermir la concorde** : la Concorde est strictement sous son `neutre` et
    `jauges.verifier_geste` ne refuse pas le geste. Raison
    `concorde_sous_son_neutre` : `concorde`, `neutre`, `plume`, `cout`.
-2. **Asseoir le droit** : le Droit est strictement sous son `maximum` et le
-   geste est payable (le Sceau). Raison `droit_sous_son_maximum` : `droit`,
-   `maximum`, `sceau`, `cout`, `concorde`, `plume`.
+2. **Asseoir le droit** : le Droit est strictement sous le seuil des données
+   (`[ia] droit_bas`, 70) et le geste est payable (le Sceau). Raison
+   `droit_sous_son_seuil` : `droit`, `seuil`, `sceau`, `cout`, `concorde`, `plume`.
 3. **Améliorer sa province la moins chère** : parmi les cellules dont elle tient
    elle-même le bourg (rang 0, `maitre` égal à sa clé), celle dont
    `jauges.cout_du_niveau_suivant` est le plus bas (la plus petite `cell_id` à
@@ -2878,7 +2999,10 @@ polygone coûtait 170 ms des 218 de `jouer_ia` par tick (PC, 7 novembre 2026,
 `toutes_les_maisons_de_l_ia` une fois et la passent à `jouer_ia(monde, releve,
 maisons)` ; le service la refait seulement si le monde servi change d'objet.
 `decider_intentions` écarte à chaque tick la maison du joueur, ou celle qu'il
-vient de choisir. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
+vient de choisir (`maison_choisie`), seigneurie ou grande maison : au tick du
+choix, l'IA ne propose déjà plus rien pour elle (route, secours, part, jauge,
+bâtiment, amélioration), et ne dépense plus ses jauges ni ses points. Les petits
+seigneurs (`plausible`) ne sont pas joués par l'IA avant #427. Sans liste, `jouer_ia` refait la vue, comme avant. Rien ne
 se garde dans le monde ni dans un module. Même graine, mêmes gestes, même
 monde octet pour octet (le test de la liste calculée une fois). Sur le
 PC, ticks 30 à 89 avec IA : 213 ms → 67 ms de médiane (`jouer_ia` 169 → 24 ms,
@@ -3329,11 +3453,151 @@ réponse A du propriétaire du 10 novembre 2026.
   épreuves du décor d'avant la soudure gardent ainsi leurs octets. Sans coupure,
   la graine 0 pose sa première famine au tick 25 (un lieu de la cellule 10391).
 
+### Les événements à choix
+
+`sim/evenements.py`, `data/evenements.toml` (lot #1038 ; décision 41, « une
+famine qui dure propose un choix » ; VISION.md, « Les gestes d'un pays » :
+« répondre à un événement à choix »). Une cause du monde ouvre pour une maison un
+événement à choix ; la maison répond par une intention, l'IA par le même chemin ;
+chaque choix a son prix et ses effets, qui passent par des modificateurs, une
+jauge ou le grain du grenier. Aucune réponse ne met fin à la famine : c'est le
+monde qui la fait durer ou cesser.
+
+- **Les données.** `[evenements.famine]` : `nom`, `dit`, `cause = "famine"` (la
+  seule que le code sait lire ; la révolte et la succession contestée,
+  #435 et #436, la lui apprendront), `delai_jours = 30`, `par_defaut =
+  "laisser_faire"`, et trois `[[choix]]` dans l'ordre : `ouvrir_les_greniers`
+  (`grenier = 0.25`, Concorde +1), `lever_une_taxe_de_disette` (le modificateur
+  `taxe_de_disette`, Concorde −1), `laisser_faire` (Droit −5). `lire_evenements`
+  lève `EvenementInvalide`, avec un motif qui nomme le champ, pour : une cause
+  inconnue (ou déjà celle d'un autre événement) ; moins de deux ou plus de trois
+  choix ; deux choix de même `id` ; un `par_defaut` qui n'est pas l'un des choix ;
+  un `delai_jours` qui n'est pas un entier ≥ 1 ; un choix qui ne pose ni
+  modificateur ni jauge ; un modificateur absent de `modificateurs.toml`, d'une
+  grandeur que le moteur ne lit pas, ou qui ne se pose pas sur un pays ; une jauge
+  absente de `jauges.toml`, un écart nul ou non fini ; une part du grenier hors de
+  ]0, 1] ; tout autre champ dans un choix. Un choix ne peut donc ni écrire un
+  stock, ni tuer, ni finir une famine : aucun n'impose une issue (principe 5).
+  `modificateurs.toml` reçoit la taxe : `taxe_de_disette`, prélèvement, +0,25,
+  portée pays, 90 jours.
+- **La cause.** `au_mois(monde, regles)` est appelée par `jauges.avant_le_tick`
+  juste après `mettre_a_jour`, donc aux bornes de mois seulement : les trois
+  boucles (le service, `python -m sim`, `python -m forge`) la jouent sans changer,
+  IA ou non, rejeu compris. Une maison a la cause « famine » au tick `t` si l'un
+  des lieux dont elle est le maître porte la pose `famine` (lot #1029) et si son
+  dernier jour de faim tombe dans le mois écoulé : `fin − 365 jours ≥ t − 30`. On
+  lit le registre des modificateurs, jamais la faim brute : un lieu affamé depuis
+  sept jours ou moins n'a pas de pose et ne fait pas la cause. Le monde d'avant la
+  famine (`couper_la_famine`, `amorcer_comme_avant_la_soudure`) n'a donc aucun
+  événement, et un monde sans événement ni famine ne lit aucun fichier.
+- **L'événement.** `World.evenements` : identifiant de maison → `{"identifiant":
+  "famine", "ouvert": t, "lieux": [[cell_id, rang], …]}`, `lieux` triés. Une
+  maison a au plus un événement en attente. `to_dict()` ne porte la clé
+  `evenements` que si la table n'est pas vide, triée par maison. Chaque mois,
+  `au_mois` fait deux choses, dans cet ordre, maison par maison triée, pour
+  **toutes** les maisons du registre (celles de l'IA, celle du joueur, celles que
+  personne ne joue) : **fermer** un événement ouvert depuis au moins
+  `delai_jours` et dont aucune réponse n'attend dans `intentions_en_attente`, par
+  son choix `par_defaut` (la même fonction que la réponse déposée,
+  `appliquer_choix`, avec les kilos de l'ouverture comptés à ce moment, ou zéro
+  si la maison n'a pas de lieu à secourir : le défaut n'est jamais refusé) ; puis
+  **ouvrir** pour une maison sans événement en attente qui a la cause. Un
+  événement fermé peut donc être remplacé le même jour si la cause tient encore.
+  Sur la graine 0 sans IA, sous l'appel des villes coupé (le décor des épreuves,
+  lot #1071), le premier s'ouvre au tick 30, pour `plausible-10391-0` : sa famine
+  est posée au tick 25. Avec l'IA, les premiers événements d'une maison de l'IA
+  s'ouvrent au tick 390 (`grande-22` et `grande-3`).
+- **La réponse.** L'intention `repondre_evenement` (`maison`, `choix`) passe par
+  `recevoir_intention`. Le dépôt n'écrit rien dans le monde ; il refuse, avec sa
+  raison : `maison inconnue ou mal formée : …` ; `aucun événement en attente :
+  <maison>` ; `choix inconnu : … (ids triés)` ; `réponse déjà déposée :
+  <maison>` ; pour l'ouverture, `grenier vide : rien à ouvrir pour <maison>`
+  (aussi quand la part est nulle une fois retirés les `ouvrir_grenier` et la
+  réponse déjà déposées de la maison), `maison sans lieu`, `lieux sans dette ni
+  habitants` (les refus de `ouvrir_grenier`) ; pour un choix qui fait baisser
+  une jauge déjà à son minimum, le texte de `verifier_geste` (« Concorde déjà à
+  sa borne : -3 points »). Le choix `par_defaut` n'est jamais refusé pour sa
+  jauge : il est borné ; une hausse au-delà du maximum est bornée aussi.
+  L'intention retenue, `RepondreEvenement(maison, choix, kg)`, garde les kilos de
+  l'ouverture comptés au dépôt : `kg = part × (grain du grenier − grain déjà
+  engagé)`. Le grain engagé compte les `OuvrirGrenier` et les
+  `RepondreEvenement` en attente de la maison : le grenier ne paie jamais deux
+  fois, dans les deux sens. `jauges.verifier_geste` reçoit un paramètre `effets`,
+  les écarts de jauge des réponses en attente avec leur rang parmi les gestes
+  déposés, joués dans l'ordre du dépôt : `_depenser_jauge` les lui passe, pour que
+  l'étape des intentions ne lève jamais `JaugeInvalide` (avec une Concorde à 2,
+  « ouvrir » déposé, « affermir la concorde » est refusé au dépôt : la Concorde
+  est déjà à sa borne).
+- **L'effet, au tick près.** À l'étape des intentions du tick où la réponse
+  s'applique (celui du dépôt : les intentions précèdent le tick), `appliquer_choix`
+  fait dans cet ordre : (1) elle ôte l'événement de `World.evenements` ; (2) elle
+  déplace chaque jauge de son écart, borné, et repose les modificateurs des
+  jauges ; (3) pour chaque modificateur du choix, elle retire la source
+  `evenement:<modificateur>:<maison>` puis la repose sur `{"pays": maison}` : une
+  seconde taxe renouvelle la première au lieu de s'y ajouter ; (4) si `kg > 0`,
+  elle joue `OuvrirGrenier(maison, kg)` : le grain quitte le grenier et arrive aux
+  lieux par le secours, partagé selon leur dette, ou selon leurs habitants si
+  aucun n'a de dette. Comme les intentions précèdent le calcul des facteurs du
+  tick, la taxe compte dès le tick `t` où la réponse s'applique jusqu'à `t + 89` ;
+  `expirer` l'ôte au début du tick `t + 90`.
+- **Les trois choix.** *Ouvrir les greniers* : le quart du grenier part vers les
+  lieux affamés, la Concorde gagne un point. *Lever une taxe de disette* : 25 % de
+  prélèvement en plus pendant 90 jours, la Concorde perd un point. *Laisser faire* :
+  le Droit perd 5 points (puis −0,01 de prélèvement, la jauge posant son
+  modificateur). Le choix est entre le grain, la tenue du pays et la légitimité.
+  L'économie reste physique (décision 35) : la taxe multiplie un prélèvement que le
+  moteur calculait déjà, jamais au-delà de la récolte ; l'ouverture déplace de vrais
+  kilos ; aucun choix ne crée de kilo.
+- **L'IA.** `_proposition_de_reponse` : le jour du mois où elle règle sa part
+  (après son geste de jauge du jour, sans empêcher un autre geste), une maison de
+  l'IA qui a un événement en attente dépose une réponse, le premier choix qui
+  tient : (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
+  (et un grenier non vide), raison `grenier_au_dessus_de_sa_reserve` ; (2) sinon
+  `lever_une_taxe_de_disette` si `grenier < réserve voulue` et que sa Concorde est
+  au-dessus du minimum de la jauge, raison `grenier_sous_sa_reserve` (plus
+  `concorde` et `minimum`) ; (3) sinon `laisser_faire`, raison
+  `ni_grain_ni_concorde` (plus `concorde` et `minimum`). La raison porte toujours
+  `evenement`, `ouvert`, `grenier_nourriture_kg` (lu au moment de la décision),
+  `reserve_voulue_kg` (`_reserve_voulue`) et `part_du_grenier`. Le joueur qui
+  dépose la même intention obtient le même monde (décision 38) : mêmes refus,
+  mêmes kilos, mêmes poses. Une maison que personne ne joue laisse faire au bout
+  du délai, comme le joueur qui ne répond pas. Les réponses de l'IA arrivent dans
+  `/ia` avec leur raison.
+- **Le service.** `GET /evenement?maison=<id>`, lu sous le verrou du tick, au tick
+  publié : `{"maison", "tick", "date", "evenement"}`, `evenement` valant `null`
+  sans événement en attente. Sinon : `identifiant`, `nom`, `dit`, `ouvert`,
+  `ouvert_date`, `ferme_au_tick` (le premier mois qui suit le délai), `par_defaut`,
+  `lieux`, et `choix` dans l'ordre des données : `id`, `nom`, `dit`, son prix
+  (`grenier_kg`, les kilos que le dépôt prendrait à ce tick, ou `null`), ses
+  `jauges` (les écarts), ses `modificateurs` (`nom`, `grandeur`, `grandeur_nom`,
+  `valeur`, `portee`, `duree_jours`) et son `refus` (la raison du dépôt, ou
+  `null`). Un paramètre invalide reçoit 400, une maison inconnue 404.
+  `POST /intention` avec `repondre_evenement` est réservé à la maison du joueur,
+  comme `ouvrir_grenier` : « départ non appliqué : choisir une terre avant de
+  répondre à un événement » sans joueur, « maison interdite : seule la maison du
+  joueur répond à ses événements » pour une autre maison. Le mois se joue au début
+  du tick : un événement ouvert au tick 30 est servi avec le tick publié 31. Si
+  l'IA échoue, `jouer_un_tick` défait aussi `World.evenements`, en plus des jauges
+  et des modificateurs.
+- **Ce que ce lot ne fait pas.** La fenêtre de l'événement dans Unity (un lot
+  `pc`), les autres causes de la décision 41, le fil des nouvelles (#1028), et le
+  rejeu `--gestes`, qui dépose avant le mois : une réponse du jour d'ouverture y
+  serait refusée (aucun événement en attente). La photographie ne porte pas
+  `evenements` : seuls le service et `to_dict()` les servent.
+
 **Niveau 2**, plausible, jamais sourcé : chaque valeur des données (le moulin
-à +10 %). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
+à +10 %, et pour les événements : le délai de 30 jours, le quart du grenier, ±1
+point de Concorde, −5 points de Droit, et la taxe de disette à +25 % pendant 90
+jours). **Niveau 3**, pas simulé : ce qui pose un modificateur de soi-même
 (les bâtiments, les jauges et les événements le feront par leurs lots).
 
 ## Le pays et ses jauges
+
+Les jauges et les points sont tenus par maison du registre pour toutes les maisons
+(`World.jauges`). Depuis que le joueur peut prendre tout pays jouable, l'IA ne
+dépense plus ceux de la maison choisie, seigneurie ou grande maison (voir « Les
+décisions et les gestes de l'IA ») ; le joueur les dépense par `depenser_jauge` avec sa maison.
+Aucune règle des jauges ne change.
 
 **Le pays d'un seul tenant** (`sim/pays.py`, CAP.md, jalon 6). Une vue
 dérivée, rien de stocké : `pays(monde, maison)` lit les lieux de la maison
@@ -3438,13 +3702,26 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
 - **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA dépose au
   plus un geste de points — concorde, Droit, puis province la moins chère —,
   par `recevoir_intention`, avec sa raison (`concorde_sous_son_neutre`,
-  `droit_sous_son_maximum`, `province_la_moins_chere`) : voir « Le geste de
-  points du mois » dans « Les décisions et les gestes de l'IA ». Le joueur qui
-  dépose la même intention obtient le même monde (décision 38).
+  `droit_sous_son_seuil`, `province_la_moins_chere`) : voir « Le geste de
+  points du mois » dans « Les décisions et les gestes de l'IA ». Le Droit se
+  dépose quand il est strictement sous le seuil des données (`[ia] droit_bas`,
+  70) et que le Sceau paie le geste ; `lire_regles` lit la table `[ia]` dans
+  `Regles.ia` et refuse (`JaugeInvalide`, motif `ia.droit_bas`) une table
+  absente, un `droit_bas` qui n'est pas un nombre fini (un booléen compris) ou
+  hors de `minimum < droit_bas ≤ maximum` de la jauge `droit`. Un seul geste de
+  points par maison et par mois : Unity refuse deux ordres de même type, même
+  maison, même jour. Le joueur qui dépose la même intention obtient le même
+  monde (décision 38) : mêmes coûts, mêmes refus. Aucun geste ne dépense
+  l'Épée ; `/pays` ne sert pas le seuil de l'IA.
+  Elle répond aussi à l'événement à choix de sa maison, le même jour du mois, après
+  son geste de points : une raison par règle, `grenier_au_dessus_de_sa_reserve`,
+  `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
+  choix », dans « Les modificateurs »).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
 `data/jauges.toml`, dont les trois de l'amélioration d'une province (6 points
-pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau). **Niveau 3**, pas simulé : le conseil du souverain (ses
+pour le premier niveau, ×1,5 par niveau, +2 % de récolte par niveau) et le seuil
+de Droit de l'IA (70, voulu par le propriétaire, réglable). **Niveau 3**, pas simulé : le conseil du souverain (ses
 points viendront aussi de ses conseillers), les causes du Renom par la guerre
 et du Droit par la succession.
 

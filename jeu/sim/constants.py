@@ -452,6 +452,8 @@ def debit_maritime_kg_par_km() -> float:
 # Les réglages du commerce vivent dans `jeu/data/commerce.toml` (niveau 2).
 _CHEMIN_COMMERCE = Path(__file__).parents[1] / "data" / "commerce.toml"
 _CLE_RESERVE_VILLE_AFFAMEE = "reserve_ville_affamee_jours"
+_CLE_APPEL_VILLE_AFFAMEE = "appel_ville_affamee_part"
+_CLE_RAYON_VILLE_AFFAMEE = "rayon_ville_affamee_jours"
 
 
 def reserve_ville_affamee_jours(chemin=None) -> int:
@@ -472,6 +474,52 @@ def reserve_ville_affamee_jours(chemin=None) -> int:
     if _CLE_RESERVE_VILLE_AFFAMEE not in donnees:
         raise ValueError(f"{ou} : clé absente de {chemin}")
     valeur = donnees[_CLE_RESERVE_VILLE_AFFAMEE]
+    if isinstance(valeur, bool) or not isinstance(valeur, int):
+        raise ValueError(f"{ou} : un nombre entier attendu, pas {valeur!r}")
+    if valeur < 1:
+        raise ValueError(f"{ou} : au moins 1 jour attendu, pas {valeur}")
+    return valeur
+
+
+def _lire_cle_commerce(cle, chemin):
+    """La valeur brute de `cle` dans `commerce.toml`, ou une `ValueError` qui nomme la clé et le fichier."""
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_COMMERCE
+    ou = f"{cle} ({chemin.name})"
+    try:
+        with open(chemin, "rb") as fichier:
+            donnees = tomllib.load(fichier)
+    except FileNotFoundError as erreur:
+        raise ValueError(f"{ou} : fichier {chemin} absent") from erreur
+    if cle not in donnees:
+        raise ValueError(f"{ou} : clé absente de {chemin}")
+    return donnees[cle], ou
+
+
+def appel_ville_affamee_part(chemin=None):
+    """
+    Part de ce que ses champs ne nourrissent pas qu'une ville affamée appelle chaque jour (lot #1071).
+
+    Relit `jeu/data/commerce.toml` à chaque appel. Refuse, en nommant la clé et
+    le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
+    nombre hors de [0, 1]. 0 redonne le commerce d'avant, 1 appelle tout le manque.
+    """
+    valeur, ou = _lire_cle_commerce(_CLE_APPEL_VILLE_AFFAMEE, chemin)
+    if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
+        raise ValueError(f"{ou} : un nombre attendu, pas {valeur!r}")
+    if not 0 <= valeur <= 1:
+        raise ValueError(f"{ou} : un nombre dans [0, 1] attendu, pas {valeur}")
+    return valeur
+
+
+def rayon_ville_affamee_jours(chemin=None) -> int:
+    """
+    Jours de charroi et de batellerie que portent les arêtes d'une ville affamée (lot #1071).
+
+    Relit `jeu/data/commerce.toml` à chaque appel. Refuse, en nommant la clé et
+    le fichier, un fichier ou une clé absents, un booléen, un nombre non entier
+    ou une valeur sous 1. 1 redonne la capacité d'avant.
+    """
+    valeur, ou = _lire_cle_commerce(_CLE_RAYON_VILLE_AFFAMEE, chemin)
     if isinstance(valeur, bool) or not isinstance(valeur, int):
         raise ValueError(f"{ou} : un nombre entier attendu, pas {valeur!r}")
     if valeur < 1:

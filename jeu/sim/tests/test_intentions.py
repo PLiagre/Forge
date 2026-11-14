@@ -2274,7 +2274,7 @@ def test_ia_part_documentation_des_points():
 
     def controler(document):
         section = document.split(titre)[1].split('\n## ')[0]
-        for mot in ('IA_GRENIER_PLEIN_FOIS_LA_RESERVE', 'droit_sous_son_maximum', 'province_la_moins_chere'):
+        for mot in ('IA_GRENIER_PLEIN_FOIS_LA_RESERVE', 'droit_sous_son_seuil', 'province_la_moins_chere'):
             assert mot in section
 
     controler(texte)
@@ -2805,3 +2805,160 @@ def test_enceinte_documentation(monkeypatch):
     lire = Path.read_text
     monkeypatch.setattr(Path, "read_text", lambda chemin, *a, **k: lire(chemin, *a, **k).replace(termes[0], "retiré"))
     with pytest.raises(AssertionError): assert all(terme in texte for texte in textes() for terme in termes)
+
+
+# --- Lot #1037 : le joueur prend la tête de n'importe quel pays de 1400 ---
+
+def _refus_du_choix(monde, intention):
+    """Le message du refus ; une intention acceptée lève AssertionError (pour les contre-épreuves)."""
+    try:
+        recevoir_intention(monde, intention)
+    except IntentionRefusee as refus:
+        return str(refus)
+    raise AssertionError(f"accepté : {intention!r}")
+
+
+def _premier_petit_seigneur(monde):
+    from sim.jouables import maisons_jouables
+    petit = next((m["id"] for m in maisons_jouables(monde) if m["sorte"] == "plausible"), None)
+    assert petit is not None and petit.startswith("plausible-"), "aucun petit seigneur jouable"
+    return petit
+
+
+def test_tout_pays_choix(monkeypatch):
+    from sim.intentions import ChoixDeMaison, ChoixDepart
+    monde = World.charger(0)
+    petit = _premier_petit_seigneur(monde)
+    for maison in ("grande-3", petit):
+        monde = World.charger(0)
+        avant = deepcopy(monde.to_dict())
+        recevoir_intention(monde, {"type": "choisir_depart", "maison": maison})
+        assert monde.intentions_en_attente == [ChoixDeMaison(maison)]
+        assert monde.maison_du_joueur is None and monde.to_dict() == avant
+        engine.tick(monde, random.Random(0), 0)
+        assert monde.maison_du_joueur == maison and monde.intentions_en_attente == []
+
+        def verifier(monde=monde, maison=maison):
+            assert monde.maison_du_joueur == maison
+
+        verifier()
+        # Contre-épreuve : un choix qui ne s'applique pas laisse le joueur sans pays.
+        sonde = World.charger(0)
+        recevoir_intention(sonde, {"type": "choisir_depart", "maison": maison})
+        with monkeypatch.context() as m:
+            m.setattr(ChoixDeMaison, "appliquer", lambda self, monde: None)
+            engine.tick(sonde, random.Random(0), 0)
+        assert sonde.maison_du_joueur is None
+        with pytest.raises(AssertionError):
+            verifier(sonde)
+    # Une seigneurie de départ par sa clé du registre : exactement l'ancien dépôt.
+    monde = World.charger(0)
+    numero = charger_seigneuries()[0].id
+    recu = recevoir_intention(monde, {"type": "choisir_depart", "maison": f"seigneurie-{numero}"})
+    assert recu == ChoixDepart(numero) and monde.intentions_en_attente == [ChoixDepart(numero)]
+    assert type(monde.intentions_en_attente[0]) is ChoixDepart
+
+
+def test_tout_pays_refus(monkeypatch):
+    monde = World.charger(0)
+    petit = _premier_petit_seigneur(monde)
+    refus = [
+        ({"maison": "grande-21"}, "maison sans lieu : grande-21"),
+        ({"maison": "institution-15"}, "maison non jouable : institution-15 (Florence), une république élit ses magistrats"),
+        ({"maison": "institution-17"}, "maison non jouable : institution-17 (Papauté), l'Église élit ses prélats"),
+        ({"maison": "institution-22"}, "maison non jouable : institution-22 (Ordre teutonique), un ordre élit son maître"),
+        ({"maison": "grande-999"}, "maison inconnue ou mal formée : 'grande-999'"),
+        ({"maison": 3}, "maison inconnue ou mal formée : 3"),
+        ({"maison": True}, "maison inconnue ou mal formée : True"),
+        ({"maison": None}, "maison inconnue ou mal formée : None"),
+        ({"maison": "grande-3", "seigneurie": 1}, "choisir_depart : seigneurie ou maison, pas les deux"),
+        ({"maison": "seigneurie-1", "seigneurie": 1}, "choisir_depart : seigneurie ou maison, pas les deux"),
+        ({}, "seigneurie inconnue : None"),
+    ]
+    assert any("Papauté" in message for _, message in refus), "la Papauté doit se refuser comme l'Église"
+
+    def verifier(monde):
+        avant = (deepcopy(monde.to_dict()), list(monde.intentions_en_attente))
+        for champs, message in refus:
+            assert _refus_du_choix(monde, {"type": "choisir_depart", **champs}) == message
+            assert (monde.to_dict(), monde.intentions_en_attente) == avant
+
+    verifier(monde)
+    # Un second choix après un royaume, en attente puis appliqué, quel que soit son chemin.
+    recevoir_intention(monde, {"type": "choisir_depart", "maison": "grande-3"})
+    enattente = list(monde.intentions_en_attente)
+    avant = deepcopy(monde.to_dict())
+    for second in ({"maison": "grande-1"}, {"maison": petit}, {"maison": "seigneurie-1"}, {"seigneurie": 1}):
+        assert _refus_du_choix(monde, {"type": "choisir_depart", **second}) == "départ déjà choisi : grande-3"
+        assert monde.intentions_en_attente == enattente and monde.to_dict() == avant
+    engine.tick(monde, random.Random(0), 0)
+    assert monde.maison_du_joueur == "grande-3"
+    assert _refus_du_choix(monde, {"type": "choisir_depart", "maison": petit}) == "départ déjà choisi : grande-3"
+    assert _refus_du_choix(monde, {"type": "choisir_depart", "seigneurie": 1}) == "départ déjà choisi : grande-3"
+    # Contre-épreuve : un contrôle qui accepte tout fait accepter la Papauté, et la vérification échoue.
+    sonde = World.charger(0)
+    monkeypatch.setattr("sim.intentions.raison_de_refus", lambda monde, identifiant: None)
+    with pytest.raises(AssertionError):
+        verifier(sonde)
+
+
+def test_tout_pays_ia(monkeypatch):
+    import zlib
+    from sim import constants as k
+    from sim.capitales import maisons_de_l_ia
+    from sim.intentions import ChoixDeMaison
+    ia, monde, maisons = _ia_monde()
+    # Un jour où la part des Valois se décide : le filtre doit mordre sur la route et sur la part.
+    t = k.FENETRE_FLUX_TICKS + zlib.crc32(b"grande-3") % k.FENETRE_FLUX_TICKS
+    _mois_affame(monde, maisons, t)
+    valois = ("grande maison", 3)
+
+    def de(propositions, couple):
+        return [p for p in propositions if (p["maison"]["sorte"], p["maison"]["id"]) == couple]
+
+    def autres(propositions):
+        return [p for p in propositions if (p["maison"]["sorte"], p["maison"]["id"]) != valois]
+
+    libre = ia.decider_intentions(monde, [])
+    assert [p for p in de(libre, valois) if p["intention"]["type"] == "tracer_route"], "le filtre ne mord pas : pas de route"
+    assert [p for p in de(libre, valois) if p["intention"]["type"] == "fixer_part"], "le filtre ne mord pas : pas de part"
+    assert autres(libre), "échantillon vide : les autres maisons se taisent"
+
+    def verifier(monde):
+        assert not de(ia.decider_intentions(monde, []), valois)
+
+    monde.intentions_en_attente = [ChoixDeMaison("grande-3")]
+    verifier(monde)
+    assert ia.decider_intentions(monde, []) == autres(libre)
+    assert valois[1] in {m.id for m in maisons_de_l_ia(monde) if m.sorte == valois[0]}  # Le dépôt attend le tick.
+    monde.intentions_en_attente, monde.maison_du_joueur = [], "grande-3"
+    verifier(monde)
+    assert ia.decider_intentions(monde, []) == autres(libre)
+    assert valois[1] not in {m.id for m in maisons_de_l_ia(monde) if m.sorte == valois[0]}
+    # Sur un mois entier, le relevé ne porte aucune entrée des Valois ni du petit seigneur choisi.
+    monde.maison_du_joueur = None
+    petit = _premier_petit_seigneur(monde)
+    for maison in ("grande-3", petit):
+        sonde = deepcopy(monde)
+        sonde.intentions_en_attente = [ChoixDeMaison(maison)]
+        releve = []
+        for tick in range(t, t + k.FENETRE_FLUX_TICKS):
+            _mois_affame(sonde, maisons, tick)
+            ia.jouer_ia(sonde, releve)
+        assert releve, "échantillon vide : l'IA ne joue rien"
+        choisie = ("grande maison", 3) if maison == "grande-3" else ("plausible", maison)
+        assert not [e for e in releve if (e["maison"]["sorte"], e["maison"]["id"]) == choisie]
+        if maison != "grande-3":
+            assert [e for e in releve if (e["maison"]["sorte"], e["maison"]["id"]) == valois], \
+                "les Valois, eux, jouent : le filtre ne vise que la maison choisie"
+    sonde = deepcopy(monde)
+    libre_releve = []
+    for tick in range(t, t + k.FENETRE_FLUX_TICKS):
+        _mois_affame(sonde, maisons, tick)
+        ia.jouer_ia(sonde, libre_releve)
+    assert [e for e in libre_releve if (e["maison"]["sorte"], e["maison"]["id"]) == valois], "sans choix, les Valois jouent"
+    # Contre-épreuve : sans la lecture du choix, la route des Valois revient.
+    monde.intentions_en_attente = [ChoixDeMaison("grande-3")]
+    monkeypatch.setattr(ia, "maison_choisie", lambda monde: None)
+    with pytest.raises(AssertionError):
+        verifier(monde)
