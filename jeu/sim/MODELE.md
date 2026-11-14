@@ -545,10 +545,11 @@ Ces comptes sont copiés dans `EtatPublie` à la publication, sans lecture du mo
 `personnes` et son nombre de `foyers`, dernier foyer incomplet compris
 (10 974 mineurs font 2 195 foyers). Des métiers non calculés publient
 `"foyers": -1`, jamais un dictionnaire deviné ; une cellule amorcée vide
-publie `{}`. Ces octets sont construits dans `EtatPublie` avec la
-photographie du tick, dans le même appel que la population et les stocks :
-une lecture de `/lieu` donne toute la cellule au même tick et ne consulte
-pas le monde mutable. `/monde` ne les porte pas et reste léger ; le snapshot
+publie `{}`. Ces documents sont copiés dans `EtatPublie` avec la
+photographie du tick, dans le même appel que la population et les stocks ;
+leurs octets naissent à la première lecture, puis restent : une lecture de
+`/lieu` donne toute la cellule au même tick et ne consulte pas le monde
+mutable. `/monde` ne les porte pas et reste léger ; le snapshot
 de la CLI n'est pas touché.
 
 ## Le panier de marchandises
@@ -2572,8 +2573,10 @@ La photographie réutilise `document_de_maison` pour le joueur et son suzerain.
 
 `MatiereMaisons`, dataclass gelée de `sim/maisons_servies.py`, copie les parts,
 chaque panier et les sommes des flux à la publication dans `EtatPublie`.
-Les cinq kilos sont accumulés en une passe sur les jours de la fenêtre,
-dans le même ordre que `flux_de_maison`, sans arrondi. Sans route, les cinq
+Les cinq kilos sont accumulés sur les jours de la fenêtre, colonne par
+colonne, dans le même ordre des jours que `flux_de_maison` et depuis le même
+zéro entier, sans arrondi ni sommation compensée (`sum` et `math.fsum` ne
+rendraient pas les mêmes octets). Sans route, les cinq
 zéros sont une mesure. Les départs et arrivées somment les mouvements des
 lieux actuellement tenus : `partis_personnes` et `arrives_personnes` comptent
 des personnes, jamais des foyers. Aucun tick ne lit cette vue.
@@ -2587,6 +2590,12 @@ puis conservés dans `EtatPublie.octets_maisons`, initialement vide. Le verrou
 propre `verrou_maisons` protège ce cache ; une lecture ne prend jamais le
 verrou du tick. Une modification du monde vivant ne change donc pas une
 fiche du tick déjà publié, même avant sa première lecture.
+
+Les lieux, les plans et les occupations suivent la même règle : leurs documents
+sont copiés à la publication, dans le même appel à `_construire_etat`, et
+leurs octets naissent à la première lecture (`OctetsDifferes`, qui ne garde ni
+serveur ni verrou), puis restent. Un tick ne sérialise que `/monde`, l'IA et
+les modificateurs.
 
 Un siège hors carte porte le nom du registre, des coordonnées nulles et sa
 raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
@@ -2698,8 +2707,9 @@ sans arrondi. Sans noms ou flux fournis, ces champs déclarent `None` ; sans
 registre, les flux fournis valent zéro. Ils sont lus par `lieux_en_photographie`, la
 fonction même qui remplit les lieux de la photographie, **sans arrondi** : la somme de leurs paniers égale le
 panier du monde au bit près, pas le panier arrondi en tête de la réponse.
-Ces octets sont construits dans `EtatPublie`, avec la photographie du tick,
-dans le même appel que la population, le panier et les foyers. Un lieu publié
+Ces documents sont copiés dans `EtatPublie`, avec la photographie du tick,
+dans le même appel que la population, le panier et les foyers ; leurs octets
+naissent à la première lecture. Un lieu publié
 ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
 (`cell_id` de la réponse, `rang`). Des lieux qui ne correspondent pas au
 découpage lèvent `SnapshotExportError` : le service ne publie jamais une
@@ -3047,9 +3057,9 @@ des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans g
 Les lignes `chantiers_du_jour` et `recolte_perdue_par_chantier` de `/plan` suivent l'ordre rue/parcelle/bâtiment/enceinte, puis l'identifiant : la ligne `{"nature": "enceinte", "identifiant": 0, …}`, clé `(cell_id, "enceinte", 0)`, vient après les bâtiments.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les octets des gestes sont construits dans `EtatPublie` avec
-la photographie du tick : une lecture n'attend pas son calcul et ne consulte
-pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
+`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les documents des gestes sont copiés dans `EtatPublie` avec
+la photographie du tick, et leurs octets naissent à la première lecture : une
+lecture n'attend pas le calcul du tick et ne consulte pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
 `/lieu`, ni au snapshot.
 
