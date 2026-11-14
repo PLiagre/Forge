@@ -58,8 +58,14 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # complément et son état. Mesuré sur la base et sur le lot, sous Linux : seule la clé
 # `personnages` de `World.to_dict()` diffère (sept fiches nouvelles, une changée :
 # `personne-seigneurie-1`), et la photographie est identique.
+# Le monde est recapturé le 14 novembre 2026 (lot #1084) : deux fiches de la maison de
+# Wurtemberg entrent dans le registre (de 2 388 à 2 390 personnes), Eberhard III reçoit
+# son complément et son état, Théodore Ier de Morée un état seul. Mesuré sur la base et
+# sur le lot, sous Linux : seule la clé `personnages` de `World.to_dict()` diffère (deux
+# fiches nouvelles, deux changées : `personne-seigneurie-2` et `personne-seigneurie-3`),
+# et la photographie est identique.
 EMPREINTES_365 = {
-    "linux": ("67935adb2529df5d9eeba397bb9346a53ecc4ac98cd030ffe594d00524141b9d",
+    "linux": ("ca94b6e9f05395f8926d976a5e7150b29506cb363148f3b42de4034cf36b4cfd",
               "e62f70fd48071e5de96bccd286a27512a6a4ec7c7ef8c656347b2e39f1e7ef2e"),
 }
 
