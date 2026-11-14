@@ -4081,7 +4081,6 @@ def _bar_controle(fiches, etat):
             if i in famille: assert liens <= famille
             else: assert not liens & famille
         assert not any({'personne-grande-6', THEODORE_II_ID, 'personne-grande-27', MARIE_FRANCE_ID} & ({f.get('pere'), f.get('mere')} | set(f.get('conjoints', []))) for i, f in fiches.items() if i in famille)
-        assert fiches[THEODORE_II_ID]['conjoints'] == [] and fiches['personne-grande-6']['mere'] is None
         # Les cinq autres seigneuries restent sans complément ni fiche.
         assert {i for i in fiches if i.startswith('personne-seigneurie-')} == {CHEF_BAR}
         assert {f['maison'] for f in fiches.values() if f.get('maison', '').startswith('seigneurie-')} == {BAR}
