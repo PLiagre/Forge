@@ -29,8 +29,8 @@ namespace ForgeLocal3D
 
         public DesertParcelles(Transform parent,Terrain terrain)
         {
-            var defaut=GraphicsSettings.currentRenderPipeline?GraphicsSettings.currentRenderPipeline.defaultMaterial:null;
-            if(!defaut)throw new InvalidOperationException("Pas de matériau par défaut du pipeline de rendu : les parcelles ne sont pas dessinées.");
+            var defaut=Forge.Pont.MateriauDeBase.Prendre();
+            if(!defaut)throw new InvalidOperationException("Pas de matériau de base : les parcelles ne sont pas dessinées.");
             Material M(string nom,float r,float g,float b)=>new Material(defaut){name=nom,color=new Color(r,g,b)};
             rubanChantier=M("Ruban de chantier",.50f,.38f,.26f);rubanAcheve=M("Ruban achevé",.93f,.91f,.86f);
             piquet=M("Piquet",.30f,.20f,.12f);cordeau=M("Cordeau",.55f,.33f,.18f);borne=M("Borne",.90f,.88f,.82f);
