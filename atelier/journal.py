@@ -53,6 +53,7 @@ class Mesure:
     role: str
     quand: datetime | None
     mesure: dict
+    session: str | None = None
 
     @property
     def cout(self) -> float:
@@ -71,8 +72,30 @@ def mesures_des_commentaires(numero: int, commentaires: list[dict]) -> list[Mesu
         quand = _date(c.get("createdAt"))
         for m in lots.marques([c]):
             if isinstance(m.get("mesure"), dict) and m.get("role") in ROLES:
-                lues.append(Mesure(lot=numero, role=m["role"], quand=quand, mesure=m["mesure"]))
+                lues.append(Mesure(lot=numero, role=m["role"], quand=quand, mesure=m["mesure"],
+                                   session=m.get("session")))
     return lues
+
+
+def couts_par_appel(mesures: list[Mesure]) -> list[Mesure]:
+    """Claude rend le coût d'une session depuis son premier appel, pas celui de
+    l'appel : pour une session reprise, le coût d'un appel est ce cumul moins
+    celui de l'appel d'avant. Une session rouverte à neuf repart de zéro : son
+    cumul, plus petit que le précédent, est son coût. Un appel coupé n'a rien
+    dit ; ce qu'il a coûté entre dans l'appel suivant de sa session."""
+    cumuls: dict[str, float] = {}
+    rendues = list(mesures)
+    for rang in sorted(range(len(mesures)), key=lambda i: (mesures[i].quand is not None, mesures[i].quand, i)):
+        m = mesures[rang]
+        cumul = m.mesure.get("cout")
+        if not m.session or not isinstance(cumul, (int, float)):
+            continue
+        avant = cumuls.get(m.session)
+        cumuls[m.session] = float(cumul)
+        if avant is not None and cumul >= avant:
+            rendues[rang] = Mesure(lot=m.lot, role=m.role, quand=m.quand, session=m.session,
+                                   mesure={**m.mesure, "cout": round(cumul - avant, 6)})
+    return rendues
 
 
 def mesures_des_lots(gh: GitHub, projet: Projet, numeros: list[int]) -> list[Mesure]:
@@ -86,7 +109,7 @@ def mesures_des_lots(gh: GitHub, projet: Projet, numeros: list[int]) -> list[Mes
         resume = gh.pr_de_branche(Lot.de(issue).branche(projet.prefixe_branche))
         if resume is not None:
             lues += mesures_des_commentaires(numero, gh.pr(resume["number"]).get("comments") or [])
-    return lues
+    return couts_par_appel(lues)
 
 
 def issues_hors_lot(gh: GitHub) -> dict[int, str]:
