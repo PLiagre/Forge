@@ -251,6 +251,8 @@ class EtatPublie:
     maisons: MatiereMaisons
     octets_maisons: dict[str | None, bytes]
     modificateurs: bytes = b""
+    # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
+    duree_dernier_jour_ms: float = -1
 
 
 class ErreurIA(RuntimeError):
@@ -573,6 +575,10 @@ class ServeurMonde(ThreadingHTTPServer):
                 with self.condition_vitesse:
                     vitesse = self.etat_publie.jours_par_seconde
                     nouvel_etat = self._construire_etat(vitesse, duree_ms)
+                    # Le jour se mesure depuis le même début que le tick : il vaut au moins le tick.
+                    nouvel_etat = replace(nouvel_etat, duree_dernier_jour_ms=(
+                        time.perf_counter() - debut
+                    ) * MILLISECONDES_PAR_SECONDE)
                     self.etat_publie = nouvel_etat
                 return nouvel_etat
             finally:
@@ -667,6 +673,7 @@ class RequetesMonde(BaseHTTPRequestHandler):
             "date": etat.date,
             "jours_par_seconde": etat.jours_par_seconde,
             "duree_dernier_tick_ms": etat.duree_dernier_tick_ms,
+            "duree_dernier_jour_ms": etat.duree_dernier_jour_ms,
             "budget_tick_ms": BUDGET_TICK_MS,
         }
 
@@ -833,8 +840,9 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 serveur._bases[cell_id] = b'{"base":' + _serialiser(base) + b','
                 serveur._occupations_base[cell_id] = b'{"base":' + _serialiser(occupation) + b','
             # L'ancien état porte dans ses plans les octets de la base de 1400 : il ne se sert plus.
-            serveur.etat_publie = serveur._construire_etat(
-                etat.jours_par_seconde, etat.duree_dernier_tick_ms)
+            serveur.etat_publie = replace(serveur._construire_etat(
+                etat.jours_par_seconde, etat.duree_dernier_tick_ms),
+                duree_dernier_jour_ms=etat.duree_dernier_jour_ms)
             self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=serveur.etat_publie.tick))
 
     def do_POST(self) -> None:
@@ -878,8 +886,9 @@ class RequetesMonde(BaseHTTPRequestHandler):
                         ecrire_stock_marchandise(entite, _constantes.MARCHANDISE_NOURRITURE, 0)
                     penurie = engine._apply_consumption(cellule, self.server.world.carte)
                     engine._update_hunger(cellule, penurie)
-                self.server.etat_publie = self.server._construire_etat(
-                    etat.jours_par_seconde, etat.duree_dernier_tick_ms)
+                self.server.etat_publie = replace(self.server._construire_etat(
+                    etat.jours_par_seconde, etat.duree_dernier_tick_ms),
+                    duree_dernier_jour_ms=etat.duree_dernier_jour_ms)
                 self._repondre(HTTPStatus.OK, dict(cell_id=cell_id, tick=self.server.etat_publie.tick))
             return
         if cible.path == "/tick":

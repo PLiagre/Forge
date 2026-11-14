@@ -14,7 +14,8 @@ py -m sim.service --seed 0 --port 8000 --jours-par-seconde 1
 Le service avance par défaut d'un jour par seconde. L'option
 `--jours-par-seconde` choisit cette cadence (`0` le met en pause). À chaud,
 `POST /vitesse?jours_par_seconde=X` change la vitesse et `GET /horloge` rend
-le tick, la date, la vitesse, la durée du dernier tick et son budget. Les vues
+le tick, la date, la vitesse, la durée du dernier tick, celle du dernier jour
+publié et son budget. Les vues
 `GET /monde`, `GET /lieu?cell=...` et `GET /plan?cell=...` restent lisibles
 pendant qu'un tick est calculé. Le plan du bourg porte ses rues, parcelles et
 bâtiments en mètres locaux ; il part vide, puis ses chantiers prennent des bras aux champs.

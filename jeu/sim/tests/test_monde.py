@@ -2883,6 +2883,7 @@ def test_horloge_pause_vitesse_et_budget():
         initiale = requete_service(port, "/horloge")[1]
         assert initiale["tick"] == 0
         assert initiale["duree_dernier_tick_ms"] == -1
+        assert initiale["duree_dernier_jour_ms"] == -1
         assert initiale["budget_tick_ms"] == BUDGET_TICK_ATTENDU_MS
         time.sleep(DUREE_PAUSE_TEST_S)
         assert requete_service(port, "/horloge")[1]["tick"] == 0
@@ -4960,10 +4961,12 @@ def test_service_ia_ordre(monkeypatch):
         s.jouer_un_tick()
         assert len(s.world.intentions_en_attente) == 2 and s.world.intentions_en_attente[:1] == joueur
         assert s.world.intentions_en_attente[1] != joueur[0]
-        instants = iter([0, .2, .5])
+        # Quatre lectures : le début, l'IA, la fin du tick, la fin de la publication.
+        instants = iter([0, .2, .5, .9])
         monkeypatch.setattr(service.time, 'perf_counter', lambda: next(instants))
         monkeypatch.setattr(service, 'jouer_ia', lambda *a: service.time.perf_counter())
-        assert s.jouer_un_tick().duree_dernier_tick_ms == 500
+        etat = s.jouer_un_tick()
+        assert etat.duree_dernier_tick_ms == 500 and etat.duree_dernier_jour_ms == 900
     monkeypatch.setattr(service, 'maisons_actives_30j', lambda *a: pytest.fail('mesure calculée sans option'))
     with _service_ia_en_processus(False) as (s, port):
         monkeypatch.setattr(service, 'jouer_ia', lambda *a: pytest.fail('IA appelée sans option'))
