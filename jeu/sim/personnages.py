@@ -2,6 +2,7 @@
 import calendar
 import copy
 import datetime
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -14,6 +15,13 @@ CHEMIN = Path(__file__).resolve().parent.parent / 'data/personnages-1400.json'
 FORMATS = {'jour': (r'[0-9]{4}-[0-9]{2}-[0-9]{2}', ''),
            'mois': (r'[0-9]{4}-[0-9]{2}', '-01'), 'annee': (r'[0-9]{4}', '-01-01')}
 AGE_MATERNEL_MIN, AGE_MATERNEL_MAX_EXCLU = 15, 46
+MOIS_PAR_AN, JOURS_TIRES, COUPLE = 12, 365, 2
+DEPART = datetime.date.fromisoformat(_DATE_ATTENDUE)
+# Niveau 2, jamais sourcé : justifications dans MODELE.md, « Les familles plausibles ».
+PARAMETRES_FAMILLES_PLAUSIBLES = {
+    'graine': 1400, 'age_epoux_min': 21, 'age_chef_plausible': (25, 55), 'ecart_epouse': (2, 12),
+    'age_epouse_min': 16, 'age_premier_enfant': 18, 'age_dernier_enfant': 40,
+    'intervalle_mois': (24, 40), 'enfants_max': 6}
 
 
 def exiger(condition):
@@ -263,3 +271,111 @@ def valider_liens_familiaux(fiches):
         return bilan
     except (KeyError, TypeError, ValueError) as erreur:
         raise ValueError(f'personnages : famille invalide : {erreur}') from erreur
+
+
+def _controler_parametres(p):
+    couples = ('age_chef_plausible', 'ecart_epouse', 'intervalle_mois')
+    simples = ('graine', 'age_epoux_min', 'age_epouse_min', 'age_premier_enfant', 'age_dernier_enfant', 'enfants_max')
+    ok = isinstance(p, dict) and set(p) == {*couples, *simples}
+    ok = ok and all(type(p[k]) is int for k in simples) and all(
+        isinstance(p[k], (tuple, list)) and len(p[k]) == COUPLE and all(type(v) is int for v in p[k]) and p[k][0] <= p[k][1]
+        for k in couples)
+    ok = ok and AGE_MATERNEL_MIN <= p['age_premier_enfant'] <= p['age_dernier_enfant'] < AGE_MATERNEL_MAX_EXCLU
+    ok = ok and min(p['intervalle_mois'][0] - 1, p['enfants_max'], p['ecart_epouse'][0], p['age_epouse_min']) >= 0
+    if not (ok and p['age_chef_plausible'][0] >= p['age_epoux_min']):
+        raise ValueError('familles plausibles : paramètres incohérents')
+
+
+def _tirer(p, chef, role, intervalle):
+    """Entier de l'empreinte de (graine, chef, rôle), ramené dans l'intervalle inclus."""
+    empreinte = hashlib.sha256(f"{p['graine']}|{chef}|{role}".encode()).digest()
+    return intervalle[0] + int.from_bytes(empreinte, 'big') % (intervalle[1] - intervalle[0] + 1)
+
+
+def _ajouter_mois(jour, mois):
+    annee, m = divmod(jour.year * MOIS_PAR_AN + jour.month - 1 + mois, MOIS_PAR_AN)
+    return jour.replace(year=annee, month=m + 1, day=min(jour.day, calendar.monthrange(annee, m + 1)[-1]))
+
+
+def _personne(i, maison, nom, naissance, pere, mere, conjoints, hypotheses):
+    return {'id': i, 'maison': maison, 'nom': nom, 'naissance': {'valeur': naissance.isoformat(), 'precision': 'jour'},
+            'origine': 'plausible', 'presence': 'vivante', 'pere': pere, 'mere': mere, 'conjoints': conjoints,
+            'sources': {'identite': None, 'naissance': None},
+            'lacunes': {'identite': 'Nom descriptif, sans personne historique.', 'naissance': 'Date hypothétique : voir hypotheses.'},
+            'hypotheses': hypotheses}
+
+
+REGLE = 'niveau 2, « Les familles plausibles » (MODELE.md)'
+
+
+def _admission(chef, p):
+    """(motif d'écart ou None, naissance retenue, bornes) d'un chef ; une naissance hypothétique reste au jour près."""
+    etat = chef.get('etat_familial', {}).get('conjoints')
+    motif = next((m for m, c in (('presence', chef.get('presence') not in (None, 'vivante')),
+                                 ('conjoint', bool(chef.get('conjoints'))), (etat, etat in ('union', 'veuvage'))) if c), None)
+    naissance = chef['naissance']
+    if motif is None and naissance is None and chef.get('origine') == 'plausible':
+        ans = _tirer(p, chef['id'], 'chef-age', p['age_chef_plausible'])
+        jour = _tirer(p, chef['id'], 'chef-jour', (0, JOURS_TIRES - 1))
+        naissance = {'valeur': (_ajouter_mois(DEPART, -MOIS_PAR_AN * ans) - datetime.timedelta(days=jour)).isoformat(),
+                     'precision': 'jour'}
+    bornes = _bornes_naissance(naissance)
+    if motif is None and bornes is None: motif = 'naissance'
+    if motif is None and _age_revolu(bornes[-1], DEPART) < p['age_epoux_min']: motif = 'jeune'
+    return motif, naissance, bornes
+
+
+def generer_familles_plausibles(chefs, parametres=PARAMETRES_FAMILLES_PLAUSIBLES):
+    """Rend (fiches triées par id, {chef écarté: motif}) ; niveau 2, pur, non activé, entrée intacte."""
+    _controler_parametres(parametres)
+    p, sortie, ecartes = parametres, [], {}
+    for chef in sorted(chefs, key=lambda c: c['id']):
+        chef = copy.deepcopy(chef)
+        sortie.append(chef)
+        i, maison, nom = chef['id'], chef['maison'], chef['nom']
+        motif, naissance, bornes = _admission(chef, p)
+        if motif:
+            ecartes[i] = motif
+            continue
+        e_id = f'personne-{maison}-epouse'
+        lien = f"{REGLE} : age_epoux_min {p['age_epoux_min']} ans, aucune famille connue"
+        chef.update(conjoints=[e_id], hypotheses={'conjoints': lien})
+        if naissance != chef['naissance']:
+            chef.update(naissance=naissance)
+            chef['hypotheses']['naissance'] = f"{REGLE} : âge tiré dans age_chef_plausible {p['age_chef_plausible']}"
+        ecart = _tirer(p, i, 'epouse-ecart', p['ecart_epouse'])
+        jour = _tirer(p, i, 'epouse-jour', (0, JOURS_TIRES - 1))
+        mere = min(_ajouter_mois(bornes[-1], MOIS_PAR_AN * ecart) + datetime.timedelta(days=jour),
+                   _ajouter_mois(DEPART, -MOIS_PAR_AN * p['age_epouse_min']))
+        sortie.append(_personne(e_id, maison, f'Épouse de {nom}', mere, None, None, [i], {
+            'conjoints': lien, 'naissance': f"{REGLE} : borne haute du chef + ecart_epouse {p['ecart_epouse']} "
+                                            f"(tiré {ecart}) + jour tiré, au plus age_epouse_min {p['age_epouse_min']} ans"}))
+        if chef.get('etat_familial', {}).get('enfants') in ('documentes', 'absence_attestee'):
+            continue
+        naiss = _ajouter_mois(mere, MOIS_PAR_AN * p['age_premier_enfant'])
+        for k in range(1, p['enfants_max'] + 1):
+            naiss = _ajouter_mois(naiss, _tirer(p, i, f'enfant-{k}-intervalle', p['intervalle_mois']))
+            if naiss >= DEPART or _age_revolu(mere, naiss) > p['age_dernier_enfant']:
+                break
+            sortie.append(_personne(f'personne-{maison}-enfant-{k}', maison, f"{'1er' if k == 1 else f'{k}e'} enfant de {nom}",
+                                    naiss, i, e_id, [], {
+                'naissance': f"{REGLE} : mère à age_premier_enfant {p['age_premier_enfant']} ans, puis intervalle_mois "
+                             f"{p['intervalle_mois']} par enfant jusqu'à age_dernier_enfant {p['age_dernier_enfant']} "
+                             f"et enfants_max {p['enfants_max']}",
+                'pere': lien, 'mere': lien}))
+    return tuple(sorted(sortie, key=lambda f: f['id'])), ecartes
+
+
+def valider_familles_plausibles(fiches, chefs, parametres=PARAMETRES_FAMILLES_PLAUSIBLES):
+    """Refait la génération et exige l'égalité complète, la séparation des hypothèses et des liens valides."""
+    attendues, _ = generer_familles_plausibles(chefs, parametres)
+    exiger(isinstance(fiches, (list, tuple)) and tuple(fiches) == attendues)
+    avant = {c['id']: c for c in chefs}
+    for f in fiches:
+        exiger('http' not in str(f.get('hypotheses', '')))
+        if f['id'] in avant:
+            exiger(all(f[k] == avant[f['id']][k] for k in ('nom', 'sources', 'lacunes', 'etat_familial') if k in avant[f['id']]))
+            exiger(avant[f['id']]['naissance'] in (None, f['naissance']))
+        else:
+            exiger(f['origine'] == 'plausible' and set(f['sources'].values()) == {None} and bool(f['hypotheses']))
+    return valider_liens_familiaux([{'pere': None, 'mere': None, 'conjoints': [], **f} for f in fiches])
