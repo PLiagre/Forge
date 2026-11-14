@@ -1,152 +1,75 @@
-# Le branchement du dépôt sur la chaîne d'agents. La chaîne ne connaît pas
-# le jeu : elle lit ce fichier. Afficher la table des rôles :
+# Le branchement du dépôt sur la chaîne d'agents. La chaîne ne connaît pas le
+# jeu : elle lit ce fichier. Afficher la table des rôles :
 #
 #     python3 -m atelier agents
 #
-# Ce fichier ne se change qu'en mode direct (AGENTS.md) : un lot n'y touche
-# jamais.
+# Ce fichier ne se change qu'en mode direct : un lot n'y touche jamais.
 
 [projet]
 nom = "Forge"
 depot = "PLiagre/Forge"
 branche_base = "master"
-# Les tests du jeu, depuis la racine du dépôt, tels que la CI les joue, plus
-# l'atelier et gitleaks. Le codeur ne joue que ceux de ce qu'il touche : sur
-# le VPS, la suite entière dépassait son délai (4 octobre 2026).
-tests = "python3 -m pytest jeu -q"
-# Ce qu'un lot ne touche jamais. Un changement d'un lot sur ces chemins est
+prefixe_branche = "lot/"
+# Celui que la chaîne prévient tout de suite, par une mention sur l'issue,
+# pour l'irréversible, l'argent et les droits. Rien d'autre ne l'attend.
+proprietaire = "PLiagre"
+# Ce qu'un lot ne touche jamais : un changement d'un lot sur ces chemins est
 # retiré avant l'enregistrement, et le commentaire de la PR le dit.
 interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "CAP.md"]
-# Un lot a la taille d'une ligne du CAP : un gain que le joueur voit, et sa
-# preuve dans la même PR. Le brief prévoit moins que ce nombre de lignes de
-# diff, preuve comprise ; au-delà, le chef découpe, jamais en un lot qui code
-# et un lot qui prouve. À 300 lignes, une ligne du CAP du jalon 4 devenait
-# 3,9 issues, et un lot sur trois n'était qu'une preuve, un juge ou un montage
-# (refonte du 7 novembre 2026, docs/mesures/2026-11-07-refonte).
-lignes_max = 1500
-# Les chemins du moteur : un lot qui en touche un est relu par le relecteur
-# du moteur (Opus) ; les autres par le relecteur (Sonnet).
-chemins_du_moteur = ["jeu/sim/"]
-# Quand le dépanneur dit que la chaîne elle-même est en cause, le mécanicien
-# la répare dans une PR `meca/chaine-…`, que la direction relit avant qu'elle
-# entre ; le lot repart quand elle est fusionnée. `reparables` : ce qu'une
-# telle réparation peut toucher. `sensibles` : ce qu'elle ne touche jamais,
-# même là-dedans : la garde et ses tests, et les scripts du cron. Dans un
-# workflow, elle ne change ni droits, ni secrets, ni machine, ni
-# déclencheurs (`atelier/garde.py`). Tout le reste (ce fichier, AGENTS.md,
-# CAP.md, les workflows du PC) reste au mode direct. Jusqu'au 10 novembre
-# 2026, 21 lots ont attendu le propriétaire pour une réparation de la chaîne.
-reparables = ["atelier/", ".github/workflows/tests.yml", ".github/workflows/security.yml", "docs/WORKFLOW.md"]
-sensibles = ["atelier/garde.py", "atelier/tests/test_garde.py", "atelier/crons/"]
-# Passages du codeur après le premier (CI rouge ou relecture « CORRIGER »)
-# avant que le lot soit « bloque », avec sa raison.
+# Le cœur du moteur : un lot qui touche un de ces chemins est relu par le CTO.
+coeur = ["jeu/sim/engine.py", "jeu/sim/world.py", "jeu/sim/intentions.py"]
+# Les pistes d'un palier : l'étiquette que porte chaque lot.
+pistes = ["monde", "ville", "interface"]
+# Corrections après une CI rouge ou une relecture « CORRIGER » avant que le
+# lot soit bloqué et que le CTO le regarde.
 corrections_max = 2
-# Combien de fois le dépanneur ([agents]) relance un même lot bloqué, avec
-# sa consigne, avant de le laisser au propriétaire. Il pose toujours une
-# question, ou dit que la chaîne est en cause, quand c'est ce qu'il faut.
-depannages_max = 2
-dossier_briefs = "docs/briefs"
-prefixe_branche = "lot/"
+# Coupures de suite par son délai avant qu'un lot soit bloqué.
+coupures_max = 3
+# Fois où le CTO relance un même lot bloqué avant de le redécouper ou de le
+# laisser au propriétaire.
+deblocages_max = 2
 
-# Une ligne par rôle : harnais/modèle@effort, puis des secours séparés par
-# « | ». Un seul harnais : claude (Claude Code), qui reçoit l'effort par
-# `--effort` (low, medium, high, xhigh, max).
-#
-# Seuls les modèles Claude tournent : l'abonnement Claude (Opus, Sonnet) est
-# le seul qui reste au propriétaire. GPT et Codex sont retirés le 30 octobre
-# 2026, Cursor (grok, composer) le 5 novembre ; le chargement refuse tout
-# autre modèle (choix du propriétaire).
-#
-# Qui fait quoi (refonte du 7 novembre 2026, une seule réserve de quota pour
-# tous les rôles) : Opus est réservé au brief et à la relecture des lots qui
-# touchent le moteur (`jeu/sim/`) ; Sonnet code tous les lots, PC compris, et
-# fait le reste : relire les autres lots, dépanner, réparer master, écrire le
-# journal et la boussole. Il n'y a plus de relecture « par une autre famille
-# de modèle » : la relecture est une autre session, en lecture seule, qui n'a
-# pas écrit le code.
-#
-# Un secours ne sert que si le précédent a épuisé son quota, perdu sa
-# session, ne démarre pas, refuse l'appel ou a déjà tous ses agents en
-# route ; si aucun ne répond, le lot attend, il n'échoue pas.
-# Changer de modèle ou d'effort, c'est changer une ligne.
+# Une ligne par rôle : harnais/modèle@effort. Changer un rôle de modèle,
+# c'est changer sa ligne. Le harnais est Claude Code ; l'effort est celui de
+# `--effort` (low, medium, high, xhigh, max). Quand le quota manque, le lot
+# attend : il n'échoue pas.
 [agents]
-# Le chef écrit le brief, dont tout dépend : Claude Opus 5.5 seul, sans
-# secours (choix du propriétaire, 30 octobre 2026). Opus à court de quota,
-# le lot attend qu'il revienne : aucun autre modèle n'écrit un brief.
+# Le samedi, il tire les lots du palier. En semaine, il tranche, débloque,
+# redécoupe, relit le cœur du moteur, et écrit la note du vendredi. Il ne
+# code pas : il est appelé en lecture seule.
+cto         = "claude/claude-fable-5-2@high"
+# Il conçoit le lot, écrit son plan, code le difficile et confie le reste,
+# dans une seule session reprise jusqu'à la fusion.
 chef        = "claude/claude-opus-5-5@high"
-# Sonnet code les lots du VPS, sans secours. Sonnet à court de quota, le lot
-# attend.
-codeur      = "claude/claude-sonnet-5-5@high"
-# Les lots « machine : pc » (Unity, Blender), sur le PC Windows : Sonnet aussi
-# (Opus est réservé au brief et au moteur). `gh workflow run sonde-pc.yml`
-# prouve que chaque agent du PC écrit vraiment.
-codeur_3d   = "claude/claude-sonnet-5-5@high"
-# Un lot qui touche `jeu/sim/` ([projet].chemins_du_moteur) est relu par Opus,
-# en lecture seule ; Opus à court de quota, la relecture attend.
-relecteur_moteur = "claude/claude-opus-5-5@high"
-# Les autres lots (vues, Unity, données, outils) : Sonnet, dans une autre
-# session que celle qui a codé, en lecture seule.
-relecteur   = "claude/claude-sonnet-5-5@high"
-# CI rouge sur master, conflits d'une branche de lot, dépendances : Sonnet
-# en effort moyen, travail mécanique ; Opus relit ses réparations de master.
-mecanicien  = "claude/claude-sonnet-5-5@medium"
-# Un lot vient d'être bloqué (essais épuisés, CI rouge, relecture
-# « CORRIGER ») : le dépanneur lit tout, en lecture seule, et décide avant le
-# propriétaire. Il relance le lot avec une consigne (quota, délai, revue vide,
-# codeur qui tourne en rond, relecteur qui exige l'impossible), pose la
-# question au propriétaire (le brief contredit un test existant ou la règle
-# du monde), ou dit que la chaîne est en cause (mode direct). Diagnostiquer
-# demande du jugement : Sonnet en effort haut ; Opus est gardé au brief et au
-# moteur. Sonnet à court de quota, le lot attend le propriétaire.
-depanneur   = "claude/claude-sonnet-5-5@high"
-# Une question posée au propriétaire (par le chef ou le dépanneur) est d'abord
-# lue par la direction, en lecture seule. Elle la tranche quand docs/VISION.md,
-# CAP.md ou une décision déjà écrite la tranchent, ou quand le choix est
-# réversible (un seuil, une durée, une donnée) ; sinon elle la laisse au
-# propriétaire, avec son avis. Deux décisions au plus par lot ; chacune paraît
-# au journal du matin et se reprend d'un commentaire. Fable : c'est le rôle où
-# le jugement compte le plus, quelques appels par semaine, sur sa propre
-# limite hebdomadaire (échelle de décision, AGENTS.md, 10 novembre 2026).
-# Fable à court de quota, la question attend le propriétaire comme avant.
-direction   = "claude/claude-fable-5-2@high"
-# Journal du matin, en lecture seule : un appel par jour, qui ne doit rien
-# inventer. Sonnet en effort moyen, le moins cher ; sans lui, le pilote
-# l'écrit seul à partir des faits, dans le même gabarit.
-chroniqueur = "claude/claude-sonnet-5-5@medium"
-# Comparaison hebdomadaire avec CAP.md, en lecture seule : un appel par
-# semaine.
-boussole    = "claude/claude-sonnet-5-5@high"
+# Les tâches bornées que le chef lui confie, dans la session du chef ; et les
+# lots simples, qu'il mène seul.
+developpeur = "claude/claude-sonnet-5-5@high"
+# Une autre session que celle du chef, en lecture seule.
+relecteur   = "claude/claude-opus-5-5@high"
+# Il résume un journal de CI et écrit le journal du matin. Il ne juge jamais.
+lecteur     = "claude/claude-haiku-5-5@medium"
 
-# Combien de lots chaque machine fait avancer en même temps. Le VPS en tient
-# plusieurs, chacun dans son worktree, un tour du pilote par lot ; le PC n'a
-# qu'un runner. Des lots qui touchent les mêmes fichiers se retrouvent en
-# conflit : le mécanicien le résout. Le VPS n'a que deux processeurs : à
-# cinq lots, la suite du jeu passait de 14 à 24 minutes, et codeurs comme
-# relecteurs dépassaient leur délai (30 septembre 2026). Un lot par
-# processeur (choix du propriétaire, 30 septembre 2026).
+# Combien de lots chaque machine fait avancer en même temps. Le VPS n'a que
+# deux processeurs ; le PC n'a qu'un Unity.
 [machines]
 vps = 2
 pc = 1
 
-# Combien d'agents d'un même outil tournent ensemble : un abonnement ne se
-# vide pas en une heure. Claude a quatre places : chaque lot du VPS code avec
-# Sonnet pendant que le chef, le relecteur ou le dépanneur travaillent
-# (28 octobre 2026). Claude étant le seul outil, quand ses quatre places sont
-# prises, le lot attend.
+# Combien d'agents tournent ensemble sur l'abonnement.
 [outils]
 claude = 4
 
-# Le temps qu'un agent a pour rendre la main, en secondes.
+# Le temps qu'un appel a pour rendre la main, en secondes. Un appel coupé
+# n'est pas perdu : sa session reprend au tour suivant.
 [delais]
-chef = 1800
-codeur = 3600
-codeur_3d = 3600
+cto = 1800
+chef = 3600
+developpeur = 3600
 relecteur = 1800
-relecteur_moteur = 1800
-mecanicien = 3600
-# Le dépanneur lit, et rejoue parfois un test rouge : à 1800 s, il a dépassé
-# son délai sans rien décider sur #343 et #391 (7 octobre 2026).
-depanneur = 3600
-chroniqueur = 600
-direction = 1200
-boussole = 1200
+lecteur = 600
+
+# Ce qu'un agent n'a pas le droit de lancer pendant un lot : la suite entière
+# du jeu, et une simulation plus longue que ce nombre de jours. La CI joue la
+# suite ; la nuit joue les longues preuves.
+[gardes]
+jours_max = 400

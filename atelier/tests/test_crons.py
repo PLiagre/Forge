@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skipif(BASH is None or (sys.platform.startswith("win") 
 
 
 def _roles(quand: str, jour_semaine: str = "3") -> list[str]:
-    # `date +%u` est remplacé : le lundi se choisit, il ne s'attend pas.
+    # `date +%u` est remplacé : le vendredi se choisit, il ne s'attend pas.
     script = f'date() {{ echo {jour_semaine}; }}; . "{PROFIL.as_posix()}"; roles_du_moment "{quand}"'
     fini = subprocess.run([BASH, "-c", script], capture_output=True, text=True, check=True)
     return fini.stdout.split()
@@ -40,9 +40,10 @@ def test_qui_se_reveille(quand, roles):
     assert _roles(quand) == roles
 
 
-def test_la_boussole_le_lundi_seulement():
-    assert _roles("07:45", "1") == ["boussole"]
-    assert _roles("07:45", "2") == []
+def test_la_demo_le_vendredi_soir_seulement():
+    assert _roles("18:15", "5") == ["vendredi"]
+    assert _roles("18:15", "4") == []
+    assert _roles("07:45", "1") == []
 
 
 def test_le_prochain_reveil():

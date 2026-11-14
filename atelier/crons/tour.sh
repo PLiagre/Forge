@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Un tour d'un rôle : un verrou, la base à jour, Python, puis on sort.
 #
-# Rôles : pilote (un tour de la chaîne), journal, boussole, veille. Pour le
-# journal, la boussole et la veille, un tour qui tourne encore fait passer
+# Rôles : pilote (un tour de la chaîne), journal, vendredi (la démo), veille.
+# Pour le journal, la démo et la veille, un tour qui tourne encore fait passer
 # le suivant : le verrou est par rôle. Les tours du pilote, eux, tournent en
 # même temps — un par lot en cours, chacun avec son agent — et se partagent
 # les verrous de Python (atelier/verrous.py : un par lot, « decider »,
@@ -22,8 +22,8 @@ atelier_pythonpath
 
 role="${1:-}"
 case "$role" in
-  pilote|journal|boussole|veille) : ;;
-  *) dire "usage : tour.sh <pilote|journal|boussole|veille>"; exit 2 ;;
+  pilote|journal|vendredi|veille) : ;;
+  *) dire "usage : tour.sh <pilote|journal|vendredi|veille>"; exit 2 ;;
 esac
 
 mkdir -p "$ATELIER_VERROUS"
@@ -58,7 +58,7 @@ code=0
 case "$role" in
   pilote)   sans_cles timeout -k 30 10800 python3 -m atelier --projet "$ATELIER_PROJET" tour || code=$? ;;
   journal)  sans_cles timeout -k 30 1800 python3 -m atelier --projet "$ATELIER_PROJET" journal || code=$? ;;
-  boussole) sans_cles timeout -k 30 1800 python3 -m atelier --projet "$ATELIER_PROJET" boussole || code=$? ;;
+  vendredi) sans_cles timeout -k 30 3600 python3 -m atelier --projet "$ATELIER_PROJET" vendredi || code=$? ;;
   veille)   sans_cles timeout -k 30 600 python3 -m atelier --projet "$ATELIER_PROJET" veille \
               | tee "${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" || code=$? ;;
 esac

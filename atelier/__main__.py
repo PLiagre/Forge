@@ -1,12 +1,14 @@
 """`python3 -m atelier <commande>` : la chaîne de Forge, à la main ou par le cron.
 
-    agents     la table des rôles : outil/modèle et secours
-    veille     ce qui manque pour tourner (binaires, jetons, branchement)
-    sonde      chaque agent répond-il, en non interactif, avec son modèle ?
-    tour       un tour du pilote (--a-sec : lire et dire, sans rien faire)
+    agents     la table des rôles : modèle, effort, délai
+    veille     ce qui manque pour tourner (binaire, jeton, branchement)
+    sonde      chaque rôle répond-il, sans écran, avec son modèle ?
+    tour       un tour du pilote (--a-sec : lire et dire, sans rien faire ;
+               --lot N : ne faire avancer que ce lot)
     journal    le journal du matin, dans sa propre issue « Journal du JJ/MM/AAAA »
-    boussole   la comparaison de la semaine avec CAP.md
-    pc         le côté PC d'un lot « machine : pc » (appelé par lot-pc.yml)
+    vendredi   la démo : le build figé du palier et la note du CTO
+    couts      ce que le palier en cours a coûté, par rôle et par lot
+    pc         un pas du meneur d'un lot « pc » (appelé par lot-pc.yml)
     marquer-attente
                la réponse d'un passage du PC tombé sans répondre (lot-pc.yml)
     traces     ce qui fait rougir les contrôles d'une PR
@@ -24,11 +26,17 @@ from . import agents as agents_mod
 from . import journal, traces
 from .depot import Depot
 from .github import GitHub
-from .projet import MACHINES, OUTILS, ProjetIncomplet, charger, table_des_roles
+from .projet import CHEF, DEVELOPPEUR, MACHINES, OUTILS, ROLES, ProjetIncomplet, charger, table_des_roles
 
 
 def _racine(args: argparse.Namespace) -> Path:
     return Path(args.projet or os.environ.get("ATELIER_PROJET") or Path.cwd()).resolve()
+
+
+def journal_local() -> Path:
+    """Le journal de cette machine : un fait par ligne. Seules les commandes
+    qui tournent pour de vrai le nomment ; le pilote n'en devine aucun."""
+    return Path(os.environ.get("ATELIER_JOURNAL") or Path.home() / ".atelier" / "journal.jsonl")
 
 
 def _cmd_agents(args: argparse.Namespace) -> int:
@@ -51,7 +59,7 @@ def _cmd_veille(args: argparse.Namespace) -> int:
     except ProjetIncomplet as e:
         dire(False, f"branchement — {e}")
         return 1
-    for outil in sorted({a.outil for p in projet.postes.values() for a in p.agents}):
+    for outil in sorted({a.outil for a in projet.agents.values()}):
         binaire = OUTILS[outil]
         # Lancé comme la chaîne le lance : sous Windows, un .cmd passe par son
         # node.exe, jamais par cmd.exe (`agents.lancement`).
@@ -63,8 +71,7 @@ def _cmd_veille(args: argparse.Namespace) -> int:
         try:
             version = subprocess.run(commande, env=env, capture_output=True, text=True, encoding="utf-8",
                                      errors="replace", timeout=60).stdout.strip()
-            ou = commande[1] if len(commande) > 1 and commande[1].endswith(".js") else commande[0]
-            dire(bool(version), f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'} ({ou})")
+            dire(bool(version), f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'}")
         except (OSError, subprocess.TimeoutExpired) as e:
             dire(False, f"{binaire} — ne démarre pas : {e}")
     jeton = agents_mod.FICHIER_JETON_CLAUDE
@@ -72,12 +79,12 @@ def _cmd_veille(args: argparse.Namespace) -> int:
         mode = jeton.stat().st_mode & 0o777
         dire(mode & 0o077 == 0 or sys.platform.startswith("win"),
              f"jeton Claude longue durée — {jeton} (mode {oct(mode)})")
-    elif jeton.is_file():
-        dire(None, f"jeton Claude longue durée vide ({jeton}) : la session de `claude` fait foi")
     else:
-        dire(None, f"jeton Claude longue durée absent ({jeton}) : la session de `claude` fait foi")
+        dire(None, f"jeton Claude longue durée absent ou vide ({jeton}) : la session de `claude` fait foi")
     fuites = [k for k in agents_mod.CLES_API if os.environ.get(k)]
-    dire(None if fuites else True, "clés d'API dans l'environnement : " + (", ".join(fuites) + " (retirées avant chaque agent)" if fuites else "aucune"))
+    dire(None if fuites else True, "clés d'API dans l'environnement : "
+         + (", ".join(fuites) + " (retirées avant chaque agent)" if fuites else "aucune"))
+    dire(agents_mod.GARDE.is_file(), f"garde des commandes — {agents_mod.GARDE}")
     try:
         GitHub(projet.depot).json("repo", "view", projet.depot, "--json", "name")
         dire(True, f"gh — accès à {projet.depot}")
@@ -87,22 +94,20 @@ def _cmd_veille(args: argparse.Namespace) -> int:
 
 
 def _cmd_sonde(args: argparse.Namespace) -> int:
-    """Chaque agent distinct de [agents], appelé comme la chaîne l'appelle ;
-    un agent qui écrit doit vraiment écrire (agents.sonder)."""
+    """Chaque rôle, appelé comme la chaîne l'appelle ; un rôle qui écrit doit
+    vraiment écrire (`agents.sonder`). Deux rôles du même modèle se sondent une fois."""
     projet = charger(_racine(args))
     vus = set()
     fautes = 0
-    postes = [projet.poste(args.role)] if args.role else list(projet.postes.values())
-    for poste in postes:
-        for agent in poste.agents:
-            cle = (str(agent), poste.lecture_seule)
-            if cle in vus or (args.outil and agent.outil != args.outil):
-                continue
-            vus.add(cle)
-            unique = type(poste)(role=poste.role, agents=(agent,))
-            ok, detail = agents_mod.sonder(unique, projet.racine)
-            fautes += not ok
-            print(f"{'PASS' if ok else 'FAIL'}  {str(agent):34} {'lecture seule' if poste.lecture_seule else 'écriture':14} {detail}")
+    for role in ([args.role] if args.role else ROLES):
+        agent = projet.agent(role)
+        ecrit = role in (CHEF, DEVELOPPEUR)
+        if (str(agent), ecrit) in vus:
+            continue
+        vus.add((str(agent), ecrit))
+        ok, detail = agents_mod.sonder(agent, role, lecture_seule=not ecrit)
+        fautes += not ok
+        print(f"{'PASS' if ok else 'FAIL'}  {role:12} {str(agent):34} {'écriture' if ecrit else 'lecture seule':14} {detail}")
     return 1 if fautes else 0
 
 
@@ -113,21 +118,21 @@ def _pilote(args: argparse.Namespace):
     gh = GitHub(projet.depot)
     if getattr(args, "a_sec", False):
         from .asec import GitHubASec, DepotASec, executeur_a_sec
-        # À sec, rien ne s'écrit : pas même le journal local, que le
-        # chroniqueur et la veille lisent comme ce qui a vraiment eu lieu.
+        # À sec, rien ne s'écrit : ni le journal local, ni une trace d'appel.
         return Pilote(projet, GitHubASec(projet.depot), DepotASec(projet.racine, projet.branche_base),
-                      executeur_agents=executeur_a_sec, journal=Path(os.devnull))
-    # Plusieurs tours tournent en même temps : ils partagent leurs verrous
-    # (ATELIER_VERROUS, ~/.atelier/verrous), ceux des crons compris.
+                      executeur_agents=executeur_a_sec, journal=Path(os.devnull), garder_les_traces=False,
+                      seul=getattr(args, "lot", None))
+    # Plusieurs tours tournent en même temps : ils partagent leurs verrous.
     verrous = Verrous()
-    return Pilote(projet, gh, Depot(projet.racine, projet.branche_base, verrous=verrous), verrous=verrous)
+    return Pilote(projet, gh, Depot(projet.racine, projet.branche_base, verrous=verrous), verrous=verrous,
+                  journal=journal_local(), seul=getattr(args, "lot", None))
 
 
 def _cmd_tour(args: argparse.Namespace) -> int:
     pilote = _pilote(args)
-    # Assez de places pour chaque lot que les machines tiennent, plus le
-    # mécanicien et un tour qui range ; au-delà, un tour passe : si GitHub ne
-    # répond plus, les tours ne s'empilent pas toutes les deux minutes.
+    # Assez de places pour chaque lot que les machines tiennent, plus deux
+    # tours qui rangent ; au-delà, un tour passe : si GitHub ne répond plus,
+    # les tours ne s'empilent pas toutes les deux minutes.
     places = sum(pilote.projet.capacite(m) for m in MACHINES) + 2
     with pilote.verrous.place("tour", places) as libre:
         if not libre:
@@ -140,23 +145,32 @@ def _cmd_tour(args: argparse.Namespace) -> int:
 
 def _cmd_journal(args: argparse.Namespace) -> int:
     projet = charger(_racine(args))
-    print(journal.ecrire(GitHub(projet.depot), projet, publier=not args.sans_publier))
+    print(journal.ecrire(GitHub(projet.depot), projet, publication=not args.sans_publier))
     return 0
 
 
-def _cmd_boussole(args: argparse.Namespace) -> int:
+def _cmd_vendredi(args: argparse.Namespace) -> int:
+    from . import palier
+    print(palier.vendredi(_pilote(args), publication=not args.sans_publier))
+    return 0
+
+
+def _cmd_couts(args: argparse.Namespace) -> int:
     projet = charger(_racine(args))
-    print(journal.boussole(GitHub(projet.depot), projet, publier=not args.sans_publier))
+    gh = GitHub(projet.depot)
+    if args.lot:
+        print(journal.table_des_couts(journal.mesures_des_lots(gh, projet, args.lot)))
+    else:
+        print(journal.couts_du_palier(gh, projet))
     return 0
 
 
 def _cmd_pc(args: argparse.Namespace) -> int:
     from . import pc
-    racine = Path(args.depot_local).resolve()
     projet = charger(_racine(args))
-    lignes = pc.travailler(projet, GitHub(projet.depot), Depot(racine, projet.branche_base),
-                           issue=args.issue, branche=args.branche, pr=args.pr, essai=args.essai,
-                           action=args.action, vendor=Path(args.vendor) if args.vendor else None)
+    lignes = pc.travailler(projet, GitHub(projet.depot), Depot(Path(args.depot_local).resolve(), projet.branche_base),
+                           issue=args.issue, journal=journal_local(),
+                           vendor=Path(args.vendor) if args.vendor else None)
     for ligne in lignes:
         print(ligne)
     return 0
@@ -166,7 +180,7 @@ def _cmd_marquer_attente(args: argparse.Namespace) -> int:
     from . import pc
     projet = charger(_racine(args))
     print(pc.repondre_au_silence(projet, GitHub(projet.depot), Depot(projet.racine, projet.branche_base),
-                                 pr=args.pr, raison=args.raison))
+                                 issue=args.issue, raison=args.raison, journal=journal_local()))
     return 0
 
 
@@ -183,28 +197,27 @@ def main(argv: list[str] | None = None) -> int:
     sous = parser.add_subparsers(dest="commande", required=True)
     sous.add_parser("agents", help="la table des rôles").set_defaults(f=_cmd_agents)
     sous.add_parser("veille", help="ce qui manque pour tourner").set_defaults(f=_cmd_veille)
-    sonde = sous.add_parser("sonde", help="chaque agent répond-il avec son modèle ?")
-    sonde.add_argument("--outil", choices=sorted(OUTILS))
-    sonde.add_argument("--role", help="les seuls agents de ce rôle (codeur_3d sur le PC)")
+    sonde = sous.add_parser("sonde", help="chaque rôle répond-il avec son modèle ?")
+    sonde.add_argument("--role", choices=ROLES, help="ce seul rôle")
     sonde.set_defaults(f=_cmd_sonde)
     tour = sous.add_parser("tour", help="un tour du pilote")
     tour.add_argument("--a-sec", action="store_true", help="lire et dire, sans rien écrire ni invoquer")
+    tour.add_argument("--lot", type=int, help="ne faire avancer que ce lot, quel que soit son palier")
     tour.set_defaults(f=_cmd_tour)
-    for nom, f in (("journal", _cmd_journal), ("boussole", _cmd_boussole)):
+    for nom, f in (("journal", _cmd_journal), ("vendredi", _cmd_vendredi)):
         p = sous.add_parser(nom)
         p.add_argument("--sans-publier", action="store_true")
         p.set_defaults(f=f)
-    pc = sous.add_parser("pc", help="le côté PC d'un lot « machine : pc »")
+    couts = sous.add_parser("couts", help="ce que la chaîne a coûté, par rôle et par lot")
+    couts.add_argument("--lot", type=int, action="append", help="ces lots seulement (répétable)")
+    couts.set_defaults(f=_cmd_couts)
+    pc = sous.add_parser("pc", help="un pas du meneur d'un lot « pc »")
     pc.add_argument("--depot-local", required=True, help="le dépôt du PC (D:\\Forge)")
     pc.add_argument("--issue", type=int, required=True)
-    pc.add_argument("--branche", required=True)
-    pc.add_argument("--pr", type=int, required=True)
-    pc.add_argument("--essai", type=int, default=0)
-    pc.add_argument("--action", default="coder")
     pc.add_argument("--vendor", help="les packs de l'Asset Store à relier (D:\\Forge\\3d\\unity\\Assets\\Vendor)")
     pc.set_defaults(f=_cmd_pc)
     attente = sous.add_parser("marquer-attente", help="la réponse d'un passage du PC tombé sans répondre")
-    attente.add_argument("--pr", type=int, required=True)
+    attente.add_argument("--issue", type=int, required=True)
     attente.add_argument("--raison", required=True)
     attente.set_defaults(f=_cmd_marquer_attente)
     tr = sous.add_parser("traces", help="ce qui fait rougir les contrôles d'une PR")

@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       role:
-        description: "le rôle dont on sonde les agents"
+        description: "le rôle à sonder (chef, developpeur…)"
         required: false
-        default: "codeur_3d"
+        default: "chef"
 
 permissions:
   contents: read

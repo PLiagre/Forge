@@ -2,7 +2,7 @@
 # atelier-boucle <jour|arret|etat> : armer, désarmer, regarder.
 #
 #   jour    la cadence réelle : le pilote toutes les deux minutes, le journal
-#           à 07:15, la boussole le lundi
+#           à 07:15, la démo le vendredi soir
 #   arret   plus aucun réveil ; un tour en cours finit le sien
 #   etat    le profil, la ligne de cron, les tours en vol, les dernières
 #           lignes du pilote et de la veille

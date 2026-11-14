@@ -17,11 +17,24 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
 - **Personne ne répond (quota, session, outil qui ne démarre pas) : le lot
   attend**, sans essai compté. Ce n'est jamais un échec.
 - **Chaque appel laisse son coût et sa trace**, même coupé par son délai :
-  la sortie de l'agent s'écrit dans un fichier au fil de l'eau.
+  la sortie de l'agent s'écrit dans un fichier au fil de l'eau
+  (`~/.atelier/appels/`), et sa mesure entre dans la marque du commentaire
+  que le pilote pose : le coût d'un lot se relève sur GitHub.
+- **Chaque rôle rend un objet dont le harnais vérifie la forme**
+  (`consignes.SCHEMA_*`) : rien ne se lit par expression régulière dans un
+  texte libre.
+- **Un agent ne lance ni la suite entière ni une simulation longue** :
+  `garde_commandes.py` les refuse avant qu'elles partent, et aucune tâche ne
+  tourne en arrière-plan (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`).
 - **Un agent ne tourne jamais avec une clé d'API dans son environnement** :
   elle ferait basculer la facture de l'abonnement vers l'unité. Jamais
   `--bare` non plus : il ne chargerait pas les règles du dépôt.
 - **Un secret ne passe ni par l'argv ni par un journal.**
+- **Seul le compte du propriétaire commande** (`[projet].proprietaire`). Le
+  dépôt est public : ce qu'un autre compte écrit sur une issue n'est ni une
+  réponse, ni une consigne, ni un « oui », et n'arrive jamais à un agent.
+  Le pilote écrit sous le même compte : tout commentaire qu'il pose sur une
+  issue porte une marque, sinon il serait lu comme la parole du propriétaire.
 
 ## Les tests
 
@@ -29,9 +42,9 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
   dictés, aucun quota dépensé.
 - **Un test n'écrit jamais dans le vrai `~/.atelier`** : il reçoit son
   journal et ses verrous dans un dossier temporaire.
-- **Sur le PC**, sept tests de `test_pilote.py` échouent sur `fcntl` (les
-  verrous sont faits pour Linux) : c'est attendu, la CI les joue verts. Pour
-  juger un changement sur le PC, comparer au même lancement sur master.
+- **Sur le PC**, les sept tests des verrous sont sautés (`flock` est fait
+  pour Linux) : la CI les joue. Lancer pytest avec `PYTHONUTF8=1`,
+  `--basetemp=<dossier>` et `-p no:cacheprovider`.
 
 ## Les machines
 

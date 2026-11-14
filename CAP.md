@@ -1,8 +1,10 @@
 # CAP — des paliers jouables d'une semaine
 
 Ce que le jeu doit devenir : [docs/VISION.md](docs/VISION.md). Ce fichier dit
-dans quel ordre on y va. Il se change en mode direct, ou par le CTO le samedi,
-dans la PR du palier que le propriétaire valide.
+dans quel ordre on y va. Le palier en cours vit sur GitHub : son issue
+épinglée, « Palier n », où le propriétaire écrit le samedi et où le CTO
+propose la suite, et son jalon, qui porte ses lots. Ce fichier se change en
+mode direct.
 
 ## D'où l'on part
 

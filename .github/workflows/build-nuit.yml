@@ -16,6 +16,11 @@ on:
   schedule:
     - cron: "30 0 * * *"   # 02:30 à Paris l'été, 01:30 l'hiver
   workflow_dispatch:
+    inputs:
+      nom:
+        description: "un build figé sous ce nom (palier-3) ; vide : le build de la nuit"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -31,6 +36,8 @@ jobs:
     steps:
       - name: Construire le joueur depuis master
         shell: powershell
+        env:
+          NOM: ${{ inputs.nom }}
         run: |
           $ErrorActionPreference = 'Stop'
           git -C D:\Forge fetch --quiet --prune origin
@@ -42,7 +49,9 @@ jobs:
           if (-not (Test-Path "$w\3d\unity\Assets\Vendor.meta")) { Copy-Item D:\Forge\3d\unity\Assets\Vendor.meta "$w\3d\unity\Assets\" }
           $version = (Select-String -Path "$w\3d\unity\ProjectSettings\ProjectVersion.txt" -Pattern '^m_EditorVersion: (.+)$').Matches[0].Groups[1].Value.Trim()
           $unity = "C:\Program Files\Unity\Hub\Editor\$version\Editor\Unity.exe"
-          $nuit = Get-Date -Format 'yyyy-MM-dd'
+          # Un build figé garde son nom et n'est jamais effacé par la rotation des nuits.
+          $fige = ($env:NOM -match '^[A-Za-z0-9][A-Za-z0-9_-]*$')
+          $nuit = if ($fige) { $env:NOM } else { Get-Date -Format 'yyyy-MM-dd' }
           $sortie = "D:\Forge\builds\$nuit"
           $journal = "D:\Forge\builds\$nuit.log"
           New-Item -ItemType Directory -Force $sortie | Out-Null
@@ -54,6 +63,21 @@ jobs:
             Get-Content $journal -Tail 60
             Write-Output "::error::le build de la nuit a échoué (code $($p.ExitCode))"
             exit 1
+          }
+          if ($fige) {
+            # Le build figé emporte le monde du même commit : le jeu et son service ne se
+            # désaccordent pas quand master avance. Son lanceur est dans son dossier.
+            $source = "$sortie\source"
+            if (Test-Path $source) { Remove-Item -Recurse -Force $source }
+            New-Item -ItemType Directory -Force $source | Out-Null
+            foreach ($chemin in @('jeu', 'pc', '3d\unity\Assets\ForgeLocal3D\Pont\Resources\ReglagesDesVues.json')) {
+              $cible = Join-Path $source $chemin
+              New-Item -ItemType Directory -Force (Split-Path $cible) | Out-Null
+              Copy-Item -Recurse -Force (Join-Path $w $chemin) $cible
+            }
+            Set-Content -Encoding ascii "$sortie\Jouer.cmd" "@echo off`r`npy `"%~dp0source\pc\jouer.py`" --carte %* -- `"%~dp0Forge.exe`"`r`nif errorlevel 1 pause"
+            Write-Output "build figé : $sortie"
+            exit 0
           }
           # `dernier` est une copie, pas un lien : un build qui échoue demain
           # ne casse pas celui qu'on joue aujourd'hui.
