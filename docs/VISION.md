@@ -2,25 +2,13 @@
 
 > Ce fichier dit **qui joue, à quoi, dans quel monde, et selon quels
 > principes**. Il prime sur tout autre document en cas de conflit, et il est
-> fait pour être corrigé : changer une phrase ici déplace les jalons de
+> fait pour être corrigé : changer une phrase ici déplace les paliers de
 > [CAP.md](../CAP.md), qui dit dans quel ordre on construit. Comment le monde
 > fonctionne aujourd'hui, formule par formule :
 > [jeu/sim/MODELE.md](../jeu/sim/MODELE.md).
 >
-> Réécrit le 29 septembre 2026, après un entretien avec le propriétaire. Il
-> réunit l'ancienne vision du moteur et `OBJECTIF.md`, qui disaient la même
-> chose en deux endroits et avaient commencé à se contredire.
->
-> Révisé le 28 octobre 2026 : le jeu prend **Europa Universalis IV** pour
-> modèle de jeu. Le monde tourne seul ; le joueur prend la tête d'un pays et
-> le fait évoluer depuis la carte (décisions 24 à 33, en fin de fichier).
->
-> Révisé le 7 novembre 2026, d'après les décisions du 6 : **c'est un jeu**.
-> Les gestes du joueur jouent sur des métriques paramétrables — des
-> modificateurs partout, comme dans EU4, et quatre jauges du pays à nos noms —,
-> posés sur une économie qui reste physique (décisions 34 à 41, en fin de
-> fichier ; « Les modificateurs et les jauges », plus bas). Elles priment sur
-> les précédentes qu'elles contredisent.
+> Les décisions du propriétaire sont numérotées en fin de fichier, par date.
+> Les plus récentes priment sur celles qu'elles contredisent.
 
 ## En un paragraphe
 
@@ -78,8 +66,8 @@ simulé**, et qui tourne sans le joueur :
 | **Europa Universalis IV** — le modèle de jeu | la carte comme écran principal, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie, la guerre sur la carte, le mode observateur ; les modificateurs partout et leur infobulle détaillée ; la stabilité, le prestige, la légitimité et les points de monarque, sous nos noms (Concorde, Renom, Droit, Plume, Sceau, Épée) ; les bâtiments de province ; les événements à choix ; les chiffres dans des fichiers de données | un modificateur qui crée un kilo ou une pièce hors du moteur ; des points tirés d'une note fixe plutôt que des personnes ; un événement qui impose une issue ; un bonus caché de l'IA |
 | Crusader Kings | la dynastie, les personnalités, la succession | les mille petites actions sans portée, surtout en fin de partie |
 | Victoria | l'économie, les prix, l'industrie | des mécaniques codées comme des règles de jeu |
-| Manor Lords | la capitale qu'on peut ouvrir et bâtir à la main, dense et vivante | en faire le cœur du jeu ; bâtir toutes ses villes à la main |
-| Total War | à l'horizon : la bataille regardée et menée en 3D, sur le même moteur | une bataille calculée à part du monde ; la même bataille rejouée tour après tour |
+| Manor Lords | la ville qu'on bâtit à la main, dense et vivante : l'une des trois pistes du jeu, d'abord sur le kit du désert (décisions 42 et 48) | bâtir toutes ses villes à la main ; un geste de jeu qui n'existerait qu'en 3D |
+| Total War | plus tard : la bataille regardée et menée en 3D, sur le même moteur (décision 42) | une bataille calculée à part du monde ; la même bataille rejouée tour après tour |
 
 ## Le monde tourne seul
 
@@ -94,13 +82,9 @@ simulé**, et qui tourne sans le joueur :
   vraisemblable : les régions denses de 1400 restent denses, le désert reste
   vide, la population suit l'histoire dans les grandes lignes, aucune maison
   ne reste sans décider ; famines, chantiers, mariages et guerres arrivent par
-  leurs causes. Mesuré le 28 octobre 2026, ce n'était pas le cas : sans
-  réserve de soudure, Paris perdait 99 % de ses habitants avant avril 1400.
-  Remesuré le 7 novembre 2026 : Paris et Milan vides au bout d'un an, toutes
-  les grandes villes sauf Constantinople et Londres au bout de cinq
-  ([mesure](mesures/2026-11-07-refonte/RAPPORT.md)). La soudure tient la
-  première année ; les années suivantes demandent que l'arrière-pays nourrisse
-  ses villes.
+  leurs causes. Ce n'est pas encore tenu : la soudure tient la première
+  année, mais les grandes villes se vident ensuite, tant que l'arrière-pays
+  ne les nourrit pas.
 - **Le joueur entre dans ce monde-là.** Prendre la tête d'un pays ne change
   aucune règle : seule change la main qui décide.
 
@@ -133,26 +117,32 @@ simulé**, et qui tourne sans le joueur :
   richesse, sur cinq siècles) permet de comparer deux parties. Qui veut
   jouer sans but le peut.
 
-## La carte, et la capitale en 3D
+## La carte, la ville et la bataille
+
+Trois façons de jouer le même monde, et trois pistes sur lesquelles le jeu
+avance chaque semaine ([CAP.md](../CAP.md)) : la carte à la manière d'Europa
+Universalis, la ville bâtie à la main à la manière de Manor Lords, et, plus
+tard, la bataille à la manière de Total War (décision 42).
 
 - **La carte est le jeu.** Comme dans Europa Universalis IV, on joue sur la
   carte : les pays, leurs provinces, leurs lieux, les armées, les flux. Tout
   geste de pays se fait depuis elle, et le panneau du pays y dit ce qu'il
   possède, ce qu'il récolte, ce qu'il doit et ce qui menace.
-- **La capitale en 3D est une vue, pas un passage obligé.** On peut y
-  descendre d'un geste, la voir vivre — fumées, étals, passants — et y tracer
-  à la main rues, parcelles et murs. Rien ne s'y fait qui ne puisse aussi se
-  commander depuis la carte : un bâtiment se pose dans une province, et le
+- **La ville se bâtit à la main.** On entre dans sa capitale depuis la
+  carte, on la voit vivre — fumées, étals, passants — et on y trace rues,
+  parcelles et murs, on y pose ses bâtiments. Ce qu'on y bâtit est une
+  intention du monde, comme tout geste (principe 4) : l'IA bâtit par le même
+  chemin, sans 3D, et un bâtiment peut aussi se poser depuis la carte, où le
   plan du monde lui trouve sa parcelle. Les autres domaines grandissent par
   leurs habitants, sous les lois, les impôts et les consignes du joueur.
   Toute ville doit pouvoir se dessiner à partir de ce que le monde contient —
   son plan est une donnée du moteur, pas d'Unity.
 - **La bataille se suit sur la carte.** Elle se calcule dans le monde (« La
-  guerre », plus bas) ; la regarder et la mener en 3D est un horizon.
+  guerre », plus bas) ; la regarder et la mener en 3D vient plus tard.
 - **Une seule horloge, que le joueur règle.** Un tick est un jour. Sur la
   carte, le joueur met en pause ou choisit l'une des cinq vitesses ; la plus
-  rapide est bornée par le budget du tick, 100 ms au plus avec l'IA
-  ([CAP.md](../CAP.md), jalon 1). En ville le temps ralentit tout seul.
+  rapide est bornée par le budget du tick, 100 ms au plus avec l'IA.
+  En ville le temps ralentit tout seul.
   Le monde ne s'arrête que quand le joueur le met en pause.
 - **Le monde dit ce qui arrive.** Un fil de nouvelles et des alertes — une
   famine, un grenier vide, un voisin qui bâtit, une guerre déclarée — mènent
@@ -174,15 +164,18 @@ traiter, l'Épée pour combattre, ou un peu de sa Concorde, de son Renom, de son
 Droit. Ce qu'il bâtit, ce qu'il décrète et qui il nomme posent ensuite leurs
 modificateurs.
 
-| domaine | gestes | jalon de CAP.md |
-|---|---|---|
-| la terre et ses gens | fixer la part qu'on prend (l'impôt), ouvrir un grenier | J3, livré |
-| bâtir | poser un bâtiment dans une province, qui coûte du grain, des pièces, des bras et du temps et pose ses modificateurs ; tracer une route ; en 3D, la parcelle à la main | J6 depuis la carte, J4 en 3D |
-| les jauges | dépenser la Plume, le Sceau ou l'Épée pour un geste ; répondre à un événement à choix | J6 |
-| la cour | marier, éduquer, changer la loi de succession, nommer son conseil | J6 |
-| la guerre et les alliés | revendiquer, lever, marcher, assiéger, livrer bataille, faire la paix ; s'allier, appeler ses alliés | J7 |
-| l'argent | frapper, emprunter, mettre en gage, dévaluer, acheter une terre | J8 |
-| le gouvernement | inféoder, nommer des intendants, passer une loi, choisir une idée | J9 |
+| domaine | gestes |
+|---|---|
+| la terre et ses gens | fixer la part qu'on prend (l'impôt), ouvrir un grenier |
+| bâtir | poser un bâtiment dans une province, qui coûte du grain, des pièces, des bras et du temps et pose ses modificateurs ; tracer une route ; dans la ville, la parcelle à la main |
+| les jauges | dépenser la Plume, le Sceau ou l'Épée pour un geste ; répondre à un événement à choix |
+| la cour | marier, éduquer, changer la loi de succession, nommer son conseil |
+| la guerre et les alliés | revendiquer, lever, marcher, assiéger, livrer bataille, faire la paix ; s'allier, appeler ses alliés |
+| l'argent | frapper, emprunter, mettre en gage, dévaluer, acheter une terre |
+| le gouvernement | inféoder, nommer des intendants, passer une loi, choisir une idée |
+
+L'ordre dans lequel ils arrivent est celui des paliers de
+[CAP.md](../CAP.md).
 
 Chaque geste existe aussi pour l'IA, par le même chemin, avec les mêmes
 modificateurs et les mêmes jauges (principe 4).
@@ -279,7 +272,7 @@ Tout tourne autour d'une question : **qui tient quel lieu**.
   et ouvrir une conquête.
 - **Le siège affame la place** : ses murs et son grenier décident de combien
   de temps elle tient.
-- **À l'horizon, la bataille en 3D.** La regarder et la mener soi-même, le
+- **Plus tard, la bataille en 3D.** La regarder et la mener soi-même, le
   siège grandeur nature dans la ville qu'on a bâtie, autant d'hommes que
   possible sur un PC de jeu courant :
   [Citadelle-Guerre](../3d/archives/citadelle-guerre/README.md) (5 000 à
@@ -298,11 +291,10 @@ Tout tourne autour d'une question : **qui tient quel lieu**.
 
 - **L'Europe réelle.** Au premier jour, le monde contient ce que l'histoire
   dit qu'il contient : les grandes maisons, les frontières, les villes, les
-  populations de 1400. C'est vrai dans les grandes lignes depuis le jalon 2
-  de [CAP.md](../CAP.md) : l'aridité, le Nil, les puissances, les grandes
+  populations de 1400. C'est vrai dans les grandes lignes : l'aridité, le Nil, les puissances, les grandes
   maisons et les villes de 1400 sont dans le monde, et le désert est vide.
   C'est vrai **au premier jour** ; que cela tienne quand le monde tourne seul
-  est la preuve du jalon 5.
+  reste à prouver.
 - **Les rails de l'histoire.** L'histoire allume ses étincelles à leur date
   et à leur lieu : l'imprimerie à Mayence, les thèses de Luther, les voyages
   vers l'Amérique, les épidémies, la vapeur. Elle n'impose jamais une
@@ -368,10 +360,14 @@ chacun, dans le même ordre ; ici, leur raison.
      vraisemblable ; une anomalie n'est pas un défaut.
    - Niveau 3 : pas simulé.
 
-   Tout brief qui touche le monde dit son niveau.
+   Toute fiche de lot qui touche le monde dit son niveau.
 8. **Une capacité n'existe que si sa preuve peut échouer.** Prouver le rouge
-   d'abord ; un échantillon vide échoue ; un test existant ne s'assouplit
-   jamais pour passer.
+   d'abord ; un échantillon vide échoue. Un changement du monde met à jour
+   les tests qu'il touche, dans la même PR, en disant pourquoi : un test juge
+   le monde livré, jamais un « monde d'avant » gardé pour lui. Un test qui ne
+   dit plus rien du monde livré se réécrit aussi strict, ou se retire en le
+   disant. Les longues preuves (un an, dix ans) tournent la nuit et ne
+   bloquent pas une fusion (décision 47).
 
 ## Les échelles
 
@@ -412,14 +408,16 @@ tour.
 | la machine de référence (« un PC de jeu courant ») | Citadelle-Guerre mesure sur un i7-13700K et une RTX 3070 Ti, en 1920 × 1080 |
 | les batailles navales | la Méditerranée, la Manche et la Baltique en appellent ; rien n'est décidé |
 | la religion et la technique | les rails en allument les étincelles ; leur diffusion reste à écrire |
-| combien de lieux dans une cellule | un lieu pour 1 000 km² aujourd'hui (6 619 lieux) ; une terre de départ en tient quatre, un seigneur plausible trois (niveau 2, CAP.md, jalon 3) ; à revoir contre le budget du tick |
+| combien de lieux dans une cellule | un lieu pour 1 000 km² aujourd'hui (6 619 lieux) ; une terre de départ en tient quatre, un seigneur plausible trois (niveau 2) ; à revoir contre le budget du tick |
 | la capitale peut-elle changer de ville | rien n'est décidé |
 | quels pays sont jouables | tous ceux qui tiennent de la terre, vassaux compris (décision 26) ; reste à dire si un vassal joué peut refuser l'hommage dès le départ |
-| quand la bataille et le siège en 3D reviennent | après le premier siècle (décision 29) ; Citadelle-Guerre attend dans les archives |
+| quand la bataille et le siège en 3D reviennent | plus tard (décision 42) : un samedi le dira ; Citadelle-Guerre attend dans les archives |
+| le décor d'Occident de la ville | le kit du désert d'abord (décision 48) ; il se décidera un samedi |
+| un bâtiment de la ville reste-t-il commandable depuis la carte | oui aujourd'hui (décision 27) ; la caserne du palier 1 le dira |
 | quels événements à choix, et lesquels d'abord | ils naissent d'une cause du monde et posent des modificateurs ou dépensent une jauge (décision 41) ; leur liste et leurs choix restent à écrire, dans les fichiers de données |
 | les valeurs des modificateurs et des bâtiments | niveau 2, dans `jeu/data/` ; un réel sourcé (un moulin de 1400, ce qu'il rendait) les remplace quand on le sait |
 | le conseil du souverain | ses points naissent du souverain et de son conseil (décision 36) ; en 1400, le conseil n'existe pas encore dans le monde : les conseillers sont des personnes à venir, et des sources de modificateurs |
-| les idées et les lois | des sources de modificateurs (décision 34) ; leur liste et leur prix restent à écrire (jalon 9) |
+| les idées et les lois | des sources de modificateurs (décision 34) ; leur liste et leur prix restent à écrire |
 
 ## Les décisions du 29 septembre 2026
 
@@ -458,7 +456,7 @@ vraiment (CAP.md, « Le constat qui commande »).
 |---|---|---|
 | 21 | une sixième terre de départ en pays de terre crue, l'émirat du Zab (Biskra, sous les Hafsides) : le kit du désert est sa capitale dès le jalon 4 ; les kits des autres terres suivent, Balkans et Morée d'abord, puis l'Ouest | un nouveau kit avant toute capitale ; un désert qui ne serait la terre de personne |
 | 22 | la carte du joueur vit dans Unity, avec la ville et la bataille : les trois vues dans un seul jeu ; les vues de Python restent des outils et des captures du journal | une carte dans le navigateur ; une carte en image seulement |
-| 23 | l'ordre des neuf jalons du 29 septembre est gardé ; la ville vivante entre au jalon 4, la bataille détaillée au jalon 7 | douze jalons (#344) ; une tranche verticale de chaque pilier |
+| 23 | l'ordre des neuf jalons du 29 septembre est gardé ; la ville vivante entre au jalon 4, la bataille détaillée au jalon 7 (**remplacée** par la décision 43) | douze jalons (#344) ; une tranche verticale de chaque pilier |
 
 ## Les décisions du 28 octobre 2026
 
@@ -472,13 +470,13 @@ antérieures qu'elles nomment.
 | 24 | Europa Universalis IV est le modèle de jeu : la carte, le temps continu avec pause et vitesses, un pays qu'on fait évoluer, la diplomatie et la guerre sur la carte | un jeu centré sur la capitale bâtie à la main |
 | 25 | le monde tourne seul, et un mode observateur le montre : un siècle sans joueur reste vivant et vraisemblable, et sa preuve peut échouer | un monde qui attend le joueur ; un monde qui ne vit que là où il regarde |
 | 26 | on prend la tête de n'importe quel pays réel de 1400 qui tient de la terre, du royaume au petit seigneur ; les six terres de départ restent les départs conseillés (remplace la décision 2 sur ce point) | le seul petit seigneur |
-| 27 | la carte est le jeu ; la capitale en 3D est une vue où l'on peut bâtir à la main, jamais un passage obligé : tout geste de la 3D se commande aussi depuis la carte (précise la décision 5) | la capitale comme cœur du jeu ; un geste qu'on ne ferait qu'en 3D |
+| 27 | la carte est le jeu ; la capitale en 3D est une vue où l'on peut bâtir à la main, jamais un passage obligé : tout geste de la 3D se commande aussi depuis la carte (précise la décision 5 ; **révisée** par la décision 42 : la ville bâtie à la main est l'une des trois pistes) | la capitale comme cœur du jeu ; un geste qu'on ne ferait qu'en 3D |
 | 28 | le joueur règle l'horloge sur la carte : pause et cinq vitesses ; la ville ralentit (remplace la décision 6 sur la vitesse) | une vitesse imposée par la vue |
-| 29 | les batailles se calculent dans `sim/`, par un seul moteur, et se suivent sur la carte ; les mener en 3D et le siège grandeur nature passent à l'horizon (remplace la décision 15) | une bataille tactique obligatoire avant le premier siècle ; deux moteurs de bataille |
+| 29 | les batailles se calculent dans `sim/`, par un seul moteur, et se suivent sur la carte ; les mener en 3D et le siège grandeur nature passent à l'horizon (remplace la décision 15 ; « plus tard », décision 42) | une bataille tactique obligatoire avant le premier siècle ; deux moteurs de bataille |
 | 30 | un geste coûte ce que le monde porte : grain, pièces, hommes, temps, fidélité (**remplacée** par les décisions 34 et 36) | les points de monarque ; les idées nationales en « +10 % » |
 | 31 | le monde parle par un fil de nouvelles et des alertes qui mènent au lieu (**révisée** par les décisions 34 et 41 : le monde pose aussi des modificateurs, et certaines causes ouvrent un événement à choix) | les événements scriptés à choix, qui posent une issue ou un modificateur |
-| 32 | les kits 3D des autres terres et la ville conquise en 3D passent à l'horizon (précise la décision 7) | toutes les terres de départ en 3D au premier siècle |
-| 33 | les jalons gardent leurs numéros et changent de contenu : J5 le monde vivant, J6 le pays et sa dynastie, J7 la guerre sur la carte ; J8 et J9 restent (remplace la décision 23 pour la suite) | renuméroter les jalons et déplacer leurs issues |
+| 32 | les kits 3D des autres terres et la ville conquise en 3D passent à l'horizon (précise la décision 7 ; **révisée** par la décision 48) | toutes les terres de départ en 3D au premier siècle |
+| 33 | les jalons gardent leurs numéros et changent de contenu : J5 le monde vivant, J6 le pays et sa dynastie, J7 la guerre sur la carte ; J8 et J9 restent (remplace la décision 23 pour la suite ; **remplacée** par la décision 43) | renuméroter les jalons et déplacer leurs issues |
 
 ## Les décisions du 6 novembre 2026
 
@@ -486,8 +484,7 @@ Prises par le propriétaire : « Forge se rapproche d'Europa Universalis IV. Le
 monde tourne seul comme une simulation, mais c'est un jeu : le joueur a des
 gestes, et ses gestes jouent sur des métriques paramétrables. » Elles priment
 sur toutes les précédentes qu'elles contredisent. Les décisions 39 à 41 sont
-ses réponses du 7 novembre, posées avec la refonte
-([mesures et réponses](mesures/2026-11-07-refonte/RAPPORT.md)).
+ses réponses du 7 novembre.
 
 | # | décision | ce qu'elle a écarté |
 |---|---|---|
@@ -497,5 +494,24 @@ ses réponses du 7 novembre, posées avec la refonte
 | 37 | les chiffres vivent dans des fichiers de données lisibles sous `jeu/data/` (bâtiments, modificateurs, jauges, coûts), qu'on modifie sans toucher au code, comme les scripts d'EU4 ; le moteur et l'IA lisent les mêmes ; le moteur reste sur la bibliothèque standard (`tomllib`) | des constantes du jeu dispersées dans le code |
 | 38 | l'IA a les mêmes modificateurs et les mêmes jauges, sans bonus caché (le principe 4 tient) | une IA qui triche pour tenir |
 | 39 | les jauges s'appellent la **Concorde** (de −3 à +3, la stabilité), le **Renom** (le prestige), le **Droit** (la légitimité), et trois réserves de points, la **Plume** (administrer), le **Sceau** (traiter) et l'**Épée** (combattre) ; les chefs de 1400 reçoivent tout de suite des compétences de gestion, de diplomatie et de guerre (de 0 à 10, niveau 2) pour que les points coulent dès 1400 ; #434 garde les traits, l'hérédité et l'éducation | des réserves vides jusqu'à la dynastie ; un pays sans réserves de points |
-| 40 | le jalon 4 se clôt : le socle et la carte dans la langue du cabinet (#849, #850) passent au jalon 6 avec la barre et le panneau du pays, le jeu qui s'ouvre en pause (#860) au jalon 5 avec l'observateur ; la langue de la capitale (#851), le prix d'un chantier dans son panneau (#419), la preuve complète du jalon (#508), les 60 images par seconde (#962) et les maisons regroupées (#960) vont à la Réserve | finir la capitale en 3D avant le pays |
+| 40 | le jalon 4 se clôt : le socle et la carte dans la langue du cabinet (#849, #850) passent au jalon 6 avec la barre et le panneau du pays, le jeu qui s'ouvre en pause (#860) au jalon 5 avec l'observateur ; la langue de la capitale (#851), le prix d'un chantier dans son panneau (#419), la preuve complète du jalon (#508), les 60 images par seconde (#962) et les maisons regroupées (#960) vont à la Réserve (**révisée** par les décisions 43 et 48 : la ville avance chaque semaine) | finir la capitale en 3D avant le pays |
 | 41 | des événements à choix, nés d'une cause du monde (une famine, une révolte, une succession contestée) : deux ou trois choix, chacun pose des modificateurs ou dépense une jauge, aucun n'impose une issue ; l'IA choisit par le même chemin ; un lot, après les jauges | un monde qui ne propose jamais de choix ; des événements scriptés qui imposent l'histoire |
+
+## Les décisions du 14 novembre 2026
+
+Prises par le propriétaire en mettant la chaîne en pause : « le système est
+devenu trop complexe, il livre de petits lots invisibles à l'écran, et je ne
+suis plus ». Elles priment sur toutes les précédentes qu'elles contredisent,
+et sur tout autre fichier du dépôt.
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 42 | la vision à long terme reste : la carte à la manière d'Europa Universalis, la ville bâtie à la main à la manière de Manor Lords, la bataille à la manière de Total War plus tard (révise la décision 27 ; précise les décisions 24 et 29) | une ville qui ne serait qu'une vue ; un jeu de carte seul |
+| 43 | on avance par paliers jouables d'une semaine ; chaque palier fait une avancée majeure sur trois pistes : le monde (carte et simulation), la ville 3D, l'interface ; chaque samedi le propriétaire joue la démo et réoriente ; un palier est atteint quand il l'a joué et qu'il dit oui (remplace les jalons : décisions 23 et 33) | neuf jalons longs ; un jalon atteint par une preuve seule |
+| 44 | la chaîne d'agents reste : c'est elle qui fait le travail pendant la semaine ; le mode direct ne sert qu'à la refonte, puis aux réparations quand le propriétaire est là | tout faire en mode direct ; une chaîne que le mode direct double |
+| 45 | la chaîne se répartit par niveau de jugement, pas par étape, et celui qui conçoit un lot le construit : le CTO (Fable) tire les lots, tranche, débloque et répond de la démo ; le chef de lot (Opus) conçoit, code le difficile et tient la PR ; le développeur (Sonnet) fait les tâches bornées ; le relecteur (Opus, autre session) rend un verdict ; le lecteur (Haiku) résume et ne juge jamais ; changer un rôle de modèle reste une ligne de `atelier.toml` | un rôle par étape ; un brief écrit à froid par un agent pour un autre |
+| 46 | plus de plafond de taille : un lot est l'avancée d'une piste pour un palier | les petits lots ; un lot qui code et un lot qui prouve |
+| 47 | un changement du monde met à jour les tests qu'il touche, dans la même PR, en disant pourquoi ; les longues preuves (un an, dix ans) tournent la nuit et ne bloquent plus une fusion (réécrit le principe 8) | « un test existant ne s'assouplit jamais », qui faisait de chaque test touché une question au propriétaire |
+| 48 | la ville avance d'abord sur le kit du désert ; le décor d'Occident se décidera un samedi (révise les décisions 32 et 40) | attendre un kit d'Occident pour faire avancer la ville |
+| 49 | plus aucun reliquat des anciens lots dans le dépôt : ni brief, ni rapport, ni commentaire qui raconte un lot ; les tests sont gardés comme filet | un dépôt qui porte son histoire dans ses fichiers |
+| 50 | le quota de l'abonnement n'est plus le premier frein, mais il se mesure : chaque appel relève ce qu'il coûte, par rôle et par lot | une organisation dont on ne sait pas ce qu'elle consomme |

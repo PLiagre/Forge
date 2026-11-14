@@ -17,13 +17,13 @@ transporte et se mange —, dans **un seul monde**.
 
 | pour savoir | lire |
 |---|---|
-| où on va, dans quel ordre (les jalons et tous leurs lots) | [CAP.md](CAP.md) |
+| où on va, dans quel ordre (les paliers d'une semaine) | [CAP.md](CAP.md) |
 | où on en est aujourd'hui | l'issue épinglée **« Journal du … »** du jour |
 | ce que le jeu doit devenir | [docs/VISION.md](docs/VISION.md) |
 | comment le monde fonctionne | [jeu/sim/MODELE.md](jeu/sim/MODELE.md) |
-| les règles (mode direct en tête) | [AGENTS.md](AGENTS.md) |
-| comment la chaîne d'agents avance seule | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
-| toutes les commandes | [docs/NOTICE.md](docs/NOTICE.md) |
+| les règles, en une page | [AGENTS.md](AGENTS.md) |
+| la semaine, les rôles, le chemin d'un lot | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
+| tester et lancer le jeu | [CLAUDE.md](CLAUDE.md) |
 
 ## Essayer en une minute
 
@@ -49,7 +49,7 @@ les tests du jeu et vérifie les lanceurs.
 | `3d/` | `unity/` (le projet Unity unique, kit du désert), `local3d/` (le pilotage de Blender), `archives/` (les prototypes qui dorment, intacts) |
 | `atelier/` | la chaîne d'agents : le pilote, les rôles, le journal ; `crons/` pour le VPS |
 | `pc/` | les lanceurs Windows |
-| `docs/` | notice, workflow, vision, objectif, briefs des lots, mesures |
+| `docs/` | la vision, le workflow, la direction artistique |
 | `CAP.md` · `AGENTS.md` · `CLAUDE.md` · `atelier.toml` | le cap, les règles, le branchement de la chaîne |
 
 ```
@@ -60,7 +60,7 @@ les tests du jeu et vérifie les lanceurs.
                     │  jeu/sim/   │   le moteur : fabrication, extraction, production,
                     │  (Python)   │   commerce, consommation, faim, mort, naissances, migration
                     └──────┬──────┘
-                           │  photographie, et bientôt service local (CAP.md, jalon 1)
+                           │  photographie, et service local
           ┌────────────────┼────────────────┬────────────────┐
           ▼                ▼                ▼                ▼
     jeu/vues/tableau  jeu/vues/chronique  jeu/vues/relief   3d/unity
@@ -71,17 +71,17 @@ les tests du jeu et vérifie les lanceurs.
 
 ## Comment le travail avance
 
-Deux façons, et seulement deux.
-
-- **La chaîne**, quand personne n'est là : un lot est une issue du jalon
-  courant, ou du suivant quand une machine n'a plus rien dans le courant ;
-  le pilote (VPS, toutes les deux minutes) la fait passer par le chef, le
-  codeur, la CI et un relecteur qui ne l'a pas écrite ; `ACCEPTE` fusionne
-  tout seul. La table des rôles et de leurs modèles :
-  `python3 -m atelier agents`. Détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
-- **Le mode direct**, quand le propriétaire ouvre un agent dans `D:\Forge` ou
-  `~/Forge` : une branche `direct/<sujet>`, une PR, fusion automatique sur CI
-  verte. Voir [AGENTS.md](AGENTS.md).
+- **La chaîne** fait le travail de la semaine : le samedi, le propriétaire
+  joue la démo et dit ce qu'il veut ; le CTO en tire les lots du palier, un
+  par piste au moins ; un chef de lot conçoit et construit chacun, dans une
+  seule session, avec un développeur pour les tâches bornées ; un relecteur
+  qui ne l'a pas écrit rend son verdict, et `ACCEPTE` fusionne tout seul. La
+  table des rôles et de leurs modèles : `python3 -m atelier agents`. Détail :
+  [docs/WORKFLOW.md](docs/WORKFLOW.md).
+- **Le mode direct** ne sert qu'à refondre et à réparer, quand le
+  propriétaire ouvre un agent dans `D:\Forge` ou `~/Forge` : une branche
+  `direct/<sujet>`, une PR, fusion automatique sur CI verte. Voir
+  [AGENTS.md](AGENTS.md).
 
 ## Le monde, en chiffres
 
