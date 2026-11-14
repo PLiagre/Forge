@@ -40,6 +40,9 @@ sys.path.insert(0, str(JEU_PY))
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
 
 REGLE = JEU_PY / "ville" / "cellule_du_desert.py"
+# Le jeu lit les fichiers de la ville (`../local3d/desert/sorties/ville/…`) depuis son dossier courant :
+# lancé d'ailleurs, la capitale s'ouvre sans maisons ni rues.
+PROJET_UNITY = RACINE / "3d" / "unity"
 AUCUNE_CELLULE = "aucune cellule imposée : le jeu lit la maison du joueur"
 ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
 PAUSE = 0  # jours par seconde à l'ouverture : seul le lanceur arrive avant le premier tick
@@ -224,7 +227,10 @@ def main(argv: list[str]) -> int:
         except RuntimeError as exc:
             print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
             return 1
-        code = subprocess.call(commande + ([ARGUMENT_CARTE] if args.carte else []))
+        if Path(commande[0]).exists():
+            commande[0] = str(Path(commande[0]).resolve())
+        code = subprocess.call(commande + ([ARGUMENT_CARTE] if args.carte else []),
+                               cwd=PROJET_UNITY if PROJET_UNITY.is_dir() else None)
         print(f"jeu fermé (code {code})", flush=True)
         return code
     finally:
