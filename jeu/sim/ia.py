@@ -223,6 +223,8 @@ def _proposition_de_reponse(monde, maison, cle, regles):
     1. ouvrir les greniers si le grenier, une fois la part versée, couvre encore la réserve voulue ;
     2. sinon lever une taxe de disette si le grenier est sous la réserve et la Concorde au-dessus de son minimum ;
     3. sinon laisser faire.
+    Une maison qui ne tient plus aucun lieu (une conquête les lui a pris) laisse faire d'abord :
+    il n'y a plus de lieu où verser son grain.
     Se tait sans événement, ou si la réponse est déjà déposée. Le dépôt vérifie à son tour.
     """
     from sim import evenements, jauges
@@ -234,13 +236,17 @@ def _proposition_de_reponse(monde, maison, cle, regles):
     definition = evenements.charger_evenements()[attente['identifiant']]
     ouvrir = definition.choix_de(CHOIX_OUVRIR_LES_GRENIERS)
     grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
-    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+    lieux = _lieux_de_la_maison(monde, cle)
+    reserve = _reserve_voulue(monde, lieux)['reserve_voulue_kg']
     concorde = regles.jauges['concorde']
     valeur = jauges.etat(monde, cle, regles)['concorde']
     raison = {'evenement': attente['identifiant'], 'ouvert': attente['ouvert'],
               'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve,
               'part_du_grenier': None if ouvrir is None else ouvrir.grenier}
-    if ouvrir is not None and ouvrir.grenier is not None and grenier > 0 and grenier * (1 - ouvrir.grenier) >= reserve:
+    if not lieux and definition.choix_de(CHOIX_LAISSER_FAIRE) is not None:
+        choix = CHOIX_LAISSER_FAIRE
+        raison = {'regle': 'sans_lieu_a_secourir', **raison, 'concorde': valeur, 'minimum': concorde['minimum']}
+    elif ouvrir is not None and ouvrir.grenier is not None and grenier > 0 and grenier * (1 - ouvrir.grenier) >= reserve:
         choix, raison = CHOIX_OUVRIR_LES_GRENIERS, {'regle': 'grenier_au_dessus_de_sa_reserve', **raison}
     elif (definition.choix_de(CHOIX_LEVER_UNE_TAXE) is not None and grenier < reserve
           and valeur > concorde['minimum']):

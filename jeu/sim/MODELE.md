@@ -3553,7 +3553,9 @@ monde qui la fait durer ou cesser.
 - **L'IA.** `_proposition_de_reponse` : le jour du mois où elle règle sa part
   (après son geste de jauge du jour, sans empêcher un autre geste), une maison de
   l'IA qui a un événement en attente dépose une réponse, le premier choix qui
-  tient : (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
+  tient : (0) `laisser_faire` si elle ne tient plus aucun lieu (une conquête les lui
+  a pris : son grain n'a plus où aller), raison `sans_lieu_a_secourir` (plus
+  `concorde` et `minimum`) ; (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
   (et un grenier non vide), raison `grenier_au_dessus_de_sa_reserve` ; (2) sinon
   `lever_une_taxe_de_disette` si `grenier < réserve voulue` et que sa Concorde est
   au-dessus du minimum de la jauge, raison `grenier_sous_sa_reserve` (plus
@@ -3716,8 +3718,8 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   n'est pas un nombre fini (un booléen compris) ou hors de
   `minimum < droit_bas ≤ maximum` de la jauge `droit`.
   Elle répond aussi à l'événement à choix de sa maison, le même jour du mois, après
-  son geste de jauge : une raison par règle, `grenier_au_dessus_de_sa_reserve`,
-  `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
+  son geste de jauge : une raison par règle, `sans_lieu_a_secourir`,
+  `grenier_au_dessus_de_sa_reserve`, `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
   choix », dans « Les modificateurs »).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de

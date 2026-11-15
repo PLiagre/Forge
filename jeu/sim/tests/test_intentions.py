@@ -1505,6 +1505,10 @@ def _lire_raison_part(monde, cle):
         for ouvrage in (*plan.rues, *plan.parcelles, *plan.batiments):
             if ouvrage.en_chantier:
                 journees += ouvrage.travail_requis - ouvrage.travail_fourni
+    # Les bâtiments de province que la maison paie encore : la caserne dure plus d'un mois.
+    for batiment in getattr(monde, 'batiments_de_province', ()) if vus else ():
+        if batiment.en_chantier and batiment.maison == cle:
+            journees += batiment.travail_requis - batiment.travail_fourni
     salaires = journees * k.SALAIRE_JOURNEE_KG
     reserve_gens = (k.consommation_kg_par_habitant_par_tick(nourriture)
                     * (k.RESERVE_VOULUE_JOURS / k.TICK_DURATION_DAYS)
