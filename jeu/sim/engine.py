@@ -667,6 +667,41 @@ def _index_aretes(world) -> dict[tuple[int, int], dict]:
     return index
 
 
+def _topologie(world) -> dict:
+    """
+    Les arêtes terrestres de la carte, dans l'ordre de l'adjacence, et les voisines qu'elles donnent.
+
+    Bâties une fois par liste d'adjacence et par ensemble de cellules (ni l'une
+    ni l'autre ne changent entre deux ticks), et gardées sur le monde, hors
+    sauvegarde ; une autre liste, une liste d'une autre longueur ou d'autres
+    cellules les rebâtissent. Chaque arête terrestre y est le triplet
+    (a, b, `_cle_arête`), doublons et boucles compris ; les voisines sont celles
+    de `_voisines_terrestres`. Rien de ce qui dépend d'une longueur, d'une
+    constante, d'un relief, d'une route ou d'un modificateur n'y est gardé. Les
+    arêtes maritimes s'y ajoutent à leur première lecture valide
+    (`_aretes_maritimes_gardees`).
+    """
+    adjacence = world.adjacency
+    cellules = world.cells
+    garde = getattr(world, "_topologie_de_la_carte", None)
+    if (garde is not None and garde["adjacence"] is adjacence
+            and garde["longueur"] == len(adjacence) and garde["cellules"] == cellules.keys()):
+        return garde
+    terrestres = []
+    voisines = defaultdict(list)
+    for edge in adjacence:
+        a, b = edge["a"], edge["b"]
+        if a in cellules and b in cellules:
+            terrestres.append((a, b, _cle_arête(a, b)))
+            voisines[a].append(b)
+            if a != b:
+                voisines[b].append(a)
+    garde = {"adjacence": adjacence, "longueur": len(adjacence), "cellules": frozenset(cellules),
+             "terrestres": terrestres, "voisines": dict(voisines), "maritimes": None}
+    world._topologie_de_la_carte = garde
+    return garde
+
+
 def _arete_adjacence(world, a_id: int, b_id: int, index=None) -> dict | None:
     """Entrée d'adjacence appariée aux deux cell_id, sans recalcul."""
     if index is not None:
@@ -755,12 +790,7 @@ def _capacites_aretes(world, index=None) -> dict[tuple[int, int], float]:
     carte = getattr(world, "carte", None)
     plans = getattr(world, "plans", {})
     avec_rues = {cid for cid, plan in plans.items() if plan.rues}
-    for edge in world.adjacency:
-        a_id = edge["a"]
-        b_id = edge["b"]
-        if a_id not in world.cells or b_id not in world.cells:
-            continue
-        cle = _cle_arête(a_id, b_id)
+    for a_id, b_id, cle in _topologie(world)["terrestres"]:
         if index is None:
             capacite[cle] = _capacite_transport_arete_kg(world, a_id, b_id)
             continue
@@ -820,6 +850,22 @@ def _aretes_maritimes_du_monde(world) -> list[tuple[int, int, dict]]:
         raise KindsMaritimesMultiplesError(
             f"kinds_maritimes={valeurs!r}"
         )
+    return maritimes
+
+
+def _aretes_maritimes_gardees(world) -> list[tuple[int, int, dict]]:
+    """
+    `_aretes_maritimes_du_monde`, gardées avec la topologie de la carte.
+
+    Un bassin refusé lève son erreur à chaque lecture, avant toute écriture sur
+    le monde : rien n'est gardé sur un refus.
+    """
+    garde = getattr(world, "_topologie_de_la_carte", None)
+    if (garde is not None and garde["maritimes"] is not None and garde["adjacence"] is world.adjacency
+            and garde["longueur"] == len(world.adjacency) and garde["cellules"] == world.cells.keys()):
+        return garde["maritimes"]
+    maritimes = _aretes_maritimes_du_monde(world)
+    _topologie(world)["maritimes"] = maritimes
     return maritimes
 
 
@@ -1212,7 +1258,7 @@ def _apply_commerce(
             _elargir_aretes_des_villes_affamees(world, capacite_restante)
         ctx = None
         if getattr(world, "stocks_mer", None) is not None:
-            aretes = _aretes_maritimes_du_monde(world)
+            aretes = _aretes_maritimes_gardees(world)
             if aretes:
                 ctx = _initialiser_contexte_maritime(world, aretes)
         _fermer_les_places(world, capacite_restante, ctx)
@@ -1324,13 +1370,7 @@ def _apply_commerce(
     # Passe 1b : collecter les demandes par source, triées par cell_id receveur
     by_source: dict[int, list[tuple[int, float, tuple[int, int]]]] = defaultdict(list)
 
-    for edge in world.adjacency:
-        a_id = edge["a"]
-        b_id = edge["b"]
-        if a_id not in world.cells or b_id not in world.cells:
-            continue
-
-        cle = _cle_arête(a_id, b_id)
+    for a_id, b_id, cle in _topologie(world)["terrestres"]:
         if cle in capacite_restante:
             cap_arête = capacite_restante[cle]
         else:
@@ -1865,15 +1905,8 @@ def _voisins_avec_surplus(
 
 
 def _voisines_terrestres(world):
-    """Ordre des arêtes et doublons conservés ; table recréée pour ce maillon."""
-    voisines = defaultdict(list)
-    for edge in world.adjacency:
-        a, b = edge["a"], edge["b"]
-        if a in world.cells and b in world.cells:
-            voisines[a].append(b)
-            if a != b:
-                voisines[b].append(a)
-    return voisines
+    """Ordre des arêtes et doublons conservés ; table de `_topologie`, lue sans être modifiée."""
+    return _topologie(world)["voisines"]
 
 
 def _apply_migration(world, penuries: dict[int, float]) -> None:
@@ -1891,7 +1924,7 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
     des arrivants n'en envoie pas le même tick. Aucun kilogramme ne bouge.
     """
     # Valider le bassin avant même de modifier un report de fraction.
-    cotieres = {cid for cid, _, _ in _aretes_maritimes_du_monde(world)}
+    cotieres = {cid for cid, _, _ in _aretes_maritimes_gardees(world)}
     voisines = _voisines_terrestres(world)
 
     snapshot_pop = {cid: cell.population for cid, cell in world.cells.items()}

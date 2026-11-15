@@ -68,11 +68,8 @@ def appliquer_departs(world) -> int:
 
     voisins = {}
     reserves_voisins = {}
-    cellules = world.cells
-    for edge in world.adjacency:
-        a, b = edge['a'], edge['b']
-        if a not in cellules or b not in cellules:
-            continue
+    # Les arêtes terrestres de la carte, dans l'ordre de l'adjacence.
+    for a, b, _ in _engine._topologie(world)['terrestres']:
         for cid, voisin in ((a, b), (b, a)):
             candidat = bourgs.get(voisin)
             if candidat is None:
