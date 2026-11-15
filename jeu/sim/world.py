@@ -182,6 +182,16 @@ class World:
                      (`sim.evenements`) : {"identifiant", "ouvert", "lieux"}. Au plus
                      un par maison ; les entrées se remplacent, jamais ne se mutent.
                      Dans to_dict sous `evenements`, triés par maison, s'il en reste un.
+        guerres    : les guerres déclarées (`sim.guerre.Guerre`), par identifiant ; dans
+                     to_dict s'il y en a une.
+        armees     : les armées en campagne (`sim.guerre.Armee`), par identifiant ; dans
+                     to_dict s'il y en a une.
+        armees_levees : le nombre d'armées levées depuis le départ, qui numérote la
+                     suivante ; dans to_dict s'il n'est pas nul.
+        prises     : les places tombées, dans l'ordre de leur chute ; dans to_dict s'il
+                     y en a une.
+        morts_des_armees : les hommes morts sous les armes, cumul ; dans to_dict s'il
+                     n'est pas nul.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -222,6 +232,11 @@ class World:
         self.niveaux_de_province = {}
         self.batiments_de_province = []
         self.evenements = {}
+        self.guerres = []
+        self.armees = []
+        self.armees_levees = 0
+        self.prises = []
+        self.morts_des_armees = 0
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -442,4 +457,14 @@ class World:
         if self.evenements:
             document["evenements"] = {maison: copy.deepcopy(evenement)
                                       for maison, evenement in sorted(self.evenements.items())}
+        if self.guerres:
+            document["guerres"] = [g.en_document() for g in self.guerres]
+        if self.armees:
+            document["armees"] = [a.en_document() for a in self.armees]
+        if self.armees_levees:
+            document["armees_levees"] = self.armees_levees
+        if self.prises:
+            document["prises"] = copy.deepcopy(self.prises)
+        if self.morts_des_armees:
+            document["morts_des_armees"] = self.morts_des_armees
         return document

@@ -68,9 +68,8 @@ lue = true
 
 [grandeurs.levee]
 nom = "Levée"
-dit = "les hommes qu'un lieu peut lever"
-lue = false
-raison = "la levée arrive avec la guerre (jalon 7) : le moteur ne la lit pas encore"
+dit = "la part des habitants d'un lieu qu'une maison peut lever sous les armes"
+lue = true
 
 # Les définitions. `portee` : la sorte de cible qui la reçoit (pays, cellule
 # — la province, à l'échelle d'EU4 — ou lieu). `duree_jours` : 0 tant que sa

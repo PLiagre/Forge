@@ -124,10 +124,14 @@ def test_donnees_les_evenements_viennent_des_donnees():
     assert [choix.nom for choix in famine.choix] == [choix["nom"] for choix in brut["choix"]]
 
 
-def _donnees_avec_levee():
+def _donnees_avec_une_grandeur_non_lue():
+    """Les données du dépôt, plus une grandeur que le moteur ne lit pas et un modificateur qui la vise."""
     donnees = M.charger_donnees()
-    definition = M.Definition("epreuve_levee", "Levée d'épreuve", "levee", 0.1, "pays", 0)
-    return M.Donnees(donnees.sources, donnees.grandeurs, {**donnees.definitions, "epreuve_levee": definition})
+    grandeur = M.Grandeur("epreuve_non_lue", "Épreuve", "une grandeur que le moteur ne lit pas", False,
+                          "le moteur ne la lit pas")
+    definition = M.Definition("epreuve_non_lue", "Grandeur non lue", "epreuve_non_lue", 0.1, "pays", 0)
+    return M.Donnees(donnees.sources, {**donnees.grandeurs, "epreuve_non_lue": grandeur},
+                     {**donnees.definitions, "epreuve_non_lue": definition})
 
 
 def _cas_donnees():
@@ -140,8 +144,8 @@ def _cas_donnees():
     def champ(nom, valeur):
         return lambda document: choix(document).__setitem__(nom, valeur)
 
-    def levee(document):
-        choix(document, 1)["modificateurs"] = ["epreuve_levee"]
+    def non_lue(document):
+        choix(document, 1)["modificateurs"] = ["epreuve_non_lue"]
 
     def quatre(document):
         document["evenements"]["famine"]["choix"].append(dict(choix(document, 2), id="fuir"))
@@ -163,7 +167,7 @@ def _cas_donnees():
         (champ("population", -100), "champ inconnu 'population'", None),
         (champ("fin_de_la_famine", True), "champ inconnu 'fin_de_la_famine'", None),
         (champ("stock", {"nourriture": 100}), "champ inconnu 'stock'", None),
-        (levee, "grandeur 'levee' que le moteur ne lit pas", _donnees_avec_levee),
+        (non_lue, "grandeur 'epreuve_non_lue' que le moteur ne lit pas", _donnees_avec_une_grandeur_non_lue),
         (champ("modificateurs", ["inconnu"]), "'inconnu' absent des données des modificateurs", None),
         (champ("modificateurs", ["moulin"]), "moulin se pose sur un cellule, un pays attendu", None),
         (champ("grenier", 0), "grenier : part du grenier dans ]0, 1] attendue, reçu 0", None),

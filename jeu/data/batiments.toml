@@ -45,3 +45,14 @@ bras_par_jour = 20
 pieces = 0
 modificateurs = ["grange"]
 un_par_cellule = true
+
+[batiments.caserne]
+nom = "Caserne"
+dit = "loge et exerce les hommes levés : achevée dans la capitale, elle ouvre la levée (data/guerre.toml)"
+genre = "f"
+journees = 800
+bras_par_jour = 25
+pieces = 0
+# Aucun modificateur : la caserne ne change aucun taux, elle ouvre un geste.
+modificateurs = []
+un_par_cellule = true
