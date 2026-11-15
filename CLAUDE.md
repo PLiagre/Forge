@@ -44,13 +44,21 @@ Unity, sur le PC seulement, une instance à la fois (détail et pièges dans
 ## Mesurer le jour
 
 Ce que coûte un jour du monde, là où le jeu le paie (`ServeurMonde.jouer_un_tick()`,
-publication comprise), phase par phase, avec et sans IA. Sur le PC seulement ; une
-optimisation donne son chiffre avant et après, pris par cette commande, et la même
-empreinte du monde :
+publication comprise), phase par phase, avec et sans IA. Sur le PC seulement.
 
 ```bash
-cd jeu && PYTHONUTF8=1 py mesure_du_jour.py              # 365 jours, graine 0 : six minutes
+cd jeu && PYTHONUTF8=1 py mesure_du_jour.py              # le tableau : 365 jours, graine 0
 cd jeu && PYTHONUTF8=1 py mesure_du_jour.py --profil 10  # les dix fonctions les plus chères
+```
+
+Le PC n'est jamais au repos : le même jour y coûte du simple au double d'une heure à
+l'autre. Le chiffre avant et après d'une optimisation se prend donc contre un checkout
+de référence, les deux jouant en même temps, et son témoin prouve que rien de ce qui
+est servi n'a changé :
+
+```bash
+cd jeu && PYTHONUTF8=1 py mesure_du_jour.py --contre <référence>/jeu   # le gain, manche par manche
+cd jeu && PYTHONUTF8=1 py mesure_du_jour.py --temoin                   # à comparer à celui de la référence
 ```
 
 ## Lancer le jeu
