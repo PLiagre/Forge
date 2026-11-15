@@ -14,6 +14,7 @@ import random
 import sys
 import threading
 import time
+from typing import NamedTuple
 from urllib.parse import parse_qs, urlsplit
 
 from sim.carte_servie import document_carte
@@ -46,7 +47,9 @@ from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_se
 from sim.places import bourgs_et_maitres, places_du_monde
 from sim.plan import aire_du_contour
 from sim.portes import controler_portes, portes_de_l_enceinte
-from sim.snapshot_export import SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie
+from sim.snapshot_export import (
+    SnapshotExportError, _fiche_document, _round_tree, lieux_en_photographie, surfaces_controlees,
+)
 from sim.world import World
 from sim.ville1400 import BaseAbsente, base_de_cellule, base_dense_de_cellule
 
@@ -115,6 +118,37 @@ def _octets_du_document(document, contexte, cell_id) -> bytes:
 def _octets_du_bourg(bourg, lieux, cell_id) -> bytes:
     """« bourg » est la première clé dans l'ordre canonique : on reprend les octets du lieu."""
     return b'{"bourg":' + _serialiser(bourg) + b"," + lieux[cell_id][1:]
+
+
+class LieuCopie(NamedTuple):
+    """Ce que la photographie lit d'un lieu, copié à la publication."""
+
+    rang: int
+    population: int
+    stocks: dict
+    maitre: str | None
+
+
+class CelluleCopiee(NamedTuple):
+    """Ce que la photographie des lieux lit d'une cellule, copié à la publication."""
+
+    area_km2: float
+    lieux: list
+
+
+def _cellule_a_photographier(cell_id, cellule, places) -> CelluleCopiee:
+    """Copie la cellule pour sa photographie différée, après les refus que celle-ci prononcerait :
+    une cellule incohérente arrête la publication, jamais une lecture."""
+    surfaces_controlees(cell_id, cellule, places)
+    return CelluleCopiee(cellule.area_km2, [
+        LieuCopie(lieu.rang, lieu.population, copier_panier(lieu), lieu.maitre) for lieu in cellule.lieux])
+
+
+def _octets_du_lieu(document, flux, cell_id) -> bytes:
+    """Les lieux se photographient à la première lecture, sur la cellule copiée à la publication,
+    par la même fonction que la photographie ; leurs flux se somment alors pour cette seule cellule."""
+    cellule, copie, places, noms = document
+    return _serialiser(cellule | {"lieux": lieux_en_photographie(cell_id, copie, places, noms, flux[cell_id])})
 
 
 def _octets_du_plan(document, contexte, cell_id) -> bytes:
@@ -406,28 +440,20 @@ class ServeurMonde(ThreadingHTTPServer):
         flux = flux_des_lieux(self.world)
         date = self.world.date_simulation
         places = self._places_des_lieux()
-        # Les lieux s'ajoutent après l'arrondi, comme dans la photographie, par la même fonction.
-        documents_lieux = {
-            cellule["cell_id"]: (
+        # Tout ce qui se lit sur le monde vivant est copié ici. Les lieux s'ajoutent après l'arrondi,
+        # comme dans la photographie, par la même fonction, à la première lecture de la cellule.
+        documents_lieux = {}
+        for cellule in cellules:
+            cell_id = cellule["cell_id"]
+            vivante = self.world.cells[cell_id]
+            logement = logement_de(vivante, self.world.plans[cell_id])
+            documents_lieux[cell_id] = (
                 cellule
-                | ({"logement": logement} if (logement := logement_de(
-                    self.world.cells[cellule["cell_id"]], self.world.plans[cellule["cell_id"]]
-                )) is not None else {})
-                | {
-                    "foyers": _foyers_du_lieu(self.world.cells[cellule["cell_id"]]),
-                    "lieux": lieux_en_photographie(
-                        cellule["cell_id"], self.world.cells[cellule["cell_id"]],
-                        places[cellule["cell_id"]], noms[cellule["cell_id"]], flux[cellule["cell_id"]],
-                    ),
-                    "noms": noms[cellule["cell_id"]],
-                    "tick": numero_tick,
-                    "date": date,
-                }
+                | ({"logement": logement} if logement is not None else {})
+                | {"foyers": _foyers_du_lieu(vivante), "noms": noms[cell_id], "tick": numero_tick, "date": date},
+                _cellule_a_photographier(cell_id, vivante, places[cell_id]), places[cell_id], noms[cell_id],
             )
-            for cellule in cellules
-        }
-        # Les documents sont copiés ici ; leurs octets naissent à la première lecture.
-        lieux = OctetsDifferes(documents_lieux)
+        lieux = OctetsDifferes(documents_lieux, _octets_du_lieu, flux)
         lieux_avec_bourg = OctetsDifferes(bourgs, _octets_du_bourg, lieux)
         document = {
             "tick": numero_tick,
@@ -481,7 +507,7 @@ class ServeurMonde(ThreadingHTTPServer):
                                     for cid, document in documents_plans.items()}, _octets_du_plan)
         documents_occupations = {}
         for cid, plan in sorted(self.world.plans.items()):
-            logement = documents_lieux[cid].get("logement")
+            logement = documents_lieux[cid][0].get("logement")
             reste = logement["loges"] if logement is not None else 0
             batiments = []
             for b in sorted((b for b in plan.batiments if b.nature == "maison" and not b.en_chantier), key=lambda b: b.identifiant):

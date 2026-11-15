@@ -180,6 +180,16 @@ def densite_de_cellule(cell) -> float:
     return cell.population / cell.area_km2
 
 
+def surfaces_controlees(cid, cell, places=None) -> tuple:
+    """Les surfaces des lieux de la cellule ; refuse un nombre de lieux ou de places incohérent."""
+    surfaces = surfaces_des_lieux(cid, cell.area_km2)
+    if len(cell.lieux) != len(surfaces):
+        raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
+    if places is not None and len(places) != len(surfaces):
+        raise SnapshotExportError(f"nombre de places incohérent pour cell_id={cid}")
+    return surfaces
+
+
 def lieux_en_photographie(cid, cell, places=None, noms=None, flux=None) -> list[dict]:
     """Lit les lieux, leurs surfaces et leurs places, sans arrondir leur contenu.
 
@@ -187,11 +197,7 @@ def lieux_en_photographie(cid, cell, places=None, noms=None, flux=None) -> list[
     carte), chaque lieu déclare `point: None`, jamais un point deviné.
     Sans bloc de noms ou mesures de flux, `nom` ou `flux_30j` vaut `None`.
     """
-    surfaces = surfaces_des_lieux(cid, cell.area_km2)
-    if len(cell.lieux) != len(surfaces):
-        raise SnapshotExportError(f"nombre de lieux incohérent pour cell_id={cid}")
-    if places is not None and len(places) != len(surfaces):
-        raise SnapshotExportError(f"nombre de places incohérent pour cell_id={cid}")
+    surfaces = surfaces_controlees(cid, cell, places)
     return [
         {"rang": lieu.rang, "surface_km2": surfaces[lieu.rang],
          "population": lieu.population, "stocks": copier_panier(lieu), "maitre": lieu.maitre,
