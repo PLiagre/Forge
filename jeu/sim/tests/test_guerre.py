@@ -711,3 +711,93 @@ def test_l_ia_rentre_quand_la_place_est_prise_ou_l_armee_affamee(guerre_de_l_ia,
     G._remplacer(levee, G.replace(armee, siege=None))
     (geste,) = ia._propositions_des_armees(levee, maison, BAR, regles)
     assert geste["raison"]["regle"] == "place_ennemie"
+
+
+# --- La preuve de l'IA sur un an -----------------------------------------------------------
+
+def _lire_guerre(monde, cle, regles):
+    """La raison de la guerre, lue sur le monde au tick, sans sim/ia.py."""
+    from sim.tests.test_monde import _reserve_lue
+    par_id = {m.id: m for m in monde.maisons}
+    capitale = par_id[cle].cell_id
+    sienne = G.racine(par_id, cle)
+    cid, jours, maitre = G.place_a_prendre(monde, cle, capitale, regles, lambda m: G.racine(par_id, m) != sienne)
+    parts = [G.levee_maximale(monde, capitale, l.rang, regles) for l in monde.cells[capitale].lieux if l.maitre == cle]
+    grenier, reserve = monde.greniers[cle].get(NOURRITURE, 0), _reserve_lue(monde, cle)
+    par_homme = regles.ration_kg_par_homme_par_jour * c.TICK_DURATION_DAYS * (jours + regles.ia_jours_de_siege_voulus)
+    hommes = min(sum(parts), G._paysans(monde.cells[capitale]), int((grenier - reserve) // par_homme))
+    return {"regle": "guerre_a_la_place_voisine", "cible": maitre, "place": cid, "jours_de_marche": jours,
+            "habitants_de_la_place": monde.cells[cid].lieux[0].population, "hommes": hommes,
+            "grenier_nourriture_kg": grenier, "reserve_voulue_kg": reserve, "vivres_kg": hommes * par_homme}
+
+
+def _lire_armee(monde, cle, identifiant, regles):
+    """Le geste du jour d'une armée et sa raison, lus sur le monde au tick, sans sim/ia.py."""
+    armee = next(a for a in monde.armees if a.identifiant == identifiant)
+    base = {"armee": identifiant, "cell_id": armee.cell_id, "rang": armee.rang, "hommes": armee.hommes,
+            "vivres_kg": armee.vivres_kg, "dette_kg": armee.dette_kg}
+    prises = [p for p in monde.prises if p["armee"] == identifiant]
+    if prises:
+        return "renvoyer_armee", {"regle": "place_prise", **base, "place": prises[-1]["cell_id"]}
+    if armee.vivres_kg <= 0 and armee.dette_kg > 0:
+        return "renvoyer_armee", {"regle": "armee_affamee", **base}
+    maitre = monde.cells[armee.cell_id].lieux[0].maitre
+    if armee.rang == 0 and maitre != cle and G.en_guerre(monde, cle, maitre):
+        return "assieger", {"regle": "place_ennemie", **base, "maitre_de_la_place": maitre}
+    place = G.place_a_prendre(monde, cle, armee.cell_id, regles, lambda m: G.en_guerre(monde, cle, m))
+    if place is None:
+        return "renvoyer_armee", {"regle": "sans_place_a_prendre", **base}
+    cid, jours, maitre = place
+    return "marcher", {"regle": "marche_vers_la_place", **base, "place": cid, "jours_de_marche": jours,
+                       "maitre_de_la_place": maitre}
+
+
+@pytest.mark.longue
+def test_un_an_l_ia_mene_ses_guerres_par_les_gestes_du_joueur(monkeypatch, regles):
+    """Un an de la graine 0 avec l'IA : au moins une maison déclare, lève, marche et assiège, chaque raison égale
+    au monde de son tick ; le relevé rejoué comme gestes du joueur donne le même monde."""
+    from sim import __main__ as cli
+    reel, lectures = cli.jouer_ia, {}
+
+    def enveloppe(monde, releve, maisons=None):
+        deja = len(releve)
+        reel(monde, releve, maisons)
+        # Le dépôt ne change pas le monde : il est celui que l'IA a lu.
+        for rang, entree in enumerate(releve[deja:], deja):
+            intention = entree["intention"]
+            if intention["type"] in ("declarer_guerre", "lever_armee"):
+                lectures[rang] = (intention["type"], _lire_guerre(monde, intention["maison"], regles))
+            elif intention["type"] in GESTES_DE_GUERRE:
+                lectures[rang] = _lire_armee(monde, intention["maison"], intention["armee"], regles)
+
+    monkeypatch.setattr(cli, "jouer_ia", enveloppe)
+    resume, monde = cli._simulate(c.CALENDAR_DAYS_PER_YEAR, 0, ia=True)
+    monkeypatch.setattr(cli, "jouer_ia", reel)
+    releve = resume["ia"]["releve"]
+    guerre = [(rang, e) for rang, e in enumerate(releve) if e["intention"]["type"] in GESTES_DE_GUERRE]
+    assert guerre and all("refus" not in e for _r, e in guerre)
+    for rang, entree in guerre:
+        type_, raison = lectures[rang]
+        assert type_ == entree["intention"]["type"] and raison == entree["raison"], (entree["tick"], entree)
+    menees = {}
+    for _r, entree in guerre:
+        menees.setdefault(entree["intention"]["maison"], set()).add(entree["intention"]["type"])
+    completes = sorted(m for m, types in menees.items()
+                       if {"declarer_guerre", "lever_armee", "marcher", "assieger"} <= types)
+    print(f"{len(completes)} maisons de l'IA mènent une guerre : {completes} ; prises : {len(monde.prises)}, "
+          f"morts sous les armes : {monde.morts_des_armees}", flush=True)
+    assert completes
+    # Le même relevé, rejoué comme gestes du joueur, donne le même monde.
+    par_tick = {}
+    for entree in releve:
+        if "refus" not in entree:
+            par_tick.setdefault(entree["tick"], []).append(entree["intention"])
+
+    def joueur(m, _releve, maisons=None):
+        for intention in par_tick.get(m.ticks_ecoules, ()):
+            recevoir_intention(m, copy.deepcopy(intention))
+
+    monkeypatch.setattr(cli, "jouer_ia", joueur)
+    _, rejoue = cli._simulate(c.CALENDAR_DAYS_PER_YEAR, 0, ia=True)
+    egaux = json.dumps(rejoue.to_dict(), sort_keys=True) == json.dumps(monde.to_dict(), sort_keys=True)
+    assert egaux
