@@ -19,7 +19,7 @@ namespace Forge.Pont
         private static readonly Regex IdentifiantDeLieu = new Regex(@"(?<![\p{L}\p{Nd}])[0-9]+-[0-9]+(?![\p{L}\p{Nd}])");
         // Un nombre : ses groupes de trois chiffres d'abord, pour qu'un « 5 631 » ne se coupe jamais en « 5 ».
         private static readonly Regex NombreEcrit = new Regex(@"(?<![\p{L}\p{Nd}])(?:[0-9]{1,3}(?:[   ][0-9]{3})+(?![0-9])|[0-9]+)(?:,[0-9]+)?");
-        private static readonly Regex Unite = new Regex(@"\G[  ]?(?:kg|t|%|jours?|ans?|habitants?|foyers?|personnes?|bras|lieux?|maisons?|chantiers?|km|m|points?|hommes?|paysans?)(?!\p{L})",
+        private static readonly Regex Unite = new Regex(@"\G[  ]?(?:kg|t|%|jours?|ans?|habitants?|foyers?|personnes?|bras|lieux?|maisons?|chantiers?|km|m|points?|hommes?|paysans?|coins?)(?!\p{L})",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         private static readonly Regex DateEcrite = new Regex(@"(?<![\p{L}\p{Nd}])jour[  ]([0-9]+)[  ]de[  ]([0-9]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 

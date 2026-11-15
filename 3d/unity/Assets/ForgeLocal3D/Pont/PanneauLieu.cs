@@ -11,6 +11,8 @@ namespace Forge.Pont
     // Le panneau du lieu : il montre ce que le service local de `sim/` dit d'une
     // cellule, et ne calcule aucun nombre. La lecture part hors du fil principal ;
     // son résultat s'applique dans Update. Une absence remplace les nombres.
+    // Sa toile est éteinte (le composant Canvas seul) : les textes restent écrits, lisibles par
+    // TexteAffiche et par la capture, et le joueur lit le même lieu dans le cabinet de la ville.
     // Ouvrir(cellule) choisit la cellule lue, avant le démarrage ou en cours de jeu.
     public sealed class PanneauLieu : MonoBehaviour
     {
@@ -53,6 +55,8 @@ namespace Forge.Pont
         public GameObject ObjetFoyers => texteFoyers != null ? texteFoyers.gameObject : null;
         public int Reconstructions { get; private set; }
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
+        // La dernière lecture appliquée, présente ou absente ; null avant la première.
+        public LectureLieu DerniereLecture { get; private set; }
 
         // (arguments, défaut) → cellule, ou -1 et une erreur qui nomme l'argument et la valeur reçue.
         public static long LireCellule(string[] arguments, long defaut, out string erreur)
@@ -108,6 +112,7 @@ namespace Forge.Pont
             }
             enCours = null; // le résultat d'une lecture abandonnée n'est jamais appliqué
             dejaLu = false; // même tick, autre cellule : Appliquer doit tout refaire
+            DerniereLecture = null; // la lecture de l'ancienne cellule ne se lit plus
             texteFoyers.text = "";
             texteFoyers.gameObject.SetActive(false);
             if (nouvelle < 0)
@@ -154,6 +159,7 @@ namespace Forge.Pont
 
         private void Appliquer(LectureLieu lecture)
         {
+            DerniereLecture = lecture;
             long tick = lecture.Presente ? lecture.Lieu.Tick : -1;
             if (dejaLu && tick == tickAffiche && lecture.Absence == absenceAffichee) return;
             dejaLu = true;
@@ -228,6 +234,7 @@ namespace Forge.Pont
             var canvas = toile.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
             canvas.worldCamera = camera;
+            canvas.enabled = false; // rien ne se dessine ; l'objet reste actif pour qu'on le trouve et qu'on lise son texte
             // Juste derrière le plan proche : rien de la scène ne passe devant le panneau.
             canvas.planeDistance = camera.nearClipPlane + ECART_PLAN;
             var echelle = toile.AddComponent<CanvasScaler>();
