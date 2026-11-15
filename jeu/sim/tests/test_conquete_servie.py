@@ -40,12 +40,10 @@ def test_une_conquete_refait_les_noms_sans_recalculer_places_ni_puissances(monke
         assert monde.ancres_des_bourgs is not None
         places_avant, noms_avant = serveur._places_des_lieux(), serveur._noms
         places = _compter(monkeypatch, "places_du_monde")
-        puissances = _compter(monkeypatch, "puissances_depuis_monde")
-        tables = _compter(monkeypatch, "charger_table")
-        listes = _compter(monkeypatch, "charger_noms")
+        sources = _compter(monkeypatch, "sources_des_noms")
         cid, preneur, perdant = _prendre_un_bourg(monde)
         etat = serveur._construire_etat(0, -1)
-        assert places == [] and puissances == [] and tables == [] and listes == []
+        assert places == [] and sources == []
         # Les places sont celles du chargement, et celles qu'un calcul entier rendrait.
         assert serveur._places_des_lieux() is places_avant == places_du_monde(monde)
         # Les noms suivent le nouveau maître, comme un calcul entier sans rien de gardé.
@@ -87,7 +85,20 @@ def test_un_autre_monde_servi_relit_ses_sources_de_noms(monkeypatch):
     with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
         premieres = serveur._sources_des_noms()
         assert serveur._sources_des_noms()[2] is premieres[2]
-        puissances = _compter(monkeypatch, "puissances_depuis_monde")
+        sources = _compter(monkeypatch, "sources_des_noms")
         serveur.world = service.World.charger(rng_seed=1)
         secondes = serveur._sources_des_noms()
-        assert puissances == [1] and secondes[2] is not premieres[2] and secondes[2] == premieres[2]
+        assert sources == [1] and secondes[2] is not premieres[2] and secondes[2] == premieres[2]
+
+
+def test_monter_le_service_ne_charge_pas_la_table_de_la_carte(monkeypatch):
+    """La table des puissances que compte la carte figée ne se charge qu'à la première lecture de la carte."""
+    tables = _compter(monkeypatch, "charger_table")
+    with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        assert tables == []
+        serveur.carte_figee()
+        assert tables == [1]
+        _prendre_un_bourg(serveur.world)
+        serveur._construire_etat(0, -1)
+        serveur.carte_figee()
+        assert tables == [1]

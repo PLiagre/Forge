@@ -31,6 +31,12 @@ def aire_de_cellule(cid, cellule, puissance, table, noms):
     raise ValueError(f'cellule {cid} : aucune règle de noms (puissance={puissance}, religion={religion})')
 def _parcours(valeurs, cid, reserves=()):
     return [n for n in valeurs[cid % len(valeurs):] + valeurs[:cid % len(valeurs)] if n not in reserves]
+def sources_des_noms(monde):
+    """Ce que `noms_depuis_monde` lit des données et de la carte, jamais des maîtres : les listes de noms,
+    la table des puissances et la puissance de chaque cellule, dans l'ordre de ses arguments. Qui refait
+    les noms d'un même monde les lit une fois et les lui repasse."""
+    table = charger_table()
+    return charger_noms(), table, puissances_depuis_monde(monde, table=table)
 def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None):
     """Un bloc neuf par cellule ; les maisons suivent leur fiche et leur rang initial."""
     noms = charger_noms() if noms is None else noms
