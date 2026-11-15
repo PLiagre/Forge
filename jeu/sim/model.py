@@ -55,6 +55,18 @@ def ecrire_stock_marchandise(cell: "Cell", marchandise: str, quantite_kg: float)
     cell.stocks[marchandise] = quantite_kg
 
 
+def retirer_du_stock(entite: "Cell | EtatDeLieu", marchandise: str, quantite_kg: float) -> None:
+    """`ecrire(entite, m, lire(entite, m) - quantite_kg)` en une lecture et une écriture."""
+    stocks = entite.stocks
+    stocks[marchandise] = stocks.get(marchandise, -1.0) - quantite_kg
+
+
+def verser_au_stock(entite: "Cell | EtatDeLieu", marchandise: str, quantite_kg: float) -> None:
+    """Ajoute au stock, la sentinelle -1 (« non calculé ») comptant pour zéro."""
+    stocks = entite.stocks
+    stocks[marchandise] = max(0.0, stocks.get(marchandise, -1.0)) + quantite_kg
+
+
 def copier_panier(entite: "Cell | EtatDeLieu") -> dict[str, float]:
     """Lit un panier par copie, pour une cellule ou l'un de ses lieux."""
     return dict(entite.stocks)
@@ -67,13 +79,18 @@ def contenus_des_paniers(entites, marchandise: str) -> list[float]:
 
 def lieux_deja_accordes(cell, lieux) -> bool:
     """Reconnaît la reprise sans effet, sans copier ni réécrire les paniers."""
-    if sum(lieu.population for lieu in lieux) != cell.population:
+    if sum([lieu.population for lieu in lieux]) != cell.population:
         return False
     cles = cell.stocks.keys()
-    if any(lieu.stocks.keys() != cles for lieu in lieux):
-        return False
-    return all(sum(lieu.stocks[nom] for lieu in lieux) == total
-               for nom, total in cell.stocks.items())
+    paniers = [lieu.stocks for lieu in lieux]
+    for panier in paniers:
+        if panier.keys() != cles:
+            return False
+    # Les mêmes sommes, dans l'ordre des rangs, sans générateur par marchandise.
+    for nom, total in cell.stocks.items():
+        if sum([panier[nom] for panier in paniers]) != total:
+            return False
+    return True
 
 
 def remplacer_panier(entite: "Cell | EtatDeLieu", panier: dict[str, float]) -> None:

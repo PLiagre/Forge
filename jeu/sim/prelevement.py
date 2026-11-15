@@ -4,7 +4,7 @@ from array import array
 
 import sim.constants as constantes
 from sim import flux
-from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
+from sim.model import ecrire_stock_marchandise, lire_stock_marchandise, retirer_du_stock
 
 
 class GroupeArrivee:
@@ -61,6 +61,7 @@ def prelever(monde, recoltes) -> None:
     preleve = [0.0] * len(routes.noms)
     lire = lire_stock_marchandise
     ecrire = ecrire_stock_marchandise
+    retirer = retirer_du_stock
     nourriture = constantes.MARCHANDISE_NOURRITURE
     tick = monde.ticks_ecoules
     if monde.secours:
@@ -139,8 +140,7 @@ def prelever(monde, recoltes) -> None:
                 kg = min(recolte[rang], kg * modifies.get((cid, rang), 1.0))
             if not kg:
                 continue
-            lieu = lieux[rang]
-            ecrire(lieu, nourriture, lire(lieu, nourriture) - kg)
+            retirer(lieux[rang], nourriture, kg)
             retire += kg
             preleve[indice] += kg
             jours = durees[rang]

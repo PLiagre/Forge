@@ -50,6 +50,7 @@ from sim.model import (
     lire_habitants_par_metier,
     lire_ouvriers_du_jour,
     lire_stock_marchandise,
+    verser_au_stock,
 )
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
@@ -367,6 +368,10 @@ def _apply_fabrication(cell: Cell) -> None:
     """
     objet = _constantes.MARCHANDISE_OBJET
     matieres = _matieres_premieres_du_panier(cell)
+    if not matieres:
+        # Sans matière première, ni façonnage ni budget artisanal n'ont rien à prendre.
+        _lieux.accorder_fabrication(cell)
+        return
     for marchandise in matieres:
         stock = lire_stock_marchandise(cell, marchandise)
         if stock <= 0:
@@ -401,12 +406,20 @@ def _apply_extraction(cell: Cell, carte: dict) -> None:
         _lieux.accorder_marchandise(cell, ressource)
 
 
-def _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers=True):
-    """Retire du lieu ses ouvriers du jour ; le reliquat sans origine reste au bourg."""
+def _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers=True, ouvriers=None):
+    """Retire du lieu ses ouvriers du jour ; le reliquat sans origine reste au bourg.
+
+    `ouvriers` : les ouvriers du jour de chaque lieu de la cellule, déjà lus dans l'ordre de `cell.lieux`.
+    """
     compte = lire_ouvriers_du_jour(lieu) if compter_ouvriers else 0
     if lieu.rang != 0:
         return max(0, lieu.population - compte)
-    localises = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux) if compter_ouvriers else 0
+    if not compter_ouvriers:
+        localises = 0
+    elif ouvriers is None:
+        localises = sum(lire_ouvriers_du_jour(autre) for autre in cell.lieux)
+    else:
+        localises = sum(ouvriers)
     reliquat = metiers.get(_constantes.METIER_OUVRIERS, 0) - localises
     if reliquat < 0:
         reliquat = 0
@@ -453,8 +466,17 @@ def _calculer_parts(cell, recolte, carte, saison, compter_ouvriers=True):
         surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         cultives_par_km2 = km2_cultives / cell.area_km2
         besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
-        for lieu in cell.lieux:
-            paysans = _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers)
+        # Les ouvriers du jour de chaque lieu, lus une fois pour les lieux et pour le bourg.
+        ouvriers = ([lire_ouvriers_du_jour(lieu) for lieu in cell.lieux] if compter_ouvriers
+                    else [0] * len(cell.lieux))
+        for lieu, compte in zip(cell.lieux, ouvriers):
+            if lieu.rang:
+                # Hors du bourg, `_paysans_restes_au_lieu` sans son appel : le lieu moins ses ouvriers.
+                paysans = lieu.population - compte
+                if paysans < 0:
+                    paysans = 0
+            else:
+                paysans = _paysans_restes_au_lieu(cell, lieu, metiers, compter_ouvriers, ouvriers)
             if paysans < surfaces[lieu.rang] * besoin_par_km2:
                 locaux = dict(metiers) if lieu.rang == 0 else {}
                 locaux[_constantes.METIER_PAYSANS] = paysans
@@ -583,10 +605,10 @@ def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
                                 lire_stock_marchandise(cell, nourriture))
         return
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
+    surface = cell.area_km2
     for lieu in cell.lieux:
-        stock = max(0.0, lire_stock_marchandise(lieu, nourriture))
-        kg = recolte * surfaces[lieu.rang] / cell.area_km2
-        ecrire_stock_marchandise(lieu, nourriture, stock + kg)
+        kg = recolte * surfaces[lieu.rang] / surface
+        verser_au_stock(lieu, nourriture, kg)
         if quantites is not None:
             quantites[lieu.rang] = kg
 
@@ -1070,7 +1092,7 @@ def _sortir_par_bourg(cell: Cell, marchandise: str, quantite: float,
     """Ne remonte des champs que l'envoi effectif, après écrêtage."""
     if not cell.lieux:
         return
-    lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+    lieux = sorted(cell.lieux, key=_lieux.par_rang)
     bourg = lieux[0]
     local = max(0.0, lire_stock_marchandise(bourg, marchandise))
     manque = max(0.0, quantite - max(0.0, local - bourg.population * ration))
@@ -1084,7 +1106,7 @@ def _sortir_par_bourg(cell: Cell, marchandise: str, quantite: float,
         local += apport
         manque -= apport
     ecrire_stock_marchandise(bourg, marchandise, local - quantite)
-    _lieux.corriger_residu_au_bourg(cell, marchandise)
+    _lieux.corriger_residu_au_bourg(cell, marchandise, lieux)
 
 
 def _marchandises_du_monde(world) -> list[str]:
@@ -1115,7 +1137,7 @@ def _remplir_chemins_interieurs(world, chemins, facteurs) -> None:
         cell = world.cells.get(cid)
         if cell is None or len(cell.lieux) <= 1:
             continue
-        lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+        lieux = sorted(cell.lieux, key=_lieux.par_rang)
         facteur = _facteur_transport_pour_cellule(cid, carte) if carte else 1.0
         capacite = _constantes.capacite_chemins_interieurs_kg(1, facteur)
         chemins[cid] = _capacites_interieures(capacite, [lieu.rang for lieu in lieux[1:]], table)
@@ -1326,7 +1348,7 @@ def _apply_commerce(
             surplus = max(0.0, snapshot_stock[cid] - _garde(cid))
             cell = world.cells[cid]
             if surplus > 0 and cell.lieux:
-                lieux = sorted(cell.lieux, key=lambda lieu: lieu.rang)
+                lieux = sorted(cell.lieux, key=_lieux.par_rang)
                 locaux = [max(0.0, stock - lieu.population * consommation_unitaire)
                           for lieu, stock in zip(lieux, contenus_des_paniers(lieux, marchandise))]
                 if len(lieux) > 1 and locaux[0] < surplus:
@@ -1339,8 +1361,8 @@ def _apply_commerce(
                                 capacite, [lieu.rang for lieu in lieux[1:]], facteurs.get(cid))
                         else:
                             chemins[cid] = {lieu.rang: capacite for lieu in lieux[1:]}
-                    surplus = min(surplus, locaux[0] + sum(
-                        min(stock, chemins[cid][lieu.rang]) for lieu, stock in zip(lieux[1:], locaux[1:])))
+                    surplus = min(surplus, locaux[0] + sum([
+                        min(stock, chemins[cid][lieu.rang]) for lieu, stock in zip(lieux[1:], locaux[1:])]))
                 else:
                     surplus = min(surplus, locaux[0])
             offres[cid] = surplus
@@ -1552,7 +1574,7 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
     """Chaque lieu mange localement ; les chemins passent par le bourg."""
     if carte is None or not cell.lieux:
         return _apply_consumption_cellule(cell, carte)
-    lieux = cell.lieux if len(cell.lieux) == 1 else sorted(cell.lieux, key=lambda lieu: lieu.rang)
+    lieux = cell.lieux if len(cell.lieux) == 1 else sorted(cell.lieux, key=_lieux.par_rang)
     dette_avant = max(0.0, cell.food_deficit_kg)
     dettes = [lieu.dette_alimentaire_kg for lieu in lieux]
     if len(lieux) == 1:
@@ -1562,9 +1584,12 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
                                 lire_stock_marchandise(cell, _constantes.MARCHANDISE_NOURRITURE))
         _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penurie)
         return penurie
-    populations = _lieux.partager_si_necessaire(cell, cell.population, [lieu.population for lieu in lieux])
-    for lieu, population in zip(lieux, populations):
-        lieu.population = population
+    actuelles = [lieu.population for lieu in lieux]
+    populations = _lieux.partager_si_necessaire(cell, cell.population, actuelles)
+    # Des parts déjà alignées reviennent telles quelles : rien à réécrire.
+    if populations is not actuelles:
+        for lieu, population in zip(lieux, populations):
+            lieu.population = population
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     stocks = [stock if stock >= 0 else 0.0 for stock in contenus_des_paniers(lieux, nourriture)]
     total = max(0.0, lire_stock_marchandise(cell, nourriture))
@@ -1940,8 +1965,8 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
     transfers: list[tuple[int, int, int]] = []
 
     for cid, cell in world.cells.items():
-        population_source = (sum(lieu.population for lieu in cell.lieux
-                                 if lieu.population > 0 and lieu.duree_faim_ticks > 0)
+        population_source = (sum([lieu.population for lieu in cell.lieux
+                                  if lieu.population > 0 and lieu.duree_faim_ticks > 0])
                              if cell.lieux else snapshot_pop[cid] if penuries.get(cid, 0.0) > 0 else 0)
         if population_source <= 0:
             continue
@@ -1989,7 +2014,7 @@ def _apply_migration(world, penuries: dict[int, float]) -> None:
                 arrives[(cid, 0)] = delta
             elif delta < 0:
                 affames = {lieu.rang: lieu.population
-                           for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)
+                           for lieu in sorted(cell.lieux, key=_lieux.par_rang)
                            if lieu.population > 0 and lieu.duree_faim_ticks > 0}
                 retraits = dict(zip(affames, _lieux.partager(-delta, affames.values())))
                 for lieu in cell.lieux:
