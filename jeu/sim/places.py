@@ -191,9 +191,15 @@ def ancres_des_bourgs(monde, sieges=None) -> dict[int, tuple]:
 
 
 def places_du_monde(monde, sieges=None) -> dict[int, tuple[Place, ...]]:
-    """Les places des lieux de chaque cellule du monde, par `cell_id`."""
-    sieges = sieges_des_maisons() if sieges is None else sieges
-    ancres = ancres_des_bourgs(monde, sieges)
+    """Les places des lieux de chaque cellule du monde, par `cell_id`.
+
+    Un monde chargé garde les ancres de ses bourgs (`World.ancres_des_bourgs`) : les places restent
+    celles du chargement, même quand une conquête change le maître d'un bourg. Sans elles, les ancres
+    se lisent sur les maîtres d'aujourd'hui.
+    """
+    ancres = getattr(monde, "ancres_des_bourgs", None)
+    if ancres is None:
+        ancres = ancres_des_bourgs(monde, sieges_des_maisons() if sieges is None else sieges)
     places = {}
     for cid, cellule in sorted(monde.cells.items()):
         surfaces = [lieu.surface_km2 for lieu in lieux_de_cellule(cid, cellule.area_km2)]

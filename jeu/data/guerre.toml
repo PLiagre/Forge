@@ -1,0 +1,43 @@
+# La guerre (sim/guerre.py, MODELE.md « La guerre »).
+#
+# Une maison lève des hommes dans ses lieux, déclare la guerre à une maison,
+# fait marcher son armée de lieu en lieu, assiège une place et la prend quand
+# elle tombe. Chaque geste est une intention, du joueur ou de l'IA, par le même
+# chemin. Les soldats sont des habitants de leurs lieux, partis sous les armes ;
+# leurs vivres sortent du grenier de la maison et sont mangés ou rendus.
+#
+# Ce fichier se modifie sans toucher au code. Valeurs de niveau 2 : plausibles,
+# jamais sourcées.
+
+[levee]
+# Au plus cette part des habitants d'un lieu sous les armes, hommes déjà levés
+# compris ; multipliée par le facteur « levee » du lieu (data/modificateurs.toml).
+part_maximale = 0.10
+# Le bâtiment de province (data/batiments.toml) qui, achevé dans la cellule de la
+# capitale de la maison, ouvre la levée.
+batiment = "caserne"
+
+[marche]
+# Une armée à pied, ses chars de vivres compris, sur chemin de terre ; freinée par
+# le relief comme un convoi.
+km_par_jour = 20.0
+
+[vivres]
+# Ce qu'un homme sous les armes mange par jour, en kilogrammes de nourriture.
+ration_kg_par_homme_par_jour = 2.5
+# Ce qui manque à la ration se prend au lieu où l'armée se trouve : au plus cette
+# part de son stock de nourriture par jour.
+part_prise_par_jour = 0.05
+
+[siege]
+# Une place assiégée qui a faim depuis tant de jours tombe.
+jours_de_faim_avant_la_chute = 30
+
+[ia]
+# Les règles de l'IA (sim/ia.py), qui fait la guerre par les gestes du joueur.
+# Elle ne vise que les places à au plus tant de jours de marche de sa capitale.
+jours_de_marche_max = 20
+# Elle part avec des vivres pour la marche et tant de jours de siège.
+jours_de_siege_voulus = 30
+# Elle ne part pas avec moins d'hommes que cela.
+hommes_minimum = 200

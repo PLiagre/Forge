@@ -124,10 +124,14 @@ def test_donnees_les_evenements_viennent_des_donnees():
     assert [choix.nom for choix in famine.choix] == [choix["nom"] for choix in brut["choix"]]
 
 
-def _donnees_avec_levee():
+def _donnees_avec_une_grandeur_non_lue():
+    """Les données du dépôt, plus une grandeur que le moteur ne lit pas et un modificateur qui la vise."""
     donnees = M.charger_donnees()
-    definition = M.Definition("epreuve_levee", "Levée d'épreuve", "levee", 0.1, "pays", 0)
-    return M.Donnees(donnees.sources, donnees.grandeurs, {**donnees.definitions, "epreuve_levee": definition})
+    grandeur = M.Grandeur("epreuve_non_lue", "Épreuve", "une grandeur que le moteur ne lit pas", False,
+                          "le moteur ne la lit pas")
+    definition = M.Definition("epreuve_non_lue", "Grandeur non lue", "epreuve_non_lue", 0.1, "pays", 0)
+    return M.Donnees(donnees.sources, {**donnees.grandeurs, "epreuve_non_lue": grandeur},
+                     {**donnees.definitions, "epreuve_non_lue": definition})
 
 
 def _cas_donnees():
@@ -140,8 +144,8 @@ def _cas_donnees():
     def champ(nom, valeur):
         return lambda document: choix(document).__setitem__(nom, valeur)
 
-    def levee(document):
-        choix(document, 1)["modificateurs"] = ["epreuve_levee"]
+    def non_lue(document):
+        choix(document, 1)["modificateurs"] = ["epreuve_non_lue"]
 
     def quatre(document):
         document["evenements"]["famine"]["choix"].append(dict(choix(document, 2), id="fuir"))
@@ -163,7 +167,7 @@ def _cas_donnees():
         (champ("population", -100), "champ inconnu 'population'", None),
         (champ("fin_de_la_famine", True), "champ inconnu 'fin_de_la_famine'", None),
         (champ("stock", {"nourriture": 100}), "champ inconnu 'stock'", None),
-        (levee, "grandeur 'levee' que le moteur ne lit pas", _donnees_avec_levee),
+        (non_lue, "grandeur 'epreuve_non_lue' que le moteur ne lit pas", _donnees_avec_une_grandeur_non_lue),
         (champ("modificateurs", ["inconnu"]), "'inconnu' absent des données des modificateurs", None),
         (champ("modificateurs", ["moulin"]), "moulin se pose sur un cellule, un pays attendu", None),
         (champ("grenier", 0), "grenier : part du grenier dans ]0, 1] attendue, reçu 0", None),
@@ -658,6 +662,12 @@ def _reserve_lue(monde, maison):
             * habitants * c.RESERVE_VOULUE_PART_DES_HABITANTS) + salaires
 
 
+def _tient_des_lieux(monde, maison):
+    """Vrai si la maison tient encore un lieu, lu sur la table des routes : une conquête peut les lui prendre tous."""
+    routes = monde.routes_des_lieux
+    return maison in routes.noms and routes.noms.index(maison) in routes.maitre_idx
+
+
 def _lire_reponse(monde, maison, intention):
     """La raison de la réponse de l'IA, lue sur le monde au moment du dépôt, sans `sim/ia.py`."""
     regles = J.charger_regles()
@@ -669,7 +679,8 @@ def _lire_reponse(monde, maison, intention):
             "reserve_voulue_kg": reserve, "part_du_grenier": part}
     if intention["choix"] == OUVRIR:
         return {"regle": "grenier_au_dessus_de_sa_reserve", **base}
-    regle = "grenier_sous_sa_reserve" if intention["choix"] == TAXE else "ni_grain_ni_concorde"
+    regle = ("grenier_sous_sa_reserve" if intention["choix"] == TAXE else "ni_grain_ni_concorde"
+             if _tient_des_lieux(monde, maison) else "sans_lieu_a_secourir")
     return {"regle": regle, **base, "concorde": concorde, "minimum": minimum}
 
 
@@ -684,7 +695,9 @@ def _controler_les_reponses(releve, lectures):
         part = raison["part_du_grenier"]
         grenier, reserve = raison["grenier_nourriture_kg"], raison["reserve_voulue_kg"]
         choix = entree["intention"]["choix"]
-        if raison["regle"] == "grenier_au_dessus_de_sa_reserve":
+        if raison["regle"] == "sans_lieu_a_secourir":
+            assert choix == LAISSER and reserve == 0
+        elif raison["regle"] == "grenier_au_dessus_de_sa_reserve":
             assert choix == OUVRIR and grenier * (1 - part) >= reserve
         elif raison["regle"] == "grenier_sous_sa_reserve":
             assert choix == TAXE and grenier < reserve and raison["concorde"] > raison["minimum"]
@@ -702,11 +715,18 @@ def IA420(_decor):
     """`_simulate(420, 0, ia=True)` : le relevé, la raison lue au dépôt de chaque réponse, et le monde juste avant la première."""
     from sim import __main__ as cli
     from sim import ia as moteur_ia
-    lectures, gardee = {}, {}
+    lectures, gardee, causes = {}, {}, {}
     reel = cli.jouer_ia
 
     def enveloppe(monde, releve, maisons=None):
+        # Le monde gardé est celui d'avant la première réponse d'une maison qui tient encore des lieux :
+        # les trois choix lui sont ouverts.
+        # La cause se lit le jour où l'événement s'ouvre : une conquête peut ensuite ôter ses lieux à la maison.
+        for maison, evenement in monde.evenements.items():
+            if evenement["ouvert"] == monde.ticks_ecoules and (maison, evenement["ouvert"]) not in causes:
+                causes[maison, evenement["ouvert"]] = _cause_de(monde, maison)
         if "monde" not in gardee and any(p["intention"]["type"] == "repondre_evenement"
+                                         and _tient_des_lieux(monde, p["intention"]["maison"])
                                          for p in moteur_ia.decider_intentions(monde, releve, maisons)):
             gardee["monde"] = copy.deepcopy(monde)
         deja = len(releve)
@@ -716,7 +736,7 @@ def IA420(_decor):
                 maison = entree["intention"]["maison"]
                 ouvert = monde.evenements[maison]["ouvert"]
                 lectures[(entree["tick"], maison)] = (
-                    _lire_reponse(monde, maison, entree["intention"]), _cause_de(monde, maison, ouvert),
+                    _lire_reponse(monde, maison, entree["intention"]), causes[maison, ouvert],
                     [tuple(lieu) for lieu in monde.evenements[maison]["lieux"]])
 
     with pytest.MonkeyPatch.context() as patch:
@@ -776,7 +796,8 @@ def test_ia_et_joueur_un_releve_sans_sa_premiere_reponse_donne_un_autre_monde(IA
     releve = []
     avec = _copie(depart)
     moteur_ia.jouer_ia(avec, releve, toutes_les_maisons_de_l_ia(avec))
-    premiere = next(e for e in releve if e["intention"]["type"] == "repondre_evenement")
+    premiere = next(e for e in releve if e["intention"]["type"] == "repondre_evenement"
+                    and _tient_des_lieux(depart, e["intention"]["maison"]))
     sans = _copie(depart)
     for entree in releve:
         if entree is not premiere and "refus" not in entree:
@@ -814,7 +835,8 @@ def test_ia_et_joueur_une_ia_qui_ecrit_sa_reponse_dans_le_monde_laisse_le_releve
 def test_ia_et_joueur_les_trois_regles_donnent_le_meme_monde(IA420, facteur, concorde, attendu):
     from sim import ia as moteur_ia
     from sim.capitales import toutes_les_maisons_de_l_ia
-    premiere = next(e for e in IA420.releve if e["intention"]["type"] == "repondre_evenement")
+    premiere = next(e for e in IA420.releve if e["intention"]["type"] == "repondre_evenement"
+                    and e["tick"] == IA420.avant.ticks_ecoules and _tient_des_lieux(IA420.avant, e["intention"]["maison"]))
     cle = premiere["intention"]["maison"]
 
     def forcer(monde):

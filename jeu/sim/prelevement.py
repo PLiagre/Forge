@@ -74,6 +74,10 @@ def prelever(monde, recoltes) -> None:
                     mange[indice] += kg - reste
                 charges[cle] = reste
         arrives_secours = monde.secours.pop(tick, None)
+        if arrives_secours and getattr(monde, "armees", None):
+            # Le secours qui arrive au bourg d'une place assiégée attend le lendemain.
+            from sim import guerre
+            arrives_secours = guerre.retenir_les_secours(monde, arrives_secours)
         if arrives_secours:
             _livrer_secours(monde, arrives_secours)
     convois = monde.convois

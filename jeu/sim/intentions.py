@@ -26,6 +26,11 @@ TYPE_DEPENSER_JAUGE = "depenser_jauge"
 TYPE_BATIR_DANS_UNE_PROVINCE = "batir_dans_une_province"
 TYPE_AMELIORER_UNE_PROVINCE = "ameliorer_une_province"
 TYPE_REPONDRE_EVENEMENT = "repondre_evenement"
+TYPE_DECLARER_GUERRE = "declarer_guerre"
+TYPE_LEVER_ARMEE = "lever_armee"
+TYPE_MARCHER = "marcher"
+TYPE_ASSIEGER = "assieger"
+TYPE_RENVOYER_ARMEE = "renvoyer_armee"
 NATURES_BATIMENT = ("maison", "scierie", "four")
 
 CHAMPS_OBLIGATOIRES = {
@@ -39,6 +44,11 @@ CHAMPS_OBLIGATOIRES = {
     TYPE_BATIR_DANS_UNE_PROVINCE: ("type", "maison", "cell", "nature"),
     TYPE_AMELIORER_UNE_PROVINCE: ("type", "maison", "cell"),
     TYPE_REPONDRE_EVENEMENT: ("type", "maison", "choix"),
+    TYPE_DECLARER_GUERRE: ("type", "maison", "cible"),
+    TYPE_LEVER_ARMEE: ("type", "maison", "lieux", "vivres_kg"),
+    TYPE_MARCHER: ("type", "maison", "armee", "cell", "rang"),
+    TYPE_ASSIEGER: ("type", "maison", "armee"),
+    TYPE_RENVOYER_ARMEE: ("type", "maison", "armee"),
 }
 
 
@@ -114,12 +124,15 @@ class OuvrirGrenier:
 def grain_libre(monde, maison):
     """Le grain du grenier de la maison, moins celui que ses ouvertures déjà déposées pour le tick ont engagé.
 
-    Les `OuvrirGrenier` et les `RepondreEvenement` en attente comptent : le grenier ne paie jamais deux fois.
+    Les `OuvrirGrenier`, les `RepondreEvenement` et les vivres des `LeverArmee` en attente comptent :
+    le grenier ne paie jamais deux fois.
     """
     reste = monde.greniers[maison].get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
     for precedent in monde.intentions_en_attente:
         if isinstance(precedent, (OuvrirGrenier, RepondreEvenement)) and precedent.maison == maison:
             reste -= precedent.kg
+        elif isinstance(precedent, LeverArmee) and precedent.maison == maison:
+            reste -= precedent.vivres_kg
     return reste
 
 
@@ -296,6 +309,109 @@ def _batir_dans_une_province(monde, intention):
     batir = BatirDansUneProvince(maison, cell_id, nature)
     monde.intentions_en_attente.append(batir)
     return batir
+
+
+@dataclass(frozen=True)
+class DeclarerGuerre:
+    maison: str
+    cible: str
+
+    def appliquer(self, monde):
+        """Ouvre la guerre (sim.guerre), au tick suivant le dépôt."""
+        from sim import guerre
+        guerre.declarer(monde, self.maison, self.cible)
+
+
+@dataclass(frozen=True)
+class LeverArmee:
+    maison: str
+    lieux: tuple  # ((cell_id, rang, hommes), …), triés
+    vivres_kg: int | float
+
+    def appliquer(self, monde):
+        """Retire les hommes des lieux et les vivres du grenier ; l'armée naît au bourg de la capitale."""
+        from sim import guerre
+        guerre.lever(monde, self.maison, self.lieux, self.vivres_kg)
+
+
+@dataclass(frozen=True)
+class Marcher:
+    maison: str
+    armee: int
+    cell_id: int
+    rang: int
+
+    def appliquer(self, monde):
+        """Donne à l'armée sa destination et sa route ; elle marche au maillon de la guerre."""
+        from sim import guerre
+        guerre.marcher(monde, self.armee, self.cell_id, self.rang)
+
+
+@dataclass(frozen=True)
+class Assieger:
+    maison: str
+    armee: int
+
+    def appliquer(self, monde):
+        from sim import guerre
+        guerre.assieger(monde, self.armee)
+
+
+@dataclass(frozen=True)
+class RenvoyerArmee:
+    maison: str
+    armee: int
+
+    def appliquer(self, monde):
+        """Les vivants rentrent dans leurs lieux, les vivres restants au grenier."""
+        from sim import guerre
+        guerre.renvoyer(monde, self.armee)
+
+
+_GESTES_D_UNE_ARMEE = (Marcher, Assieger, RenvoyerArmee)
+
+
+def _declarees(monde):
+    return [(i.maison, i.cible) for i in monde.intentions_en_attente if isinstance(i, DeclarerGuerre)]
+
+
+def _geste_de_guerre(monde, intention):
+    """Les cinq gestes de la guerre : refusés avec leur raison, sans rien écrire, ou mis en attente."""
+    from sim import guerre
+    type_intention, maison = intention["type"], intention["maison"]
+    if type_intention == TYPE_DECLARER_GUERRE:
+        raison = guerre.verifier_declaration(monde, maison, intention["cible"], _declarees(monde))
+        geste = None if raison is not None else DeclarerGuerre(maison, intention["cible"])
+    elif type_intention == TYPE_LEVER_ARMEE:
+        lieux, raison = guerre.lire_lieux_de_levee(intention["lieux"])
+        if raison is None:
+            en_attente = [entree for i in monde.intentions_en_attente if isinstance(i, LeverArmee)
+                          for entree in i.lieux]
+            libre = grain_libre(monde, maison) if isinstance(maison, str) and maison in monde.greniers else 0.0
+            raison = guerre.verifier_levee(monde, maison, lieux, intention["vivres_kg"], guerre.charger_regles(),
+                                           libre, en_attente)
+        geste = None if raison is not None else LeverArmee(maison, lieux, intention["vivres_kg"])
+    else:
+        identifiant = intention["armee"]
+        if any(isinstance(i, _GESTES_D_UNE_ARMEE) and i.armee == identifiant and not isinstance(identifiant, bool)
+               for i in monde.intentions_en_attente):
+            raise IntentionRefusee(f"un geste est déjà déposé pour l'armée {identifiant} ce jour")
+        if type_intention == TYPE_MARCHER:
+            raison = guerre.verifier_marche(monde, maison, identifiant, intention["cell"], intention["rang"])
+            geste = None if raison is not None else Marcher(maison, identifiant, intention["cell"], intention["rang"])
+        elif type_intention == TYPE_ASSIEGER:
+            raison = guerre.verifier_siege(monde, maison, identifiant, _declarees(monde))
+            geste = None if raison is not None else Assieger(maison, identifiant)
+        else:
+            raison = guerre.verifier_renvoi(monde, maison, identifiant)
+            geste = None if raison is not None else RenvoyerArmee(maison, identifiant)
+    if raison is not None:
+        raise IntentionRefusee(raison)
+    monde.intentions_en_attente.append(geste)
+    return geste
+
+
+_TYPES_DE_GUERRE = (TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE)
 
 
 def _fixer_part(monde, intention):
@@ -583,6 +699,8 @@ def recevoir_intention(monde, intention):
         return _batir_dans_une_province(monde, intention)
     if type_intention == TYPE_AMELIORER_UNE_PROVINCE:
         return _ameliorer_une_province(monde, intention)
+    if type_intention in _TYPES_DE_GUERRE:
+        return _geste_de_guerre(monde, intention)
     if type_intention == TYPE_POSER_BATIMENT:
         pose = _pose_batiment(monde, intention)
         contour = next(p.contour for p in monde.plans[pose.cell_id].parcelles if p.identifiant == pose.parcelle)

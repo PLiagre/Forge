@@ -99,7 +99,6 @@ def test_les_regles_viennent_des_donnees(regles):
 
 @pytest.mark.parametrize("chemin, valeur, motif", [
     (("jauges", "concorde", "modificateurs"), {"nourriture_kg": 0.1}, "ne lit pas"),
-    (("jauges", "concorde", "modificateurs"), {"levee": 0.1}, "ne lit pas"),
     (("jauges", "concorde", "depart"), 9, "entre minimum et maximum"),
     (("points", "plume", "domaine"), "astrologie", "domaines"),
     (("gestes", "affermir_la_concorde", "cout"), {"grain": 50}, "Plume"),
@@ -115,6 +114,22 @@ def test_une_regle_qui_ne_tient_pas_est_refusee(chemin, valeur, motif):
     cible[chemin[-1]] = valeur
     with pytest.raises(J.JaugeInvalide, match=motif):
         J.lire_regles(document)
+
+
+def test_une_jauge_sur_une_grandeur_que_le_moteur_ne_lit_pas_est_refusee():
+    import tomllib
+    with open(J._CHEMIN, "rb") as fichier:
+        document = tomllib.load(fichier)
+    donnees = M.charger_donnees()
+    avec = M.Donnees(donnees.sources, {**donnees.grandeurs, "epreuve_non_lue": M.Grandeur(
+        "epreuve_non_lue", "Épreuve", "une grandeur que le moteur ne lit pas", False, "le moteur ne la lit pas")},
+        donnees.definitions)
+    document["jauges"]["concorde"]["modificateurs"] = {"epreuve_non_lue": 0.1}
+    with pytest.raises(J.JaugeInvalide, match="grandeur 'epreuve_non_lue' que le moteur ne lit pas"):
+        J.lire_regles(document, avec)
+    # Contre-épreuve : la levée, lue par la guerre, passe.
+    document["jauges"]["concorde"]["modificateurs"] = {"levee": 0.1}
+    assert J.lire_regles(document, avec).jauges["concorde"]["modificateurs"] == {"levee": 0.1}
 
 
 def test_les_competences_des_chefs_de_1400(depart, regles):
@@ -718,6 +733,12 @@ def _cas_de_donnees():
             return M.Donnees(donnees.sources, donnees.grandeurs, {**donnees.definitions, "jauge-epreuve": definition})
         return change
 
+    def sur_une_grandeur_non_lue(document, donnees):
+        avec = modificateur(grandeur="epreuve_non_lue")(document, donnees)
+        grandeur = M.Grandeur("epreuve_non_lue", "Épreuve", "une grandeur que le moteur ne lit pas", False,
+                              "le moteur ne la lit pas")
+        return M.Donnees(avec.sources, {**avec.grandeurs, "epreuve_non_lue": grandeur}, avec.definitions)
+
     def une_jauge_province(document, donnees):
         document["jauges"]["province"] = dict(document["jauges"]["concorde"])
 
@@ -729,7 +750,7 @@ def _cas_de_donnees():
         (table(reserve="grain"), "réserve"),
         (table(modificateur="province-inventee"), "absent des données"),
         (modificateur(portee="pays"), "se pose sur un pays"),
-        (modificateur(grandeur="levee"), "que le moteur ne lit pas"),
+        (sur_une_grandeur_non_lue, "que le moteur ne lit pas"),
         (une_jauge_province, "nom réservé"),
     ]
 

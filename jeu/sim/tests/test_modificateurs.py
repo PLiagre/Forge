@@ -96,7 +96,8 @@ def _recoltes_mesurees(monkeypatch):
 def test_les_donnees_disent_les_grandeurs_du_moteur(donnees):
     assert set(donnees.grandeurs) == {"recolte", "prelevement", "natalite", "mortalite", "departs",
                                       "cout_chantier", "duree_chantier", "levee", "commerce"}
-    assert {g for g, grandeur in donnees.grandeurs.items() if not grandeur.lue} == {"levee"}
+    # La levée est lue depuis la guerre (sim/guerre.py) : le moteur lit toutes les grandeurs déclarées.
+    assert {g for g, grandeur in donnees.grandeurs.items() if not grandeur.lue} == set()
     assert set(donnees.sources) == {"batiment", "loi", "idee", "conseiller", "evenement", "jauge"}
     moulin = donnees.definitions["moulin"]
     assert (moulin.grandeur, moulin.valeur, moulin.portee, moulin.duree_jours) == ("recolte", 0.10, "cellule", 0)
@@ -139,9 +140,12 @@ def test_une_pose_sans_source_ou_hors_de_sa_portee_est_refusee(depart, donnees):
             M.poser(monde, "moulin", "batiment:x", cible, donnees)
     with pytest.raises(M.ModificateurInvalide, match="inconnu"):
         M.poser(monde, "moulin-inventé", "batiment:x", {"cellule": paris}, donnees)
-    levee = _avec(donnees, grandeur="levee", valeur=0.2)
-    with pytest.raises(M.ModificateurInvalide, match="jalon 7"):
-        M.poser(monde, "epreuve", "loi:levee", {"cellule": paris}, levee)
+    non_lue = _avec(donnees, grandeur="epreuve_non_lue", valeur=0.2)
+    non_lue = M.Donnees(non_lue.sources, {**non_lue.grandeurs, "epreuve_non_lue": M.Grandeur(
+        "epreuve_non_lue", "Épreuve", "une grandeur que le moteur ne lit pas", False, "le moteur ne la lit pas")},
+        non_lue.definitions)
+    with pytest.raises(M.ModificateurInvalide, match="le moteur ne la lit pas"):
+        M.poser(monde, "epreuve", "loi:epreuve", {"cellule": paris}, non_lue)
     assert monde.modificateurs == [] and monde.to_dict() == depart.to_dict()
     pose = M.poser(monde, "moulin", "batiment:moulin-1", {"cellule": paris}, donnees)
     assert monde.modificateurs == [pose] and pose.debut == 0 and pose.fin is None

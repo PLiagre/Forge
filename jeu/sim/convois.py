@@ -145,6 +145,38 @@ def routes_des_lieux(monde, places) -> TableRoutes:
     return TableRoutes(_avec_jours(monde, places, entrees))
 
 
+def changer_de_maitre(monde, cell_id, rangs, maitre) -> None:
+    """Réécrit les routes de ces lieux vers le siège de leur nouveau maître, sans toucher aux autres lieux.
+
+    Le nouveau maître est déjà dans les noms de la table : seule une maison qui tient sa capitale
+    prend une place, et les noms sont ceux des maîtres du chargement. Les places sont celles du
+    chargement (`World.ancres_des_bourgs`) : une conquête ne déplace pas un bourg.
+    """
+    routes = monde.routes_des_lieux
+    if not rangs or not routes:
+        return
+    if maitre not in routes.noms:
+        raise RouteInvalide(f"lieu ({cell_id}, {rangs[0]}) : maître {maitre!r} absent des routes")
+    maison = next((m for m in monde.maisons if m.id == maitre), None)
+    if maison is None or maison.cell_id is None:
+        raise RouteInvalide(f"lieu ({cell_id}, {rangs[0]}) : maître {maitre!r} sans siège sur la carte")
+    from sim.routes_interieures import _places_de
+    places = {cell_id: _places_de(monde, cell_id)} if maison.cell_id == cell_id else {}
+    entrees = [(cell_id, rang, maitre, maison.cell_id, maison.rang) for rang in rangs]
+    indice = routes.noms.index(maitre)
+    if routes.index is None:
+        routes.index = {(routes.cids[i], routes.rangs[i]): i for i in range(len(routes.jours))}
+    for cid, rang, _nom, siege_cid, siege_rang, jours in _avec_jours(monde, places, entrees):
+        i = routes.index.get((cid, rang))
+        if i is None:
+            raise RouteInvalide(f"lieu ({cid}, {rang}) : absent des routes")
+        routes.maitre_idx[i], routes.siege_cids[i], routes.siege_rangs[i], routes.jours[i] = (
+            indice, siege_cid, siege_rang, jours)
+        indices, durees = routes.par_cellule[cid]
+        indices[rang], durees[rang] = indice, jours
+        routes.jours_max = max(routes.jours_max, jours)
+
+
 @dataclasses.dataclass
 class TableDus:
     """Routes des vassaux, raisons des retenues et index dense pour le tick."""

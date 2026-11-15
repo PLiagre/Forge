@@ -916,7 +916,9 @@ def test_route_sans_maitre(monkeypatch):
     assert World({1: Cell(1, 1.0, 0)}, []).ancres_des_bourgs is None
 
     def impur(cible, rng, numero):
-        places_du_monde(cible)
+        # Les places du monde chargé suivent ses ancres gardées ; les ancres, elles, se lisent sur les maîtres.
+        from sim.places import ancres_des_bourgs
+        ancres_des_bourgs(cible)
         return engine.tick(cible, rng, numero)
 
     with pytest.raises(RuntimeError, match="maître lu"):

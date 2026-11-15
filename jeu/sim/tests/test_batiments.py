@@ -261,20 +261,21 @@ def _batir(nature, cid, maison):
     return _moulin(cid, maison) | {"nature": nature}
 
 
-def test_les_donnees_des_trois_batiments():
+def test_les_donnees_des_quatre_batiments():
     types = B.charger_types()
-    assert sorted(types) == ["grange", "marche", "moulin"]
+    assert sorted(types) == ["caserne", "grange", "marche", "moulin"]
+    # La caserne ne pose aucun modificateur : achevée dans la capitale, elle ouvre la levée (sim/guerre.py).
     attendu = {"moulin": (600, 20, 0, ("moulin",), True, "m"), "marche": (900, 30, 0, ("marche",), True, "m"),
-               "grange": (400, 20, 0, ("grange",), True, "f")}
+               "grange": (400, 20, 0, ("grange",), True, "f"), "caserne": (800, 25, 0, (), True, "f")}
     assert {n: (t.journees, t.bras_par_jour, t.pieces, t.modificateurs, t.un_par_cellule, t.genre)
             for n, t in types.items()} == attendu
     definitions = M.charger_donnees().definitions
     assert [(definitions[n].grandeur, definitions[n].valeur, definitions[n].portee, definitions[n].duree_jours)
             for n in ("moulin", "marche", "grange")] == [
         ("recolte", 0.10, "cellule", 0), ("commerce", 0.20, "cellule", 0), ("departs", -0.25, "cellule", 0)]
-    # Au salaire de base : 1800, 2700 et 1200 kg.
-    assert [t.journees * c.SALAIRE_JOURNEE_KG for t in (types["moulin"], types["marche"], types["grange"])] == [
-        1800, 2700, 1200]
+    # Au salaire de base : 1800, 2700, 1200 et 2400 kg.
+    assert [t.journees * c.SALAIRE_JOURNEE_KG
+            for t in (types["moulin"], types["marche"], types["grange"], types["caserne"])] == [1800, 2700, 1200, 2400]
 
 
 def test_les_donnees_refusent_une_grange_de_lieu_et_un_genre_inconnu():
@@ -528,8 +529,14 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
     # Le moulin d'abord : le grain nourrit tout le reste.
     premiere = _proposees(copy.deepcopy(monde), maisons, cle)
     assert [e["intention"]["nature"] for e in premiere] == ["moulin"]
-    # Un moulin achevé, des départs nets sur la fenêtre : la grange.
+    # Un moulin achevé, une place à prendre à portée : la caserne, qui ouvre la levée.
     _bati(monde, cle, cid, "moulin")
+    seconde = _proposees(copy.deepcopy(monde), maisons, cle)
+    assert [(e["intention"]["nature"], e["raison"]["regle"]) for e in seconde] == [
+        ("caserne", "caserne_pour_la_guerre")] and "refus" not in seconde[0]
+    assert seconde[0]["raison"] == _lire_batiment(copy.deepcopy(monde), cle, seconde[0]["intention"])
+    # La caserne achevée, des départs nets sur la fenêtre : la grange.
+    _bati(monde, cle, cid, "caserne")
     joueur = copy.deepcopy(monde)
     sans_ia = copy.deepcopy(monde)
     tout = _jouer_l_ia(monde, maisons)
@@ -559,6 +566,7 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
     # Le moulin et la grange achevés : le marché, si la province commerce.
     monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
     _bati(monde, cle, cid, "moulin")
+    _bati(monde, cle, cid, "caserne")
     _bati(monde, cle, cid, "grange")
     joueur = copy.deepcopy(monde)
     sans_ia = copy.deepcopy(monde)
@@ -589,6 +597,7 @@ def test_l_ia_ne_propose_rien_pendant_un_chantier_ni_sans_raison(depart):
     monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
     cid = grande.cell_id
     _bati(monde, cle, cid, "moulin")
+    _bati(monde, cle, cid, "caserne")
     # Un chantier de province en cours : un chantier à la fois.
     en_cours = copy.deepcopy(monde)
     B.poser(en_cours, cle, cid, "grange")

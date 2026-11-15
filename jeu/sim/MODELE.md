@@ -22,7 +22,8 @@ part. À chaque tick, dans cet ordre :
    tick refuse tout écart avant la première mutation.
 2. **Intentions** (`_appliquer_intentions`) — les intentions en attente
    s'appliquent dans l'ordre du dépôt : un choix de départ devient la maison
-   du joueur, une route, une parcelle ou un bâtiment entre au plan en chantier ;
+   du joueur, une route, une parcelle ou un bâtiment entre au plan en chantier,
+   une guerre se déclare, une armée se lève, reçoit sa route, assiège ou rentre ;
    sans cellule ni aléa.
 3. **Greniers** (`_appliquer_pertes_greniers`) — chaque réserve de maison
    perd une part de sa nourriture ; les habitants n'y mangent pas.
@@ -30,6 +31,9 @@ part. À chaque tick, dans cet ordre :
    puis les rues, les parcelles et enfin les bâtiments dont la parcelle est
    prête prennent leurs bras et comptent les journées fournies.
    **Ateliers** (`_affecter_artisans`) — les scieries et fours achevés prennent les paysans restants.
+   **Bâtiments de province** (`batiments.avancer`) — leurs chantiers prennent bras et grain.
+   **Guerre** (`guerre.avancer`) — la place assiégée et affamée tombe, les armées
+   marchent, mangent et meurent de faim (« La guerre »).
    **Reprise des écritures extérieures** (`repartir_sur_les_lieux`) — avant le
    premier maillon qui lit les lieux, aligne leurs totaux à proportion de leur
    contenu ; aucun partage général après migration.
@@ -46,7 +50,8 @@ part. À chaque tick, dans cet ordre :
    `facteur_eau` de l'eau de la cellule — sa pluie plus la crue du fleuve — et
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
    on ne récolte pas en janvier comme en juin, ni sans eau comme sous une
-   pluie suffisante.
+   pluie suffisante. Devant une place assiégée, la récolte du jour de son
+   bourg passe aux vivres de l'assiégeant (`guerre.prendre_la_recolte`).
 8. **Prélèvement** (`prelevement.prelever`) — perte des charges en route,
    arrivée au grenier, puis départ de la part de la récolte fraîche.
 9. **Commerce** — prépare d'abord les **chemins intérieurs**
@@ -148,6 +153,9 @@ Ce que le monde ne sait toujours pas faire, et qu'aucun lot n'a encore ouvert :
   ne font rien une fois achevés ; un bâtiment posé se bâtit à la journée.
 - **décrire un calendrier complet.** La date dérivée ne dit que l'année et le
   rang du jour dans cette année : elle ne porte ni mois, ni semaine, ni fête.
+- **livrer bataille, faire la paix.** Une maison lève, déclare, marche, assiège
+  et prend une place (« La guerre ») ; deux armées au même lieu ne se battent
+  pas, une guerre ne finit pas, et nul allié n'y entre.
 
 ## Le mur qui sépare la couche 1 de la couche 2
 
@@ -2234,6 +2242,11 @@ Une autre maison connue reçoit exactement « ce lieu n'est pas à toi : <maîtr
 Sous `verrou_tick`, HTTP exige un départ appliqué, copie le JSON et impose `maison_du_joueur` avant le dépôt journalisé ; refus 400 sans tick ni publication.
 Le dépôt commun et `--gestes` exigent une maison explicite, même sans départ. Le tick ne revérifie pas le droit ; le plan ne stocke aucune propriété.
 
+Les cinq gestes de la guerre (`declarer_guerre`, `lever_armee`, `marcher`, `assieger`, `renvoyer_armee`)
+sont décrits dans « La guerre » ; HTTP ne les accepte que pour `maison_du_joueur`, après un départ appliqué.
+Le grain libre d'une maison (`intentions.grain_libre`) retire de son grenier les ouvertures, les réponses
+et les vivres des levées déjà déposés pour le tick : le grenier ne paie jamais deux fois.
+
 `ouvrir_grenier` accepte exactement `{"type": "ouvrir_grenier", "maison": <id du registre>, "kg": <quantité>}`.
 Tout champ manquant ou inconnu, y compris `foyers`, est refusé. Les refus
 suivants lèvent `IntentionRefusee`, dans cet ordre, sans changer l'attente,
@@ -2936,6 +2949,36 @@ hors carte ou pour la maison du joueur, elle se tait. Aucun budget annuel ou
 mensuel ne l'empêche de rouvrir le lendemain. Niveau 2, plausible, jamais
 sourcé. Le réglage de la part, lui, reste mensuel.
 
+**La guerre**, par les cinq gestes du joueur (« La guerre »), niveau 2. La
+place à prendre est le bourg le plus proche de sa capitale, en jours de marche
+(`guerre.jours_de_marche`, au plus `ia.jours_de_marche_max`), que tient une
+maison d'une autre racine de suzeraineté (`guerre.racine`) ; à égalité, le
+moins peuplé, puis le plus petit `cell_id`. Une place à prendre fait bâtir la
+caserne après le moulin (« Les bâtiments de province »). Le jour de sa part, si
+elle ne trace pas de route, n'ouvre pas son grenier, ne répond pas à un
+événement et ne bâtit pas, une maison dont la caserne est achevée dans sa
+capitale tenue, sans armée en campagne ni levée déposée, lève sur ses lieux
+de la cellule de sa capitale, chacun à sa part maximale, autant d'hommes que
+son grenier en nourrit au-delà de sa réserve voulue pour la marche et
+`ia.jours_de_siege_voulus` jours de siège, jamais moins que
+`ia.hommes_minimum`. Elle dépose `declarer_guerre` au maître de la place (si
+elle n'est pas déjà en guerre avec lui), puis `lever_armee`, sous la raison
+`guerre_a_la_place_voisine` : `cible`, `place`, `jours_de_marche`,
+`habitants_de_la_place`, `hommes`, `grenier_nourriture_kg`,
+`reserve_voulue_kg`, `vivres_kg`. Chaque jour ensuite, chaque armée fait au
+plus un geste, la première règle qui tient : elle rentre si elle a pris une
+place (`place_prise`) ou si, sans vivres, elle a une dette (`armee_affamee`) ;
+elle ne fait rien quand elle assiège ou marche ; à un bourg ennemi, elle
+l'assiège (`place_ennemie`) ; sinon elle marche vers la plus proche place
+d'une maison avec qui elle est en guerre (`marche_vers_la_place`), ou rentre
+s'il n'y en a plus à portée (`sans_place_a_prendre`). Chaque raison porte
+l'armée, son lieu, ses hommes, ses vivres et sa dette. Les vérifications sont
+celles du dépôt (`verifier_levee`, `verifier_declaration`, `verifier_siege`,
+`verifier_marche`) : l'IA ne dépose pas un geste refusé. Mesuré sur la graine
+0, un an : quinze casernes avant le cent-trentième jour, dix-neuf guerres,
+dix places prises, aucun geste de guerre refusé ; les guerres partent après
+la moisson, quand les greniers paient les vivres.
+
 `python3 -m sim.service --ia` (ou `ServeurMonde(…, ia=True)`) active un relevé
 neuf hors de `World`. Sous `verrou_tick`, `jouer_ia` précède chaque tick,
 manuel ou cadencé ; les intentions du joueur déjà reçues précèdent les dépôts IA.
@@ -3300,8 +3343,8 @@ Le registre des modificateurs :
 
 **Les données.** `data/modificateurs.toml` déclare les sources admises
 (`batiment`, `loi`, `idee`, `conseiller`, `evenement`, `jauge`), les grandeurs
-du moteur (chacune avec son nom et ce qu'elle dit, `lue = false` et sa raison
-pour celle que le moteur ne lit pas encore) et les définitions : nom,
+du moteur (chacune avec son nom et ce qu'elle dit ; `lue = false` et sa raison
+pour une grandeur que le moteur ne lirait pas encore : aucune aujourd'hui) et les définitions : nom,
 grandeur, valeur (une fraction : 0,10 vaut +10 %), portée (`pays`, `cellule`
 — la province, à l'échelle d'EU4 — ou `lieu`) et durée en jours (0 : tant que
 sa source tient). `lire_donnees` refuse une grandeur inconnue (« le moteur ne
@@ -3312,7 +3355,7 @@ ensemble. Le fichier se modifie sans toucher au code ; il se relit à chaque
 
 **Poser, retirer, expirer.** `poser(monde, identifiant, source, cible)` refuse
 une source absente ou hors des sources admises (« sorte:identifiant »), une
-grandeur que le moteur ne lit pas (la levée), une cible
+grandeur que le moteur ne lit pas (`lue = false`), une cible
 inconnue ou d'une autre portée que la définition. La cible garde la seule clé
 spatiale : `("pays", identifiant de maison)`, `("cellule", cell_id)` ou
 `("lieu", cell_id, rang)`. La pose recopie la définition (nom, grandeur,
@@ -3346,7 +3389,7 @@ directement.
 | `cout_chantier` | `chantiers.salaire_journee_kg`, lu au bourg | le grain d'une journée, pris au grenier du maître et versé au bourg ; l'IA le lit pour sa réserve et le coût de sa route |
 | `duree_chantier` | `modificateurs.ajuster_journees`, lu au bourg quand l'intention s'applique | les journées requises, arrondies au-dessus, au moins une ; l'IA le lit pour sa route |
 | `commerce` | `engine._capacite_transport_arete_kg`, `_capacites_aretes`, lu au bourg de chaque côté | la capacité d'une frontière terrestre, multipliée par le facteur de chaque cellule |
-| `levee` | pas encore lue | refusée à la pose, jusqu'à la guerre |
+| `levee` | `guerre.levee_maximale`, au dépôt d'une levée | la part maximale des habitants d'un lieu sous les armes (« La guerre ») |
 
 **L'économie reste physique.** Aucune grandeur n'est un stock : un
 modificateur ne peut qu'accélérer ou ralentir un flux que le moteur calcule
@@ -3510,7 +3553,9 @@ monde qui la fait durer ou cesser.
 - **L'IA.** `_proposition_de_reponse` : le jour du mois où elle règle sa part
   (après son geste de jauge du jour, sans empêcher un autre geste), une maison de
   l'IA qui a un événement en attente dépose une réponse, le premier choix qui
-  tient : (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
+  tient : (0) `laisser_faire` si elle ne tient plus aucun lieu (une conquête les lui
+  a pris : son grain n'a plus où aller), raison `sans_lieu_a_secourir` (plus
+  `concorde` et `minimum`) ; (1) `ouvrir_les_greniers` si `grenier × (1 − part) ≥ réserve voulue`
   (et un grenier non vide), raison `grenier_au_dessus_de_sa_reserve` ; (2) sinon
   `lever_une_taxe_de_disette` si `grenier < réserve voulue` et que sa Concorde est
   au-dessus du minimum de la jauge, raison `grenier_sous_sa_reserve` (plus
@@ -3673,8 +3718,8 @@ maison, et seulement s'il diffère du départ ; `to_dict()` le porte sous
   n'est pas un nombre fini (un booléen compris) ou hors de
   `minimum < droit_bas ≤ maximum` de la jauge `droit`.
   Elle répond aussi à l'événement à choix de sa maison, le même jour du mois, après
-  son geste de jauge : une raison par règle, `grenier_au_dessus_de_sa_reserve`,
-  `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
+  son geste de jauge : une raison par règle, `sans_lieu_a_secourir`,
+  `grenier_au_dessus_de_sa_reserve`, `grenier_sous_sa_reserve` ou `ni_grain_ni_concorde` (voir « Les événements à
   choix », dans « Les modificateurs »).
 
 **Niveau 2**, plausible, jamais sourcé : toutes les valeurs de
@@ -3699,7 +3744,7 @@ s'il est seul de sa sorte dans une province. Un champ optionnel `genre`
 « une seule grange »). `lire_types` refuse un champ inconnu, un `genre` qui
 n'est ni « m » ni « f », un modificateur absent de `data/modificateurs.toml`
 ou qui ne se pose pas sur une cellule, et tout coût en pièces : le moteur n'en
-porte pas encore. Trois bâtiments, un seul grenier pour les payer
+porte pas encore. Quatre bâtiments, un seul grenier pour les payer
 (niveau 2, plausibles, non sourcés) :
 
 | bâtiment | journées | bras par jour | coût au salaire de base | modificateur |
@@ -3707,6 +3752,7 @@ porte pas encore. Trois bâtiments, un seul grenier pour les payer
 | le moulin | 600 | 20 | 1 800 kg | `moulin` : récolte +0,10 |
 | le marché | 900 | 30 | 2 700 kg | `marche` : commerce +0,20 |
 | la grange | 400 | 20 | 1 200 kg | `grange` : départs −0,25 |
+| la caserne | 800 | 25 | 2 400 kg | aucun : achevée dans la capitale, elle ouvre la levée (« La guerre ») |
 
 Le marché ne crée aucun kilo : il multiplie par 1,20 la capacité de chaque
 arête terrestre qui touche sa cellule (`_capacite_modifiee`, lue au bourg) ;
@@ -3735,16 +3781,18 @@ leur salaire (`salaire_journee_kg`) quitte le grenier de la maison et entre au
 panier du bourg et de la cellule, où ils le mangent. Le lendemain, les
 chantiers du plan les rendent aux champs, comme leurs propres ouvriers. Sans
 grain pour payer ou sans paysans, le chantier attend. La maison est vérifiée
-maîtresse du bourg au dépôt seulement : le tick ne relit jamais les maîtres ;
-un bourg qui changera de main (la conquête, plus tard) dira ce que devient
-son chantier. Achevé, le bâtiment pose ses modificateurs sur sa cellule, sous la
+maîtresse du bourg au dépôt seulement : le tick ne relit jamais les maîtres.
+Quand une place tombe, ses bâtiments et chantiers de province passent à
+l'assiégeant, qui paie désormais les journées qui restent (`guerre.tomber`) ;
+pendant le siège, aucun chantier de la cellule n'avance : le grain du payeur
+n'y entre pas. Achevé, le bâtiment pose ses modificateurs sur sa cellule, sous la
 source `batiment:<nature>-<identifiant>` : le moulin y récolte exactement 10 %
 de grain en plus (mesuré au tick qui suit l'achèvement, contre le même monde
 sans sa pose). La récolte perdue par ses ouvriers n'est pas encore comptée
 dans `recolte_perdue_par_chantier` (niveau 3).
 
 **L'IA.** Le jour du mois où elle règle sa part, une maison de l'IA pèse les
-trois bâtiments pour la cellule de sa capitale, en cinq règles :
+quatre bâtiments pour la cellule de sa capitale, en cinq règles :
 
 1. elle n'a aucun bâtiment de province en chantier (ni déposé en attente) :
    un chantier à la fois ;
@@ -3753,14 +3801,18 @@ trois bâtiments pour la cellule de sa capitale, en cinq règles :
    réserve voulue plus le coût de ce bâtiment ;
 4. elle prend le premier dont la raison tient, dans cet ordre : le **moulin**
    (`moulin_quand_le_grenier_le_permet`, le grain nourrit tout le reste) ; la
+   **caserne**, si une place est à prendre (`caserne_pour_la_guerre` : le bourg
+   le plus proche que tient une maison d'une autre racine de suzeraineté, à
+   portée de marche, « La guerre ») ; la
    **grange**, si la province perd des gens
    (`grange_quand_les_gens_partent` : sur les trente derniers jours, la somme
    des `partis` des lieux de la cellule dépasse celle de leurs `arrives`,
    `flux.flux_de_lieu`) ; le **marché**, si la province commerce par ses
    frontières (`marche_quand_la_province_commerce` : la somme des `envoye_kg`
    et `recu_kg` de `flux.commerce_par_voisine` sur la cellule est positive) ;
-5. elle dépose par `recevoir_intention`, avec sa raison (`partis_30j`,
-   `arrives_30j` ou `commerce_30j_kg`, `grenier_nourriture_kg`,
+5. elle dépose par `recevoir_intention`, avec sa raison (`place`,
+   `jours_de_marche` et `maitre_de_la_place`, ou `partis_30j`,
+   `arrives_30j`, ou `commerce_30j_kg` ; puis `grenier_nourriture_kg`,
    `reserve_voulue_kg`, `cout_kg`).
 
 Sa réserve voulue compte les salaires qui restent à payer à ses bâtiments de
@@ -3770,6 +3822,147 @@ le monde.
 
 `GET /pays` sert les bâtiments et chantiers des cellules du pays ; `to_dict()`
 les porte sous `batiments_de_province` dès qu'il y en a un.
+
+## La guerre
+
+`sim/guerre.py` et `data/guerre.toml`. Une maison lève des hommes dans ses
+lieux, déclare la guerre à une maison, fait marcher son armée de lieu en lieu,
+assiège une place et la prend quand elle tombe. Chaque geste est une
+intention, du joueur ou de l'IA, par `recevoir_intention` ; le service n'accepte
+les gestes du joueur que pour sa maison. La bataille n'existe pas : deux armées
+au même lieu ne se battent pas, le siège décide.
+
+**Les données** (niveau 2, plausibles, jamais sourcées) :
+
+| donnée | valeur | ce qu'elle règle |
+|---|---|---|
+| `levee.part_maximale` | 0,10 | la part des habitants d'un lieu sous les armes au plus, levés compris, multipliée par le facteur `levee` du lieu |
+| `levee.batiment` | `caserne` | le bâtiment de province qui, achevé dans la capitale, ouvre la levée |
+| `marche.km_par_jour` | 20 | la marche d'une armée, sur les longueurs d'arête freinées par le relief |
+| `vivres.ration_kg_par_homme_par_jour` | 2,5 | ce qu'un homme sous les armes mange par jour |
+| `vivres.part_prise_par_jour` | 0,05 | au plus cette part du stock du lieu, prise pour ce qui manque à la ration |
+| `siege.jours_de_faim_avant_la_chute` | 30 | les jours de faim du bourg assiégé avant qu'il tombe |
+| `ia.jours_de_marche_max` | 20 | la portée de l'IA, en jours de marche depuis sa capitale |
+| `ia.jours_de_siege_voulus` | 30 | les jours de siège dont l'IA emporte les vivres, en plus de la marche |
+| `ia.hommes_minimum` | 200 | l'IA ne part pas avec moins d'hommes |
+
+`lire_regles` refuse une section ou un champ inconnu, un taux hors de ses
+bornes, un nombre de jours ou d'hommes qui n'est pas un entier positif, et un
+bâtiment absent de `data/batiments.toml`.
+
+**Les cinq gestes.** Chacun se refuse avec sa raison, sans rien écrire ; un
+seul geste par armée et par jour.
+
+- `declarer_guerre` (`maison`, `cible`) : refusée pour une maison ou une cible
+  inconnue, soi-même, une cible déjà en guerre avec la maison (déclarée ou
+  déposée, dans un sens ou dans l'autre), ou qui ne tient aucun lieu. Une
+  guerre (`World.guerres`) porte son agresseur, son défenseur et son tick ; elle
+  ne finit pas.
+- `lever_armee` (`maison`, `lieux` : `[[cell, rang, hommes], …]`, `vivres_kg`) :
+  **la levée est fermée** sans caserne achevée dans la cellule de la capitale
+  de la maison (son siège au registre), ou quand le bourg de cette capitale
+  n'est plus à elle. Elle se refuse encore pour un lieu qui n'est pas à elle,
+  plus d'hommes que la part du lieu (`floor(part × facteur × (habitants +
+  levés)) − levés − promis`, les levées déposées étant encore des habitants),
+  plus d'hommes que les paysans de la cellule, ou des vivres au-delà du grain
+  libre du grenier (qui compte les ouvertures, les réponses et les vivres déjà
+  déposés). L'armée naît au bourg de la capitale.
+- `marcher` (`maison`, `armee`, `cell`, `rang`) : refusée pour une armée
+  inconnue ou d'une autre maison, un lieu inconnu, le lieu où elle est déjà,
+  ou sans chemin terrestre. Elle pose la destination et la route, et lève le
+  siège.
+- `assieger` (`maison`, `armee`) : refusée pour une armée qui marche encore,
+  hors d'un bourg (« pas une place »), devant sa propre place, qui assiège
+  déjà, ou si la maison n'est pas en guerre avec le maître du bourg.
+- `renvoyer_armee` (`maison`, `armee`) : les vivants rentrent dans leurs lieux
+  d'origine, comme paysans, et les vivres restants au grenier.
+
+**Les soldats sont des habitants.** La levée retire les hommes de leurs lieux
+et autant de paysans de leur cellule (`ecrire_habitants_par_metier`) ; une
+armée (`World.armees`) garde ses effectifs par lieu d'origine,
+`((cell_id, rang, hommes), …)`, sans seconde clé spatiale. À tout jour :
+habitants des lieux + effectifs des armées + `World.morts_des_armees` =
+habitants d'avant, aux naissances et morts ordinaires près. Un lieu levé
+manque de bras à la moisson comme sous un chantier : en juillet, il récolte
+moins que son témoin. **Les vivres sont des kilos du grenier** : ils en
+sortent à la levée, sont mangés (cumul `World.mange_par_les_armees_kg`) ou
+rendus au renvoi ; une armée dont tous les hommes sont morts rend ses vivres.
+Aucun kilo ni aucune personne ne se crée.
+
+**Le maillon** (`guerre.avancer`), après les bâtiments de province et avant la
+production, armée par armée, par identifiant ; sans armée, il ne lit ni
+n'écrit rien :
+
+1. **la chute** — une place dont le bourg a faim depuis
+   `jours_de_faim_avant_la_chute` jours (`duree_faim_ticks` de la veille), ou
+   s'est vidé, tombe (voir plus bas) ; le siège se lève de lui-même si l'armée
+   a quitté la place ou n'est plus en guerre avec son maître ;
+2. **la marche** — l'armée fait `km_par_jour`, tronçon par tronçon : de son
+   lieu au bourg de sa cellule (distance des places), d'une cellule à la
+   suivante (`convois._longueur_arete`, le plus court chemin terrestre posé par
+   `marcher`, égalités par `cell_id`), puis du bourg au lieu visé ; arrivée, sa
+   destination s'efface. Les places sont celles du chargement
+   (`World.ancres_des_bourgs`) : une conquête ne déplace pas un bourg, et
+   `places_du_monde` les lit aussi ;
+3. **la ration** — `hommes × ration` ; l'armée mange d'abord ses vivres, puis
+   prend ce qui manque au lieu où elle est, au plus `part_prise_par_jour` de son
+   stock (le panier du lieu et celui de sa cellule) ; devant une place, elle
+   le prend au lieu le mieux garni de la cellule hors du bourg. Le reste
+   devient sa dette, remboursée sur ses vivres quand elle est rassasiée ;
+4. **les morts** — la dette tue avec la formule des lieux :
+   `taux = min(dette / hommes × HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK)`,
+   avec son report de fraction ; les morts se partagent entre les lieux
+   d'origine par `partager` et s'ajoutent à `morts_des_armees`. Les morts ne
+   rentrent pas.
+
+**Le siège ferme la place.** Tant qu'il tient, aucun grain n'entre dans la
+cellule assiégée (`guerre.places_assiegees`) :
+
+- la récolte du jour de son bourg passe aux vivres de l'assiégeant, avant le
+  prélèvement (`guerre.prendre_la_recolte`) ;
+- ses arêtes terrestres et son quai tombent à zéro au commerce
+  (`engine._fermer_les_places`) : elle ne reçoit ni n'envoie rien ;
+- les chemins entre ses champs et son bourg sont fermés à la consommation ;
+- un secours qui arrive à son bourg attend le lendemain
+  (`guerre.retenir_les_secours`, en perdant ce que perd un convoi) ;
+- ses chantiers du plan (motif `payeur_absent`) et de province attendent : le
+  grain du payeur n'y entre pas.
+
+Le bourg mange ce qu'il garde, puis a faim. Mesuré sur la graine 0, sur une
+place voisine de Bar réduite à dix jours de ration : elle tombe au
+quarantième jour ; la même place, ravitaillée chaque jour de ce qu'elle mange,
+ne tombe pas. Avec la soudure de 1400, une place assiégée en hiver garde ses
+vivres jusqu'à la moisson.
+
+**La chute** (`guerre.tomber`) : les lieux de la cellule que tenait le maître
+du bourg passent à l'assiégeant (`ecrire_maitre`) ; leurs routes de
+prélèvement vont désormais au grenier du nouveau maître
+(`convois.changer_de_maitre`, qui réécrit seulement ces entrées) ; ses
+bâtiments et chantiers de province de l'ancien maître dans la cellule passent
+au nouveau ; la prise est notée dans `World.prises` (`tick`, `cell_id`, `de`,
+`a`, `armee`, `rangs`) et tous les sièges de la cellule s'achèvent. Une
+capitale prise garde son siège au registre : la levée de son ancienne maison
+se ferme.
+
+**Le service et la photographie.** `GET /guerres` sert, au tick publié,
+`{tick, date, guerres, armees, prises, morts_des_armees}`
+(`guerre.document_de_la_guerre`, sans arrondi) : chaque armée porte son lieu,
+ses effectifs par lieu d'origine, son effectif total, ses vivres, sa route en
+cellules, sa destination et la cellule qu'elle assiège ou `null`. La
+photographie porte `guerres`, `armees` et `prises` seulement s'ils sont non
+vides ; `to_dict()` porte de même `guerres`, `armees`, `armees_levees`,
+`prises`, `morts_des_armees` et `mange_par_les_armees_kg`. Sans guerre, les
+octets et les empreintes ne changent pas.
+
+**L'IA**, par les mêmes gestes (« Les décisions et les gestes de l'IA ») :
+le jour de sa part, une maison dont la caserne est achevée lève et déclare
+pour la place la plus proche d'une autre racine de suzeraineté ; chaque jour,
+ses armées marchent, assiègent ou rentrent.
+
+**Niveau 3, pas simulé** : le chemin du rassemblement à la levée et du retour
+au renvoi (le jour même), la migration et les départs sous le siège (les gens
+fuient la place, pas son grain), le butin autre que la récolte du bourg, la
+bataille, la paix, les alliés, la solde en pièces.
 
 ## Le moteur sans état caché
 
