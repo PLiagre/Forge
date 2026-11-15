@@ -2,6 +2,7 @@
 
 import dataclasses
 import math
+from operator import attrgetter
 
 import sim.constants as _constantes
 from sim.model import (
@@ -10,6 +11,10 @@ from sim.model import (
     lire_stock_marchandise, ecrire_stock_marchandise,
     lieux_deja_accordes,
 )
+
+
+# Clé de tri des lieux d'une cellule, sans appel Python par lieu.
+par_rang = attrgetter("rang")
 
 
 class LieuxInvalides(ValueError):
@@ -33,8 +38,33 @@ class Lieu(_NoBadSpatialField):
 
 
 def surfaces_des_lieux(cell_id, surface_km2) -> tuple:
-    """Découpe une surface sans perdre de kilomètres carrés."""
+    """Découpe une surface sans perdre de kilomètres carrés.
+
+    Le découpage ne dépend que de la surface et de `SURFACE_KM2_PAR_LIEU`, relue
+    à chaque appel : un découpage valide se garde avec eux pour clé, à leur type
+    près ; un refus se refait et se lève à chaque appel.
+    """
     surface_par_lieu = _constantes.SURFACE_KM2_PAR_LIEU
+    if (type(cell_id) is int and type(surface_km2) in (int, float)
+            and type(surface_par_lieu) in (int, float)):
+        cle = (cell_id, type(surface_km2), surface_km2, type(surface_par_lieu), surface_par_lieu)
+        surfaces = _DECOUPAGES.get(cle)
+        if surfaces is None:
+            surfaces = _decouper(cell_id, surface_km2, surface_par_lieu)
+            if len(_DECOUPAGES) >= _DECOUPAGES_GARDES:
+                _DECOUPAGES.clear()
+            _DECOUPAGES[cle] = surfaces
+        return surfaces
+    return _decouper(cell_id, surface_km2, surface_par_lieu)
+
+
+# Les découpages déjà faits, bornés : au-delà, la table repart de zéro.
+_DECOUPAGES: dict = {}
+_DECOUPAGES_GARDES = 1 << 14
+
+
+def _decouper(cell_id, surface_km2, surface_par_lieu) -> tuple:
+    """Le découpage, ou le refus qui nomme la cellule."""
     if (
         isinstance(surface_par_lieu, bool)
         or not isinstance(surface_par_lieu, (int, float))
@@ -153,7 +183,7 @@ def repartir_sur_les_lieux(cellule, *, raccourci=True) -> None:
         cellule.lieux[0].population = cellule.population
         remplacer_panier(cellule.lieux[0], copier_panier(cellule))
         return
-    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    lieux = sorted(cellule.lieux, key=par_rang)
     if raccourci and lieux_deja_accordes(cellule, lieux):
         return
     populations = partager_si_necessaire(cellule, cellule.population, [lieu.population for lieu in lieux])
@@ -197,15 +227,19 @@ def accorder_marchandise(cellule, marchandise) -> None:
     total = lire_stock_marchandise(cellule, marchandise)
     if not cellule.lieux or total < 0:
         return
-    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+    lieux = sorted(cellule.lieux, key=par_rang)
     parts = partager_si_necessaire(cellule, total, contenus_des_paniers(lieux, marchandise))
     for lieu, part in zip(lieux, parts):
         ecrire_stock_marchandise(lieu, marchandise, part)
 
 
-def corriger_residu_au_bourg(cellule, marchandise) -> None:
-    """Corrige la soustraction flottante sans repondérer les lieux."""
-    lieux = sorted(cellule.lieux, key=lambda lieu: lieu.rang)
+def corriger_residu_au_bourg(cellule, marchandise, lieux=None) -> None:
+    """Corrige la soustraction flottante sans repondérer les lieux.
+
+    `lieux` : ceux de la cellule déjà triés par rang, s'ils le sont.
+    """
+    if lieux is None:
+        lieux = sorted(cellule.lieux, key=par_rang)
     total = lire_stock_marchandise(cellule, marchandise)
     autres = sum(contenus_des_paniers(lieux[1:], marchandise))
     ecrire_stock_marchandise(lieux[0], marchandise, total - autres)

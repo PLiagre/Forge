@@ -3597,6 +3597,93 @@ def test_raccourci_contexte_maritime():
     print(f'arêtes maritimes comparées={len(aretes)}, façade ajoutée détectée')
 
 
+def test_topologie_gardee_rebatie_et_hors_sauvegarde(monkeypatch):
+    import copy, hashlib, json
+    from collections import defaultdict
+    from sim import engine
+    comptes = {'maritimes': 0, 'voisines': 0, 'refus': 0}
+
+    def controler(monde, refus=False):
+        attendues = [(e['a'], e['b'], engine._cle_arête(e['a'], e['b']))
+                     for e in monde.adjacency if e['a'] in monde.cells and e['b'] in monde.cells]
+        assert engine._topologie(monde)['terrestres'] == attendues
+        voisines = defaultdict(list)
+        for a, b, _ in attendues:
+            voisines[a].append(b)
+            if a != b:
+                voisines[b].append(a)
+        assert dict(voisines) == engine._voisines_terrestres(monde)
+        try:
+            attendues_maritimes = engine._aretes_maritimes_du_monde(monde)
+        except engine.NoeudsMerMultiplesError:
+            # Une cellule retirée fait d'un voisin terrestre un second noeud de mer : le bassin est refusé.
+            assert refus, 'bassin refusé sans que le test le prévoie'
+            with pytest.raises(engine.NoeudsMerMultiplesError):
+                engine._aretes_maritimes_gardees(monde)
+            assert getattr(monde, '_topologie_de_la_carte')['maritimes'] is None
+            comptes['refus'] += 1
+            return
+        assert engine._aretes_maritimes_gardees(monde) == attendues_maritimes
+        assert len(attendues_maritimes) > 0 and len(voisines) > 0
+        comptes['maritimes'], comptes['voisines'] = len(attendues_maritimes), len(voisines)
+
+    def empreinte(monde):
+        return hashlib.sha256(json.dumps(monde.to_dict(), sort_keys=True).encode()).hexdigest()
+
+    def voisines_non_liees(monde):
+        table = engine._voisines_terrestres(monde)
+        a = next(iter(monde.cells))
+        return a, next(cid for cid in monde.cells if cid != a and cid not in table.get(a, ()))
+
+    monde = _monde_apres_chauffe()
+    tick(monde, random.Random(0), numero_tick=monde.ticks_ecoules)
+    controler(monde)
+    # Une arête neuve dans la même liste : la garde se rebâtit.
+    a, b = voisines_non_liees(monde)
+    monde.adjacency.append({'a': a, 'b': b})
+    controler(monde)
+    assert b in engine._voisines_terrestres(monde)[a]
+    # Une autre liste de même longueur : l'ordre changé se voit.
+    avant = list(engine._topologie(monde)['terrestres'])
+    monde.adjacency = list(reversed(monde.adjacency))
+    controler(monde)
+    assert engine._topologie(monde)['terrestres'] != avant
+    # Une cellule retirée d'une copie ne change pas le monde d'origine.
+    voisines = engine._voisines_terrestres(monde)
+    cid = next(c for c, _, _ in engine._aretes_maritimes_gardees(monde) if voisines.get(c))
+    copie = copy.deepcopy(monde)
+    del copie.cells[cid]
+    controler(copie, refus=True)
+    assert comptes['refus'] == 1
+    assert cid not in engine._voisines_terrestres(copie)
+    controler(monde)
+    assert cid in engine._voisines_terrestres(monde)
+    # La garde ne passe pas par la sérialisation canonique du monde : même empreinte sans elle et rebâtie.
+    avant = empreinte(monde)
+    assert '_topologie_de_la_carte' not in json.dumps(monde.to_dict(), sort_keys=True)
+    del monde._topologie_de_la_carte
+    assert empreinte(monde) == avant
+    engine._topologie(monde)
+    engine._aretes_maritimes_gardees(monde)
+    assert empreinte(monde) == avant
+    # Contre-épreuve : une garde jamais rebâtie laisse passer une arête neuve, et le contrôle le voit.
+    with monkeypatch.context() as contexte:
+        original = engine._topologie
+
+        def figee(world):
+            garde = getattr(world, '_topologie_de_la_carte', None)
+            return garde if garde is not None else original(world)
+        contexte.setattr(engine, '_topologie', figee)
+        neuf = _monde_apres_chauffe()
+        controler(neuf)
+        a, b = voisines_non_liees(neuf)
+        neuf.adjacency.append({'a': a, 'b': b})
+        with pytest.raises(AssertionError):
+            controler(neuf)
+    print(f'arêtes maritimes comparées={comptes["maritimes"]}, cellules à voisines={comptes["voisines"]} ; '
+          'ajout, liste remplacée et cellule retirée rebâtis, garde hors sauvegarde')
+
+
 # --- Une ville affamée garde sa réserve -------------------------
 #
 # Niveau 2 (jeu/data/commerce.toml). Une ville dont les champs ne la nourrissent
