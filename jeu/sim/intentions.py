@@ -87,9 +87,7 @@ def _lieux_de_la_maison(monde, maison, indice=None):
     routes = monde.routes_des_lieux
     if indice is None:
         indice = routes.noms.index(maison)
-    return [(cid, rang, jours) for cid, rang, maitre_idx, jours in
-            zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours)
-            if maitre_idx == indice]
+    return routes.lieux_du_maitre(indice)
 
 
 def _poids_des_lieux(monde, entrees):

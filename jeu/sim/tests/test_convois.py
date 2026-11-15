@@ -380,3 +380,57 @@ def test_dus_registre_charge_incomplet_refuse_avant_routage(monde, monkeypatch):
         World.charger(0)
     assert not appels
     print(f"suzerain retiré = {vassal.suzerain}, calculs des dus = {len(appels)}")
+
+
+def _lieux_par_balayage(routes, indice):
+    """Les lieux d'un maître relus sur la table entière : la façon d'avant."""
+    return [(cid, rang, jours) for cid, rang, maitre, jours in
+            zip(routes.cids, routes.rangs, routes.maitre_idx, routes.jours) if maitre == indice]
+
+
+def test_les_lieux_d_un_maitre_se_lisent_sans_relire_la_table(monde):
+    routes = copy.deepcopy(monde.routes_des_lieux)
+    assert routes.positions is None
+    for indice in range(len(routes.noms)):
+        assert routes.lieux_du_maitre(indice) == _lieux_par_balayage(routes, indice)
+    # Un échantillon vide ne prouve rien : des maîtres tiennent plusieurs lieux, dans plusieurs cellules.
+    assert max(len(routes.lieux_du_maitre(indice)) for indice in range(len(routes.noms))) > 10
+    assert routes.lieux_du_maitre(len(routes.noms)) == []
+    # Le relevé sert tous les maîtres : un second passage ne le refait pas.
+    releve = routes.positions
+    for indice in range(len(routes.noms)):
+        routes.lieux_du_maitre(indice)
+    assert routes.positions is releve
+    # Une copie du monde ne partage pas le relevé.
+    assert copy.deepcopy(routes).positions is None
+
+
+def test_les_lieux_d_un_maitre_suivent_une_conquete(monde):
+    prive = copy.deepcopy(monde)
+    routes = prive.routes_des_lieux
+    # Une maison qui tient sa capitale prend le bourg d'une autre cellule.
+    preneur = next(m for m in prive.maisons if m.cell_id is not None and m.id in routes.noms
+                   and prive.cells[m.cell_id].lieux[m.rang].maitre == m.id)
+    indice = routes.noms.index(preneur.id)
+    cid, perdant = next((cid, cellule.lieux[0].maitre) for cid, cellule in sorted(prive.cells.items())
+                        if cid != preneur.cell_id and cellule.lieux[0].maitre not in (None, preneur.id))
+    ancien = routes.noms.index(perdant)
+    avant, perdus = routes.lieux_du_maitre(indice), routes.lieux_du_maitre(ancien)
+    assert (cid, 0) not in [(c, r) for c, r, _ in avant] and (cid, 0) in [(c, r) for c, r, _ in perdus]
+    ecrire_maitre(prive.cells[cid].lieux[0], preneur.id)
+    convois.changer_de_maitre(prive, cid, [0], preneur.id)
+    apres = routes.lieux_du_maitre(indice)
+    assert apres == _lieux_par_balayage(routes, indice) and len(apres) == len(avant) + 1
+    assert (cid, 0) in [(c, r) for c, r, _ in apres]
+    assert routes.lieux_du_maitre(ancien) == _lieux_par_balayage(routes, ancien)
+    assert len(routes.lieux_du_maitre(ancien)) == len(perdus) - 1
+    # Les jours de route se lisent sur la table du moment, pas sur le relevé.
+    position = routes.index[(cid, 0)]
+    routes.jours[position] += 3
+    assert routes.lieux_du_maitre(indice) == _lieux_par_balayage(routes, indice)
+    # Contre-épreuve : un relevé qu'on empêcherait de se refaire rendrait les lieux d'avant la conquête.
+    fige = copy.deepcopy(monde.routes_des_lieux)
+    fige.lieux_du_maitre(indice)
+    fige.positions = (routes.maitre_idx, fige.positions[1])
+    fige.maitre_idx, fige.jours = routes.maitre_idx, routes.jours
+    assert fige.lieux_du_maitre(indice) != _lieux_par_balayage(fige, indice)
