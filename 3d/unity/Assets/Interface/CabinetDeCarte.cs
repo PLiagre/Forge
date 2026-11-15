@@ -144,7 +144,8 @@ namespace Forge.Interface
             // À droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
             gameObject.AddComponent<GestesDesJauges>().Initialiser(dossierPays.Cadre, () => Partie.Monde, () => Partie.Gestes, OrdreConfirme.Local(carte.port));
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
-            var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux); GetComponent<CalquesCarte>().Brancher(lieux, fleches);
+            var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
+            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
             terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous « Cellules de la carte »
             Afficher();

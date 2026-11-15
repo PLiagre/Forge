@@ -52,6 +52,7 @@ namespace Forge.Interface
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
         LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
+        CarteDeLaGuerre guerre; int versionDesPays = -1; // les pays servis des terres, et leur version au dernier passage
         MondeLu precedent;
         long? territoirePrecedent;
         bool changement = true;
@@ -72,7 +73,7 @@ namespace Forge.Interface
             legende.color = SocleInterface.Couleur("papier"); legende.supportRichText = false; legende.horizontalOverflow = HorizontalWrapMode.Wrap; legende.verticalOverflow = VerticalWrapMode.Overflow;
             Legender(legende.text, DetailDuMode(Mode));
         }
-        public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches) { this.lieux = lieux; this.fleches = fleches; }
+        public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; }
         void Bouton(Transform bande, ModeDeCarte mode, float x, string phrase)
         {
             var b = SocleInterface.Commande(bande, mode.ToString(), x, 0, () => { Mode = mode; changement = true; }, phrase: phrase); // un clic ne lit rien
@@ -93,6 +94,19 @@ namespace Forge.Interface
         public static string DetailDuMode(ModeDeCarte mode, LieuxDeCarte lieux, FlechesDeCarte fleches) =>
             mode == ModeDeCarte.Puissances && lieux != null && lieux.Peint ? DetailDuMode(mode) + " Relief non transmis." + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)
             : mode == ModeDeCarte.Flux && fleches != null ? DetailDuMode(mode) + "\n" + fleches.TexteLegende : DetailDuMode(mode);
+        // Les terres lues au pays servi : la légende des Puissances se date du jour lu ; sans terres lues, elle reste celle des puissances du départ.
+        public const string PAYS = "Chaque terre porte, en pigment d'atlas, la couleur de son pays : la maison au sommet de la suzeraineté du maître de son bourg. Deux terres de même teinte sont du même pays ; une terre prise à un autre pays prend la teinte du preneur. Le rouge marque la terre que vous gardez ouverte.";
+        public static string LegendeDesPays(TerresDeLaCarte terres) => "Pays au " + TexteDuMonde.Date(terres.Date) + " · Rouge : territoire conservé";
+        public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition, bool lieuxPeints, CarteDeLaGuerre guerre) =>
+            mode == ModeDeCarte.Puissances && guerre?.Terres != null ? LegendeDesPays(guerre.Terres) + (lieuxPeints ? "\n" + LieuxDeCarte.ENTETE : "") : LegendeDuMode(mode, repartition, lieuxPeints);
+        // La guerre parle dans chaque mode : les armées et les frontières se voient partout.
+        public static string DetailDuMode(ModeDeCarte mode, LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre)
+        {
+            if (guerre == null) return DetailDuMode(mode, lieux, fleches);
+            string detail = mode == ModeDeCarte.Puissances && guerre.Terres != null
+                ? PAYS + (lieux != null && lieux.Peint ? lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length) : "") : DetailDuMode(mode, lieux, fleches);
+            return detail + "\n" + guerre.TexteLegende;
+        }
         // Les lignes que prendrait `contenu` dans `texte`, à sa largeur, la toile à l'échelle donnée ; à hauteur nulle, une troncature ne compterait rien.
         public static int Lignes(Text texte, string contenu, float echelle)
         {
@@ -116,8 +130,9 @@ namespace Forge.Interface
             EspacerLesNoms();
             var lu = monde(); long? retenu = selection()?.CellId;
             // Les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
-            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
-            changement = false; precedent = lu; territoirePrecedent = retenu; ecrite = null;
+            int version = guerre != null ? guerre.Version : -1;
+            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent && version == versionDesPays) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
+            changement = false; precedent = lu; territoirePrecedent = retenu; versionDesPays = version; ecrite = null;
             try
             {
                 if (rendus == null)
@@ -128,7 +143,7 @@ namespace Forge.Interface
                     foreach (var r in rendus) { teintes.Add(r.Key, (new Material(r.Value.sharedMaterial), r.Value.sharedMaterial.color)); r.Value.sharedMaterial = teintes[r.Key].copie; }
                     carte.camera.backgroundColor = SocleInterface.Couleur("mer");
                     var police = SocleInterface.Police(titre: true);
-                    noms = carte.GetComponentsInChildren<TextMesh>().OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
+                    noms = carte.GetComponentsInChildren<TextMesh>().Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
                     foreach (var nom in noms)
                     {
                         nom.font = police; nom.fontSize = 16;
@@ -144,7 +159,8 @@ namespace Forge.Interface
                 foreach (var paire in rendus)
                 {
                     paire.Value.SetPropertyBlock(null);
-                    teintes[paire.Key].copie.color = Teinte(mode, paire.Key == retenu, teintes[paire.Key].maison, repartition?.Position(paire.Key) ?? 0f);
+                    Color servie = guerre?.CouleurDe(paire.Key) ?? teintes[paire.Key].maison; // le pays servi, sinon la puissance relevée au dessin
+                    teintes[paire.Key].copie.color = Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f);
                 }
                 Recrire(repartition); repartie = repartition;
             }
@@ -161,7 +177,7 @@ namespace Forge.Interface
                 catch (ArgumentException) { Ecrire(COUPEE, raison + "\n" + detail); } // trop longue pour trois lignes : entière dans l'infobulle
             }
         }
-        void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint), detail = DetailDuMode(Mode, lieux, fleches); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
+        void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint, guerre), detail = DetailDuMode(Mode, lieux, fleches, guerre); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
         void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
         // Sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
@@ -169,22 +185,30 @@ namespace Forge.Interface
         public static string LegendeDuCalque(RepartitionHabitants repartition) =>
             (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";
         public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
+        // Les nombres des armées se montrent toujours ; puis les noms des pays, puis ceux des villes, chacun seulement s'il ne recouvre rien de déjà montré.
         void EspacerLesNoms()
         {
             if (noms == null) return;
             etiquettes.Clear();
-            foreach (var nom in noms)
+            if (guerre != null)
             {
-                var rendu = nom.GetComponent<MeshRenderer>();
-                var bounds = rendu.bounds;
-                var a = carte.camera.WorldToScreenPoint(bounds.min);
-                var b = carte.camera.WorldToScreenPoint(bounds.max);
-                var rect = Rect.MinMaxRect(Mathf.Min(a.x, b.x) - 3, Mathf.Min(a.y, b.y) - 2,
-                    Mathf.Max(a.x, b.x) + 3, Mathf.Max(a.y, b.y) + 2);
-                bool visible = carte.camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect));
-                rendu.enabled = visible;
-                if (visible) etiquettes.Add(rect);
+                foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true);
+                foreach (var pays in guerre.NomsDesPays) Espacer(pays, false);
             }
+            foreach (var nom in noms) Espacer(nom, false);
+        }
+        void Espacer(TextMesh nom, bool toujours)
+        {
+            if (nom == null) return;
+            var rendu = nom.GetComponent<MeshRenderer>();
+            var bounds = rendu.bounds;
+            var a = carte.camera.WorldToScreenPoint(bounds.min);
+            var b = carte.camera.WorldToScreenPoint(bounds.max);
+            var rect = Rect.MinMaxRect(Mathf.Min(a.x, b.x) - 3, Mathf.Min(a.y, b.y) - 2,
+                Mathf.Max(a.x, b.x) + 3, Mathf.Max(a.y, b.y) + 2);
+            bool visible = toujours || carte.camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect));
+            rendu.enabled = visible;
+            if (visible) etiquettes.Add(rect);
         }
     }
 }
