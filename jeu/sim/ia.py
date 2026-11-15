@@ -6,9 +6,10 @@ import sim.constants as _constantes
 from sim.capitales import cle_du_registre, maisons_de_l_ia
 from sim.chantiers import salaire_journee_kg
 from sim.intentions import (
-    BatirDansUneProvince, IntentionRefusee, RepondreEvenement, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DEPENSER_JAUGE,
-    TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT,
-    _lieux_de_la_maison, maison_choisie, recevoir_intention,
+    BatirDansUneProvince, IntentionRefusee, LeverArmee, RepondreEvenement, TYPE_ASSIEGER,
+    TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_DECLARER_GUERRE, TYPE_DEPENSER_JAUGE, TYPE_FIXER_PART, TYPE_LEVER_ARMEE,
+    TYPE_MARCHER, TYPE_OUVRIR_GRENIER, TYPE_RENVOYER_ARMEE, TYPE_REPONDRE_EVENEMENT,
+    _lieux_de_la_maison, grain_libre, maison_choisie, recevoir_intention,
 )
 
 # Les trois réponses que l'IA sait lire, par leur identifiant dans `data/evenements.toml`.
@@ -275,14 +276,30 @@ def _commerce_30j_kg(monde, cell_id):
                for voisine in flux.commerce_par_voisine(monde, cell_id).values())
 
 
-def _proposition_de_batiment(monde, maison, cle, types):
-    """Un bâtiment dans la cellule de sa capitale : le moulin, puis la grange, puis le marché.
+def _vise_une_autre_racine(monde, cle, par_id):
+    """Le maître d'une place se prend s'il relève d'une autre racine de suzeraineté que la maison."""
+    from sim import guerre
+    sienne = guerre.racine(par_id, cle)
+    return lambda maitre: guerre.racine(par_id, maitre) != sienne
+
+
+def _place_a_prendre(monde, maison, cle, regles, par_id):
+    from sim import guerre
+    if maison.cell_id is None:
+        return None
+    return guerre.place_a_prendre(monde, cle, maison.cell_id, regles, _vise_une_autre_racine(monde, cle, par_id))
+
+
+def _proposition_de_batiment(monde, maison, cle, types, guerre_=None):
+    """Un bâtiment dans la cellule de sa capitale : le moulin, puis la caserne, la grange et le marché.
 
     Un chantier à la fois : rien tant que la maison en a un en cours ou déposé.
     Un bâtiment qui n'est ni bâti ni déposé, que le grenier paie au-delà de la
     réserve voulue, se propose pour sa raison, la première qui tient, dans cet
-    ordre (le grain nourrit tout le reste). Un bâtiment déjà déposé en
-    attente arrête la maison : jamais un grenier payé deux fois.
+    ordre (le grain nourrit tout le reste). La caserne se bâtit quand une place
+    est à prendre (`guerre_` : les règles de la guerre et l'index du registre).
+    Un bâtiment déjà déposé en attente arrête la maison : jamais un grenier payé
+    deux fois.
     """
     from sim import batiments
     if maison.cell_id is None:
@@ -294,6 +311,7 @@ def _proposition_de_batiment(monde, maison, cle, types):
     grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
     reserve = None
     for nature, regle in (('moulin', 'moulin_quand_le_grenier_le_permet'),
+                          ('caserne', 'caserne_pour_la_guerre'),
                           ('grange', 'grange_quand_les_gens_partent'),
                           ('marche', 'marche_quand_la_province_commerce')):
         if nature not in types or batiments.verifier(monde, cle, maison.cell_id, nature, types) is not None:
@@ -304,7 +322,13 @@ def _proposition_de_batiment(monde, maison, cle, types):
         if not grenier > reserve + cout:
             continue
         raison = {'regle': regle}
-        if nature == 'grange':
+        if nature == 'caserne':
+            place = None if guerre_ is None else _place_a_prendre(monde, maison, cle, *guerre_)
+            if place is None:
+                continue
+            cid_place, jours, maitre = place
+            raison |= {'place': cid_place, 'jours_de_marche': jours, 'maitre_de_la_place': maitre}
+        elif nature == 'grange':
             partis, arrives = _partis_et_arrives_30j(monde, maison.cell_id)
             if not partis > arrives:
                 continue
@@ -324,6 +348,112 @@ def _proposition_de_batiment(monde, maison, cle, types):
     return None
 
 
+def _proposition(maison, intention, raison):
+    return {'maison': {'sorte': maison.sorte, 'id': maison.id}, 'intention': intention, 'raison': raison}
+
+
+def _propositions_de_guerre(monde, maison, cle, regles, par_id):
+    """Déclarer la guerre au maître de la place à prendre et lever l'armée qui la prendra, ou rien.
+
+    La caserne achevée dans sa capitale tenue, sans armée en campagne ni levée déposée, la maison lève
+    sur ses lieux de la cellule de sa capitale, chacun à sa part, autant d'hommes que son grenier en
+    nourrit au-delà de sa réserve voulue, pour la marche et `ia_jours_de_siege_voulus` jours de siège ;
+    jamais moins que `ia_hommes_minimum`. La levée se vérifie par la règle du dépôt.
+    """
+    from sim import guerre
+    if any(a.maison == cle for a in monde.armees) or any(
+            isinstance(i, LeverArmee) and i.maison == cle for i in monde.intentions_en_attente):
+        return []
+    if guerre.raison_levee_fermee(monde, cle, regles) is not None:
+        return []
+    place = _place_a_prendre(monde, maison, cle, regles, par_id)
+    if place is None:
+        return []
+    cid_place, jours, maitre = place
+    capitale = monde.cells[maison.cell_id]
+    lieux = [(maison.cell_id, l.rang, guerre.levee_maximale(monde, maison.cell_id, l.rang, regles))
+             for l in sorted(capitale.lieux, key=lambda l: l.rang) if l.maitre == cle]
+    lieux = [(c, r, n) for c, r, n in lieux if n > 0]
+    paysans = guerre._paysans(capitale)
+    # Aucun autre geste de la maison ne prend son grain ce jour : le grain libre est celui du grenier.
+    grenier = monde.greniers[cle].get(_constantes.MARCHANDISE_NOURRITURE, 0)
+    if grain_libre(monde, cle) != grenier:
+        return []
+    reserve = _reserve_voulue(monde, _lieux_de_la_maison(monde, cle))['reserve_voulue_kg']
+    par_homme = (regles.ration_kg_par_homme_par_jour * _constantes.TICK_DURATION_DAYS
+                 * (jours + regles.ia_jours_de_siege_voulus))
+    payes = int((grenier - reserve) // par_homme) if grenier > reserve else 0
+    hommes = min(sum(n for _c, _r, n in lieux), paysans, payes)
+    if hommes < regles.ia_hommes_minimum:
+        return []
+    levee, reste = [], hommes
+    for c, r, n in lieux:
+        if reste <= 0:
+            break
+        levee.append([c, r, min(n, reste)])
+        reste -= min(n, reste)
+    vivres = hommes * par_homme
+    if guerre.verifier_levee(monde, cle, tuple(map(tuple, levee)), vivres, regles, grenier) is not None:
+        return []
+    raison = {'regle': 'guerre_a_la_place_voisine', 'cible': maitre, 'place': cid_place, 'jours_de_marche': jours,
+              'habitants_de_la_place': monde.cells[cid_place].lieux[0].population, 'hommes': hommes,
+              'grenier_nourriture_kg': grenier, 'reserve_voulue_kg': reserve, 'vivres_kg': vivres}
+    propositions = []
+    if not guerre.en_guerre(monde, cle, maitre):
+        if guerre.verifier_declaration(monde, cle, maitre) is not None:
+            return []
+        propositions.append(_proposition(maison, {'type': TYPE_DECLARER_GUERRE, 'maison': cle, 'cible': maitre},
+                                         raison))
+    propositions.append(_proposition(maison, {'type': TYPE_LEVER_ARMEE, 'maison': cle, 'lieux': levee,
+                                              'vivres_kg': vivres}, raison))
+    return propositions
+
+
+def _propositions_des_armees(monde, maison, cle, regles):
+    """Chaque jour, pour chaque armée de la maison, au plus un geste : rentrer, assiéger ou marcher.
+
+    1. la place qu'elle a prise : elle rentre (`place_prise`) ;
+    2. sans vivres et endettée : elle rentre (`armee_affamee`) ;
+    3. devant une place, ou en marche : elle continue ;
+    4. au bourg d'un maître avec qui la maison est en guerre : elle l'assiège (`place_ennemie`) ;
+    5. sinon elle marche vers la plus proche place d'un ennemi (`marche_vers_la_place`), ou rentre
+       s'il n'y en a plus à portée (`sans_place_a_prendre`).
+    """
+    from sim import guerre
+    propositions = []
+    for armee in sorted((a for a in monde.armees if a.maison == cle), key=lambda a: a.identifiant):
+        base = {'armee': armee.identifiant, 'cell_id': armee.cell_id, 'rang': armee.rang, 'hommes': armee.hommes,
+                'vivres_kg': armee.vivres_kg, 'dette_kg': armee.dette_kg}
+        renvoi = {'type': TYPE_RENVOYER_ARMEE, 'maison': cle, 'armee': armee.identifiant}
+        prises = [p for p in monde.prises if p['armee'] == armee.identifiant]
+        if prises:
+            propositions.append(_proposition(maison, renvoi, {'regle': 'place_prise', **base,
+                                                              'place': prises[-1]['cell_id']}))
+            continue
+        if armee.vivres_kg <= 0 and armee.dette_kg > 0:
+            propositions.append(_proposition(maison, renvoi, {'regle': 'armee_affamee', **base}))
+            continue
+        if armee.siege is not None or armee.destination is not None:
+            continue
+        if guerre.verifier_siege(monde, cle, armee.identifiant) is None:
+            maitre = monde.cells[armee.cell_id].lieux[0].maitre
+            propositions.append(_proposition(
+                maison, {'type': TYPE_ASSIEGER, 'maison': cle, 'armee': armee.identifiant},
+                {'regle': 'place_ennemie', **base, 'maitre_de_la_place': maitre}))
+            continue
+        place = guerre.place_a_prendre(monde, cle, armee.cell_id, regles,
+                                       lambda maitre: guerre.en_guerre(monde, cle, maitre))
+        if place is None or guerre.verifier_marche(monde, cle, armee.identifiant, place[0], 0) is not None:
+            propositions.append(_proposition(maison, renvoi, {'regle': 'sans_place_a_prendre', **base}))
+            continue
+        cid_place, jours, maitre = place
+        propositions.append(_proposition(
+            maison, {'type': TYPE_MARCHER, 'maison': cle, 'armee': armee.identifiant, 'cell': cid_place, 'rang': 0},
+            {'regle': 'marche_vers_la_place', **base, 'place': cid_place, 'jours_de_marche': jours,
+             'maitre_de_la_place': maitre}))
+    return propositions
+
+
 def decider_intentions(monde, releve, maisons=None):
     """Propose dans l'ordre des maisons, sans écrire ni tirer d'aléa.
 
@@ -336,7 +466,7 @@ def decider_intentions(monde, releve, maisons=None):
     pleine = _fenetre_pleine(monde)
     t = monde.ticks_ecoules
     propositions = []
-    regles = types = None
+    regles = types = guerre_ = None
     for maison in (maisons_de_l_ia(monde) if maisons is None else maisons):
         if maison.hors_carte is not None or (choix is not None and _cle_du_grenier(maison) == choix):
             continue
@@ -375,10 +505,22 @@ def decider_intentions(monde, releve, maisons=None):
                 types = batiments.charger_types()
             # Un chantier à la fois : pas de bâtiment le jour où la maison trace une
             # route ou ouvre son grenier (le grenier ne paie pas deux projets).
+            if guerre_ is None:
+                from sim import guerre
+                guerre_ = (guerre.charger_regles(), {m.id: m for m in monde.maisons})
             batiment = None if route is not None or secours is not None else _proposition_de_batiment(
-                monde, maison, cle, types)
+                monde, maison, cle, types, guerre_)
             if batiment is not None:
                 propositions.append(batiment)
+            # La guerre, par les gestes du joueur, un jour où le grenier ne paie rien d'autre.
+            if route is None and secours is None and reponse is None and batiment is None:
+                propositions.extend(_propositions_de_guerre(monde, maison, cle, *guerre_))
+        # Les armées en campagne, chaque jour.
+        if isinstance(cle, str) and getattr(monde, 'armees', None) and any(a.maison == cle for a in monde.armees):
+            if guerre_ is None:
+                from sim import guerre
+                guerre_ = (guerre.charger_regles(), {m.id: m for m in monde.maisons})
+            propositions.extend(_propositions_des_armees(monde, maison, cle, guerre_[0]))
     return propositions
 
 

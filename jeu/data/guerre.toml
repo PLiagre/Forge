@@ -32,3 +32,12 @@ part_prise_par_jour = 0.05
 [siege]
 # Une place assiégée qui a faim depuis tant de jours tombe.
 jours_de_faim_avant_la_chute = 30
+
+[ia]
+# Les règles de l'IA (sim/ia.py), qui fait la guerre par les gestes du joueur.
+# Elle ne vise que les places à au plus tant de jours de marche de sa capitale.
+jours_de_marche_max = 20
+# Elle part avec des vivres pour la marche et tant de jours de siège.
+jours_de_siege_voulus = 30
+# Elle ne part pas avec moins d'hommes que cela.
+hommes_minimum = 200

@@ -3988,9 +3988,26 @@ def _lire_marche(monde, cle, intention):
             'cout_kg': batiments.cout_kg(monde, types[intention['nature']], cell)}
 
 
+def _lire_caserne(monde, cle, intention):
+    """Raison de la caserne, lue sur le monde au tick, sans sim/ia.py : la place la plus proche d'une autre racine."""
+    from sim import batiments, constants as k, guerre
+    types, regles = batiments.charger_types(), guerre.charger_regles()
+    par_id = {m.id: m for m in monde.maisons}
+    sienne = guerre.racine(par_id, cle)
+    place = guerre.place_a_prendre(monde, cle, intention['cell'], regles,
+                                   lambda maitre: guerre.racine(par_id, maitre) != sienne)
+    assert place is not None, "une caserne sans place à prendre"
+    return {'regle': 'caserne_pour_la_guerre', 'place': place[0], 'jours_de_marche': place[1],
+            'maitre_de_la_place': place[2],
+            'grenier_nourriture_kg': monde.greniers[cle].get(k.MARCHANDISE_NOURRITURE, 0),
+            'reserve_voulue_kg': _reserve_lue(monde, cle),
+            'cout_kg': batiments.cout_kg(monde, types[intention['nature']], intention['cell'])}
+
+
 def _lire_batiment(monde, cle, intention):
     """La règle de la raison se choisit selon la nature du bâtiment déposé."""
-    lire = {'moulin': _lire_moulin, 'grange': _lire_grange, 'marche': _lire_marche}[intention['nature']]
+    lire = {'moulin': _lire_moulin, 'grange': _lire_grange, 'marche': _lire_marche,
+            'caserne': _lire_caserne}[intention['nature']]
     return lire(monde, cle, intention)
 
 
@@ -4015,6 +4032,10 @@ def _controler_raisons_du_pays(releve, lectures):
         assert 'refus' not in entree and entree['raison'] == lectures[(entree['tick'], entree['intention']['maison'])]
         raison = entree['raison']
         if raison['regle'] == 'moulin_quand_le_grenier_le_permet':
+            assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
+        elif raison['regle'] == 'caserne_pour_la_guerre':
+            from sim import guerre
+            assert 0 < raison['jours_de_marche'] <= guerre.charger_regles().ia_jours_de_marche_max
             assert raison['grenier_nourriture_kg'] > raison['reserve_voulue_kg'] + raison['cout_kg']
         elif raison['regle'] == 'grange_quand_les_gens_partent':
             assert raison['partis_30j'] > raison['arrives_30j']
@@ -4184,7 +4205,9 @@ def _verifier_raisons(ticks):
     releve = resume['ia']['releve']
     assert releve and all(
         entree['intention']['type'] in ('tracer_route', 'fixer_part', 'ouvrir_grenier',
-                                        'batir_dans_une_province', 'depenser_jauge') for entree in releve)
+                                        'batir_dans_une_province', 'depenser_jauge',
+                                        'declarer_guerre', 'lever_armee', 'marcher', 'assieger',
+                                        'renvoyer_armee') for entree in releve)
     _controler_raisons(releve, lectures_champ)
     _controler_raisons_du_pays(releve, lectures_pays)
     _verifier_raisons.secours = lectures_secours

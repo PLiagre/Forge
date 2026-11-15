@@ -10,6 +10,7 @@
   vivres du grenier, le renvoi les rend ; personne ni aucun kilo ne se crée.
 """
 import copy
+import json
 import math
 import random
 import tomllib
@@ -90,7 +91,8 @@ def test_les_regles_viennent_des_donnees(regles):
         brut = tomllib.load(fichier)
     assert regles == G.Regles(brut["levee"]["part_maximale"], brut["levee"]["batiment"], brut["marche"]["km_par_jour"],
                               brut["vivres"]["ration_kg_par_homme_par_jour"], brut["vivres"]["part_prise_par_jour"],
-                              brut["siege"]["jours_de_faim_avant_la_chute"])
+                              brut["siege"]["jours_de_faim_avant_la_chute"], brut["ia"]["jours_de_marche_max"],
+                              brut["ia"]["jours_de_siege_voulus"], brut["ia"]["hommes_minimum"])
     caserne = B.charger_types()[regles.batiment_de_levee]
     assert caserne.modificateurs == () and caserne.pieces == 0 and caserne.un_par_cellule
     assert M.charger_donnees().grandeurs[G.GRANDEUR_LEVEE].lue
@@ -105,6 +107,8 @@ def test_les_regles_viennent_des_donnees(regles):
     (("vivres", "part_prise_par_jour"), 2, "part_prise_par_jour"),
     (("siege", "jours_de_faim_avant_la_chute"), 0, "entier au moins égal à 1"),
     (("siege", "jours_de_faim_avant_la_chute"), 2.5, "entier au moins égal à 1"),
+    (("ia", "jours_de_marche_max"), 0, "entier au moins égal à 1"),
+    (("ia", "hommes_minimum"), True, "entier au moins égal à 1"),
     (("vivres", "kg"), 100, "champs"),
     (("solde", "pieces"), 3, "section inconnue"),
 ])
@@ -596,3 +600,114 @@ def test_service_sert_les_guerres_et_refuse_les_gestes_d_une_autre_maison():
         assert requete_service(port, "/tick?n=1", "POST")[0] == 200
         document = requete_service(port, "/guerres")[1]
         assert [(g["agresseur"], g["defenseur"]) for g in document["guerres"]] == [(BAR, cible)]
+
+
+# --- L'IA fait la guerre par les gestes du joueur ----------------------------------------
+
+JOURS_DE_L_IA = 60  # Bar règle sa part dans le mois, puis marche huit jours : l'horizon garde de la marge
+GESTES_DE_GUERRE = ("declarer_guerre", "lever_armee", "marcher", "assieger", "renvoyer_armee")
+
+
+@pytest.fixture(scope="module")
+def guerre_de_l_ia(depart):
+    """Trente jours du monde, puis Bar avec une caserne achevée et 300 t de grain ; l'IA joue jusqu'au siège de Bar.
+
+    Rend le monde préparé et son aléa (avant l'IA), le relevé, le monde au jour du siège, et le monde
+    que l'IA a lu chaque jour de la part de Bar.
+    """
+    from sim import ia
+    from sim.capitales import toutes_les_maisons_de_l_ia
+    monde, rng = copy.deepcopy(depart), random.Random(0)
+    for numero in range(c.FENETRE_FLUX_TICKS):
+        engine.tick(monde, rng, numero)
+    cid = _capitale(monde)
+    journees = B.charger_types()["caserne"].journees
+    identifiant = max((b.identifiant for b in monde.batiments_de_province), default=-1) + 1
+    monde.batiments_de_province = [*monde.batiments_de_province, B.BatimentDeProvince(
+        identifiant, "caserne", cid, BAR, journees, journees, False, 0, 0)]
+    monde.greniers[BAR][NOURRITURE] = monde.greniers[BAR].get(NOURRITURE, 0.0) + 300000.0
+    prepare, alea = copy.deepcopy(monde), copy.deepcopy(rng)
+    maisons, releve, lectures = toutes_les_maisons_de_l_ia(monde), [], {}
+    for _ in range(JOURS_DE_L_IA):
+        deja = len(releve)
+        if ia._jour_de_la_part(BAR, monde.ticks_ecoules):
+            lectures[monde.ticks_ecoules] = copy.deepcopy(monde)
+        ia.jouer_ia(monde, releve, maisons)
+        engine.tick(monde, rng, monde.ticks_ecoules)
+        if any(e["intention"]["type"] == "assieger" and e["intention"]["maison"] == BAR for e in releve[deja:]):
+            break
+    return prepare, alea, releve, monde, lectures
+
+
+def _de_bar(releve):
+    return [e for e in releve if e["intention"]["type"] in GESTES_DE_GUERRE and e["intention"]["maison"] == BAR]
+
+
+def test_l_ia_declare_leve_marche_et_assiege_par_les_gestes_du_joueur(guerre_de_l_ia, regles):
+    prepare, alea, releve, monde, lectures = guerre_de_l_ia
+    gestes = _de_bar(releve)
+    assert [e["intention"]["type"] for e in gestes] == ["declarer_guerre", "lever_armee", "marcher", "assieger"]
+    assert all("refus" not in e for e in releve if e["intention"]["type"] in GESTES_DE_GUERRE)
+    declaration, levee, marche, siege = gestes
+    # La raison de la guerre se lit sur le monde du jour, avant tout dépôt.
+    raison, avant = levee["raison"], lectures[levee["tick"]]
+    assert declaration["tick"] == levee["tick"] and declaration["raison"] == raison
+    assert raison["regle"] == "guerre_a_la_place_voisine" and declaration["intention"]["cible"] == raison["cible"]
+    assert avant.cells[raison["place"]].lieux[0].maitre == raison["cible"]
+    par_id = {m.id: m for m in avant.maisons}
+    assert G.racine(par_id, raison["cible"]) != G.racine(par_id, BAR)
+    assert G.place_a_prendre(avant, BAR, _capitale(avant), regles,
+                             lambda m: G.racine(par_id, m) != G.racine(par_id, BAR)) == (
+        raison["place"], raison["jours_de_marche"], raison["cible"])
+    assert raison["hommes"] == sum(n for _c, _r, n in levee["intention"]["lieux"]) >= regles.ia_hommes_minimum
+    par_homme = regles.ration_kg_par_homme_par_jour * (raison["jours_de_marche"] + regles.ia_jours_de_siege_voulus)
+    assert levee["intention"]["vivres_kg"] == raison["vivres_kg"] == raison["hommes"] * par_homme
+    assert raison["grenier_nourriture_kg"] == avant.greniers[BAR][NOURRITURE]
+    assert raison["grenier_nourriture_kg"] - raison["reserve_voulue_kg"] >= raison["vivres_kg"]
+    assert all(c_ == _capitale(avant) and n <= G.levee_maximale(avant, c_, r, regles)
+               for c_, r, n in levee["intention"]["lieux"])
+    # Elle marche vers la place, puis l'assiège à son arrivée.
+    assert (marche["intention"]["cell"], marche["intention"]["rang"]) == (raison["place"], 0)
+    assert marche["tick"] == levee["tick"] + 1 and marche["raison"]["regle"] == "marche_vers_la_place"
+    assert siege["raison"]["regle"] == "place_ennemie" and siege["raison"]["cell_id"] == raison["place"]
+    armee = next(a for a in monde.armees if a.maison == BAR)
+    assert armee.siege == raison["place"] and [g.agresseur for g in monde.guerres if g.defenseur == raison["cible"]] == [BAR]
+
+
+def test_le_joueur_qui_rejoue_les_gestes_de_l_ia_obtient_le_meme_monde(guerre_de_l_ia):
+    prepare, alea, releve, monde, _lectures = guerre_de_l_ia
+    par_tick = {}
+    for entree in releve:
+        if "refus" not in entree:
+            par_tick.setdefault(entree["tick"], []).append(entree["intention"])
+    joueur = copy.deepcopy(prepare)
+    while joueur.ticks_ecoules < monde.ticks_ecoules:
+        for intention in par_tick.get(joueur.ticks_ecoules, ()):
+            recevoir_intention(joueur, copy.deepcopy(intention))
+        engine.tick(joueur, alea, joueur.ticks_ecoules)
+    egaux = json.dumps(joueur.to_dict(), sort_keys=True) == json.dumps(monde.to_dict(), sort_keys=True)
+    assert egaux and joueur.armees
+
+
+def test_l_ia_rentre_quand_la_place_est_prise_ou_l_armee_affamee(guerre_de_l_ia, regles):
+    from sim import ia
+    monde = guerre_de_l_ia[3]
+    maison = next(m for m in ia.maisons_de_l_ia(monde) if m.sorte == "seigneurie" and m.id == 1)
+    armee = next(a for a in monde.armees if a.maison == BAR)
+    # Devant la place, elle tient le siège : aucun geste.
+    assert ia._propositions_des_armees(monde, maison, BAR, regles) == []
+    affamee = copy.deepcopy(monde)
+    G._remplacer(affamee, G.replace(armee, vivres_kg=0.0, dette_kg=10.0))
+    (renvoi,) = ia._propositions_des_armees(affamee, maison, BAR, regles)
+    assert renvoi["raison"]["regle"] == "armee_affamee" and renvoi["intention"]["type"] == "renvoyer_armee"
+    recevoir_intention(affamee, renvoi["intention"])
+    prise = copy.deepcopy(monde)
+    G.tomber(prise, next(a for a in prise.armees if a.maison == BAR))
+    (renvoi,) = ia._propositions_des_armees(prise, maison, BAR, regles)
+    assert (renvoi["raison"]["regle"], renvoi["raison"]["place"]) == ("place_prise", armee.siege)
+    recevoir_intention(prise, renvoi["intention"])
+    # Contre-épreuve : le siège levé, sans prise ni faim, devant la place ennemie, elle l'assiège de nouveau.
+    levee = copy.deepcopy(monde)
+    G._remplacer(levee, G.replace(armee, siege=None))
+    (geste,) = ia._propositions_des_armees(levee, maison, BAR, regles)
+    assert geste["raison"]["regle"] == "place_ennemie"

@@ -529,8 +529,14 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
     # Le moulin d'abord : le grain nourrit tout le reste.
     premiere = _proposees(copy.deepcopy(monde), maisons, cle)
     assert [e["intention"]["nature"] for e in premiere] == ["moulin"]
-    # Un moulin achevé, des départs nets sur la fenêtre : la grange.
+    # Un moulin achevé, une place à prendre à portée : la caserne, qui ouvre la levée.
     _bati(monde, cle, cid, "moulin")
+    seconde = _proposees(copy.deepcopy(monde), maisons, cle)
+    assert [(e["intention"]["nature"], e["raison"]["regle"]) for e in seconde] == [
+        ("caserne", "caserne_pour_la_guerre")] and "refus" not in seconde[0]
+    assert seconde[0]["raison"] == _lire_batiment(copy.deepcopy(monde), cle, seconde[0]["intention"])
+    # La caserne achevée, des départs nets sur la fenêtre : la grange.
+    _bati(monde, cle, cid, "caserne")
     joueur = copy.deepcopy(monde)
     sans_ia = copy.deepcopy(monde)
     tout = _jouer_l_ia(monde, maisons)
@@ -560,6 +566,7 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
     # Le moulin et la grange achevés : le marché, si la province commerce.
     monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
     _bati(monde, cle, cid, "moulin")
+    _bati(monde, cle, cid, "caserne")
     _bati(monde, cle, cid, "grange")
     joueur = copy.deepcopy(monde)
     sans_ia = copy.deepcopy(monde)
@@ -590,6 +597,7 @@ def test_l_ia_ne_propose_rien_pendant_un_chantier_ni_sans_raison(depart):
     monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
     cid = grande.cell_id
     _bati(monde, cle, cid, "moulin")
+    _bati(monde, cle, cid, "caserne")
     # Un chantier de province en cours : un chantier à la fois.
     en_cours = copy.deepcopy(monde)
     B.poser(en_cours, cle, cid, "grange")

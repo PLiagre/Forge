@@ -29,6 +29,7 @@ _SECTIONS = {
     "marche": {"km_par_jour"},
     "vivres": {"ration_kg_par_homme_par_jour", "part_prise_par_jour"},
     "siege": {"jours_de_faim_avant_la_chute"},
+    "ia": {"jours_de_marche_max", "jours_de_siege_voulus", "hommes_minimum"},
 }
 _CHAMPS_D_UNE_LEVEE = ("cell", "rang", "hommes")
 
@@ -45,6 +46,9 @@ class Regles:
     ration_kg_par_homme_par_jour: float
     part_prise_par_jour: float
     jours_de_faim_avant_la_chute: int
+    ia_jours_de_marche_max: int
+    ia_jours_de_siege_voulus: int
+    ia_hommes_minimum: int
 
 
 @dataclass(frozen=True)
@@ -128,16 +132,21 @@ def lire_regles(document, types=None) -> Regles:
     batiment = document["levee"]["batiment"]
     if batiment not in types:
         raise GuerreInvalide(f"levee.batiment : {batiment!r} absent des bâtiments de province")
-    jours = document["siege"]["jours_de_faim_avant_la_chute"]
-    if isinstance(jours, bool) or not isinstance(jours, int) or jours < 1:
-        raise GuerreInvalide("siege.jours_de_faim_avant_la_chute : entier au moins égal à 1 attendu")
+    entiers = {}
+    for section, champ in (("siege", "jours_de_faim_avant_la_chute"), ("ia", "jours_de_marche_max"),
+                           ("ia", "jours_de_siege_voulus"), ("ia", "hommes_minimum")):
+        valeur = document[section][champ]
+        if isinstance(valeur, bool) or not isinstance(valeur, int) or valeur < 1:
+            raise GuerreInvalide(f"{section}.{champ} : entier au moins égal à 1 attendu")
+        entiers[section, champ] = valeur
     return Regles(
         _nombre(document["levee"]["part_maximale"], "levee.part_maximale", 0, 1),
         batiment,
         _nombre(document["marche"]["km_par_jour"], "marche.km_par_jour", 0),
         _nombre(document["vivres"]["ration_kg_par_homme_par_jour"], "vivres.ration_kg_par_homme_par_jour", 0),
         _nombre(document["vivres"]["part_prise_par_jour"], "vivres.part_prise_par_jour", 0, 1, strict=False),
-        jours)
+        entiers["siege", "jours_de_faim_avant_la_chute"], entiers["ia", "jours_de_marche_max"],
+        entiers["ia", "jours_de_siege_voulus"], entiers["ia", "hommes_minimum"])
 
 
 def charger_regles(chemin=None) -> Regles:
@@ -657,3 +666,48 @@ def document_de_la_guerre(monde) -> dict:
         "prises": [dict(p, rangs=list(p["rangs"])) for p in getattr(monde, "prises", ())],
         "morts_des_armees": getattr(monde, "morts_des_armees", 0),
     }
+
+
+# --- Ce que l'IA lit pour faire la guerre ---------------------------------------------
+
+def racine(par_id, maison) -> str | None:
+    """La maison au sommet de la suzeraineté de `maison` (elle-même sans suzerain) ; `par_id` : id → fiche."""
+    vus = set()
+    while maison in par_id and par_id[maison].suzerain is not None and maison not in vus:
+        vus.add(maison)
+        maison = par_id[maison].suzerain
+    return maison
+
+
+def jours_de_marche(monde, depart, regles) -> dict:
+    """cell_id → jours de marche depuis la cellule `depart`, par le plus court chemin terrestre freiné par le relief.
+
+    Au moins un jour hors de sa cellule ; seules les cellules à au plus `ia_jours_de_marche_max` jours.
+    """
+    from sim.convois import _plus_court
+    jours = {}
+    for cid, km in _plus_court(monde, depart).items():
+        n = 0 if cid == depart else max(1, math.ceil(km / regles.vitesse_marche_km_par_jour))
+        if n <= regles.ia_jours_de_marche_max:
+            jours[cid] = n
+    return jours
+
+
+def place_a_prendre(monde, maison, depart, regles, vise) -> tuple | None:
+    """`(cell_id, jours, maître)` du bourg le plus proche en jours de marche dont le maître est visé.
+
+    `vise(maître)` dit si ce maître se prend. À égalité de jours, le bourg le moins peuplé, puis la
+    plus petite cellule. Les bourgs de la maison et ceux sans maître ne se prennent pas.
+    """
+    retenue = None
+    for cid, jours in jours_de_marche(monde, depart, regles).items():
+        bourg = _bourg(monde.cells[cid])
+        if bourg is None or bourg.maitre is None or bourg.maitre == maison or not vise(bourg.maitre):
+            continue
+        cle = (jours, bourg.population, cid)
+        if retenue is None or cle < retenue[0]:
+            retenue = (cle, bourg.maitre)
+    if retenue is None:
+        return None
+    (jours, _population, cid), maitre = retenue
+    return cid, jours, maitre
