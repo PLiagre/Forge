@@ -692,32 +692,41 @@ def document_de_la_guerre(monde) -> dict:
 
 
 def _etapes(armee, places) -> list:
-    """Les places que l'armée traverse encore, dans l'ordre de `_troncon_km` : son bourg si elle part d'un
-    autre lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il n'est pas un bourg."""
+    """Les places que l'armée doit encore atteindre, dans l'ordre des tronçons de `_troncon_km` : avec une route,
+    son bourg si elle part d'un autre lieu, le bourg de chaque cellule de la route, puis le lieu visé s'il n'est pas
+    un bourg ; sans route, le lieu visé dans sa cellule. La première est la fin du tronçon en cours."""
     if armee.destination is None:
         return []
-    etapes = []
-    if armee.route and armee.rang != 0:
-        etapes.append(places[armee.cell_id][0])
-    etapes.extend(places[cid][0] for cid in armee.route)
     cid, rang = armee.destination
+    if not armee.route:
+        return [places[cid][rang]] if (armee.cell_id, armee.rang) != (cid, rang) else []
+    etapes = [places[armee.cell_id][0]] if armee.rang != 0 else []
+    etapes.extend(places[c][0] for c in armee.route)
     if rang != 0:
         etapes.append(places[cid][rang])
-    return [p.en_document() for p in etapes]
+    return etapes
 
 
 def document_servi_de_la_guerre(monde, places) -> dict:
     """`document_de_la_guerre`, où chaque armée porte en plus sa place (`point`) et celles de sa route (`etapes`).
 
-    Le service seul le sert, pour que la carte dessine les armées sans rien recalculer ; `places` vient de
-    `places_du_monde`. La photographie garde `document_de_la_guerre`.
+    `point` est la place de son lieu, avancée sur le tronçon en cours de la part qu'elle en a faite
+    (`avance_km` sur la longueur de `_troncon_km`) : la carte la dessine où elle marche, sans rien recalculer.
+    Le service seul le sert ; `places` vient de `places_du_monde`. La photographie garde `document_de_la_guerre`.
     """
     document = document_de_la_guerre(monde)
     par_id = {a.identifiant: a for a in getattr(monde, "armees", ())}
     for servie in document["armees"]:
         armee = par_id[servie["identifiant"]]
-        servie["point"] = places[armee.cell_id][armee.rang].en_document()
-        servie["etapes"] = _etapes(armee, places)
+        etapes = _etapes(armee, places)
+        point = places[armee.cell_id][armee.rang].en_document()
+        if etapes and armee.avance_km > 0:
+            longueur = _troncon_km(monde, armee)[0]
+            part = min(1.0, armee.avance_km / longueur) if longueur > 0 else 0.0
+            vers = etapes[0].en_document()
+            point = {cle: point[cle] + (vers[cle] - point[cle]) * part for cle in point}
+        servie["point"] = point
+        servie["etapes"] = [p.en_document() for p in etapes]
     return document
 
 

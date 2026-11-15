@@ -3971,11 +3971,14 @@ se ferme.
 (`guerre.document_de_la_guerre`, sans arrondi) : chaque armée porte son lieu,
 ses effectifs par lieu d'origine, son effectif total, ses vivres, sa route en
 cellules, sa destination et la cellule qu'elle assiège ou `null`. Le service
-seul ajoute à chaque armée `point`, la place de son lieu, et `etapes`, les
-places qu'elle traverse encore dans l'ordre du maillon (son bourg si elle part
-d'un autre lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il
-n'est pas un bourg ; vide sans destination) : la carte la dessine sans rien
-recalculer (`guerre.document_servi_de_la_guerre`).
+seul ajoute à chaque armée `etapes`, les places qu'elle doit encore atteindre
+dans l'ordre du maillon (avec une route : son bourg si elle part d'un autre
+lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il n'est pas
+un bourg ; sans route, le lieu visé dans sa cellule ; vide sans destination),
+et `point` : la place de son lieu, avancée vers la première étape de la part
+du tronçon déjà faite (`avance_km` sur la longueur de `_troncon_km`, au plus
+toute). La carte la dessine où elle marche sans rien recalculer
+(`guerre.document_servi_de_la_guerre`).
 
 `GET /guerres/ordres?maison=X[&cell=C]` sert le devis des ordres de guerre de
 la maison, lu sous le verrou du tick (`guerre.devis_des_ordres`) ; il n'écrit

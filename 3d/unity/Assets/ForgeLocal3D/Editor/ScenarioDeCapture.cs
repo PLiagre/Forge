@@ -18,6 +18,8 @@ namespace ForgeLocal3D
     // Un `yield return` d'un autre IEnumerator ne l'exécute pas (ce n'est pas une coroutine) : pour
     // attendre plusieurs images, `for (…) yield return null;`. La caméra de la ville se pose par
     // `DesertCityCamera.Poser` ; bouger `camera.transform` à la main, elle le reprend à l'image suivante.
+    // Un scénario qui charge une autre scène (la carte) fait `yield return` de la caméra de cette scène : c'est elle que la
+    // capture photographie désormais, pour ce scénario et les suivants du groupe.
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
     public sealed class ScenarioDeCaptureAttribute : Attribute
     {

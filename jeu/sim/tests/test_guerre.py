@@ -825,10 +825,16 @@ def test_le_service_sert_les_terres_les_armees_dessinees_et_le_devis():
         (armee,) = requete_service(port, "/guerres")[1]["armees"]
         places = places_du_monde(serveur.world)
         monde_armee = serveur.world.armees[0]
-        assert armee["point"] == places[monde_armee.cell_id][monde_armee.rang].en_document()
+        depart = places[monde_armee.cell_id][monde_armee.rang].en_document()
         if monde_armee.destination is not None:
             assert armee["etapes"] == [places[c][0].en_document() for c in monde_armee.route] != []
+            # En marche, elle est dessinée sur son tronçon, avancée de la part qu'elle en a faite.
+            assert monde_armee.avance_km > 0, "l'armée n'a pas avancé : échantillon vide"
+            part = monde_armee.avance_km / G._troncon_km(serveur.world, monde_armee)[0]
+            assert 0 < part < 1 and armee["point"] == {
+                cle: depart[cle] + (armee["etapes"][0][cle] - depart[cle]) * part for cle in depart}
         else:
+            assert armee["point"] == depart
             assert armee["etapes"] == [] and (monde_armee.cell_id, monde_armee.rang) == (voisine, 0)
         # Le tick a avancé, les terres ne changent pas : seuls le tick et la date se récrivent.
         statut, apres, octets = requete_service(port, "/terres")

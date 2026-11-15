@@ -20,9 +20,10 @@ namespace Forge.Interface
         public const float PERIODE_S = 2f;
         // Au-dessus des contours (0,5) et sous les flèches (0,56) ; les armées au-dessus des lieux (0,8) ; les noms des pays au-dessus des villes (1).
         public const float HAUTEUR_FRONTIERE = 0.52f, HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
-        public const float LARGEUR_FRONTIERE_KM = 6f, LARGEUR_ROUTE_KM = 3f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
-        // Un nom de pays près de deux fois la taille d'un nom de ville (25) ; le nombre d'une armée au nord de son disque.
-        const float TAILLE_NOM_PAYS = 45f, TAILLE_NOMBRE = 22f, ECART_NOMBRE_KM = 20f; const int POLICE = 16;
+        public const float LARGEUR_FRONTIERE_KM = 9f, LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
+        // La police tirée à 64 points puis réduite : nette à l'écran. Un nom de pays près de deux fois un nom de ville, le nombre
+        // d'une armée un peu plus grand qu'un nom de ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
+        const float TAILLE_NOM_PAYS = 7f, TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -22f; const int POLICE = 64;
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(10); static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
 
         public Func<Lecture<TerresDeLaCarte>> LecteurTerres;
@@ -127,7 +128,7 @@ namespace Forge.Interface
 
         void TracerLesFrontieres()
         {
-            var sommets = new List<Vector3>(); var triangles = new List<int>(); int n = 0;
+            var sommets = new List<Vector3>(); var normales = new List<Vector3>(); var triangles = new List<int>(); int n = 0;
             if (voisinage != null && Terres != null)
                 foreach (var cote in voisinage.Cotes)
                 {
@@ -135,8 +136,10 @@ namespace Forge.Interface
                     Vector3 a = new Vector3(cote.De.x, HAUTEUR_FRONTIERE, cote.De.y), b = new Vector3(cote.A.x, HAUTEUR_FRONTIERE, cote.A.y), d = (b - a).normalized;
                     Vector3 p = new Vector3(d.z, 0f, -d.x) * (LARGEUR_FRONTIERE_KM / 2f); int i = sommets.Count;
                     sommets.Add(a - p); sommets.Add(b - p); sommets.Add(b + p); sommets.Add(a + p);
-                    // Les deux faces : le trait se voit quel que soit le sens du côté.
-                    triangles.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3, i, i + 2, i + 1, i, i + 3, i + 2 });
+                    normales.AddRange(new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
+                    // Une seule face, tournée vers le haut et éclairée comme les terres : (a − p, b − p, b + p) tourne dans le sens
+                    // horaire vu d'en haut, la règle des triangles des terres (`TriangulationDeCarte.Ajouter`).
+                    triangles.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
                     n++;
                 }
             CotesDeFrontiere = n;
@@ -148,7 +151,7 @@ namespace Forge.Interface
                 trait = new Material(MateriauDeBase.Prendre()) { name = FRONTIERES, color = SocleInterface.Couleur("sang") }; crees.Add(trait);
                 var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterial = trait; rendu.shadowCastingMode = ShadowCastingMode.Off;
             }
-            maillage.Clear(); maillage.SetVertices(sommets); maillage.SetTriangles(triangles, 0); maillage.RecalculateNormals(); maillage.RecalculateBounds();
+            maillage.Clear(); maillage.SetVertices(sommets); maillage.SetNormals(normales); maillage.SetTriangles(triangles, 0); maillage.RecalculateBounds();
         }
 
         // Un nom par pays, au centre de celle de ses terres qui est la plus proche du centre de toutes ses terres.
@@ -173,7 +176,7 @@ namespace Forge.Interface
             }
         }
 
-        // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au nord et sa route servie.
+        // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au sud et sa route servie.
         void DessinerLesArmees()
         {
             var garder = new HashSet<string>();
