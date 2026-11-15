@@ -1,6 +1,7 @@
 """Mémoire des circulations : des mesures, jamais une règle du monde."""
 
 from array import array
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import sim.constants as _constantes
@@ -133,35 +134,69 @@ def flux_de_lieu(monde, cell_id, rang) -> dict:
 
 
 
-def flux_des_lieux(monde) -> dict:
-    """Relit tous les lieux en une passe, dans l'ordre des jours du registre."""
-    resultat = {cid: [{'preleve_kg': 0.0, 'partis': 0, 'arrives': 0}
-                      for lieu in sorted(cell.lieux, key=lambda lieu: lieu.rang)]
-                for cid, cell in monde.cells.items()}
-    routes = getattr(getattr(monde, 'routes_des_lieux', None), 'par_cellule', {})
-    preleves = {cid: [0.0] * len(lignes) for cid, lignes in resultat.items()}
-    # Les rangs routés sont préparés une fois, plutôt que recherchés chaque jour.
-    prises = {cid: [(rang, indice) for rang, indice in enumerate(entree[0])
-                    if indice >= 0 and rang < len(lignes)]
-              for cid, entree in routes.items() if (lignes := resultat.get(cid)) is not None}
-    for jour in _jours_de_fenetre(monde):
-        if jour.taux is not None and jour.recoltes is not None:
-            taux, limite = jour.taux, len(jour.taux)
-            for cid, recoltes in jour.recoltes.items():
-                nombre = len(recoltes)
-                kilos = preleves.get(cid)
-                for rang, indice in prises.get(cid, ()):
-                    if indice < limite and rang < nombre:
-                        kilos[rang] += taux[indice] * recoltes[rang]
-        for champ in ('partis', 'arrives'):
-            for (cid, rang), personnes in getattr(jour, champ).items():
-                lignes = resultat.get(cid, ())
-                if 0 <= rang < len(lignes):
-                    lignes[rang][champ] += personnes
-    for cid, lignes in resultat.items():
-        for mesure, kilos in zip(lignes, preleves[cid]):
-            mesure['preleve_kg'] = kilos
-    return resultat
+class FluxDesLieux(Mapping):
+    """cell_id → les mesures de chaque lieu de la cellule sur la fenêtre, par rang.
+
+    La vue copie à sa construction les routes et, de chaque jour de la fenêtre, les parts, la table
+    des récoltes et les déplacements : elle ne suit plus le monde. Les récoltes d'une cellule, elles,
+    sont partagées avec le jour : le moteur pose une liste neuve par cellule et par tick, et ne la
+    réécrit jamais en place. Les trente jours d'une cellule ne se somment qu'à sa première lecture,
+    et la somme se garde avec la vue : une publication dont on ne lit qu'une cellule ne paie que
+    celle-là."""
+
+    def __init__(self, monde):
+        self._lieux = {cid: len(cell.lieux) for cid, cell in monde.cells.items()}
+        routes = getattr(getattr(monde, 'routes_des_lieux', None), 'par_cellule', {})
+        self._indices = {cid: tuple(entree[0]) for cid, entree in routes.items() if cid in self._lieux}
+        self._jours = tuple(
+            (None if jour.taux is None or jour.recoltes is None
+             else (list(jour.taux), dict(jour.recoltes)),
+             dict(jour.partis), dict(jour.arrives))
+            for jour in _jours_de_fenetre(monde))
+        self._lus = {}
+
+    def __getitem__(self, cell_id):
+        lignes = self._lus.get(cell_id)
+        if lignes is None:
+            lignes = self._lus[cell_id] = self._sommer(cell_id)
+        return lignes
+
+    def __iter__(self):
+        return iter(self._lieux)
+
+    def __len__(self):
+        return len(self._lieux)
+
+    def _sommer(self, cell_id) -> list:
+        """Les sommes d'une cellule, dans l'ordre des jours : le même produit part × récolte que
+        `flux_de_lieu`, puis les déplacements de personnes."""
+        nombre = self._lieux[cell_id]
+        kilos, partis, arrives = [0.0] * nombre, [0] * nombre, [0] * nombre
+        prises = [(rang, indice) for rang, indice in enumerate(self._indices.get(cell_id, ()))
+                  if indice >= 0 and rang < nombre]
+        for prelevement, partis_du_jour, arrives_du_jour in self._jours:
+            if prelevement is not None and prises:
+                taux, recoltes = prelevement
+                recolte = recoltes.get(cell_id)
+                if recolte is not None:
+                    limite, combien = len(taux), len(recolte)
+                    for rang, indice in prises:
+                        if indice < limite and rang < combien:
+                            kilos[rang] += taux[indice] * recolte[rang]
+            for rang in range(nombre):
+                cle = (cell_id, rang)
+                if cle in partis_du_jour:
+                    partis[rang] += partis_du_jour[cle]
+                if cle in arrives_du_jour:
+                    arrives[rang] += arrives_du_jour[cle]
+        return [{'preleve_kg': kilos[rang], 'partis': partis[rang], 'arrives': arrives[rang]}
+                for rang in range(nombre)]
+
+
+def flux_des_lieux(monde) -> FluxDesLieux:
+    """Les mesures de tous les lieux, lues une fois sur le monde et sommées cellule par cellule
+    à leur première lecture, dans l'ordre des jours du registre."""
+    return FluxDesLieux(monde)
 
 
 def commerce_par_voisine(monde, cell_id) -> dict:
