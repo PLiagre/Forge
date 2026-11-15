@@ -2211,8 +2211,11 @@ jour 0 compte encore ; après trente et un, il ne compte plus. À la création
 d'un jour, les jours antérieurs à `ticks_ecoules + 1 − FENETRE_FLUX_TICKS`
 sont retirés. Une maison connue sans route rend cinq zéros mesurés ; une
 maison ou un lieu inconnu est refusé. Les lecteurs servent les preuves et
-le service ; `flux_des_lieux` sert `/lieu` et la photographie en une passe,
-dans le même ordre des jours que `flux_de_lieu`. Aucun module de règles ne les appelle.
+le service ; `flux_des_lieux` sert `/lieu` et la photographie par une vue lue
+une fois sur le monde, dans le même ordre des jours que `flux_de_lieu`. La vue
+copie les jours de la fenêtre à sa construction et ne suit plus le monde ; les
+trente jours d'une cellule ne se somment qu'à sa première lecture. Aucun module
+de règles ne les appelle.
 
 Le prélèvement accumule les kilos dans une liste locale, sans garde ni
 écriture `array` par lieu ; les vecteurs sont convertis une fois par appel.
@@ -2718,13 +2721,16 @@ sans arrondi. Sans noms ou flux fournis, ces champs déclarent `None` ; sans
 registre, les flux fournis valent zéro. Ils sont lus par `lieux_en_photographie`, la
 fonction même qui remplit les lieux de la photographie, **sans arrondi** : la somme de leurs paniers égale le
 panier du monde au bit près, pas le panier arrondi en tête de la réponse.
-Ces documents sont copiés dans `EtatPublie`, avec la photographie du tick,
-dans le même appel que la population, le panier et les foyers ; leurs octets
-naissent à la première lecture. Un lieu publié
+Ce que ces documents lisent du monde est copié dans `EtatPublie`, avec la
+photographie du tick, dans le même appel que la population, le panier et les
+foyers ; les lieux d'une cellule se photographient, leurs flux se somment et
+leurs octets naissent à sa première lecture, sur cette copie : le service ne
+paie que les cellules lues, et un état lu après coup rend les octets de son
+tick. Un lieu publié
 ne porte aucun `cell_id` recopié ni `lieu_id` : son identité est le couple
 (`cell_id` de la réponse, `rang`). Des lieux qui ne correspondent pas au
-découpage lèvent `SnapshotExportError` : le service ne publie jamais une
-liste inventée. `/monde` reste léger et ne les porte pas.
+découpage lèvent `SnapshotExportError` dès la publication : le service ne
+publie jamais une liste inventée. `/monde` reste léger et ne les porte pas.
 
 `GET /lieu?cell=X&bourg=1` ajoute le bloc `bourg` : exactement `rang`,
 `population`, `stocks`, `duree_faim_ticks` et `tick`. Il lit le rang 0,

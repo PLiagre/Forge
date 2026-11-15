@@ -99,7 +99,7 @@ PHASES_DE_LA_PUBLICATION = (
     ("sim.service", "flux_des_lieux", "publication : flux"),
     ("sim.service", "logement_de", "publication : logement"),
     ("sim.service", "_foyers_du_lieu", "publication : foyers"),
-    ("sim.service", "lieux_en_photographie", "publication : lieux"),
+    ("sim.service", "_cellule_a_photographier", "publication : lieux"),
     ("sim.service", "_serialiser", "publication : octets"),
     ("sim.service", "portes_de_l_enceinte", "publication : portes"),
     ("sim.service", "controler_portes", "publication : portes"),
