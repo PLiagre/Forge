@@ -294,6 +294,16 @@ class EtatPublie:
 _TYPES_DE_GUERRE = (TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE)
 
 
+def prochaine_echeance(echeance: float, intervalle: float, maintenant: float) -> float:
+    """L'instant du jour suivant : un intervalle après l'échéance du jour qui vient d'être joué.
+
+    Un jour qui a pris plus que son intervalle est suivi tout de suite du suivant : l'horloge donne alors
+    autant de jours que la machine en joue, sans y ajouter d'attente. Les jours manqués ne se rattrapent
+    pas : l'échéance repart de maintenant, jamais du passé."""
+    prochaine = echeance + intervalle
+    return prochaine if prochaine > maintenant else maintenant
+
+
 class ErreurIA(RuntimeError):
     """Refus de l'IA avant le tick, après retrait de ses dépôts."""
 
@@ -679,10 +689,7 @@ class ServeurMonde(ThreadingHTTPServer):
             with self.condition_vitesse:
                 if generation != self._generation_vitesse:
                     continue
-                intervalle = 1 / vitesse
-                prochaine = echeance + intervalle
-                maintenant = time.monotonic()
-                echeance = prochaine if prochaine > maintenant else maintenant + intervalle
+                echeance = prochaine_echeance(echeance, 1 / vitesse, time.monotonic())
 
     def server_close(self) -> None:
         """Réveille le fil démon afin qu'il puisse finir proprement."""
