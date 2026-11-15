@@ -115,6 +115,22 @@ def _octets_du_document(document, contexte, cell_id) -> bytes:
     return _serialiser(document)
 
 
+class DocumentDiffere:
+    """Octets d'un seul document copié à la publication, sérialisés à la première lecture, puis gardés.
+
+    Comme `OctetsDifferes`, ne garde ni serveur ni verrou : une lecture ne prend jamais `verrou_tick`, et
+    deux lecteurs en même temps le sérialisent deux fois, avec les mêmes octets."""
+
+    def __init__(self, document: dict):
+        self._document = document
+        self._octets = None
+
+    def octets(self) -> bytes:
+        if self._octets is None:
+            self._octets = _serialiser(self._document)
+        return self._octets
+
+
 def _octets_du_bourg(bourg, lieux, cell_id) -> bytes:
     """« bourg » est la première clé dans l'ordre canonique : on reprend les octets du lieu."""
     return b'{"bourg":' + _serialiser(bourg) + b"," + lieux[cell_id][1:]
@@ -271,7 +287,7 @@ def _travail_enceinte_cli(recue: str) -> float:
 
 @dataclass(frozen=True)
 class EtatPublie:
-    """Photographie du tick ; plans et maisons se complètent à la première lecture."""
+    """Photographie du tick ; lieux, plans, occupations, maisons et guerres se complètent à la première lecture."""
 
     monde: bytes
     lieux: Mapping[int, bytes]
@@ -286,7 +302,7 @@ class EtatPublie:
     maisons: MatiereMaisons
     octets_maisons: dict[str | None, bytes]
     modificateurs: bytes = b""
-    guerres: bytes = b""
+    guerres: DocumentDiffere | None = None
     # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
     duree_dernier_jour_ms: float = -1
 
@@ -557,7 +573,8 @@ class ServeurMonde(ThreadingHTTPServer):
                 "maisons_actives_30j": maisons_actives_30j(numero_tick, self.releve),
             }) if self.ia else None,
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
-            guerres=_serialiser(document_de_la_guerre(self.world)),
+            # `document_de_la_guerre` rend des copies : le monde vivant peut changer avant la lecture.
+            guerres=DocumentDiffere(document_de_la_guerre(self.world)),
         )
 
     def octets_du_pays(self, maison_id):
@@ -797,8 +814,8 @@ class RequetesMonde(BaseHTTPRequestHandler):
             self._repondre_octets(HTTPStatus.OK, etat.modificateurs)
             return
         if cible.path == "/guerres":
-            # Les guerres, les armées et les prises du tick publié.
-            self._repondre_octets(HTTPStatus.OK, etat.guerres)
+            # Les guerres, les armées et les prises du tick publié ; leurs octets naissent à la première lecture.
+            self._repondre_octets(HTTPStatus.OK, etat.guerres.octets())
             return
         if cible.path == "/ia":
             if etat.ia is None:
