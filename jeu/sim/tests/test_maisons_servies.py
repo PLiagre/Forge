@@ -4,6 +4,7 @@ import copy
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import FrozenInstanceError, replace
 import json
+import math
 from pathlib import Path
 import statistics
 import time
@@ -593,3 +594,68 @@ def test_fiches_figees_du_pont():
             assert requete_service(port, _route(identifiant))[::2] == (200, octets), identifiant
         assert requete_service(port, '/tick?n=1', 'POST')[0] == 200
         assert requete_service(port, _route(ids['Émirat du Zab']))[2] != figees[ids['Émirat du Zab']][0]
+
+
+def _flux_sommes_d_un_coup(monde):
+    """Les kilos de toutes les maisons, sommés par colonne sur toute la fenêtre : la façon d'avant."""
+    from functools import reduce
+    from itertools import zip_longest
+    from operator import add
+    from sim.flux import _jours_de_fenetre
+
+    jours = list(_jours_de_fenetre(monde))
+    noms = monde.routes_des_lieux.noms
+    sommes = [[reduce(add, colonne, 0)
+               for colonne in zip_longest(*(getattr(jour, champ) for jour in jours), fillvalue=0)]
+              for champ in ('preleve', 'recu', 'du', 'mange', 'rendu')]
+    sommes = [colonnes + [0] * (len(noms) - len(colonnes)) for colonnes in sommes]
+    flux = dict.fromkeys((m.id for m in monde.maisons), (0, 0, 0, 0, 0))
+    flux.update(zip(noms, zip(*sommes)))
+    return flux
+
+
+def test_les_sommes_attendent_la_premiere_fiche(service):
+    serveur, _ = service
+    monde = serveur.world
+    matiere = matiere_des_maisons(monde, serveur._noms, serveur._places_des_lieux())
+    # Ni la publication ni la liste ne somment les trente jours.
+    assert liste_des_maisons(matiere)['nombre'] == len(monde.maisons)
+    assert '_mouvements' not in vars(matiere) and '_indices' not in vars(matiere)
+    attendus = _flux_sommes_d_un_coup(monde)
+    # Un échantillon vide ne prouve rien : des maisons ont prélevé, reçu, dû, et l'une n'a pas de route.
+    assert all(any(kilos[rang] > 0 for kilos in attendus.values()) for rang in range(3))
+    assert any(m.id not in monde.routes_des_lieux.noms for m in monde.maisons)
+    fiches = {m.id: document_de_maison(matiere, m.id) for m in monde.maisons}
+    assert '_mouvements' in vars(matiere)
+    for identifiant, fiche in fiches.items():
+        lus = [fiche['flux_30j'][champ] for champ in CHAMPS_KG]
+        # Les mêmes octets : mêmes valeurs, et le même 0 entier pour une maison sans route.
+        assert json.dumps(lus) == json.dumps(list(attendus[identifiant])), identifiant
+    # Contre-épreuve : une somme qui compense ses arrondis ne rend pas les mêmes octets partout.
+    compensees = {m.id: [math.fsum(jour.vecteurs[rang][matiere._indices[m.id]] for jour in matiere.jours)
+                         for rang in range(len(CHAMPS_KG))]
+                  for m in monde.maisons if m.id in matiere._indices}
+    assert any(json.dumps(kilos) != json.dumps(list(attendus[identifiant]))
+               for identifiant, kilos in compensees.items())
+
+
+def test_la_matiere_ne_suit_pas_les_jours_du_monde(service):
+    serveur, _ = service
+    monde = copy.deepcopy(serveur.world)
+    matiere = matiere_des_maisons(monde, serveur._noms, serveur._places_des_lieux())
+    maison = next(nom for indice, nom in enumerate(monde.routes_des_lieux.noms)
+                  if any(jour.preleve[indice] > 0 for jour in monde.flux.jours.values()))
+    indice = monde.routes_des_lieux.noms.index(maison)
+    attendu = flux_de_maison(monde, maison)
+    # Le monde change après la publication, avant la première lecture de la fiche.
+    for jour in monde.flux.jours.values():
+        jour.preleve[indice] += 1000.0
+        jour.partis.clear()
+        jour.salaires[maison] = 9999
+    fiche = document_de_maison(matiere, maison)
+    assert {champ: fiche['flux_30j'][champ] for champ in CHAMPS_KG} == attendu
+    assert 'salaires_payes_kg' not in fiche['flux_30j']
+    # Contre-épreuve : une matière prise après le changement le voit.
+    apres = document_de_maison(matiere_des_maisons(monde, serveur._noms, serveur._places_des_lieux()), maison)
+    assert apres['flux_30j']['preleve_kg'] > fiche['flux_30j']['preleve_kg']
+    assert apres['flux_30j']['salaires_payes_kg'] == 9999 * len(monde.flux.jours)
