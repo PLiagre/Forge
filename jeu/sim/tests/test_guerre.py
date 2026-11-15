@@ -333,3 +333,211 @@ def test_sans_guerre_le_monde_garde_ses_octets(depart):
     assert not {"guerres", "armees", "armees_levees", "prises", "morts_des_armees"} & set(document)
     engine.tick(monde, random.Random(0), 0)
     assert not {"guerres", "armees", "armees_levees", "prises", "morts_des_armees"} & set(monde.to_dict())
+
+
+# --- Le maillon : la marche, le siège, la chute ------------------------------------
+
+JOURS_DE_CAMPAGNE = 100  # la place sans réserve tombe vers le quarantième jour : l'horizon garde de la marge
+JOURS_DE_RESERVE = 10  # ce qui reste au bourg de la place quand l'armée part : dix jours de ration
+JOUR_DU_SECOURS = 15  # l'armée arrive devant la place vers le dixième jour : la maison visée la secourt après
+SECOURS_KG = 5000.0
+
+
+def _place_sans_reserve(monde, cid, jours=JOURS_DE_RESERVE):
+    """Le bourg de la place ne garde que `jours` jours de ration ; sa cellule perd la même nourriture."""
+    bourg, cellule = monde.cells[cid].lieux[0], monde.cells[cid]
+    garde = bourg.population * c.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK * jours
+    ecart = bourg.stocks[NOURRITURE] - garde
+    assert ecart > 0, "la place a déjà moins que sa réserve : échantillon vide"
+    bourg.stocks[NOURRITURE] = garde
+    cellule.stocks[NOURRITURE] -= ecart
+
+
+def _recu_du_jour(monde, cid, tick):
+    jour = monde.flux.jours.get(tick)
+    return 0.0 if jour is None else math.fsum(kg for (_a, b), kg in jour.commerce.items() if b == cid)
+
+
+def _campagne(depart, assieger=True, ravitailler=False, renvoyer=True, jours=JOURS_DE_CAMPAGNE):
+    """Bar lève deux mille hommes, déclare la guerre au maître de sa première voisine, y marche et l'assiège.
+
+    La place n'a que dix jours de ration ; au jour du secours, la maison visée ouvre son grenier pour ses
+    lieux. Chaque jour, on relève l'identité des habitants : les lieux,
+    les soldats, leurs morts, les morts et les naissances ordinaires (mesurés autour des maillons du
+    moteur), qui doit rendre les habitants d'avant. `ravitailler` : chaque jour, la place reçoit
+    exactement ce que ses habitants mangent. `renvoyer` : la place prise, l'armée rentre.
+    """
+    monde = _avec_caserne(depart, grain=200000.0)
+    cid = _capitale(monde)
+    voisine, cible = _voisine(monde, cid)
+    _place_sans_reserve(monde, voisine)
+    monde.greniers[cible][NOURRITURE] = 4 * SECOURS_KG
+    ordinaires = {"morts": 0, "naissances": 0}
+    mortalite, natalite = engine._apply_mortality, engine._apply_natalite
+
+    def compter(original, cle, signe):
+        def mesure(cellule, *args):
+            avant = cellule.population
+            original(cellule, *args)
+            ordinaires[cle] += signe * (cellule.population - avant)
+        return mesure
+
+    def total(m):
+        lieux = sum(l.population for cel in m.cells.values() for l in cel.lieux)
+        assert lieux == sum(cel.population for cel in m.cells.values())
+        return (lieux + sum(a.hommes for a in m.armees) + m.morts_des_armees
+                + ordinaires["morts"] - ordinaires["naissances"])
+
+    releve = {"identites": [], "recus": [], "secourus": [], "assiegee": [], "prise": None, "renvoi": None, "voisine": voisine,
+              "cible": cible, "rangs_de_la_cible": [l.rang for l in monde.cells[voisine].lieux if l.maitre == cible]}
+    avant = total(monde)
+    rng = random.Random(0)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(engine, "_apply_mortality", compter(mortalite, "morts", -1))
+        patch.setattr(engine, "_apply_natalite", compter(natalite, "naissances", 1))
+        livrer, livres = engine.prelevement._livrer_secours, {}
+
+        def relever_les_secours(m, charges):
+            livres[m.ticks_ecoules] = charges.get((voisine, 0), 0.0)
+            return livrer(m, charges)
+
+        patch.setattr(engine.prelevement, "_livrer_secours", relever_les_secours)
+        recevoir_intention(monde, _levee(cid, {r: 500 for r in range(4)}, vivres=20000.0))
+        for numero in range(jours):
+            if numero == 1:
+                recevoir_intention(monde, {"type": "declarer_guerre", "maison": BAR, "cible": cible})
+                recevoir_intention(monde, {"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0})
+            armee = monde.armees[0] if monde.armees else None
+            if (assieger and armee is not None and armee.destination is None and armee.siege is None
+                    and armee.cell_id == voisine and releve["prise"] is None):
+                recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
+            if renvoyer and releve["prise"] is not None and monde.armees and releve["renvoi"] is None:
+                recevoir_intention(monde, {"type": "renvoyer_armee", "maison": BAR, "armee": 0})
+                releve["renvoi"] = numero
+            if numero == JOUR_DU_SECOURS:
+                recevoir_intention(monde, {"type": "ouvrir_grenier", "maison": cible, "kg": SECOURS_KG})
+            if ravitailler:
+                bourg, cellule = monde.cells[voisine].lieux[0], monde.cells[voisine]
+                ration = bourg.population * c.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+                bourg.stocks[NOURRITURE] += ration
+                cellule.stocks[NOURRITURE] += ration
+            engine.tick(monde, rng, numero)
+            releve["identites"].append(total(monde) == avant)
+            releve["recus"].append(_recu_du_jour(monde, voisine, numero))
+            releve["secourus"].append(livres.get(numero, 0.0))
+            releve["assiegee"].append(voisine in G.places_assiegees(monde))
+            if monde.prises and releve["prise"] is None:
+                releve["prise"] = numero
+            if releve["renvoi"] is not None and numero > releve["renvoi"]:
+                break
+    releve["monde"] = monde
+    return releve
+
+
+@pytest.fixture(scope="module")
+def campagne(depart):
+    return _campagne(depart)
+
+
+def test_les_habitants_se_conservent_de_la_levee_au_renvoi(campagne, depart, monkeypatch):
+    monde = campagne["monde"]
+    assert campagne["prise"] is not None and campagne["renvoi"] is not None and monde.armees == []
+    assert campagne["identites"] and all(campagne["identites"])
+    assert monde.morts_des_armees > 0, "aucun mort sous les armes : la conservation n'éprouve pas les morts"
+    # Contre-épreuve : une levée qui ne retire personne des foyers crée des hommes, et se voit dès le premier jour.
+    monkeypatch.setattr(G, "lever", _lever_sans_retirer(G.lever))
+    monkeypatch.setattr(G, "_changer_paysans", lambda cellule, ecart: None)
+    faux = _campagne(depart, assieger=False, jours=3)
+    assert faux["identites"] and not any(faux["identites"])
+
+
+def test_la_place_assiegee_ne_recoit_rien_et_tombe(campagne, depart):
+    monde, voisine, cible = campagne["monde"], campagne["voisine"], campagne["cible"]
+    jours = [n for n, assiegee in enumerate(campagne["assiegee"]) if assiegee]
+    assert jours, "aucun jour de siège : échantillon vide"
+    assert JOUR_DU_SECOURS in jours, "le secours ne part pas pendant le siège : échantillon vide"
+    assert all(campagne["recus"][n] == 0.0 and campagne["secourus"][n] == 0.0 for n in jours)
+    # Le témoin : la même place, la même armée qui ne l'assiège pas, reçoit le secours de sa maison.
+    temoin = _campagne(depart, assieger=False, jours=jours[-1] + 1)
+    assert temoin["prise"] is None and any(temoin["secourus"][n] > 0 for n in jours)
+    # Le siège tenu, la place ne reçoit ni n'envoie rien par ses frontières ni par la mer.
+    ravitaillee = _campagne(depart, ravitailler=True, renvoyer=False, jours=jours[0] + 2)
+    assiegee = ravitaillee["monde"]
+    assert voisine in G.places_assiegees(assiegee)
+    capacites = engine._initialiser_capacite_aretes(assiegee)
+    ouvertes = dict(capacites)
+    engine._fermer_les_places(assiegee, capacites, None)
+    touchees = [cle for cle in engine._aretes_par_cellule(assiegee)[voisine] if cle in capacites]
+    assert touchees and all(capacites[cle] == 0.0 for cle in touchees) and any(ouvertes[cle] > 0 for cle in touchees)
+    assert all(capacites[cle] == ouvertes[cle] for cle in capacites if cle not in touchees)
+    # Elle est tombée : ses lieux tenus par la maison visée sont à Bar, la prise est notée.
+    prise = monde.prises[0]
+    assert (prise["cell_id"], prise["de"], prise["a"], prise["rangs"]) == (voisine, cible, BAR,
+                                                                           campagne["rangs_de_la_cible"])
+    assert all(monde.cells[voisine].lieux[r].maitre == BAR for r in prise["rangs"])
+    assert all(monde.routes_des_lieux[voisine, r].maitre == BAR for r in prise["rangs"])
+    # Le prélèvement de ces lieux part désormais vers le grenier de Bar.
+    indices = monde.routes_des_lieux.par_cellule[voisine][0]
+    assert {indices[r] for r in prise["rangs"]} == {monde.routes_des_lieux.noms.index(BAR)}
+
+
+def test_la_place_ravitaillee_ne_tombe_pas(campagne, depart):
+    ravitaillee = _campagne(depart, ravitailler=True, renvoyer=False)
+    assert any(ravitaillee["assiegee"]) and ravitaillee["prise"] is None
+    assert len(ravitaillee["assiegee"]) > campagne["prise"] + _regles_du_depot().jours_de_faim_avant_la_chute
+    assert ravitaillee["monde"].cells[campagne["voisine"]].lieux[0].maitre == campagne["cible"]
+
+
+def _regles_du_depot():
+    return G.charger_regles()
+
+
+def _lieu_aux_bras_justes(monde, juillet, regles):
+    """Le premier lieu, par (cell_id, rang), d'une maison qui tient le bourg de sa capitale, dont les paysans
+    suffisent à la moisson de juillet et ne suffisent plus une fois sa part levée."""
+    from sim import foyers, lieux as L
+    capitales = {m.id: m.cell_id for m in monde.maisons if m.cell_id is not None}
+    for cid, cellule in sorted(monde.cells.items()):
+        carte = monde.carte
+        km2 = (cellule.area_km2 * engine._facteur_relief_pour_cellule(cellule, carte)
+               * engine._facteur_eau_pour_cellule(cellule, carte) * engine._facteur_agricole(cellule, carte)
+               * engine._facteur_saison_pour_cellule(cellule, carte, c.jour_de_tick(juillet)))
+        besoin_par_km2 = foyers.besoin_bras(km2 / cellule.area_km2)
+        surfaces = L.surfaces_des_lieux(cid, cellule.area_km2)
+        for lieu in cellule.lieux[1:]:
+            capitale = capitales.get(lieu.maitre)
+            if capitale is None or monde.cells[capitale].lieux[0].maitre != lieu.maitre:
+                continue
+            besoin = surfaces[lieu.rang] * besoin_par_km2
+            leves = G.levee_maximale(monde, cid, lieu.rang, regles)
+            if lieu.population >= besoin > lieu.population - leves:
+                return cid, lieu.rang, lieu.maitre, leves
+    return None
+
+
+def test_un_lieu_leve_en_juillet_recolte_moins_que_son_temoin(depart, regles, monkeypatch):
+    juillet = next(n for n in range(c.CALENDAR_DAYS_PER_YEAR) if c.date_de_tick(n)["jour_de_l_annee"] > 181)
+    choisi = _lieu_aux_bras_justes(depart, juillet, regles)
+    assert choisi is not None, "aucun lieu aux bras justes : échantillon vide"
+    cid, rang, maison, hommes = choisi
+    recoltes = {}
+    prelever = engine.prelevement.prelever
+
+    def relever(monde, recoltes_du_jour):
+        recoltes[id(monde)] = recoltes_du_jour[cid][rang]
+        return prelever(monde, recoltes_du_jour)
+
+    monkeypatch.setattr(engine.prelevement, "prelever", relever)
+    mondes = []
+    for lever in (False, True):
+        monde = _avec_caserne(depart, maison)
+        monde.ticks_ecoules = juillet
+        if lever:
+            recevoir_intention(monde, {"type": "lever_armee", "maison": maison, "lieux": [[cid, rang, hommes]],
+                                       "vivres_kg": 0})
+        engine.tick(monde, random.Random(0), juillet)
+        mondes.append(monde)
+    temoin, leve = (recoltes[id(m)] for m in mondes)
+    assert mondes[1].armees and mondes[1].armees[0].hommes == hommes
+    print(f"lieu {(cid, rang)} de {maison} : {hommes} levés, récolte {leve:.1f} kg contre {temoin:.1f} au témoin")
+    assert 0 < leve < temoin

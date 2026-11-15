@@ -192,6 +192,8 @@ class World:
                      y en a une.
         morts_des_armees : les hommes morts sous les armes, cumul ; dans to_dict s'il
                      n'est pas nul.
+        mange_par_les_armees_kg : la nourriture mangée par les armées, vivres et prises,
+                     cumul sans arrondi ; dans to_dict s'il n'est pas nul.
     """
 
     def __init__(self, cells: dict, adjacency: list,
@@ -237,6 +239,7 @@ class World:
         self.armees_levees = 0
         self.prises = []
         self.morts_des_armees = 0
+        self.mange_par_les_armees_kg = 0.0
 
     @property
     def date_simulation(self) -> dict[str, int]:
@@ -467,4 +470,6 @@ class World:
             document["prises"] = copy.deepcopy(self.prises)
         if self.morts_des_armees:
             document["morts_des_armees"] = self.morts_des_armees
+        if self.mange_par_les_armees_kg:
+            document["mange_par_les_armees_kg"] = self.mange_par_les_armees_kg
         return document

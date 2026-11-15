@@ -161,6 +161,8 @@ def avancer_chantiers(world):
     world.chantiers_du_jour = {}
     world.origines_des_chantiers = {}
     world.recolte_perdue_par_chantier = {}
+    from sim.guerre import places_assiegees
+    assiegees = places_assiegees(world)
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         # Le compte de la veille s'efface avant toute sortie, métiers calculés ou non.
@@ -200,6 +202,9 @@ def avancer_chantiers(world):
                 ecrire_habitants_par_metier(cell, metiers)
             continue
         grenier = world.greniers.get(bourg.maitre) if bourg is not None and bourg.maitre is not None else None
+        if grenier is not None and cell_id in assiegees:
+            # Le grain du payeur n'entre pas dans une place assiégée : le chantier attend son payeur.
+            grenier = None
         nourriture, salaire = _constantes.MARCHANDISE_NOURRITURE, salaire_journee_kg(world, cell_id)
         payables = math.floor(grenier.get(nourriture, 0) / salaire) if grenier is not None else 0
         reserves = _reserves(cell, bourg) if metiers is not None else []

@@ -374,8 +374,9 @@ class ServeurMonde(ThreadingHTTPServer):
             return etat.octets_maisons[identifiant]
 
     def _places_des_lieux(self) -> dict:
-        """Les places des lieux, recalculées seulement quand le maître d'un bourg change : c'est
-        la seule chose du monde qui les déplace. Une vue, pas un état : la clé dit d'où elles viennent."""
+        """Les places des lieux, recalculées seulement quand le maître d'un bourg change. Un monde chargé
+        les ancre au chargement (`World.ancres_des_bourgs`) : une conquête ne les déplace pas, et le calcul
+        refait rend les mêmes places. Une vue, pas un état : la clé dit d'où elles viennent."""
         cle = bourgs_et_maitres(self.world)
         if self._places is None or self._places[0] != cle:
             self._places = (cle, places_du_monde(self.world))

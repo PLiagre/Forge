@@ -33,6 +33,7 @@ from sim import flux as _flux
 from sim import modificateurs as _modificateurs
 from sim import evenements as _evenements
 from sim import batiments as _batiments
+from sim import guerre as _guerre
 import sim.lieux as _lieux
 from sim.lieux import lieux_de_cellule
 import sim.foyers as foyers
@@ -1134,6 +1135,20 @@ def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
                 elargies.add(cle)
 
 
+def _fermer_les_places(world, capacite_restante, ctx_maritime) -> None:
+    """Une place assiégée ne reçoit ni n'envoie rien : ses arêtes terrestres et son quai tombent à zéro."""
+    fermees = _guerre.places_assiegees(world)
+    if not fermees:
+        return
+    index = _aretes_par_cellule(world)
+    for cid in sorted(fermees):
+        for cle in index.get(cid, ()):
+            if cle in capacite_restante:
+                capacite_restante[cle] = 0.0
+        if ctx_maritime is not None and cid in ctx_maritime["capacite_quai_restante"]:
+            ctx_maritime["capacite_quai_restante"][cid] = 0.0
+
+
 def _apply_commerce(
     world,
     total_transported: list,
@@ -1200,6 +1215,7 @@ def _apply_commerce(
             aretes = _aretes_maritimes_du_monde(world)
             if aretes:
                 ctx = _initialiser_contexte_maritime(world, aretes)
+        _fermer_les_places(world, capacite_restante, ctx)
         options = {} if limiter_offres_maritimes else {"limiter_offres_maritimes": False}
         for nom in _marchandises_du_monde(world):
             _apply_commerce(
@@ -2036,10 +2052,13 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         3. Greniers    (_appliquer_pertes_greniers) — perte alimentaire des réserves de maison
         4. Chantiers   (_avancer_chantiers) — retour aux champs puis journées de route puis de parcelle puis de bâtiment
            Ateliers    (_affecter_artisans) — emploi dans les scieries et fours achevés
+           Bâtiments   (batiments.avancer) — les chantiers de province
+           Guerre      (guerre.avancer) — chute des places, marche, ration et morts des armées
            Reprise     (repartir_sur_les_lieux) — seules écritures extérieures
         5. Fabrication (_apply_fabrication)  — pour chaque cellule
         6. Extraction  (_apply_extraction)   — pour chaque cellule (si carte)
         7. Production  (_apply_production)   — pour chaque cellule
+           Siège       (guerre.prendre_la_recolte) — la récolte du bourg assiégé à l'assiégeant
         8. Prélèvement (prelevement.prelever) — perte, arrivée puis départ de la récolte
         9. Chemins intérieurs (_remplir_chemins_interieurs) — capacités avec les routes achevées
            Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
@@ -2067,6 +2086,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
     # Les bâtiments de province, après les chantiers du plan : un bâtiment achevé
     # pose ses modificateurs avant la production du jour.
     _batiments.avancer(world)
+    # La guerre, avant la production : la place affamée tombe, les armées marchent et mangent.
+    _guerre.avancer(world)
     facteurs_du_tick = _modificateurs.facteurs_du_monde(world)
     # Un monde d'épreuve sans registre ne reçoit pas d'attribut qu'il n'a pas.
     if facteurs_du_tick or getattr(world, "facteurs_du_tick", None):
@@ -2095,7 +2116,10 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         for cell in world.cells.values():
             _apply_production(cell, rng, carte, jour=jour, recoltes=recoltes, monde=world)
 
+    # Devant une place, la récolte du jour de son bourg va à l'assiégeant, avant le prélèvement.
+    _guerre.prendre_la_recolte(world, recoltes)
     prelevement.prelever(world, recoltes)
+    assiegees = _guerre.places_assiegees(world)
     facteurs_routes = routes.facteurs_des_routes(world)
     if facteurs_routes:
         chemins = {}
@@ -2114,9 +2138,12 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
                 if lieu.population > 0 and lieu.duree_faim_ticks > 0:
                     affames.add((cell.cell_id, lieu.rang))
 
-    if facteurs_routes:
+    if facteurs_routes or assiegees:
         for cell in world.cells.values():
             facteurs = facteurs_routes.get(cell.cell_id)
+            if cell.cell_id in assiegees:
+                # Les chemins des champs vers le bourg assiégé sont fermés, dans les deux sens.
+                facteurs = {rang: 0.0 for rang in range(1, len(cell.lieux))}
             if facteurs:
                 penurie_kg = _apply_consumption(cell, carte, facteurs)
             else:

@@ -182,7 +182,11 @@ def avancer(monde, types=None):
     nourriture = _constantes.MARCHANDISE_NOURRITURE
     paysans_nom, ouvriers_nom = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
     nouveaux = {b.identifiant: b for b in monde.batiments_de_province}
+    from sim.guerre import places_assiegees
+    assiegees = places_assiegees(monde)
     for batiment in sorted(chantiers, key=lambda b: b.identifiant):
+        if batiment.cell_id in assiegees:
+            continue  # le grain du grenier n'entre pas dans une place assiégée : le chantier attend
         cellule = monde.cells[batiment.cell_id]
         bourg = next((l for l in cellule.lieux if l.rang == 0), None)
         metiers = lire_habitants_par_metier(cellule)

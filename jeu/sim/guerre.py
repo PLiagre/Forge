@@ -19,7 +19,8 @@ import tomllib
 
 import sim.constants as _constantes
 from sim import modificateurs as _modificateurs
-from sim.model import _NoBadSpatialField, ecrire_habitants_par_metier, lire_habitants_par_metier
+from sim.model import (_NoBadSpatialField, ecrire_habitants_par_metier, ecrire_maitre, ecrire_stock_marchandise,
+                       lire_habitants_par_metier, lire_stock_marchandise)
 
 _CHEMIN = Path(__file__).parents[1] / "data" / "guerre.toml"
 GRANDEUR_LEVEE = "levee"
@@ -430,7 +431,12 @@ def assieger(monde, identifiant):
 
 def renvoyer(monde, identifiant):
     """Les vivants rentrent dans leurs lieux d'origine, comme paysans ; les vivres restants au grenier."""
-    armee = next(a for a in monde.armees if a.identifiant == identifiant)
+    _dissoudre(monde, next(a for a in monde.armees if a.identifiant == identifiant))
+
+
+def _dissoudre(monde, armee):
+    """Rend les hommes de l'armée à leurs lieux et ses vivres au grenier, puis la retire."""
+    identifiant = armee.identifiant
     for cid, rang, hommes in armee.effectifs:
         cellule = monde.cells[cid]
         cellule.lieux[rang].population += hommes
@@ -440,3 +446,197 @@ def renvoyer(monde, identifiant):
         panier = monde.greniers[armee.maison]
         panier[nourriture] = panier.get(nourriture, 0.0) + armee.vivres_kg
     monde.armees = [a for a in monde.armees if a.identifiant != identifiant]
+
+
+# --- Le maillon de la guerre ----------------------------------------------------------
+
+def places_assiegees(monde) -> set:
+    """Les cellules dont une armée assiège le bourg : aucun grain n'y entre."""
+    return {a.siege for a in getattr(monde, "armees", ()) if a.siege is not None}
+
+
+def _places_de_la_cellule(monde, cell_id):
+    """Les places des lieux, ancrées au chargement : une conquête ne déplace pas un bourg."""
+    from sim.routes_interieures import _places_de
+    places = _places_de(monde, cell_id)
+    if places is None:
+        raise GuerreInvalide(f"cellule {cell_id} : ancres des bourgs absentes, aucune distance n'est devinée")
+    return places
+
+
+def _troncon_km(monde, armee):
+    """La longueur du prochain tronçon : vers le bourg, la cellule suivante, ou le lieu visé dans la cellule."""
+    from sim.convois import _longueur_arete
+    from sim.places import distance_km
+    if armee.route:
+        if armee.rang != 0:
+            places = _places_de_la_cellule(monde, armee.cell_id)
+            return distance_km(places[armee.rang], places[0]), (armee.cell_id, 0, armee.route)
+        suivante = armee.route[0]
+        return _longueur_arete(monde, armee.cell_id, suivante), (suivante, 0, armee.route[1:])
+    places = _places_de_la_cellule(monde, armee.cell_id)
+    rang = armee.destination[1]
+    return distance_km(places[armee.rang], places[rang]), (armee.cell_id, rang, ())
+
+
+def _marcher_un_jour(monde, armee, regles):
+    """Avance de `vitesse_marche_km_par_jour`, tronçon par tronçon ; arrivée, la destination s'efface."""
+    budget = regles.vitesse_marche_km_par_jour
+    while armee.destination is not None and budget > 0:
+        if (armee.cell_id, armee.rang) == tuple(armee.destination) and not armee.route:
+            break
+        longueur, (cid, rang, route) = _troncon_km(monde, armee)
+        reste = longueur - armee.avance_km
+        if budget < reste:
+            armee = replace(armee, avance_km=armee.avance_km + budget)
+            budget = 0
+        else:
+            budget -= reste
+            armee = replace(armee, cell_id=cid, rang=rang, route=route, avance_km=0.0)
+    if armee.destination is not None and (armee.cell_id, armee.rang) == tuple(armee.destination) and not armee.route:
+        armee = replace(armee, destination=None, avance_km=0.0)
+    return armee
+
+
+def _lieu_de_fourrage(monde, armee):
+    """Le lieu où l'armée prend ce qui manque : le sien, ou, devant une place, le plus garni des autres lieux."""
+    cellule = monde.cells[armee.cell_id]
+    if armee.siege != armee.cell_id:
+        return cellule.lieux[armee.rang]
+    autres = [l for l in cellule.lieux if l.rang != 0]
+    if not autres:
+        return None
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    return max(autres, key=lambda l: (lire_stock_marchandise(l, nourriture), -l.rang))
+
+
+def _manger(monde, armee, regles):
+    """Ses vivres, puis au plus `part_prise_par_jour` du stock de son lieu ; le reste devient une dette qui tue."""
+    from sim.lieux import partager
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    besoin = armee.hommes * regles.ration_kg_par_homme_par_jour * _constantes.TICK_DURATION_DAYS
+    mange = min(besoin, armee.vivres_kg)
+    vivres, manque = armee.vivres_kg - mange, besoin - mange
+    if manque > 0:
+        lieu = _lieu_de_fourrage(monde, armee)
+        if lieu is not None:
+            stock = max(0.0, lire_stock_marchandise(lieu, nourriture))
+            pris = min(manque, stock * regles.part_prise_par_jour)
+            if pris > 0:
+                cellule = monde.cells[armee.cell_id]
+                ecrire_stock_marchandise(lieu, nourriture, stock - pris)
+                ecrire_stock_marchandise(cellule, nourriture, lire_stock_marchandise(cellule, nourriture) - pris)
+                mange += pris
+                manque -= pris
+    dette = armee.dette_kg + manque
+    if manque <= 0 and dette > 0:
+        # Rassasiée, l'armée rembourse sa dette sur ses vivres, jamais plus qu'ils ne portent.
+        rembourse = min(dette, vivres)
+        vivres -= rembourse
+        mange += rembourse
+        dette -= rembourse
+    monde.mange_par_les_armees_kg += mange
+    armee = replace(armee, vivres_kg=vivres, dette_kg=dette)
+    if dette <= 0 or not armee.hommes:
+        return armee
+    taux = min(dette / armee.hommes * _constantes.HUNGER_DEATH_SCALE, _constantes.MAX_DEATH_RATE_PER_TICK)
+    brut = armee.hommes * taux + armee.reste_mortalite
+    morts = min(int(brut), armee.hommes)
+    armee = replace(armee, reste_mortalite=brut - int(brut))
+    if not morts:
+        return armee
+    parts = partager(morts, [h for _c, _r, h in armee.effectifs])
+    effectifs = tuple((c, r, h - int(p)) for (c, r, h), p in zip(armee.effectifs, parts) if h - int(p) > 0)
+    monde.morts_des_armees += morts
+    return replace(armee, effectifs=effectifs)
+
+
+def _siege_tient(monde, armee):
+    """Le siège tient tant que l'armée est au bourg assiégé, en guerre avec son maître."""
+    if armee.siege is None:
+        return False
+    maitre = getattr(_bourg(monde.cells[armee.siege]), "maitre", None)
+    return ((armee.cell_id, armee.rang) == (armee.siege, 0) and maitre != armee.maison
+            and en_guerre(monde, armee.maison, maitre))
+
+
+def tomber(monde, armee):
+    """La place tombe : les lieux de la cellule que tenait le maître du bourg passent à l'assiégeant."""
+    from sim.convois import changer_de_maitre
+    cid = armee.siege
+    cellule = monde.cells[cid]
+    defenseur = _bourg(cellule).maitre
+    rangs = [lieu.rang for lieu in sorted(cellule.lieux, key=lambda l: l.rang) if lieu.maitre == defenseur]
+    for rang in rangs:
+        ecrire_maitre(cellule.lieux[rang], armee.maison)
+    changer_de_maitre(monde, cid, rangs, armee.maison)
+    # Les bâtiments et chantiers de province de l'ancien maître dans la cellule passent au nouveau.
+    monde.batiments_de_province = [replace(b, maison=armee.maison) if b.cell_id == cid and b.maison == defenseur
+                                   else b for b in monde.batiments_de_province]
+    monde.prises = [*monde.prises, {"tick": monde.ticks_ecoules, "cell_id": cid, "de": defenseur,
+                                    "a": armee.maison, "armee": armee.identifiant, "rangs": rangs}]
+    monde.armees = [replace(a, siege=None) if a.siege == cid else a for a in monde.armees]
+
+
+def avancer(monde, regles=None) -> None:
+    """Un jour de guerre, armée par armée, par identifiant : la chute, la marche, la ration et les morts.
+
+    Une place assiégée qui a faim depuis `jours_de_faim_avant_la_chute` jours, ou dont le bourg
+    est vide, tombe. Sans armée, rien n'est lu ni écrit.
+    """
+    if not getattr(monde, "armees", None):
+        return
+    regles = charger_regles() if regles is None else regles
+    for identifiant in sorted(a.identifiant for a in monde.armees):
+        armee = next((a for a in monde.armees if a.identifiant == identifiant), None)
+        if armee is None:
+            continue
+        if armee.siege is not None and not _siege_tient(monde, armee):
+            armee = replace(armee, siege=None)
+            _remplacer(monde, armee)
+        if armee.siege is not None:
+            bourg = _bourg(monde.cells[armee.siege])
+            if bourg.population == 0 or bourg.duree_faim_ticks >= regles.jours_de_faim_avant_la_chute:
+                tomber(monde, armee)
+                armee = next(a for a in monde.armees if a.identifiant == identifiant)
+        armee = _manger(monde, _marcher_un_jour(monde, armee, regles), regles)
+        _remplacer(monde, armee)
+        if not armee.hommes:
+            _dissoudre(monde, armee)
+
+
+def prendre_la_recolte(monde, recoltes) -> None:
+    """Devant une place, la récolte du jour de son bourg va aux vivres de l'assiégeant, avant le prélèvement."""
+    if not getattr(monde, "armees", None):
+        return
+    nourriture = _constantes.MARCHANDISE_NOURRITURE
+    servies = set()
+    for armee in sorted(monde.armees, key=lambda a: a.identifiant):
+        cid = armee.siege
+        if cid is None or cid in servies or not recoltes.get(cid):
+            continue
+        servies.add(cid)
+        kg = recoltes[cid][0]
+        if kg <= 0:
+            continue
+        cellule = monde.cells[cid]
+        bourg = _bourg(cellule)
+        ecrire_stock_marchandise(bourg, nourriture, lire_stock_marchandise(bourg, nourriture) - kg)
+        ecrire_stock_marchandise(cellule, nourriture, lire_stock_marchandise(cellule, nourriture) - kg)
+        recoltes[cid] = [0.0, *recoltes[cid][1:]]
+        _remplacer(monde, replace(armee, vivres_kg=armee.vivres_kg + kg))
+
+
+def retenir_les_secours(monde, charges) -> dict:
+    """Les secours du jour, moins ceux qui arrivent au bourg d'une place assiégée : ils attendent le lendemain."""
+    fermees = places_assiegees(monde)
+    if not fermees:
+        return charges
+    livres = {}
+    for (cid, rang), kg in charges.items():
+        if rang == 0 and cid in fermees:
+            demain = monde.secours.setdefault(monde.ticks_ecoules + 1, {})
+            demain[cid, rang] = demain.get((cid, rang), 0.0) + kg
+        else:
+            livres[cid, rang] = kg
+    return livres
