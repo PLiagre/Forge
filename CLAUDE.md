@@ -41,6 +41,18 @@ Unity, sur le PC seulement, une instance à la fois (détail et pièges dans
 & $unity -batchmode -projectPath 3d\unity -runTests -testPlatform EditMode -assemblyNames "Forge.Pont.Tests;Forge.Interface.Tests" -testResults $xml -logFile $journal
 ```
 
+## Mesurer le jour
+
+Ce que coûte un jour du monde, là où le jeu le paie (`ServeurMonde.jouer_un_tick()`,
+publication comprise), phase par phase, avec et sans IA. Sur le PC seulement ; une
+optimisation donne son chiffre avant et après, pris par cette commande, et la même
+empreinte du monde :
+
+```bash
+cd jeu && PYTHONUTF8=1 py mesure_du_jour.py              # 365 jours, graine 0 : six minutes
+cd jeu && PYTHONUTF8=1 py mesure_du_jour.py --profil 10  # les dix fonctions les plus chères
+```
+
 ## Lancer le jeu
 
 ```bash
