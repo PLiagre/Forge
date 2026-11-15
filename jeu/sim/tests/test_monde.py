@@ -3801,7 +3801,7 @@ def test_tick_sous_le_budget_du_service(monkeypatch):
 
 def _tout_lire_publie(serveur, etat):
     """Tous les octets d'un état publié, dans un ordre fixé : ce que Unity et l'IA peuvent lire."""
-    lus = [etat.monde, etat.ia, etat.modificateurs]
+    lus = [etat.monde, etat.ia, etat.modificateurs, etat.guerres.octets()]
     for cid in sorted(etat.lieux):
         lus += [etat.lieux[cid], etat.lieux_avec_bourg[cid],
                 serveur.octets_plan(etat, cid), serveur.octets_occupation(etat, cid)]
@@ -3834,6 +3834,9 @@ def _lire_en_retard(ticks, alterer=False):
             grenier = next(iter(monde.greniers.values()))
             grenier[next(iter(grenier))] += 1000
             monde.flux.jours[max(monde.flux.jours)].preleve[0] += 1
+            monde.morts_des_armees += 1
+            monde.prises.append({"tick": monde.ticks_ecoules, "cell_id": cid, "de": monde.maisons[0].id,
+                                 "a": monde.maisons[1].id, "armee": 0, "rangs": [0]})
         return lus_tot, _tout_lire_publie(tard, etat), tot, tard, cid
 
 
@@ -3845,6 +3848,9 @@ def test_publication_differee_lit_le_tick_publie(monkeypatch):
     assert json.loads(tot.etat_publie.modificateurs)["poses"]
     assert json.loads(tot.octets_occupation(tot.etat_publie, cid))["batiments"]
     assert json.loads(tot.etat_publie.ia)["releve"]
+    # L'altération change bien ce que le monde vivant dirait des guerres : les octets publiés sont ceux du tick.
+    from sim.guerre import document_de_la_guerre
+    assert tard.etat_publie.guerres.octets() != service._serialiser(document_de_la_guerre(tard.world))
     # Contre-épreuve : un bourg qui garde le panier vivant au lieu d'une copie change après coup.
     with monkeypatch.context() as ctx:
         ctx.setattr(service, "copier_panier", lambda entite: entite.stocks)
