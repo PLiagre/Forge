@@ -1,8 +1,7 @@
 """Maisons servies : matière du tick et documents dérivés, sans écriture du monde."""
 
 from dataclasses import dataclass
-from functools import reduce
-from itertools import zip_longest
+from functools import cached_property, reduce
 from operator import add
 
 from sim.flux import _jours_de_fenetre
@@ -17,8 +16,23 @@ class MaisonInconnue(KeyError):
 
 
 @dataclass(frozen=True)
+class JourDesMaisons:
+    """Ce qu'un jour de la fenêtre dit des maisons, copié à la publication."""
+
+    vecteurs: tuple
+    salaires: dict
+    partis: dict
+    arrives: dict
+
+
+@dataclass(frozen=True)
 class MatiereMaisons:
-    """Données nécessaires aux fiches, détachées des nombres du monde vivant."""
+    """Données nécessaires aux fiches, détachées des nombres du monde vivant.
+
+    Les sommes des trente jours se font à la lecture, sur les jours copiés à la publication : une
+    publication que personne ne lit, ou dont on ne lit que la liste, ne les paie pas. Les personnes
+    et les salaires se somment pour toutes les maisons à la première fiche et se gardent avec la
+    matière ; les kilos se somment pour la seule maison lue."""
 
     tick: int
     date: dict
@@ -28,13 +42,56 @@ class MatiereMaisons:
     tenus: dict
     parts: dict
     greniers: dict
-    flux: dict
-    personnes: dict
-    salaires: dict
+    jours: tuple
+    maitres: dict
+    routes: tuple
+
+    @cached_property
+    def _indices(self) -> dict:
+        return {nom: indice for indice, nom in enumerate(self.routes)}
+
+    def flux_de(self, identifiant) -> tuple:
+        """Les kilos d'une maison sur la fenêtre, dans l'ordre de `_CHAMPS_FLUX` ; zéro sans route.
+
+        Chaque vecteur se somme dans l'ordre des jours et depuis le même 0 entier : ni `sum` ni `fsum`
+        (ils compensent leurs arrondis et ne rendent plus les mêmes octets). Un jour dont le vecteur
+        est trop court pour la maison compte pour 0."""
+        indice = self._indices.get(identifiant)
+        if indice is None:
+            return tuple(0 for _ in _CHAMPS_FLUX)
+        return tuple(
+            reduce(add, (jour.vecteurs[rang][indice] if indice < len(jour.vecteurs[rang]) else 0
+                         for jour in self.jours), 0)
+            for rang in range(len(_VECTEURS_FLUX))
+        )
+
+    @cached_property
+    def _mouvements(self) -> tuple:
+        personnes = {m.id: [0, 0] for m in self.registre}
+        salaires = {}
+        for jour in self.jours:
+            for identifiant, kilos in jour.salaires.items():
+                salaires[identifiant] = salaires.get(identifiant, 0) + kilos
+            for mouvements, colonne in ((jour.partis, 0), (jour.arrives, 1)):
+                for cle, nombre in mouvements.items():
+                    maitre = self.maitres.get(cle)
+                    if maitre is not None:
+                        personnes[maitre][colonne] += nombre
+        return {identifiant: tuple(nombres) for identifiant, nombres in personnes.items()}, salaires
+
+    @property
+    def personnes(self) -> dict:
+        """Par maison : les personnes parties de ses lieux et arrivées chez elle sur la fenêtre."""
+        return self._mouvements[0]
+
+    @property
+    def salaires(self) -> dict:
+        """Par maison qui en a payé : les kilos de salaires sur la fenêtre."""
+        return self._mouvements[1]
 
 
 def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
-    """Copie les mesures ; une seule passe sur les jours, sans recherche par maison."""
+    """Copie ce que les fiches liront ; les sommes des trente jours attendent la première fiche."""
     registre = monde.maisons
     tenus = {m.id: [] for m in registre}
     maitres = {}
@@ -45,35 +102,17 @@ def matiere_des_maisons(monde, noms, places) -> MatiereMaisons:
                 tenus[lieu.maitre].append(cle)
                 maitres[cle] = lieu.maitre
     routes = getattr(monde, 'routes_des_lieux', None)
-    noms_routes = getattr(routes, 'noms', ())
-    personnes = {m.id: [0, 0] for m in registre}
-    salaires = {}
-    jours = list(_jours_de_fenetre(monde))
-    for jour in jours:
-        for identifiant, kilos in jour.salaires.items():
-            salaires[identifiant] = salaires.get(identifiant, 0) + kilos
-        for mouvements, colonne in ((jour.partis, 0), (jour.arrives, 1)):
-            for cle, nombre in mouvements.items():
-                maitre = maitres.get(cle)
-                if maitre is not None:
-                    personnes[maitre][colonne] += nombre
-    # Chaque vecteur se somme par colonne, dans l'ordre des jours et depuis le même 0 entier : ni `sum`
-    # ni `fsum` (ils compensent leurs arrondis et ne rendent plus les mêmes octets).
-    sommes = [
-        [reduce(add, colonne, 0) for colonne in zip_longest(*(getattr(jour, champ) for jour in jours), fillvalue=0)]
-        for champ in _VECTEURS_FLUX
-    ]
-    sommes = [colonnes + [0] * (len(noms_routes) - len(colonnes)) for colonnes in sommes]
-    flux = dict.fromkeys(tenus, tuple(0 for _ in _CHAMPS_FLUX))
-    flux.update(zip(noms_routes, zip(*sommes)))
     return MatiereMaisons(
         tick=monde.ticks_ecoules, date=monde.date_simulation, registre=registre,
         noms=noms, places=places,
         tenus={identifiant: tuple(sorted(lieux)) for identifiant, lieux in tenus.items()},
         parts=dict(monde.parts),
         greniers={identifiant: dict(panier) for identifiant, panier in monde.greniers.items()},
-        flux=flux, personnes={identifiant: tuple(nombres) for identifiant, nombres in personnes.items()},
-        salaires=salaires,
+        jours=tuple(JourDesMaisons(
+            vecteurs=tuple(getattr(jour, champ)[:] for champ in _VECTEURS_FLUX),
+            salaires=dict(jour.salaires), partis=dict(jour.partis), arrives=dict(jour.arrives),
+        ) for jour in _jours_de_fenetre(monde)),
+        maitres=maitres, routes=tuple(getattr(routes, 'noms', ())),
     )
 
 
@@ -110,7 +149,7 @@ def document_de_maison(matiere, identifiant) -> dict:
         'siege': siege,
         'lieux': [{'cell_id': cid, 'rang': rang} for cid, rang in matiere.tenus[identifiant]],
         'part': matiere.parts.get(identifiant), 'grenier': None if grenier is None else dict(grenier),
-        'flux_30j': dict(zip(_CHAMPS_FLUX, matiere.flux[identifiant])) | {
+        'flux_30j': dict(zip(_CHAMPS_FLUX, matiere.flux_de(identifiant))) | {
             'partis_personnes': partis, 'arrives_personnes': arrives,
         } | ({'salaires_payes_kg': matiere.salaires[identifiant]} if identifiant in matiere.salaires else {}),
         'absents': absents, 'tick': matiere.tick, 'date': dict(matiere.date),
