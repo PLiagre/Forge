@@ -38,11 +38,11 @@ from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
 )
-from sim.noms import charger_noms, noms_depuis_monde
+from sim.noms import noms_depuis_monde, sources_des_noms
 from sim.flux import flux_des_lieux
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
 from sim.lieux import partager, surfaces_des_lieux
-from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
+from sim.puissances import PuissanceInvalide, charger_table
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
 from sim.places import bourgs_et_maitres, origine_des_places, places_du_monde
 from sim.plan import aire_du_contour
@@ -430,8 +430,7 @@ class ServeurMonde(ThreadingHTTPServer):
         lisent des données et de la carte, jamais des maîtres. Lues une fois par monde servi ; quand un
         lieu change de maître, seuls les noms se refont."""
         if self._sources_noms is None or self._sources_noms[0] is not self.world:
-            table = charger_table()
-            self._sources_noms = (self.world, charger_noms(), table, puissances_depuis_monde(self.world, table=table))
+            self._sources_noms = (self.world, *sources_des_noms(self.world))
         return self._sources_noms[1:]
 
     def _places_des_lieux(self) -> dict:
