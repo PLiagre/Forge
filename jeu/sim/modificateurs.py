@@ -322,6 +322,11 @@ def detail(monde, cell_id, rang, tenus=None) -> dict:
     for pose in sorted(poses, key=_ordre):
         if (cell_id, rang) in _lieux_touches(monde, pose.cible, tenus):
             lignes.setdefault(pose.grandeur, []).append(pose.en_document())
+    return _grandeurs_d_un_lieu(lignes)
+
+
+def _grandeurs_d_un_lieu(lignes: dict) -> dict:
+    """Par grandeur triée : les lignes d'un lieu dans l'ordre de l'addition, leur total et le facteur."""
     return {grandeur: {"lignes": liste, "total": math.fsum(ligne["valeur"] for ligne in liste),
                        "facteur": 1 + math.fsum(ligne["valeur"] for ligne in liste)}
             for grandeur, liste in sorted(lignes.items())}
@@ -332,8 +337,14 @@ def document_des_modificateurs(monde) -> dict:
     poses = sorted(getattr(monde, "modificateurs", ()), key=_ordre)
     # Les maîtres se lisent une seule fois, et seulement si une pose vise un pays.
     tenus = _tenus(monde) if any(p.cible[0] == "pays" for p in poses) else None
-    touches = sorted({cle for grandeur in facteurs_du_monde(monde, tenus).values() for cle in grandeur})
-    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": detail(monde, cid, rang, tenus)} for cid, rang in touches]
+    # Une seule passe sur les poses triées : chaque lieu touché reçoit ses lignes dans l'ordre de
+    # l'addition, comme `detail` les lui donnerait, sans retrier les poses pour chacun.
+    lignes = {}
+    for pose in poses:
+        for cle in dict.fromkeys(_lieux_touches(monde, pose.cible, tenus)):
+            lignes.setdefault(cle, {}).setdefault(pose.grandeur, []).append(pose.en_document())
+    lieux = [{"cell_id": cid, "rang": rang, "grandeurs": _grandeurs_d_un_lieu(lignes[cid, rang])}
+             for cid, rang in sorted(lignes)]
     if lieux:
         fichier = _lire_fichier()
         noms = {identifiant: g.nom for identifiant, g in lire_donnees(fichier).grandeurs.items()}

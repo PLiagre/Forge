@@ -4,6 +4,7 @@
     cd jeu && py mesure_du_jour.py --ticks 60 --ia non --sans-phases
     cd jeu && py mesure_du_jour.py --profil 10      # les dix fonctions les plus chères
     cd jeu && py mesure_du_jour.py --json avant.json
+    cd jeu && py mesure_du_jour.py --temoin         # l'empreinte de tout ce que le service publie
 
 Le jour se mesure là où le jeu le paie : `ServeurMonde.jouer_un_tick()` en entier, les jauges, l'IA,
 le tick et la publication, sur le monde que le service charge, avec le réglage du ramasse-miettes de
@@ -21,6 +22,11 @@ Chaque colonne (sans IA, avec IA) joue l'année deux fois, chaque fois dans un p
 L'empreinte est le hachage du monde au dernier jour : deux mesures du même monde, de la même graine,
 sur la même machine, donnent la même. Elle ne se compare pas d'une machine à l'autre (les derniers
 bits de la trigonométrie diffèrent entre Windows et Linux).
+
+Le témoin (`--temoin`) est l'empreinte de tout ce que le service publie, jour après jour : le monde,
+chaque lieu, chaque plan, chaque occupation, chaque maison, les modificateurs, le relevé de l'IA, et
+au dernier jour chaque pays. Une optimisation de la publication doit rendre le même. Il ne
+chronomètre rien : lire tous les octets de chaque jour n'est pas ce que le jeu fait.
 
 Bibliothèque standard seule.
 """
@@ -172,6 +178,49 @@ def _jouer(ticks: int, graine: int, ia: bool, instrumente: bool) -> dict:
         serveur.server_close()
 
 
+def _octets_publies(serveur, etat):
+    """Tout ce qu'un lecteur peut demander de l'état publié, dans un ordre fixé."""
+    from sim.ville1400 import BaseAbsente
+
+    yield etat.monde
+    yield etat.modificateurs
+    yield etat.ia or b""
+    for cell_id in sorted(etat.lieux):
+        yield etat.lieux[cell_id]
+        yield etat.lieux_avec_bourg[cell_id]
+        for lecture in (serveur.octets_plan, serveur.octets_occupation):
+            try:
+                yield lecture(etat, cell_id)
+            except BaseAbsente as refus:
+                yield str(refus).encode("utf-8")
+    yield serveur.octets_de_maison(etat)
+    for maison in sorted(m.id for m in etat.maisons.registre):
+        yield serveur.octets_de_maison(etat, maison)
+
+
+def temoin(ticks: int, graine: int, ia: bool) -> dict:
+    """L'empreinte de tout ce que le service publie pendant `ticks` jours, et celle du monde au dernier."""
+    from sim import service
+
+    serveur = service.ServeurMonde((service.SERVICE_HOST, 0), graine, 0.0, ia=ia)
+    try:
+        hachage = hashlib.sha256()
+        octets = 0
+        for _ in range(ticks):
+            etat = serveur.jouer_un_tick()
+            for morceau in _octets_publies(serveur, etat):
+                hachage.update(morceau)
+                octets += len(morceau)
+        for maison in sorted(m.id for m in serveur.world.maisons):
+            morceau = serveur.octets_du_pays(maison)
+            hachage.update(morceau)
+            octets += len(morceau)
+        return {"ia": ia, "publication": hachage.hexdigest(), "octets": octets,
+                "empreinte": _empreinte(serveur.world)}
+    finally:
+        serveur.server_close()
+
+
 def _dans_un_processus_neuf(ticks: int, graine: int, ia: bool, instrumente: bool) -> dict:
     commande = [sys.executable, str(Path(__file__).resolve()), "--passage",
                 "--ticks", str(ticks), "--seed", str(graine), "--ia", "oui" if ia else "non"]
@@ -293,6 +342,8 @@ def main(argv: list[str] | None = None) -> int:
     lecteur.add_argument("--ia", choices=("non", "oui", "les-deux"), default="les-deux")
     lecteur.add_argument("--sans-phases", action="store_true", help="le passage nu seul")
     lecteur.add_argument("--profil", type=int, metavar="N", help="les N fonctions les plus chères, au lieu du tableau")
+    lecteur.add_argument("--temoin", action="store_true",
+                         help="l'empreinte de tout ce que le service publie, au lieu du tableau")
     lecteur.add_argument("--json", type=Path, help="écrit aussi les mesures dans ce fichier")
     lecteur.add_argument("--passage", action="store_true", help=argparse.SUPPRESS)
     lecteur.add_argument("--instrumente", action="store_true", help=argparse.SUPPRESS)
@@ -306,6 +357,14 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.profil is not None:
         for ia in avec_ia:
             print(profil(arguments.ticks, arguments.seed, ia, arguments.profil), end="\n\n")
+        return 0
+    if arguments.temoin:
+        for ia in avec_ia:
+            rendu = temoin(arguments.ticks, arguments.seed, ia)
+            titre = "avec IA" if ia else "sans IA"
+            print(f"témoin de la publication sur {arguments.ticks} jours, {titre} : {rendu['publication']} "
+                  f"({rendu['octets']} octets)")
+            print(f"empreinte du monde au jour {arguments.ticks}, {titre} : {rendu['empreinte']}")
         return 0
     colonnes = [mesurer(arguments.ticks, arguments.seed, ia, not arguments.sans_phases) for ia in avec_ia]
     print(tableau(colonnes, arguments.ticks, arguments.seed))

@@ -577,3 +577,36 @@ def test_le_document_lit_les_maitres_une_fois(depart, donnees, monkeypatch):
         M.detail(monde, cid, rang)
     with pytest.raises(AssertionError):
         assert len(appels) <= 1
+
+
+def test_le_document_parcourt_les_poses_une_fois(depart, donnees, monkeypatch):
+    monde = copy.deepcopy(depart)
+    paris = _paris(monde)
+    maitre = monde.cells[paris].lieux[0].maitre
+    M.poser(monde, "epreuve", "loi:dime", {"pays": maitre},
+            _avec(donnees, grandeur="prelevement", valeur=0.5, portee="pays"))
+    M.poser(monde, "epreuve", "evenement:famine", {"cellule": paris},
+            _avec(donnees, grandeur="natalite", valeur=-0.5, duree_jours=90))
+    M.poser(monde, "epreuve", "batiment:moulin", {"lieu": [paris, 0]},
+            _avec(donnees, grandeur="recolte", valeur=0.1, portee="lieu"))
+    M.poser(monde, "epreuve", "loi:corvee", {"lieu": [paris, 0]},
+            _avec(donnees, grandeur="recolte", valeur=0.2, portee="lieu"))
+    appels = []
+    toucher = M._lieux_touches
+
+    def compte(*arguments):
+        appels.append(1)
+        return toucher(*arguments)
+
+    monkeypatch.setattr(M, "_lieux_touches", compte)
+    document = M.document_des_modificateurs(monde)
+    # Chaque pose dit une fois les lieux qu'elle touche, quel que soit leur nombre.
+    assert len(appels) == len(monde.modificateurs) == 4 < len(document["lieux"])
+    # Le bourg de Paris porte les quatre poses, deux sur la même grandeur, dans l'ordre de l'addition.
+    bourg = next(l for l in document["lieux"] if (l["cell_id"], l["rang"]) == (paris, 0))
+    assert [ligne["source"] for ligne in bourg["grandeurs"]["recolte"]["lignes"]] == ["batiment:moulin", "loi:corvee"]
+    assert sorted(bourg["grandeurs"]) == ["natalite", "prelevement", "recolte"]
+    # Le document est celui que `detail` rebâtit lieu par lieu, qui relit les poses pour chacun.
+    appels.clear()
+    assert document == _document_d_avant(monde)
+    assert len(appels) > len(monde.modificateurs) * len(document["lieux"])

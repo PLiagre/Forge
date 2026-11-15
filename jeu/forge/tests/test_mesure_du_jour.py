@@ -42,3 +42,15 @@ def test_tableau_porte_les_chiffres_et_l_empreinte():
     # Une phase qui n'a pas tourné n'a pas de ligne.
     assert "tick : migration" not in texte
     assert "empreinte du monde au jour 365, sans IA : abc" in texte
+
+
+@pytest.mark.longue
+def test_temoin_couvre_tout_ce_qui_est_publie(monkeypatch):
+    """Un témoin qui ne lirait que `/monde` n'est pas celui de toute la publication."""
+    premier = mesure_du_jour.temoin(1, mesure_du_jour.GRAINE, ia=False)
+    # Les lieux, les plans, les occupations et les maisons pèsent bien plus que le monde seul.
+    monkeypatch.setattr(mesure_du_jour, "_octets_publies", lambda serveur, etat: [etat.monde])
+    monde_seul = mesure_du_jour.temoin(1, mesure_du_jour.GRAINE, ia=False)
+    assert monde_seul["empreinte"] == premier["empreinte"]
+    assert monde_seul["publication"] != premier["publication"]
+    assert 0 < monde_seul["octets"] < premier["octets"]
