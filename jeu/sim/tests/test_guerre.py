@@ -541,3 +541,58 @@ def test_un_lieu_leve_en_juillet_recolte_moins_que_son_temoin(depart, regles, mo
     assert mondes[1].armees and mondes[1].armees[0].hommes == hommes
     print(f"lieu {(cid, rang)} de {maison} : {hommes} levés, récolte {leve:.1f} kg contre {temoin:.1f} au témoin")
     assert 0 < leve < temoin
+
+
+# --- La photographie et le service portent la guerre ----------------------------------
+
+def test_photographie_porte_les_armees_levees_et_se_tait_sans_guerre(depart):
+    from sim.snapshot_export import build_snapshot_document, serialize_snapshot
+    sans = build_snapshot_document(depart, 0, depart.ticks_ecoules)
+    assert not {"guerres", "armees", "prises"} & set(sans)
+    assert serialize_snapshot(sans) == serialize_snapshot(
+        build_snapshot_document(copy.deepcopy(depart), 0, depart.ticks_ecoules))
+
+    monde = _avec_caserne(depart)
+    cid = _capitale(monde)
+    recevoir_intention(monde, _levee(cid))
+    engine._appliquer_intentions(monde)
+    photographie = build_snapshot_document(monde, 0, monde.ticks_ecoules)
+    assert photographie["armees"] == G.document_de_la_guerre(monde)["armees"]
+    (armee,) = photographie["armees"]
+    assert armee["effectifs"] == [[cid, 0, 10], [cid, 1, 5]] and armee["hommes"] == 15
+    assert "guerres" not in photographie and "prises" not in photographie
+
+
+def test_service_sert_les_guerres_et_refuse_les_gestes_d_une_autre_maison():
+    import json
+    from sim.tests.test_monde import _service_epreuve, requete_service
+
+    def poster(port, corps):
+        return requete_service(port, "/intention", "POST", json.dumps(corps).encode())
+
+    with _service_epreuve() as (serveur, port):
+        statut, document, _ = requete_service(port, "/guerres")
+        assert statut == 200 and document == {
+            "tick": 0, "date": c.date_de_tick(0), "guerres": [], "armees": [], "prises": [], "morts_des_armees": 0}
+
+        cible = "seigneurie-2"
+        declaration = {"type": "declarer_guerre", "maison": BAR, "cible": cible}
+        statut, refus, _ = poster(port, declaration)
+        assert statut == 400 and refus == {
+            "acceptee": False, "erreur": "départ non appliqué : choisir une terre avant de faire la guerre"}
+        assert serveur.world.intentions_en_attente == []
+
+        assert poster(port, {"type": "choisir_depart", "seigneurie": 1})[0] == 200
+        assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+        assert serveur.world.maison_du_joueur == BAR
+
+        statut, refus, _ = poster(port, {"type": "declarer_guerre", "maison": cible, "cible": BAR})
+        assert statut == 400 and refus == {
+            "acceptee": False, "erreur": "maison interdite : seule la maison du joueur fait ses guerres"}
+        assert serveur.world.intentions_en_attente == [] and serveur.world.guerres == []
+
+        statut, recu, _ = poster(port, declaration)
+        assert statut == 200 and recu["acceptee"] is True
+        assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+        document = requete_service(port, "/guerres")[1]
+        assert [(g["agresseur"], g["defenseur"]) for g in document["guerres"]] == [(BAR, cible)]

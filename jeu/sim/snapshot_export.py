@@ -404,6 +404,13 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
         # et la photographie garde ses octets.
         from sim.modificateurs import document_des_modificateurs
         photographie['modificateurs'] = document_des_modificateurs(world)
+    # La guerre, sans arrondi : sans guerre, ni armée ni prise, les clés sont absentes
+    # et la photographie garde ses octets.
+    from sim.guerre import document_de_la_guerre
+    guerre = document_de_la_guerre(world)
+    for cle in ('guerres', 'armees', 'prises'):
+        if guerre[cle]:
+            photographie[cle] = guerre[cle]
     return photographie
 
 

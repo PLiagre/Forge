@@ -25,13 +25,14 @@ from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
+from sim.guerre import document_de_la_guerre
 from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
 from sim.evenements import document_de_l_evenement
 from sim.batiments import document_des_batiments
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.jouables import maisons_jouables
-from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
@@ -251,8 +252,12 @@ class EtatPublie:
     maisons: MatiereMaisons
     octets_maisons: dict[str | None, bytes]
     modificateurs: bytes = b""
+    guerres: bytes = b""
     # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
     duree_dernier_jour_ms: float = -1
+
+
+_TYPES_DE_GUERRE = (TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE)
 
 
 class ErreurIA(RuntimeError):
@@ -504,6 +509,7 @@ class ServeurMonde(ThreadingHTTPServer):
                 "maisons_actives_30j": maisons_actives_30j(numero_tick, self.releve),
             }) if self.ia else None,
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
+            guerres=_serialiser(document_de_la_guerre(self.world)),
         )
 
     def octets_du_pays(self, maison_id):
@@ -745,6 +751,10 @@ class RequetesMonde(BaseHTTPRequestHandler):
             # L'infobulle : chaque pose, et le détail de chaque lieu touché, au tick publié.
             self._repondre_octets(HTTPStatus.OK, etat.modificateurs)
             return
+        if cible.path == "/guerres":
+            # Les guerres, les armées et les prises du tick publié.
+            self._repondre_octets(HTTPStatus.OK, etat.guerres)
+            return
         if cible.path == "/ia":
             if etat.ia is None:
                 self._refuser(HTTPStatus.NOT_FOUND, "ia désactivée : lancer le service avec --ia")
@@ -966,6 +976,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de fixer la part")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur peut fixer sa part")
+                    if intention.get("type") in _TYPES_DE_GUERRE:
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant de faire la guerre")
+                        if intention.get("maison") != joueur:
+                            raise IntentionRefusee("maison interdite : seule la maison du joueur fait ses guerres")
                     if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE):
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:

@@ -640,3 +640,20 @@ def retenir_les_secours(monde, charges) -> dict:
         else:
             livres[cid, rang] = kg
     return livres
+
+
+def document_de_la_guerre(monde) -> dict:
+    """Les guerres, les armées et les prises du monde, pour le service et la photographie, sans arrondi.
+
+    Chaque armée porte son lieu (`cell_id`, `rang`), ses effectifs par lieu d'origine
+    `[[cell_id, rang, hommes]]`, son effectif total, ses vivres, sa route en cellules, sa
+    destination et la cellule dont elle assiège le bourg, ou None.
+    """
+    return {
+        "tick": monde.ticks_ecoules,
+        "date": _constantes.date_de_tick(monde.ticks_ecoules),
+        "guerres": [g.en_document() for g in getattr(monde, "guerres", ())],
+        "armees": [a.en_document() for a in sorted(getattr(monde, "armees", ()), key=lambda a: a.identifiant)],
+        "prises": [dict(p, rangs=list(p["rangs"])) for p in getattr(monde, "prises", ())],
+        "morts_des_armees": getattr(monde, "morts_des_armees", 0),
+    }
