@@ -143,6 +143,9 @@ namespace Forge.Interface
             dossierPays.Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
             // À droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
             gameObject.AddComponent<GestesDesJauges>().Initialiser(dossierPays.Cadre, () => Partie.Monde, () => Partie.Gestes, OrdreConfirme.Local(carte.port));
+            // Le feuillet de la guerre, ouvert depuis le panneau « Votre maison » ; ses ordres visent la terre gardée sur la carte.
+            gameObject.AddComponent<DossierGuerre>().Initialiser(toile.transform, dossier, () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null,
+                () => retenue, OrdreConfirme.Local(carte.port), NomsDesTerres.Local(carte.port), carte.port);
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);
