@@ -90,15 +90,15 @@ def appliquer_departs(world) -> int:
             if entree is premier:
                 if second is premier:
                     second = _le_meilleur([autre for autre in entrees if autre is not premier])
-                cible_id, destination = cid, second
+                cible_id, cible = cid, second
             else:
-                cible_id, destination = cid, premier
+                cible_id, cible = cid, premier
             seuil = reserve + _constantes.ECART_DE_DEPART_JOURS
-            if destination is None or not _RESERVE(destination) > seuil:
-                cible_id, destination = voisin, bourgs.get(voisin)
-            if destination is None or not _RESERVE(destination) > seuil:
+            if cible is None or not _RESERVE(cible) > seuil:
+                cible_id, cible = voisin, bourgs.get(voisin)
+            if cible is None or not _RESERVE(cible) > seuil:
                 continue
-            rang_arrivee, lieu_arrivee, population_arrivee, reserve_arrivee = destination
+            rang_arrivee, lieu_arrivee, population_arrivee, reserve_arrivee = cible
             ecart = reserve_arrivee - reserve
             tranches = floor(ecart / _constantes.ECART_DE_DEPART_JOURS)
             part = (min(_constantes.TAUX_DE_DEPART * tranches, _constantes.PLAFOND_DE_DEPART)
@@ -109,13 +109,13 @@ def appliquer_departs(world) -> int:
             partants = floor(population * part / _constantes.TAILLE_FOYER) * _constantes.TAILLE_FOYER
             if not partants:
                 continue
-            arrivee = (cible_id, rang_arrivee)
+            destination = (cible_id, rang_arrivee)
             partis[cle] += partants
-            arrives[arrivee] += partants
+            arrives[destination] += partants
             photo[cle] = (lieu, population)
-            photo[arrivee] = (lieu_arrivee, population_arrivee)
+            photo[destination] = (lieu_arrivee, population_arrivee)
             deltas_lieux[cle] -= partants
-            deltas_lieux[arrivee] += partants
+            deltas_lieux[destination] += partants
             if cible_id != cid:
                 deltas_cellules[cid] -= partants
                 deltas_cellules[cible_id] += partants

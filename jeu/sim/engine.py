@@ -1930,8 +1930,12 @@ def _voisins_avec_surplus(
 
 
 def _voisines_terrestres(world):
-    """Ordre des arêtes et doublons conservés ; table de `_topologie`, lue sans être modifiée."""
-    return _topologie(world)["voisines"]
+    """Ordre des arêtes et doublons conservés, sur la table de `_topologie`.
+
+    Une `defaultdict` neuve à chaque appel : une cellule sans voisine terrestre
+    se lit vide sans rien écrire dans la table gardée.
+    """
+    return defaultdict(list, _topologie(world)["voisines"])
 
 
 def _apply_migration(world, penuries: dict[int, float]) -> None:
