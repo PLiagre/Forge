@@ -5,6 +5,7 @@
     cd jeu && py mesure_du_jour.py --profil 10      # les dix fonctions les plus chères
     cd jeu && py mesure_du_jour.py --json avant.json
     cd jeu && py mesure_du_jour.py --temoin         # l'empreinte de tout ce que le service publie
+    cd jeu && py mesure_du_jour.py --contre ../../reference/jeu   # ce checkout contre un autre
 
 Le jour se mesure là où le jeu le paie : `ServeurMonde.jouer_un_tick()` en entier, les jauges, l'IA,
 le tick et la publication, sur le monde que le service charge, avec le réglage du ramasse-miettes de
@@ -22,6 +23,12 @@ Chaque colonne (sans IA, avec IA) joue l'année deux fois, chaque fois dans un p
 L'empreinte est le hachage du monde au dernier jour : deux mesures du même monde, de la même graine,
 sur la même machine, donnent la même. Elle ne se compare pas d'une machine à l'autre (les derniers
 bits de la trigonométrie diffèrent entre Windows et Linux).
+
+**Une machine occupée fausse tout** : le même jour y coûte du simple au double d'une heure à l'autre.
+Le chiffre d'une optimisation se prend donc par `--contre <le dossier jeu d'un autre checkout>` : à
+chaque manche, la référence et ce checkout jouent l'année en même temps, chacun dans son processus,
+et subissent la même charge. Le gain se lit manche par manche ; les millisecondes ne valent que pour
+la manche où elles ont été prises.
 
 Le témoin (`--temoin`) est l'empreinte de tout ce que le service publie, jour après jour : le monde,
 chaque lieu, chaque plan, chaque occupation, chaque maison, les modificateurs, le relevé de l'IA, et
@@ -50,6 +57,7 @@ TICKS = 365
 GRAINE = 0
 MS = 1000.0
 CENTILE = 95
+MANCHES = 3
 
 # (module, nom dans ce module, phase). Le nom est celui par lequel l'appelant atteint la fonction :
 # une fonction importée par son nom se remplace dans le module qui l'a importée.
@@ -221,15 +229,61 @@ def temoin(ticks: int, graine: int, ia: bool) -> dict:
         serveur.server_close()
 
 
-def _dans_un_processus_neuf(ticks: int, graine: int, ia: bool, instrumente: bool) -> dict:
-    commande = [sys.executable, str(Path(__file__).resolve()), "--passage",
+def _lancer_un_passage(ticks: int, graine: int, ia: bool, instrumente: bool, jeu: Path = JEU):
+    """Lance un passage dans un processus neuf, sur le moteur du dossier `jeu`, sans l'attendre."""
+    commande = [sys.executable, str(Path(__file__).resolve()), "--passage", "--jeu", str(jeu),
                 "--ticks", str(ticks), "--seed", str(graine), "--ia", "oui" if ia else "non"]
     if instrumente:
         commande.append("--instrumente")
-    sortie = subprocess.run(commande, cwd=JEU, capture_output=True, text=True, encoding="utf-8")
-    if sortie.returncode != 0:
-        raise SystemExit(f"le passage a échoué ({sortie.returncode}) :\n{sortie.stderr}")
-    return json.loads(sortie.stdout)
+    return subprocess.Popen(commande, cwd=jeu, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, encoding="utf-8")
+
+
+def _attendre_un_passage(processus) -> dict:
+    sortie, erreur = processus.communicate()
+    if processus.returncode != 0:
+        raise SystemExit(f"le passage a échoué ({processus.returncode}) :\n{erreur}")
+    return json.loads(sortie)
+
+
+def _dans_un_processus_neuf(ticks: int, graine: int, ia: bool, instrumente: bool) -> dict:
+    return _attendre_un_passage(_lancer_un_passage(ticks, graine, ia, instrumente))
+
+
+def comparer(ticks: int, graine: int, ia: bool, reference: Path, manches: int) -> dict:
+    """Ce checkout contre `reference` : à chaque manche, les deux jouent en même temps."""
+    lignes = []
+    for _ in range(manches):
+        passages = [_lancer_un_passage(ticks, graine, ia, False, jeu) for jeu in (reference, JEU)]
+        avant, apres = [_attendre_un_passage(passage) for passage in passages]
+        ligne = {"meme_monde": avant["empreinte"] == apres["empreinte"]}
+        for nom, passage in (("avant", avant), ("apres", apres)):
+            jour, tick = statistics.fmean(passage["jours_ms"]), statistics.fmean(passage["ticks_ms"])
+            ligne[nom] = {"jour_ms": jour, "tick_ms": tick, "publication_ms": jour - tick}
+        lignes.append(ligne)
+    return {"ia": ia, "manches": lignes}
+
+
+def tableau_compare(colonnes: list[dict], ticks: int, graine: int, reference: Path) -> str:
+    lignes = [f"Ce checkout contre {reference} — {ticks} jours, graine {graine}, "
+              f"Python {platform.python_version()}, {platform.system()} {platform.machine()}",
+              "Chaque manche joue les deux en même temps ; le gain est la part du temps de la référence "
+              "que ce checkout ne paie plus."]
+    for colonne in colonnes:
+        titre = "avec IA" if colonne["ia"] else "sans IA"
+        lignes += ["", f"{titre:10}{'manche':>8}{'référence':>14}{'ici':>12}{'gain':>10}"]
+        for grandeur, cle in (("le jour", "jour_ms"), ("le tick", "tick_ms"), ("publier", "publication_ms")):
+            gains = []
+            for numero, manche in enumerate(colonne["manches"], start=1):
+                avant, apres = manche["avant"][cle], manche["apres"][cle]
+                gains.append(100 * (1 - apres / avant))
+                lignes.append(f"  {grandeur:8}{numero:>8}{avant:>11.1f} ms{apres:>9.1f} ms{gains[-1]:>8.1f} %")
+            lignes.append(f"  {grandeur:8}{'médiane':>8}{'':>14}{'':>12}{statistics.median(gains):>8.1f} %")
+        if all(manche["meme_monde"] for manche in colonne["manches"]):
+            lignes.append("  le monde au dernier jour est le même des deux côtés")
+        else:
+            lignes.append("  ATTENTION : le monde au dernier jour DIFFÈRE entre la référence et ce checkout")
+    return "\n".join(lignes)
 
 
 def _centile(valeurs: list[float], centile: int) -> float:
@@ -345,18 +399,38 @@ def main(argv: list[str] | None = None) -> int:
     lecteur.add_argument("--temoin", action="store_true",
                          help="l'empreinte de tout ce que le service publie, au lieu du tableau")
     lecteur.add_argument("--json", type=Path, help="écrit aussi les mesures dans ce fichier")
+    lecteur.add_argument("--contre", type=Path, metavar="JEU",
+                         help="le dossier jeu d'un autre checkout : les deux jouent en même temps, par manches")
+    lecteur.add_argument("--manches", type=int, default=MANCHES, help="avec --contre : combien de manches")
     lecteur.add_argument("--passage", action="store_true", help=argparse.SUPPRESS)
+    lecteur.add_argument("--jeu", type=Path, help=argparse.SUPPRESS)
     lecteur.add_argument("--instrumente", action="store_true", help=argparse.SUPPRESS)
     arguments = lecteur.parse_args(argv)
     if arguments.ticks < 1:
         lecteur.error("--ticks doit être ≥ 1")
     if arguments.passage:
+        if arguments.jeu is not None:
+            # Le moteur mesuré est celui du dossier donné, pas celui qui porte cet outil.
+            sys.path.insert(0, str(arguments.jeu.resolve()))
         json.dump(_jouer(arguments.ticks, arguments.seed, arguments.ia == "oui", arguments.instrumente), sys.stdout)
         return 0
     avec_ia = {"non": [False], "oui": [True], "les-deux": [False, True]}[arguments.ia]
     if arguments.profil is not None:
         for ia in avec_ia:
             print(profil(arguments.ticks, arguments.seed, ia, arguments.profil), end="\n\n")
+        return 0
+    if arguments.contre is not None:
+        reference = arguments.contre.resolve()
+        if not (reference / "sim" / "service.py").is_file():
+            lecteur.error(f"--contre : {reference} n'est pas le dossier jeu d'un checkout")
+        if arguments.manches < 1:
+            lecteur.error("--manches doit être ≥ 1")
+        colonnes = [comparer(arguments.ticks, arguments.seed, ia, reference, arguments.manches) for ia in avec_ia]
+        print(tableau_compare(colonnes, arguments.ticks, arguments.seed, reference))
+        if arguments.json is not None:
+            arguments.json.write_text(json.dumps(
+                {"ticks": arguments.ticks, "graine": arguments.seed, "reference": str(reference),
+                 "colonnes": colonnes}, ensure_ascii=False, indent=1), encoding="utf-8")
         return 0
     if arguments.temoin:
         for ia in avec_ia:

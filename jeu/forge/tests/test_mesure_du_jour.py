@@ -54,3 +54,34 @@ def test_temoin_couvre_tout_ce_qui_est_publie(monkeypatch):
     assert monde_seul["empreinte"] == premier["empreinte"]
     assert monde_seul["publication"] != premier["publication"]
     assert 0 < monde_seul["octets"] < premier["octets"]
+
+
+def test_comparaison_joue_les_deux_checkouts_sur_le_meme_monde():
+    """Ce checkout contre lui-même : une manche, deux passages, le même monde au dernier jour."""
+    colonne = mesure_du_jour.comparer(JOURS, mesure_du_jour.GRAINE, False, mesure_du_jour.JEU, manches=1)
+    (manche,) = colonne["manches"]
+    assert manche["meme_monde"] is True
+    for cote in ("avant", "apres"):
+        assert 0 < manche[cote]["tick_ms"] <= manche[cote]["jour_ms"]
+        assert manche[cote]["publication_ms"] == pytest.approx(manche[cote]["jour_ms"] - manche[cote]["tick_ms"])
+
+
+def test_tableau_compare_dit_le_gain_de_chaque_manche_et_un_monde_qui_differe():
+    def manche(avant, apres, meme):
+        return {"meme_monde": meme,
+                "avant": {"jour_ms": avant, "tick_ms": avant / 2, "publication_ms": avant / 2},
+                "apres": {"jour_ms": apres, "tick_ms": apres / 2, "publication_ms": apres / 2}}
+    colonne = {"ia": True, "manches": [manche(200.0, 100.0, True), manche(100.0, 80.0, True), manche(100.0, 90.0, True)]}
+    texte = mesure_du_jour.tableau_compare([colonne], 365, 0, mesure_du_jour.JEU)
+    # Le gain se lit manche par manche, puis par sa médiane, jamais par une moyenne des millisecondes.
+    assert "50.0 %" in texte and "20.0 %" in texte and "10.0 %" in texte
+    assert "le jour  médiane" in texte and texte.count("  20.0 %") == 6
+    assert "est le même des deux côtés" in texte and "DIFFÈRE" not in texte
+    colonne["manches"][1]["meme_monde"] = False
+    assert "DIFFÈRE" in mesure_du_jour.tableau_compare([colonne], 365, 0, mesure_du_jour.JEU)
+
+
+def test_comparaison_refuse_un_dossier_qui_n_est_pas_un_checkout(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        mesure_du_jour.main(["--contre", str(tmp_path)])
+    assert "n'est pas le dossier jeu d'un checkout" in capsys.readouterr().err
