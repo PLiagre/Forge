@@ -162,6 +162,15 @@ def bourgs_et_maitres(monde) -> tuple:
     return tuple((cid, cellule.lieux[0].maitre if cellule.lieux else None) for cid, cellule in sorted(monde.cells.items()))
 
 
+def origine_des_places(monde) -> tuple:
+    """Ce qui pose les places d'un monde, à comparer d'un jour à l'autre : les ancres de ses bourgs
+    s'il les garde depuis son chargement (`World.ancres_des_bourgs`), sinon le maître de chaque bourg."""
+    ancres = getattr(monde, "ancres_des_bourgs", None)
+    if ancres is None:
+        return ("maitres", bourgs_et_maitres(monde))
+    return ("ancres", tuple(sorted(ancres.items())))
+
+
 def _villes_placees(monde) -> dict:
     """La plus grande ville placée de chaque cellule, en mètres, ou rien."""
     villes = {}

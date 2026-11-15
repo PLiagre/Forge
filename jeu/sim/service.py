@@ -38,13 +38,13 @@ from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
 )
-from sim.noms import noms_depuis_monde
+from sim.noms import charger_noms, noms_depuis_monde
 from sim.flux import flux_des_lieux
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
 from sim.lieux import partager, surfaces_des_lieux
-from sim.puissances import PuissanceInvalide, charger_table
+from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.seigneuries import SeigneurieInconnue, charger_seigneuries, fiche_de_seigneurie
-from sim.places import bourgs_et_maitres, places_du_monde
+from sim.places import bourgs_et_maitres, origine_des_places, places_du_monde
 from sim.plan import aire_du_contour
 from sim.portes import controler_portes, portes_de_l_enceinte
 from sim.snapshot_export import (
@@ -320,6 +320,9 @@ class ServeurMonde(ThreadingHTTPServer):
         # (monde, liste) : la liste des maisons de l'IA, calculée une fois par
         # monde servi ; refaite si le monde servi change d'objet.
         self._maisons_ia = None
+        # (monde, listes de noms, table des puissances, puissance de chaque cellule) : ce que les noms
+        # lisent hors des maîtres, lu une fois par monde servi.
+        self._sources_noms = None
         self._pays_du_tick = (None, {})
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
@@ -335,7 +338,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._arret_horloge = False
         self._tick_en_cours = False
         self._signature_noms = lambda: (self.world.maisons, tuple((cid, c.area_km2, tuple((l.rang, l.maitre) for l in c.lieux)) for cid, c in sorted(self.world.cells.items())))
-        self._empreinte_noms = self._signature_noms(); self._noms = noms_depuis_monde(self.world)
+        self._empreinte_noms = self._signature_noms(); self._noms = noms_depuis_monde(self.world, *self._sources_des_noms())
         self.etat_publie = self._construire_etat(jours_par_seconde, -1)
         self._fil_horloge = threading.Thread(
             target=self._faire_avancer_horloge,
@@ -412,11 +415,21 @@ class ServeurMonde(ThreadingHTTPServer):
                 etat.octets_maisons[identifiant] = _serialiser(document)
             return etat.octets_maisons[identifiant]
 
+    def _sources_des_noms(self) -> tuple:
+        """Les listes de noms, la table des puissances et la puissance de chaque cellule : ce que les noms
+        lisent des données et de la carte, jamais des maîtres. Lues une fois par monde servi ; quand un
+        lieu change de maître, seuls les noms se refont."""
+        if self._sources_noms is None or self._sources_noms[0] is not self.world:
+            table = charger_table()
+            self._sources_noms = (self.world, charger_noms(), table, puissances_depuis_monde(self.world, table=table))
+        return self._sources_noms[1:]
+
     def _places_des_lieux(self) -> dict:
-        """Les places des lieux, recalculées seulement quand le maître d'un bourg change. Un monde chargé
-        les ancre au chargement (`World.ancres_des_bourgs`) : une conquête ne les déplace pas, et le calcul
-        refait rend les mêmes places. Une vue, pas un état : la clé dit d'où elles viennent."""
-        cle = bourgs_et_maitres(self.world)
+        """Les places des lieux, recalculées seulement quand ce qui les pose change. Un monde chargé les
+        ancre au chargement (`World.ancres_des_bourgs`) : une conquête ne les déplace pas et ne les fait pas
+        recalculer. Sans ancres, le maître de chaque bourg les pose. Une vue, pas un état : la clé dit d'où
+        elles viennent."""
+        cle = origine_des_places(self.world)
         if self._places is None or self._places[0] != cle:
             self._places = (cle, places_du_monde(self.world))
         return self._places[1]
@@ -435,7 +448,7 @@ class ServeurMonde(ThreadingHTTPServer):
             for cell_id in sorted(self.world.cells)
         ]
         signature = self._signature_noms()
-        if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world); self._empreinte_noms = signature
+        if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world, *self._sources_des_noms()); self._empreinte_noms = signature
         noms = self._noms
         flux = flux_des_lieux(self.world)
         date = self.world.date_simulation
