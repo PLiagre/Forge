@@ -37,7 +37,7 @@ class TableRoutes(Mapping):
 
     __slots__ = (
         "cids", "rangs", "noms", "maitre_idx", "siege_cids", "siege_rangs",
-        "jours", "index", "par_cellule", "jours_max",
+        "jours", "index", "par_cellule", "jours_max", "positions",
     )
 
     def __init__(self, entrees):
@@ -49,6 +49,7 @@ class TableRoutes(Mapping):
         self.maitre_idx = array.array("i")
         self.noms: list[str] = []
         self.index = None
+        self.positions = None
         self.par_cellule = {}
         self.jours_max = 0
         connu: dict[str, int] = {}
@@ -82,12 +83,27 @@ class TableRoutes(Mapping):
         copie.maitre_idx = array.array("i", self.maitre_idx)
         copie.noms = list(self.noms)
         copie.index = None
+        copie.positions = None
         copie.jours_max = self.jours_max
         copie.par_cellule = {cid: (list(i), list(j)) for cid, (i, j) in self.par_cellule.items()}
         return copie
 
     def __len__(self):
         return len(self.jours)
+
+    def lieux_du_maitre(self, indice) -> list:
+        """Les lieux d'un maître, par son indice dans `noms` : (cell_id, rang, jours), dans l'ordre de la table.
+
+        Les positions de chaque maître se relisent sur la table entière seulement quand la colonne
+        des maîtres a changé depuis leur dernier relevé (une conquête la réécrit en place)."""
+        releve = self.positions
+        if releve is None or releve[0] != self.maitre_idx:
+            positions = {}
+            for position, maitre in enumerate(self.maitre_idx):
+                positions.setdefault(maitre, []).append(position)
+            releve = self.positions = (array.array("i", self.maitre_idx), positions)
+        return [(self.cids[position], self.rangs[position], self.jours[position])
+                for position in releve[1].get(indice, ())]
 
     def __iter__(self):
         for i in range(len(self.jours)):
