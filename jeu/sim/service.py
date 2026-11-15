@@ -16,7 +16,7 @@ import threading
 import time
 from urllib.parse import parse_qs, urlsplit
 
-from sim.carte_servie import document_carte
+from sim.carte_servie import document_carte, terres_et_pays
 from sim import constants as _constantes
 from sim import engine
 from sim.constants import DEFAULT_CLI_SEED
@@ -25,7 +25,7 @@ from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
 from sim.modificateurs import document_des_modificateurs
-from sim.guerre import document_de_la_guerre
+from sim.guerre import GuerreInvalide, devis_des_ordres, document_servi_de_la_guerre
 from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
 from sim.evenements import document_de_l_evenement
@@ -253,6 +253,7 @@ class EtatPublie:
     octets_maisons: dict[str | None, bytes]
     modificateurs: bytes = b""
     guerres: bytes = b""
+    terres: bytes = b""
     # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
     duree_dernier_jour_ms: float = -1
 
@@ -296,6 +297,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
+        self._terres = None  # (maîtres et suzerains, noms, octets de terres et pays) : relu quand l'un change
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
         self._arret_horloge = False
@@ -386,6 +388,19 @@ class ServeurMonde(ThreadingHTTPServer):
         if self._places is None or self._places[0] != cle:
             self._places = (cle, places_du_monde(self.world))
         return self._places[1]
+
+    def _octets_des_terres(self, matiere: MatiereMaisons, noms) -> bytes:
+        """`/terres` au tick publié. Les terres et les pays ne se refont que si le maître d'un bourg, un
+        suzerain ou les noms changent ; seuls le tick et la date s'écrivent à chaque jour. Les octets sont
+        ceux de `_serialiser` du document entier, clés triées : date, pays, terres, tick."""
+        cle = (bourgs_et_maitres(self.world), tuple((m.id, m.suzerain) for m in self.world.maisons))
+        gardees = self._terres
+        if gardees is None or gardees[0] != cle or gardees[1] is not noms:
+            # Le corps de l'objet, sans ses accolades, se glisse entre la date et le tick.
+            gardees = self._terres = (cle, noms, _serialiser(terres_et_pays(self.world, matiere))[1:-1])
+        _cle, _noms, corps = gardees
+        return (b'{"date":' + _serialiser(matiere.date) + b"," + corps
+                + b',"tick":' + str(matiere.tick).encode() + b"}")
 
     def _construire_etat(
         self,
@@ -492,13 +507,14 @@ class ServeurMonde(ThreadingHTTPServer):
             documents_occupations[cid] = dict(cell_id=cid, rang=0, tick=numero_tick, date=date,
                 batiments=batiments, logement=logement)
         occupations = OctetsDifferes(documents_occupations)
+        matiere = matiere_des_maisons(self.world, noms, places)
         return EtatPublie(
             monde=monde,
             lieux=lieux,
             lieux_avec_bourg=lieux_avec_bourg,
             plans=plans,
             occupations=occupations,
-            maisons=matiere_des_maisons(self.world, noms, places),
+            maisons=matiere,
             octets_maisons={},
             tick=numero_tick,
             date=date,
@@ -509,8 +525,18 @@ class ServeurMonde(ThreadingHTTPServer):
                 "maisons_actives_30j": maisons_actives_30j(numero_tick, self.releve),
             }) if self.ia else None,
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
-            guerres=_serialiser(document_de_la_guerre(self.world)),
+            guerres=_serialiser(document_servi_de_la_guerre(self.world, places)),
+            terres=self._octets_des_terres(matiere, noms),
         )
+
+    def octets_des_ordres(self, maison_id, cell_id=None):
+        """`/guerres/ordres` : le devis des ordres de guerre de la maison, sous le verrou du tick, au tick publié."""
+        with self.verrou_tick:
+            if not any(m.id == maison_id for m in self.world.maisons):
+                raise MaisonInconnue(maison_id)
+            if cell_id is not None and cell_id not in self.world.cells:
+                raise KeyError(cell_id)
+            return _serialiser(devis_des_ordres(self.world, maison_id, cell_id))
 
     def octets_du_pays(self, maison_id):
         """`/pays` : le pays et ses jauges au tick courant, gardés jusqu'au tick suivant."""
@@ -754,6 +780,39 @@ class RequetesMonde(BaseHTTPRequestHandler):
         if cible.path == "/guerres":
             # Les guerres, les armées et les prises du tick publié.
             self._repondre_octets(HTTPStatus.OK, etat.guerres)
+            return
+        if cible.path == "/terres":
+            # Le maître du bourg de chaque terre et son pays, au tick publié.
+            self._repondre_octets(HTTPStatus.OK, etat.terres)
+            return
+        if cible.path == "/guerres/ordres":
+            # Le devis des ordres de guerre de la maison : leur prix et leur refus d'avance, au tick du monde.
+            requete = parse_qs(cible.query, keep_blank_values=True)
+            valeurs = requete.get("maison")
+            recue = None if valeurs is None else valeurs if len(valeurs) != 1 else valeurs[0]
+            if not isinstance(recue, str) or not recue:
+                self._refuser(HTTPStatus.BAD_REQUEST,
+                              f"paramètre maison invalide : reçu {recue!r}, attendu un identifiant de maison")
+                return
+            cell_id = None
+            if "cell" in requete:
+                try:
+                    cell_id = _parametre_entier(cible.query, "cell")
+                except ValueError as exc:
+                    self._refuser(HTTPStatus.BAD_REQUEST, str(exc))
+                    return
+            try:
+                corps = self.server.octets_des_ordres(recue, cell_id)
+            except MaisonInconnue:
+                self._refuser(HTTPStatus.NOT_FOUND, f"maison inconnue : reçu {recue!r}")
+                return
+            except KeyError:
+                self._refuser(HTTPStatus.NOT_FOUND, f"cell inconnu : reçu {cell_id!r}")
+                return
+            except GuerreInvalide as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
             return
         if cible.path == "/ia":
             if etat.ia is None:

@@ -32,6 +32,24 @@ _SECTIONS = {
     "ia": {"jours_de_marche_max", "jours_de_siege_voulus", "hommes_minimum"},
 }
 _CHAMPS_D_UNE_LEVEE = ("cell", "rang", "hommes")
+# Le séparateur des milliers des textes du monde, celui de l'écran (`TexteDuMonde` côté Unity).
+_ESPACE_DES_MILLIERS = " "
+# Les décimales au plus d'un nombre écrit dans un refus, comme les masses de l'écran.
+DECIMALES_DES_TEXTES = 2
+_POUR_CENT = 100
+
+
+def ecrire_nombre(valeur, decimales=DECIMALES_DES_TEXTES) -> str:
+    """Un nombre comme l'écran l'écrit : milliers séparés, virgule décimale, au plus `decimales` décimales.
+
+    Les refus des gestes de guerre se lisent tels quels par le joueur : aucun identifiant, et chaque
+    nombre suivi de son unité.
+    """
+    texte = f"{round(valeur, decimales):,.{decimales}f}"
+    entier, _, fraction = texte.partition(".")
+    fraction = fraction.rstrip("0")
+    entier = entier.replace(",", _ESPACE_DES_MILLIERS)
+    return entier + ("," + fraction if fraction else "")
 
 
 class GuerreInvalide(ValueError):
@@ -201,15 +219,13 @@ def raison_levee_fermee(monde, maison, regles) -> str | None:
     if fiche is None:
         return f"maison inconnue ou mal formée : {maison!r}"
     if fiche.cell_id is None or fiche.cell_id not in monde.cells:
-        return f"la levée est fermée : la capitale de {maison} est hors de la carte"
+        return "la levée est fermée : votre capitale est hors de la carte"
     bourg = _bourg(monde.cells[fiche.cell_id])
     if bourg is None or bourg.maitre != maison:
-        return (f"la levée est fermée : le bourg de la capitale (cellule {fiche.cell_id}) "
-                f"est à {getattr(bourg, 'maitre', None)!r}")
+        return "la levée est fermée : le bourg de votre capitale n'est plus à vous"
     if not any(b.cell_id == fiche.cell_id and b.nature == regles.batiment_de_levee and not b.en_chantier
                for b in monde.batiments_de_province):
-        return (f"la levée est fermée : aucune {regles.batiment_de_levee} achevée dans la capitale "
-                f"(cellule {fiche.cell_id})")
+        return f"la levée est fermée : aucune {regles.batiment_de_levee} achevée dans votre capitale"
     return None
 
 
@@ -250,13 +266,17 @@ def _armee(monde, maison, identifiant):
         return None, f"armée invalide : entier attendu, reçu {identifiant!r}"
     armee = next((a for a in monde.armees if a.identifiant == identifiant), None)
     if armee is None:
-        return None, f"armée inconnue : {identifiant}"
+        return None, "cette armée n'existe plus"
     if armee.maison != maison:
-        return None, f"cette armée n'est pas à toi : elle est à {armee.maison}"
+        return None, "cette armée n'est pas à vous"
     return armee, None
 
 
 # --- Les refus --------------------------------------------------------------------
+#
+# Un refus d'un geste valide dans sa forme se lit tel quel par le joueur : il ne nomme ni lieu ni
+# maison par son identifiant, et chaque nombre porte son unité. Un refus de forme (champ, type)
+# garde ce qu'il a reçu : seul un client mal écrit le voit.
 
 def verifier_declaration(monde, maison, cible, declarees=()) -> str | None:
     """La raison du refus d'une déclaration, ou None. `declarees` : couples déjà déposés."""
@@ -267,9 +287,9 @@ def verifier_declaration(monde, maison, cible, declarees=()) -> str | None:
     if cible == maison:
         return "on ne se déclare pas la guerre à soi-même"
     if en_guerre(monde, maison, cible, declarees):
-        return f"déjà en guerre avec {cible}"
+        return "vous êtes déjà en guerre avec cette maison"
     if not any(lieu.maitre == cible for cid in sorted(monde.cells) for lieu in monde.cells[cid].lieux):
-        return f"{cible} ne tient aucun lieu : rien à prendre"
+        return "cette maison ne tient aucun lieu : rien à prendre"
     return None
 
 
@@ -305,25 +325,28 @@ def verifier_levee(monde, maison, lieux, vivres_kg, regles, grain_libre, en_atte
             or not math.isfinite(vivres_kg) or vivres_kg < 0):
         return f"vivres_kg invalide : nombre fini positif ou nul attendu, reçu {vivres_kg!r}"
     if vivres_kg > grain_libre:
-        return f"grenier insuffisant : {vivres_kg:g} kg de vivres demandés, {grain_libre:g} kg disponibles"
+        return (f"grenier insuffisant : {ecrire_nombre(vivres_kg)} kg de vivres demandés, "
+                f"{ecrire_nombre(grain_libre)} kg disponibles")
     par_cellule = {}
     for cid, rang, hommes in lieux:
         cellule = monde.cells.get(cid)
         if cellule is None or not 0 <= rang < len(cellule.lieux):
-            return f"lieu inconnu : ({cid}, {rang})"
+            return "ce lieu n'existe pas sur la carte"
         lieu = cellule.lieux[rang]
         if lieu.maitre != maison:
-            return f"ce lieu n'est pas à toi : ({cid}, {rang}) est à {lieu.maitre!r}"
+            return "ce lieu n'est pas à vous"
         maximum = levee_maximale(monde, cid, rang, regles, en_attente)
         if hommes > maximum:
-            return (f"trop d'hommes : ({cid}, {rang}) peut en donner {maximum}, "
-                    f"{hommes} demandés (au plus {regles.part_maximale_levee:g} de ses habitants sous les armes)")
+            return (f"trop d'hommes : ce lieu peut en donner {ecrire_nombre(maximum)} hommes, "
+                    f"{ecrire_nombre(hommes)} hommes demandés (au plus "
+                    f"{ecrire_nombre(regles.part_maximale_levee * _POUR_CENT)} % de ses habitants sous les armes)")
         par_cellule[cid] = par_cellule.get(cid, 0) + hommes
     for cid, hommes in sorted(par_cellule.items()):
         deja = sum(h for c, _r, h in en_attente if c == cid)
         paysans = _paysans(monde.cells[cid]) - deja
         if hommes > paysans:
-            return f"pas assez de paysans : {hommes} hommes demandés dans la cellule {cid}, {paysans} paysans"
+            return (f"pas assez de paysans : {ecrire_nombre(hommes)} hommes demandés sur cette terre, "
+                    f"{ecrire_nombre(paysans)} paysans")
     return None
 
 
@@ -336,15 +359,15 @@ def verifier_marche(monde, maison, identifiant, cell_id, rang) -> str | None:
         return f"lieu invalide : entiers attendus, reçu ({cell_id!r}, {rang!r})"
     cellule = monde.cells.get(cell_id)
     if cellule is None or not 0 <= rang < len(cellule.lieux):
-        return f"lieu inconnu : ({cell_id}, {rang})"
+        return "ce lieu n'existe pas sur la carte"
     if (armee.cell_id, armee.rang) == (cell_id, rang):
-        return f"l'armée est déjà à ({cell_id}, {rang})"
+        return "l'armée est déjà à ce lieu"
     try:
         route = chemin(monde, armee.cell_id, cell_id)
     except ValueError as exc:
         return f"aucun chemin terrestre : {exc}"
     if route is None:
-        return f"aucun chemin terrestre de la cellule {armee.cell_id} à la cellule {cell_id}"
+        return "aucun chemin terrestre jusqu'à ce lieu"
     return None
 
 
@@ -353,16 +376,16 @@ def verifier_siege(monde, maison, identifiant, declarees=()) -> str | None:
     if refus is not None:
         return refus
     if armee.destination is not None:
-        return f"l'armée marche encore vers {tuple(armee.destination)}"
+        return "l'armée marche encore : elle assiège une fois arrivée"
     if armee.rang != 0:
-        return f"ce lieu n'est pas une place : ({armee.cell_id}, {armee.rang}) n'est pas un bourg"
+        return "ce lieu n'est pas une place : l'armée n'est pas dans un bourg"
     if armee.siege == armee.cell_id:
-        return f"l'armée assiège déjà la cellule {armee.cell_id}"
+        return "l'armée assiège déjà cette place"
     maitre = getattr(_bourg(monde.cells[armee.cell_id]), "maitre", None)
     if maitre == maison:
-        return f"cette place est à toi : cellule {armee.cell_id}"
+        return "cette place est à vous"
     if not en_guerre(monde, maison, maitre, declarees):
-        return f"pas en guerre avec le maître de la place : {maitre!r}"
+        return "vous n'êtes pas en guerre avec le maître de cette place"
     return None
 
 
@@ -666,6 +689,105 @@ def document_de_la_guerre(monde) -> dict:
         "prises": [dict(p, rangs=list(p["rangs"])) for p in getattr(monde, "prises", ())],
         "morts_des_armees": getattr(monde, "morts_des_armees", 0),
     }
+
+
+def _etapes(armee, places) -> list:
+    """Les places que l'armée traverse encore, dans l'ordre de `_troncon_km` : son bourg si elle part d'un
+    autre lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il n'est pas un bourg."""
+    if armee.destination is None:
+        return []
+    etapes = []
+    if armee.route and armee.rang != 0:
+        etapes.append(places[armee.cell_id][0])
+    etapes.extend(places[cid][0] for cid in armee.route)
+    cid, rang = armee.destination
+    if rang != 0:
+        etapes.append(places[cid][rang])
+    return [p.en_document() for p in etapes]
+
+
+def document_servi_de_la_guerre(monde, places) -> dict:
+    """`document_de_la_guerre`, où chaque armée porte en plus sa place (`point`) et celles de sa route (`etapes`).
+
+    Le service seul le sert, pour que la carte dessine les armées sans rien recalculer ; `places` vient de
+    `places_du_monde`. La photographie garde `document_de_la_guerre`.
+    """
+    document = document_de_la_guerre(monde)
+    par_id = {a.identifiant: a for a in getattr(monde, "armees", ())}
+    for servie in document["armees"]:
+        armee = par_id[servie["identifiant"]]
+        servie["point"] = places[armee.cell_id][armee.rang].en_document()
+        servie["etapes"] = _etapes(armee, places)
+    return document
+
+
+def km_de_marche(monde, armee, route) -> float:
+    """Les kilomètres freinés de la marche par `route` vers un bourg, comme le maillon les fait : de son lieu
+    au bourg de sa cellule, puis d'arête en arête (`convois._longueur_arete`)."""
+    from sim.convois import _longueur_arete
+    from sim.places import distance_km
+    km = 0.0
+    if armee.rang != 0:
+        places = _places_de_la_cellule(monde, armee.cell_id)
+        km += distance_km(places[armee.rang], places[0])
+    depart = armee.cell_id
+    for cid in route:
+        km += _longueur_arete(monde, depart, cid)
+        depart = cid
+    return km
+
+
+def devis_des_ordres(monde, maison, cell_id=None, regles=None) -> dict:
+    """Ce que coûtent les ordres de guerre de `maison` aujourd'hui, et pourquoi chacun serait refusé.
+
+    Chaque refus est celui que le dépôt rendrait au même instant, par les mêmes fonctions et les mêmes
+    intentions déjà déposées ; le dépôt garde ses propres vérifications. `cell_id` : la terre visée par la
+    déclaration (son bourg) et par la marche de chaque armée, ou None. Rien n'est écrit au monde.
+    """
+    from sim import intentions as _intentions
+    regles = charger_regles() if regles is None else regles
+    fiche = _maison(monde, maison)
+    if fiche is None:
+        raise GuerreInvalide(f"maison inconnue : {maison!r}")
+    en_attente = _intentions.levees_en_attente(monde)
+    declarees = _intentions.declarations_en_attente(monde)
+    lieux, paysans = [], 0
+    if fiche.cell_id is not None and fiche.cell_id in monde.cells:
+        capitale = monde.cells[fiche.cell_id]
+        paysans = max(0, _paysans(capitale) - sum(h for c, _r, h in en_attente if c == fiche.cell_id))
+        lieux = [{"cell_id": fiche.cell_id, "rang": lieu.rang,
+                  "hommes_max": min(paysans, levee_maximale(monde, fiche.cell_id, lieu.rang, regles, en_attente))}
+                 for lieu in sorted(capitale.lieux, key=lambda l: l.rang) if lieu.maitre == maison]
+    levee = {"refus": raison_levee_fermee(monde, maison, regles), "lieux": lieux, "paysans": paysans,
+             "grain_libre_kg": _intentions.grain_libre_de(monde, maison),
+             "ration_kg_par_homme_par_jour": regles.ration_kg_par_homme_par_jour}
+    cible = None
+    if cell_id is not None:
+        maitre = getattr(_bourg(monde.cells[cell_id]), "maitre", None)
+        refus = ("personne ne tient le bourg de cette terre" if maitre is None
+                 else verifier_declaration(monde, maison, maitre, declarees))
+        cible = {"cell_id": cell_id, "maitre": maitre, "declaration": {"refus": refus}}
+    armees = []
+    for armee in sorted((a for a in monde.armees if a.maison == maison), key=lambda a: a.identifiant):
+        deja = _intentions.ordre_deja_donne(monde, armee.identifiant)
+        marche = None
+        if cell_id is not None:
+            refus = deja or verifier_marche(monde, maison, armee.identifiant, cell_id, 0)
+            route = [] if refus is not None else list(chemin(monde, armee.cell_id, cell_id))
+            km = 0.0 if refus is not None else km_de_marche(monde, armee, route)
+            marche = {"refus": refus, "route": route, "km": km,
+                      "jours": 0 if refus is not None else max(1, math.ceil(km / regles.vitesse_marche_km_par_jour))}
+        armees.append({
+            "identifiant": armee.identifiant, "cell_id": armee.cell_id, "rang": armee.rang, "hommes": armee.hommes,
+            "vivres_kg": armee.vivres_kg, "siege": armee.siege,
+            "destination": None if armee.destination is None else list(armee.destination),
+            "marche": marche,
+            "assieger": {"refus": deja or verifier_siege(monde, maison, armee.identifiant, declarees)},
+            "renvoyer": {"refus": deja or verifier_renvoi(monde, maison, armee.identifiant),
+                         "hommes": armee.hommes, "vivres_kg": armee.vivres_kg},
+        })
+    return {"tick": monde.ticks_ecoules, "date": _constantes.date_de_tick(monde.ticks_ecoules), "maison": maison,
+            "levee": levee, "cible": cible, "armees": armees}
 
 
 # --- Ce que l'IA lit pour faire la guerre ---------------------------------------------

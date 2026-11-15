@@ -2552,6 +2552,17 @@ monde sous le verrou du tick, sans cache des nombres du monde et sans
 calcul supplémentaire à chaque tick. Une erreur de construction rend
 `500` avec `erreur`, sans arrêter le service.
 
+`GET /terres` sert, au tick publié, `{tick, date, terres, pays}`
+(`carte_servie.terres_et_pays`). `terres` porte, pour chaque cellule triée,
+`cell_id`, `maitre` (le maître de son bourg, ou `null`) et `pays` : la maison au
+sommet de la suzeraineté de ce maître (`guerre.racine`), `null` sans maître.
+`pays` nomme chaque pays présent, trié par identifiant, du nom des fiches des
+maisons (`null` s'il est absent). Une place prise à une maison d'un autre pays
+passe au pays du preneur ; prise dans le même pays, elle change de maître, pas
+de pays. Les terres ne se recalculent que si le maître d'un bourg, un suzerain
+ou les noms changent ; seuls le tick et la date s'écrivent chaque jour, et les
+octets restent ceux du document entier aux clés triées.
+
 **Niveau 1 :** trait des contours de la carte figée, puissances, maisons et
 villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
 approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
@@ -3851,7 +3862,12 @@ bornes, un nombre de jours ou d'hommes qui n'est pas un entier positif, et un
 bâtiment absent de `data/batiments.toml`.
 
 **Les cinq gestes.** Chacun se refuse avec sa raison, sans rien écrire ; un
-seul geste par armée et par jour.
+seul geste par armée et par jour. Un refus d'un geste bien formé se lit tel
+quel par le joueur : il ne nomme ni lieu ni maison par son identifiant (« ce
+lieu n'est pas à vous », « vous êtes déjà en guerre avec cette maison »), et
+chaque nombre porte son unité, écrit comme à l'écran (`guerre.ecrire_nombre` :
+milliers séparés, virgule décimale, deux décimales au plus). Un refus de forme
+(champ, type) garde ce qu'il a reçu.
 
 - `declarer_guerre` (`maison`, `cible`) : refusée pour une maison ou une cible
   inconnue, soi-même, une cible déjà en guerre avec la maison (déclarée ou
@@ -3948,8 +3964,31 @@ se ferme.
 `{tick, date, guerres, armees, prises, morts_des_armees}`
 (`guerre.document_de_la_guerre`, sans arrondi) : chaque armée porte son lieu,
 ses effectifs par lieu d'origine, son effectif total, ses vivres, sa route en
-cellules, sa destination et la cellule qu'elle assiège ou `null`. La
-photographie porte `guerres`, `armees` et `prises` seulement s'ils sont non
+cellules, sa destination et la cellule qu'elle assiège ou `null`. Le service
+seul ajoute à chaque armée `point`, la place de son lieu, et `etapes`, les
+places qu'elle traverse encore dans l'ordre du maillon (son bourg si elle part
+d'un autre lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il
+n'est pas un bourg ; vide sans destination) : la carte la dessine sans rien
+recalculer (`guerre.document_servi_de_la_guerre`).
+
+`GET /guerres/ordres?maison=X[&cell=C]` sert le devis des ordres de guerre de
+la maison, lu sous le verrou du tick (`guerre.devis_des_ordres`) ; il n'écrit
+rien. Chaque refus y est celui que le dépôt rendrait au même instant, par les
+mêmes fonctions et les mêmes intentions déjà déposées. `levee` : son refus
+(`raison_levee_fermee`), les lieux de la capitale tenus par la maison avec
+`hommes_max` (leur part restante, au plus les paysans libres de la cellule),
+`paysans`, `grain_libre_kg` et `ration_kg_par_homme_par_jour`. `cible` (avec
+`cell`) : le maître du bourg de C et le refus de lui déclarer la guerre.
+`armees` : pour chaque armée de la maison, son lieu, ses hommes, ses vivres,
+son siège et sa destination ; `marche` vers le bourg de C (avec `cell` : son
+refus, sa route, ses `km` freinés de son lieu au bourg de sa cellule puis
+d'arête en arête, et `jours = max(1, ⌈km / km_par_jour⌉)`) ; `assieger` (son
+refus) ; `renvoyer` (son refus, les hommes et les vivres rendus). Une maison
+inconnue rend 404, une cellule inconnue 404, une cellule mal écrite 400.
+**Niveau 2** : les jours de marche sont une estimation qui part du lieu de
+l'armée, sans le chemin déjà fait vers sa prochaine étape.
+
+La photographie porte `guerres`, `armees` et `prises` seulement s'ils sont non
 vides ; `to_dict()` porte de même `guerres`, `armees`, `armees_levees`,
 `prises`, `morts_des_armees` et `mange_par_les_armees_kg`. Sans guerre, les
 octets et les empreintes ne changent pas.

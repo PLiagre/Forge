@@ -371,8 +371,27 @@ class RenvoyerArmee:
 _GESTES_D_UNE_ARMEE = (Marcher, Assieger, RenvoyerArmee)
 
 
-def _declarees(monde):
+def declarations_en_attente(monde):
+    """Les couples (maison, cible) des déclarations déposées pour le tick."""
     return [(i.maison, i.cible) for i in monde.intentions_en_attente if isinstance(i, DeclarerGuerre)]
+
+
+def levees_en_attente(monde):
+    """Les `(cell_id, rang, hommes)` des levées déposées pour le tick."""
+    return [entree for i in monde.intentions_en_attente if isinstance(i, LeverArmee) for entree in i.lieux]
+
+
+def grain_libre_de(monde, maison):
+    """Le grain libre d'une maison qui a un grenier ; 0 pour une maison inconnue ou mal formée."""
+    return grain_libre(monde, maison) if isinstance(maison, str) and maison in monde.greniers else 0.0
+
+
+def ordre_deja_donne(monde, identifiant) -> str | None:
+    """Un seul geste par armée et par jour : la raison du refus si un geste est déjà déposé pour elle."""
+    if any(isinstance(i, _GESTES_D_UNE_ARMEE) and i.armee == identifiant and not isinstance(identifiant, bool)
+           for i in monde.intentions_en_attente):
+        return "un ordre est déjà donné à cette armée aujourd'hui"
+    return None
 
 
 def _geste_de_guerre(monde, intention):
@@ -380,27 +399,24 @@ def _geste_de_guerre(monde, intention):
     from sim import guerre
     type_intention, maison = intention["type"], intention["maison"]
     if type_intention == TYPE_DECLARER_GUERRE:
-        raison = guerre.verifier_declaration(monde, maison, intention["cible"], _declarees(monde))
+        raison = guerre.verifier_declaration(monde, maison, intention["cible"], declarations_en_attente(monde))
         geste = None if raison is not None else DeclarerGuerre(maison, intention["cible"])
     elif type_intention == TYPE_LEVER_ARMEE:
         lieux, raison = guerre.lire_lieux_de_levee(intention["lieux"])
         if raison is None:
-            en_attente = [entree for i in monde.intentions_en_attente if isinstance(i, LeverArmee)
-                          for entree in i.lieux]
-            libre = grain_libre(monde, maison) if isinstance(maison, str) and maison in monde.greniers else 0.0
             raison = guerre.verifier_levee(monde, maison, lieux, intention["vivres_kg"], guerre.charger_regles(),
-                                           libre, en_attente)
+                                           grain_libre_de(monde, maison), levees_en_attente(monde))
         geste = None if raison is not None else LeverArmee(maison, lieux, intention["vivres_kg"])
     else:
         identifiant = intention["armee"]
-        if any(isinstance(i, _GESTES_D_UNE_ARMEE) and i.armee == identifiant and not isinstance(identifiant, bool)
-               for i in monde.intentions_en_attente):
-            raise IntentionRefusee(f"un geste est déjà déposé pour l'armée {identifiant} ce jour")
+        deja = ordre_deja_donne(monde, identifiant)
+        if deja is not None:
+            raise IntentionRefusee(deja)
         if type_intention == TYPE_MARCHER:
             raison = guerre.verifier_marche(monde, maison, identifiant, intention["cell"], intention["rang"])
             geste = None if raison is not None else Marcher(maison, identifiant, intention["cell"], intention["rang"])
         elif type_intention == TYPE_ASSIEGER:
-            raison = guerre.verifier_siege(monde, maison, identifiant, _declarees(monde))
+            raison = guerre.verifier_siege(monde, maison, identifiant, declarations_en_attente(monde))
             geste = None if raison is not None else Assieger(maison, identifiant)
         else:
             raison = guerre.verifier_renvoi(monde, maison, identifiant)
