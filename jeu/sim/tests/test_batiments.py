@@ -15,6 +15,7 @@
 import copy
 import json
 import math
+from pathlib import Path
 import random
 import tomllib
 
@@ -23,7 +24,7 @@ import pytest
 import sim.constants as c
 from sim import batiments as B, engine, modificateurs as M
 from sim.intentions import IntentionRefusee, recevoir_intention
-from sim.model import lire_habitants_par_metier, lire_ouvriers_du_jour
+from sim.model import ecrire_habitants_par_metier, lire_habitants_par_metier, lire_ouvriers_du_jour
 from sim.world import World
 
 NOURRITURE = c.MARCHANDISE_NOURRITURE
@@ -253,6 +254,239 @@ def test_le_service_sert_les_batiments_du_pays(depart):
         document = json.loads(serveur.octets_du_pays(maison))
         assert [(b["nature"], b["cell_id"], b["nom"], b["en_chantier"]) for b in document["batiments"]] == [
             ("moulin", cid, "Moulin", True)]
+
+
+# --- La caserne sur une parcelle du plan -------------------------------------------
+
+BAR = "seigneurie-1"
+
+
+def _rectangle(x, largeur=10.0, profondeur=20.0):
+    return ((x, 500.0), (x + largeur, 500.0), (x + largeur, 500.0 + profondeur), (x, 500.0 + profondeur))
+
+
+def _capitale_avec_parcelles(depart, grain=20000.0):
+    """Le monde de départ, et dans la capitale de Bar : la parcelle 0 achevée, la 1 en chantier, la 2 achevée
+    et bâtie d'un four, la 3 achevée, plus grande que la 0."""
+    from sim.plan import Batiment, Parcelle, Plan
+    monde = copy.deepcopy(depart)
+    cid = next(m for m in monde.maisons if m.id == BAR).cell_id
+    assert monde.cells[cid].lieux[0].maitre == BAR
+    parcelles = [Parcelle(0, _rectangle(0.0)), Parcelle(1, _rectangle(20.0), True, 1, 20, 5),
+                 Parcelle(2, _rectangle(40.0)), Parcelle(3, _rectangle(60.0, 20.0, 30.0))]
+    monde.plans[cid] = Plan(parcelles=parcelles, batiments=[Batiment(0, 2, "four", _rectangle(40.0))])
+    monde.greniers[BAR][NOURRITURE] = grain
+    return monde, cid
+
+
+def _caserne(cid, parcelle, maison=BAR):
+    return {"type": "batir_dans_une_province", "maison": maison, "cell": cid, "nature": "caserne",
+            "parcelle": parcelle}
+
+
+def test_la_caserne_posee_sur_une_parcelle_s_acheve_et_ouvre_la_levee(depart):
+    from sim import guerre as G
+    monde, cid = _capitale_avec_parcelles(depart)
+    regles = G.charger_regles()
+    assert G.raison_levee_fermee(monde, BAR, regles) is not None
+    recevoir_intention(monde, _caserne(cid, 0))
+    engine._appliquer_intentions(monde)
+    caserne = monde.batiments_de_province[0]
+    # Un seul chantier, un seul prix : celui de data/batiments.toml, quelle que soit la parcelle.
+    assert (caserne.nature, caserne.parcelle, caserne.travail_requis, caserne.en_chantier) == (
+        "caserne", 0, B.charger_types()["caserne"].journees, True)
+    assert caserne.en_document()["parcelle"] == 0 and monde.plans[cid].batiments[0].parcelle == 2
+    assert len(monde.plans[cid].batiments) == 1, "la caserne n'entre pas dans les bâtiments du plan"
+    ailleurs, _ = _capitale_avec_parcelles(depart)
+    recevoir_intention(ailleurs, _caserne(cid, 3))
+    engine._appliquer_intentions(ailleurs)
+    assert ailleurs.batiments_de_province[0].travail_requis == caserne.travail_requis
+    # Son chantier est celui de batiments.avancer : 25 bras par jour, payés au grenier, jusqu'à l'achèvement.
+    rng = random.Random(0)
+    while monde.batiments_de_province[0].en_chantier:
+        assert G.raison_levee_fermee(monde, BAR, regles) is not None
+        avant = monde.batiments_de_province[0].travail_fourni
+        engine.tick(monde, rng, monde.ticks_ecoules)
+        assert monde.batiments_de_province[0].travail_fourni - avant <= B.charger_types()["caserne"].bras_par_jour
+    assert monde.batiments_de_province[0].parcelle == 0
+    assert G.raison_levee_fermee(monde, BAR, regles) is None
+
+
+def test_sans_parcelle_le_batiment_et_ses_octets_ne_changent_pas(depart):
+    monde, cid = _capitale_avec_parcelles(depart)
+    sans = _caserne(cid, 0)
+    del sans["parcelle"]
+    geste = recevoir_intention(monde, sans)
+    assert geste.parcelle is None
+    engine._appliquer_intentions(monde)
+    document = monde.batiments_de_province[0].en_document()
+    assert "parcelle" not in document and "parcelle" not in monde.to_dict()["batiments_de_province"][0]
+    assert sorted(document) == ["cell_id", "debut", "en_chantier", "fin", "identifiant", "maison", "nature",
+                                "travail_fourni", "travail_requis"]
+
+
+def test_une_parcelle_qui_ne_tient_pas_est_refusee_avec_sa_raison(depart):
+    from sim.intentions import PoseBatiment
+    monde, cid = _capitale_avec_parcelles(depart)
+    avant = _octets(monde)
+    for parcelle, motif in ((99, "^parcelle absente du plan : 99$"),
+                            ("0", "^parcelle invalide : entier attendu, reçu '0'$"),
+                            (True, "^parcelle invalide : entier attendu, reçu True$"),
+                            (1, r"^parcelle en chantier : 1 \(5/20 journées\)$"),
+                            (2, "^parcelle déjà bâtie : 2$")):
+        with pytest.raises(IntentionRefusee, match=motif):
+            recevoir_intention(monde, _caserne(cid, parcelle))
+    assert _octets(monde) == avant and monde.intentions_en_attente == []
+    # Une pose déposée la promet : la caserne ne la prend pas.
+    monde.intentions_en_attente.append(PoseBatiment(cid, 3, "maison"))
+    with pytest.raises(IntentionRefusee, match="^parcelle déjà promise : 3$"):
+        recevoir_intention(monde, _caserne(cid, 3))
+    # Les autres refus du bâtiment de province passent avant la parcelle.
+    with pytest.raises(IntentionRefusee, match="pas sur vos terres"):
+        recevoir_intention(monde, _caserne(cid, 0, "seigneurie-2"))
+    monde.intentions_en_attente.clear()
+    # La caserne déposée promet sa parcelle à la pose d'un bâtiment, puis, posée, l'a bâtie.
+    recevoir_intention(monde, _caserne(cid, 0))
+    with pytest.raises(IntentionRefusee, match="^parcelle déjà promise : 0$"):
+        recevoir_intention(monde, {"type": "poser_batiment", "maison": BAR, "cell": cid, "parcelle": 0,
+                                   "nature": "maison"})
+    engine._appliquer_intentions(monde)
+    with pytest.raises(IntentionRefusee, match="^parcelle déjà bâtie : 0$"):
+        recevoir_intention(monde, {"type": "poser_batiment", "maison": BAR, "cell": cid, "parcelle": 0,
+                                   "nature": "maison"})
+    # Le geste n'admet la parcelle que pour un bâtiment de province.
+    with pytest.raises(IntentionRefusee, match="^champ inconnu : parcelle$"):
+        recevoir_intention(monde, {"type": "ameliorer_une_province", "maison": BAR, "cell": cid, "parcelle": 0})
+
+
+def test_aucune_maison_ne_s_ouvre_seule_sous_une_caserne(depart):
+    from sim import chantiers
+    from sim.plan import Parcelle, Plan
+    mondes = {}
+    for cas in ("sans caserne", "caserne"):
+        monde, cid = _capitale_avec_parcelles(depart)
+        monde.plans[cid] = Plan(parcelles=[Parcelle(0, _rectangle(0.0))])
+        # Dix artisans sans logis, pris aux paysans : ils ouvriraient leur maison sur la première parcelle libre.
+        cellule = monde.cells[cid]
+        metiers = lire_habitants_par_metier(cellule)
+        ecrire_habitants_par_metier(cellule, {c.METIER_PAYSANS: metiers[c.METIER_PAYSANS] - 10, c.METIER_ARTISANS: 10})
+        if cas == "caserne":
+            journees = B.charger_types()["caserne"].journees
+            monde.batiments_de_province = [B.BatimentDeProvince(0, "caserne", cid, BAR, journees, 0, True, 0,
+                                                                parcelle=0)]
+        chantiers.avancer_chantiers(monde)
+        mondes[cas] = [(b.parcelle, b.nature, b.autoconstruction) for b in monde.plans[cid].batiments]
+    # Contre-épreuve : sans la caserne, les artisans sans logis ouvrent leur maison sur la parcelle 0.
+    assert mondes == {"sans caserne": [(0, "maison", True)], "caserne": []}
+
+
+def test_le_plan_sert_les_batiments_de_province_de_sa_cellule(depart):
+    from sim.service import ServeurMonde
+    from sim.plan import Parcelle, Plan
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        monde = serveur.world
+        cid = next(m for m in monde.maisons if m.id == BAR).cell_id
+        paris, _ = _paris(monde)
+        serveur.jouer_un_tick()
+        assert "batiments_de_province" not in json.loads(serveur.octets_plan(serveur.etat_publie, cid))
+        monde.plans[cid] = Plan(parcelles=[Parcelle(0, _rectangle(0.0))])
+        monde.greniers[BAR][NOURRITURE] = 20000.0
+        recevoir_intention(monde, _caserne(cid, 0))
+        serveur.jouer_un_tick()
+        caserne = next(b for b in monde.batiments_de_province if b.maison == BAR)
+        plan = json.loads(serveur.octets_plan(serveur.etat_publie, cid))
+        assert plan["batiments_de_province"] == [
+            {"identifiant": caserne.identifiant, "nature": "caserne", "parcelle": 0,
+             "travail_requis": caserne.travail_requis, "travail_fourni": caserne.travail_fourni,
+             "en_chantier": True}]
+        assert 0 < caserne.travail_fourni < caserne.travail_requis
+        # Une cellule sans bâtiment de province ne porte pas la clé.
+        assert all(b.cell_id != paris for b in monde.batiments_de_province)
+        assert "batiments_de_province" not in json.loads(serveur.octets_plan(serveur.etat_publie, paris))
+
+
+def test_le_service_ne_laisse_le_joueur_batir_que_pour_sa_maison():
+    import threading
+    from sim.service import ServeurMonde
+    from sim.tests.test_monde import requete_service
+    from sim.plan import Parcelle, Plan
+
+    def poster(intention):
+        return requete_service(port, "/intention", "POST", json.dumps(intention).encode())
+
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever)
+    fil.start()
+    port, monde = serveur.server_port, serveur.world
+    cid = next(m for m in monde.maisons if m.id == BAR).cell_id
+    try:
+        monde.plans[cid] = Plan(parcelles=[Parcelle(0, _rectangle(0.0))])
+        monde.greniers[BAR][NOURRITURE] = 20000.0
+        statut, recu, _ = poster(_caserne(cid, 0))
+        assert statut == 400 and "départ non appliqué" in recu["erreur"]
+        assert poster({"type": "choisir_depart", "seigneurie": 1})[0] == 200
+        requete_service(port, "/tick?n=1", "POST")
+        assert monde.maison_du_joueur == BAR
+        statut, recu, _ = poster(_caserne(cid, 0, "seigneurie-2"))
+        assert statut == 400 and recu["erreur"] == "maison interdite : seule la maison du joueur bâtit dans ses provinces"
+        assert not monde.intentions_en_attente
+        assert poster(_caserne(cid, 0))[:2] == (200, {"acceptee": True, "appliquee_au_tick": 1})
+    finally:
+        serveur.shutdown()
+        fil.join()
+        serveur.server_close()
+
+
+ZAB, BISKRA = "seigneurie-6", 10103
+FIGEES = Path(__file__).parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+ROUTE_EST = {"type": "tracer_route", "maison": ZAB, "cell": BISKRA, "points": [[66, -8], [120, -8]], "largeur_m": 4}
+DECOUPE_EST = {"type": "decouper_parcelle", "maison": ZAB, "cell": BISKRA, "rue": 0, "segment": 0, "debut_m": 14,
+               "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}
+
+
+def plans_de_la_caserne_de_biskra():
+    """Le joueur du Zab, par le service et ses seuls gestes : la part au plus haut, une route à l'est de la place,
+    une parcelle de 10 m × 20 m, puis la caserne sur elle. Rend les octets de `/plan` de Biskra au premier
+    jour du chantier puis au jour de son achèvement, avec leurs ticks : les réponses figées du pont."""
+    from sim.tests.test_carte_servie import _service_local
+    from sim.tests.test_monde import requete_service
+    with _service_local() as (serveur, port):
+        def deposer(intention):
+            statut, recu, _ = requete_service(port, "/intention", "POST", json.dumps(intention).encode())
+            assert statut == 200, recu
+        tick = lambda: requete_service(port, "/tick?n=1", "POST")  # noqa: E731
+        plan = lambda: requete_service(port, f"/plan?cell={BISKRA}")  # noqa: E731
+        deposer({"type": "choisir_depart", "seigneurie": 6})
+        tick()
+        deposer({"type": "fixer_part", "maison": ZAB, "part": c.PART_MAXIMALE})
+        deposer(ROUTE_EST)
+        tick()
+        deposer(DECOUPE_EST)
+        tick()
+        while plan()[1]["parcelles"][0]["en_chantier"]:
+            tick()
+        deposer({"type": "batir_dans_une_province", "maison": ZAB, "cell": BISKRA, "nature": "caserne", "parcelle": 0})
+        tick()
+        _, document, en_chantier = plan()
+        tick_en_chantier = document["tick"]
+        while plan()[1]["batiments_de_province"][0]["en_chantier"]:
+            tick()
+        _, document, achevee = plan()
+        return tick_en_chantier, en_chantier, document["tick"], achevee
+
+
+def test_les_plans_figes_de_la_caserne_sont_ceux_du_service():
+    """Les octets que lit le pont (`ClientPlanTests`, `PoseDeCaserneTests`) sont ceux que le service rend."""
+    tick_chantier, chantier, tick_achevee, achevee = plans_de_la_caserne_de_biskra()
+    figee = FIGEES / f"plan-biskra-caserne-graine0-tick{tick_chantier}.json"
+    assert figee.read_bytes() == chantier
+    assert (FIGEES / f"plan-biskra-caserne-achevee-graine0-tick{tick_achevee}.json").read_bytes() == achevee
+    premier, dernier = (json.loads(o)["batiments_de_province"] for o in (chantier, achevee))
+    caserne = B.charger_types()["caserne"]
+    assert premier == [{"identifiant": premier[0]["identifiant"], "nature": "caserne", "parcelle": 0,
+                        "travail_requis": caserne.journees, "travail_fourni": caserne.bras_par_jour, "en_chantier": True}]
+    assert dernier[0] | {"travail_fourni": 0, "en_chantier": True} == premier[0] | {"travail_fourni": 0}
+    assert dernier[0]["travail_fourni"] == caserne.journees and dernier[0]["en_chantier"] is False
 
 
 # --- Le marché et la grange : trois bâtiments, un seul grenier ----------------------

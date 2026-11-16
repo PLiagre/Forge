@@ -98,6 +98,30 @@ namespace Forge.Pont
         }
     }
 
+    // Un bâtiment de province de la cellule (`sim/batiments.py`), tel que `/plan` le sert : la caserne, le moulin…
+    // `Parcelle` vaut -1 quand il n'en occupe aucune (posé depuis la carte) ; sinon c'est une parcelle du même plan.
+    // Son chantier est celui du monde : la vue n'en calcule ni le prix ni la durée.
+    public sealed class BatimentDeProvinceDuPlan
+    {
+        public const long SansParcelle = -1;
+        public long Identifiant { get; }
+        public string Nature { get; }
+        public long Parcelle { get; }
+        public bool EnChantier { get; }
+        public long TravailRequis { get; }
+        public long TravailFourni { get; }
+
+        public BatimentDeProvinceDuPlan(long identifiant, string nature, long parcelle, bool enChantier, long travailRequis, long travailFourni)
+        {
+            Identifiant = identifiant;
+            Nature = nature ?? throw new ArgumentNullException(nameof(nature));
+            Parcelle = parcelle;
+            EnChantier = enChantier;
+            TravailRequis = travailRequis;
+            TravailFourni = travailFourni;
+        }
+    }
+
     // La ville de 1400 que sert `sim/ville1400.py` : `Sorte` non bornée, une maison d'îlot a plusieurs foyers, zéro maison est une mesure.
     public sealed class RueDeBase
     {
@@ -171,10 +195,14 @@ namespace Forge.Pont
         public string AbsenceDesChantiersDuJour { get; }
         public EnceinteDuPlan Enceinte { get; } // null : aucune enceinte dans ce plan.
         public IReadOnlyList<PorteDuPlan> Portes { get; } // vide sans enceinte.
+        // Vide quand la cellule n'en a aucun : le service omet alors la clé, ce qui est une mesure.
+        public IReadOnlyList<BatimentDeProvinceDuPlan> BatimentsDeProvince { get; }
 
         public PlanLu(long cellId, long tick, IList<RueDuPlan> rues, IList<ParcelleDuPlan> parcelles, IList<BatimentDuPlan> batiments, BaseDuPlan @base = null, IList<ChantierDuJour> chantiersDuJour = null, string absenceDesChantiersDuJour = null,
-            EnceinteDuPlan enceinte = null, IList<PorteDuPlan> portes = null)
+            EnceinteDuPlan enceinte = null, IList<PorteDuPlan> portes = null, IList<BatimentDeProvinceDuPlan> batimentsDeProvince = null)
         {
+            BatimentsDeProvince = new ReadOnlyCollection<BatimentDeProvinceDuPlan>(batimentsDeProvince == null
+                ? new List<BatimentDeProvinceDuPlan>() : new List<BatimentDeProvinceDuPlan>(batimentsDeProvince));
             Enceinte = enceinte;
             Portes = new ReadOnlyCollection<PorteDuPlan>(portes == null ? new List<PorteDuPlan>() : new List<PorteDuPlan>(portes));
             ChantiersDuJour = chantiersDuJour == null ? null : new ReadOnlyCollection<ChantierDuJour>(new List<ChantierDuJour>(chantiersDuJour));
@@ -301,8 +329,18 @@ namespace Forge.Pont
                 // `portes` n'est publiée qu'avec une enceinte : l'une sans l'autre refuse le plan.
                 bool muree = objet.TryGetValue("enceinte", out object mur);
                 if (!muree && objet.ContainsKey("portes")) throw new CleRefusee("clé portes : des portes sans enceinte");
+                // Clé absente : aucun bâtiment de province dans la cellule ; une liste servie vide refuse le plan,
+                // car le service ne la sert jamais ainsi.
+                var deProvince = new List<BatimentDeProvinceDuPlan>();
+                if (objet.TryGetValue("batiments_de_province", out object brutsProvince))
+                {
+                    List<object> liste = Tableau(brutsProvince, "batiments_de_province");
+                    if (liste.Count == 0) throw new CleRefusee("clé batiments_de_province : servie vide, elle aurait dû manquer");
+                    for (int i = 0; i < liste.Count; i++)
+                        deProvince.Add(BatimentDeProvince(liste[i], "batiments_de_province[" + i.ToString(CultureInfo.InvariantCulture) + "]", identifiantsParcelles));
+                }
                 return LecturePlan.De(new PlanLu(relu, tick, rues, parcelles, batiments, @base, chantiers, "clé absente : chantiers_du_jour",
-                    muree ? Enceinte(mur) : null, muree ? Portes(Valeur(objet, "portes", "portes"), rues, @base) : null));
+                    muree ? Enceinte(mur) : null, muree ? Portes(Valeur(objet, "portes", "portes"), rues, @base) : null, deProvince));
             }
             catch (CleRefusee refus)
             {
@@ -410,6 +448,27 @@ namespace Forge.Pont
             List<PointLocal> emprise = Contour(batiment, "emprise", chemin + ".emprise");
             Chantier(batiment, chemin, out bool enChantier, out long requis, out long fourni);
             return new BatimentDuPlan(identifiant, parcelle, nature, emprise, enChantier, requis, fourni);
+        }
+
+        // `parcelle` null (posé depuis la carte) devient `SansParcelle` ; un entier nomme une parcelle de ce plan, ou le plan est refusé.
+        private static BatimentDeProvinceDuPlan BatimentDeProvince(object valeur, string chemin, HashSet<long> parcelles)
+        {
+            var batiment = Objet(valeur, chemin);
+            long identifiant = Entier(Valeur(batiment, "identifiant", chemin + ".identifiant"), chemin + ".identifiant", 0);
+            object brute = Valeur(batiment, "nature", chemin + ".nature");
+            if (!(brute is string nature) || string.IsNullOrWhiteSpace(nature))
+                throw new CleRefusee("clé " + chemin + ".nature : un texte non vide attendu, reçu " + Decrire(brute));
+            string cheminParcelle = chemin + ".parcelle";
+            object servie = Valeur(batiment, "parcelle", cheminParcelle);
+            long parcelle = BatimentDeProvinceDuPlan.SansParcelle;
+            if (servie != null)
+            {
+                parcelle = Entier(servie, cheminParcelle, 0);
+                if (!parcelles.Contains(parcelle))
+                    throw new CleRefusee("clé " + cheminParcelle + " : aucune parcelle " + parcelle + " dans ce plan");
+            }
+            Chantier(batiment, chemin, out bool enChantier, out long requis, out long fourni);
+            return new BatimentDeProvinceDuPlan(identifiant, nature, parcelle, enChantier, requis, fourni);
         }
 
         // La ville de 1400 sous `base`, relue dans l'ordre servi, `vers_cell_id` compris ; mal formée, elle refuse le plan.

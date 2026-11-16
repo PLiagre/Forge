@@ -3,12 +3,15 @@
  "nouveaux": [
   "scierie",
   "four_pain_pise",
+  "caserne",
   "chantier_maison_pise_0_piquets",
   "chantier_maison_pise_0_murs",
   "chantier_scierie_piquets",
   "chantier_scierie_murs",
   "chantier_four_pain_pise_piquets",
   "chantier_four_pain_pise_murs",
+  "chantier_caserne_piquets",
+  "chantier_caserne_murs",
   "chantier_rempart_pise_10m_piquets",
   "chantier_rempart_pise_10m_murs",
   "chantier_tour_ksar_0_piquets",
@@ -28,6 +31,11 @@
    1600,
    800,
    300
+  ],
+  "caserne": [
+   4600,
+   1900,
+   500
   ],
   "chantier_maison_pise_0_piquets": [
    400,
@@ -58,6 +66,16 @@
    1200,
    600,
    240
+  ],
+  "chantier_caserne_piquets": [
+   600,
+   400,
+   120
+  ],
+  "chantier_caserne_murs": [
+   2200,
+   800,
+   320
   ],
   "chantier_rempart_pise_10m_piquets": [
    600,
@@ -140,6 +158,42 @@
    "z_min": -1.1685781478881836,
    "z_max": 1.3356293439865112,
    "y_max": 2.1946027278900146
+  },
+  {
+   "id": "caserne",
+   "niveaux": 3,
+   "triangles": [
+    4417,
+    1801,
+    446
+   ],
+   "y_min": -2.60770320892334e-08,
+   "materiaux": [
+    "baie_sombre",
+    "bois_palmier",
+    "bois_peint_vert",
+    "bois_sombre",
+    "brique_crue",
+    "chaux",
+    "cuivre",
+    "enduit_pise",
+    "fer_noir",
+    "gres_clair",
+    "gres_ocre",
+    "lumiere",
+    "pierre_taille",
+    "pise",
+    "pise_clair",
+    "poterie",
+    "sol_dalle",
+    "tissu_ecru",
+    "tissu_etendard"
+   ],
+   "x_min": -4.650000095367432,
+   "x_max": 4.650000095367432,
+   "z_min": -9.350000381469727,
+   "z_max": 9.460206031799316,
+   "y_max": 8.148467063903809
   },
   {
    "id": "chantier_maison_pise_0_piquets",
@@ -260,6 +314,47 @@
    "z_min": -1.2291998863220215,
    "z_max": 1.3962510824203491,
    "y_max": 1.4264918565750122
+  },
+  {
+   "id": "chantier_caserne_piquets",
+   "niveaux": 3,
+   "triangles": [
+    442,
+    370,
+    58
+   ],
+   "y_min": 0.0,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise_clair"
+   ],
+   "x_min": -4.6994500160217285,
+   "x_max": 4.6994500160217285,
+   "z_min": -9.39917278289795,
+   "z_max": 9.509378433227539,
+   "y_max": 1.0
+  },
+  {
+   "id": "chantier_caserne_murs",
+   "niveaux": 3,
+   "triangles": [
+    2070,
+    538,
+    130
+   ],
+   "y_min": -3.725290298461914e-09,
+   "materiaux": [
+    "bois_palmier",
+    "bois_sombre",
+    "pise",
+    "stipe_palmier"
+   ],
+   "x_min": -4.706000328063965,
+   "x_max": 4.706000328063965,
+   "z_min": -9.410622596740723,
+   "z_max": 9.520828247070312,
+   "y_max": 5.296504020690918
   },
   {
    "id": "chantier_rempart_pise_10m_piquets",
@@ -502,6 +597,11 @@
    "chantier_four_pain_pise_murs",
    "four_pain_pise"
   ],
+  "caserne": [
+   "chantier_caserne_piquets",
+   "chantier_caserne_murs",
+   "caserne"
+  ],
   "rempart_pise_10m": [
    "chantier_rempart_pise_10m_piquets",
    "chantier_rempart_pise_10m_murs",
@@ -519,7 +619,7 @@
   ]
  },
  "ecart_image": 32.74342535475011,
- "ecart_chantiers": 10.509781958184341,
+ "ecart_chantiers": 10.001240017162946,
  "planche": [
   {
    "id": "chantier_maison_pise_0_piquets",
@@ -621,11 +721,44 @@
    "ecart": 32.52578066284957
   },
   {
-   "id": "chantier_rempart_pise_10m_piquets",
+   "id": "chantier_caserne_piquets",
    "rangee": 3,
    "colonne": 0,
    "x": 0,
    "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 15.887527503428785
+  },
+  {
+   "id": "chantier_caserne_murs",
+   "rangee": 3,
+   "colonne": 1,
+   "x": 640,
+   "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 33.91663066125177
+  },
+  {
+   "id": "caserne",
+   "rangee": 3,
+   "colonne": 2,
+   "x": 1280,
+   "y": 1440,
+   "largeur": 640,
+   "hauteur": 480,
+   "renderers": 1,
+   "ecart": 34.29474851468799
+  },
+  {
+   "id": "chantier_rempart_pise_10m_piquets",
+   "rangee": 4,
+   "colonne": 0,
+   "x": 0,
+   "y": 1920,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -633,10 +766,10 @@
   },
   {
    "id": "chantier_rempart_pise_10m_murs",
-   "rangee": 3,
+   "rangee": 4,
    "colonne": 1,
    "x": 640,
-   "y": 1440,
+   "y": 1920,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -644,10 +777,10 @@
   },
   {
    "id": "rempart_pise_10m",
-   "rangee": 3,
+   "rangee": 4,
    "colonne": 2,
    "x": 1280,
-   "y": 1440,
+   "y": 1920,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -655,10 +788,10 @@
   },
   {
    "id": "chantier_tour_ksar_0_piquets",
-   "rangee": 4,
+   "rangee": 5,
    "colonne": 0,
    "x": 0,
-   "y": 1920,
+   "y": 2400,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -666,10 +799,10 @@
   },
   {
    "id": "chantier_tour_ksar_0_murs",
-   "rangee": 4,
+   "rangee": 5,
    "colonne": 1,
    "x": 640,
-   "y": 1920,
+   "y": 2400,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -677,10 +810,10 @@
   },
   {
    "id": "tour_ksar_0",
-   "rangee": 4,
+   "rangee": 5,
    "colonne": 2,
    "x": 1280,
-   "y": 1920,
+   "y": 2400,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -688,10 +821,10 @@
   },
   {
    "id": "chantier_porte_ksar_piquets",
-   "rangee": 5,
+   "rangee": 6,
    "colonne": 0,
    "x": 0,
-   "y": 2400,
+   "y": 2880,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -699,10 +832,10 @@
   },
   {
    "id": "chantier_porte_ksar_murs",
-   "rangee": 5,
+   "rangee": 6,
    "colonne": 1,
    "x": 640,
-   "y": 2400,
+   "y": 2880,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,
@@ -710,10 +843,10 @@
   },
   {
    "id": "porte_ksar",
-   "rangee": 5,
+   "rangee": 6,
    "colonne": 2,
    "x": 1280,
-   "y": 2400,
+   "y": 2880,
    "largeur": 640,
    "hauteur": 480,
    "renderers": 1,

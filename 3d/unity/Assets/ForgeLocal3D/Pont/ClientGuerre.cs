@@ -86,13 +86,25 @@ namespace Forge.Pont
         public long CellId { get; } public long Rang { get; } public long HommesMax { get; }
         public LieuDeLevee(long cellId, long rang, long hommesMax) { CellId = cellId; Rang = rang; HommesMax = hommesMax; }
     }
-    // Ce que la maison peut lever. Refus nul : la levée est permise.
+    // Le devis du bâtiment qui ouvre la levée (la caserne), dans la capitale : ses journées, ses bras d'un jour et son grain,
+    // comptés par le monde comme au dépôt, et le refus de son dépôt aujourd'hui (nul : il serait accepté).
+    public sealed class BatimentDeLevee
+    {
+        public string Nature { get; } public string Nom { get; } public long CellId { get; } public long Journees { get; } public long BrasParJour { get; } public double CoutKg { get; } public string Refus { get; }
+        public BatimentDeLevee(string nature, string nom, long cellId, long journees, long brasParJour, double coutKg, string refus)
+        {
+            Nature = nature ?? throw new ArgumentNullException(nameof(nature)); Nom = nom ?? throw new ArgumentNullException(nameof(nom));
+            CellId = cellId; Journees = journees; BrasParJour = brasParJour; CoutKg = coutKg; Refus = refus;
+        }
+    }
+    // Ce que la maison peut lever. Refus nul : la levée est permise. Batiment nul : la capitale est hors de la carte.
     public sealed class LeveeLue
     {
         public string Refus { get; } public IReadOnlyList<LieuDeLevee> Lieux { get; } public long Paysans { get; } public double GrainLibreKg { get; } public double RationKgParHommeParJour { get; }
-        public LeveeLue(string refus, IEnumerable<LieuDeLevee> lieux, long paysans, double grainLibreKg, double rationKgParHommeParJour)
+        public BatimentDeLevee Batiment { get; }
+        public LeveeLue(string refus, IEnumerable<LieuDeLevee> lieux, long paysans, double grainLibreKg, double rationKgParHommeParJour, BatimentDeLevee batiment = null)
         {
-            Refus = refus; Paysans = paysans; GrainLibreKg = grainLibreKg; RationKgParHommeParJour = rationKgParHommeParJour;
+            Refus = refus; Paysans = paysans; GrainLibreKg = grainLibreKg; RationKgParHommeParJour = rationKgParHommeParJour; Batiment = batiment;
             Lieux = new ReadOnlyCollection<LieuDeLevee>(new List<LieuDeLevee>(lieux ?? throw new ArgumentNullException(nameof(lieux))));
         }
     }
@@ -229,7 +241,14 @@ namespace Forge.Pont
             var lieux = new List<LieuDeLevee>();
             foreach (var (chemin, l) in Objets(levee, "levee.lieux"))
                 lieux.Add(new LieuDeLevee(ServiceLocal.Entier(l, chemin + ".cell_id", 0), ServiceLocal.Entier(l, chemin + ".rang", 0), ServiceLocal.Entier(l, chemin + ".hommes_max", 0)));
-            return new LeveeLue(TexteOuNul(levee, "levee.refus"), lieux, ServiceLocal.Entier(levee, "levee.paysans", 0), Masse(levee, "levee.grain_libre_kg"), Masse(levee, "levee.ration_kg_par_homme_par_jour"));
+            BatimentDeLevee batiment = null; object brut = ServiceLocal.Valeur(levee, "levee.batiment");
+            if (brut != null)
+            {
+                var b = brut as Dictionary<string, object> ?? throw ServiceLocal.Refus("levee.batiment", "un objet ou null", brut);
+                batiment = new BatimentDeLevee(Texte(b, "levee.batiment.nature"), Texte(b, "levee.batiment.nom"), ServiceLocal.Entier(b, "levee.batiment.cell_id", 0),
+                    ServiceLocal.Entier(b, "levee.batiment.journees", 1), ServiceLocal.Entier(b, "levee.batiment.bras_par_jour", 1), Masse(b, "levee.batiment.cout_kg"), TexteOuNul(b, "levee.batiment.refus"));
+            }
+            return new LeveeLue(TexteOuNul(levee, "levee.refus"), lieux, ServiceLocal.Entier(levee, "levee.paysans", 0), Masse(levee, "levee.grain_libre_kg"), Masse(levee, "levee.ration_kg_par_homme_par_jour"), batiment);
         }
         // Une destination : null, ou une terre et un rang entiers ≥ 0.
         static LieuDuPays Destination(Dictionary<string, object> objet, string chemin)

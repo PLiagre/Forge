@@ -38,7 +38,10 @@ namespace Forge.Pont.Tests
         [TestCase("four", EtapeDuBatiment.Piquets, "chantier_four_pain_pise_piquets")]
         [TestCase("four", EtapeDuBatiment.Murs, "chantier_four_pain_pise_murs")]
         [TestCase("four", EtapeDuBatiment.Fini, "four_pain_pise")]
-        public void LesNeufPiecesSeChargentHorsDeLEditeur(string nature, EtapeDuBatiment etape, string nom)
+        [TestCase("caserne", EtapeDuBatiment.Piquets, "chantier_caserne_piquets")]
+        [TestCase("caserne", EtapeDuBatiment.Murs, "chantier_caserne_murs")]
+        [TestCase("caserne", EtapeDuBatiment.Fini, "caserne")]
+        public void LesPiecesDesBatimentsSeChargentHorsDeLEditeur(string nature, EtapeDuBatiment etape, string nom)
         {
             var kit = KitDesBatiments.Charger();
             Assert.That(kit, Is.Not.Null, "Resources.Load ne trouve pas " + KitDesBatiments.Ressource);
@@ -54,6 +57,7 @@ namespace Forge.Pont.Tests
         [TestCase("maison")]
         [TestCase("scierie")]
         [TestCase("four")]
+        [TestCase("caserne")]
         public void LesTroisPiecesDUneNatureSontDistinctes(string nature)
         {
             var kit = KitDesBatiments.Charger();

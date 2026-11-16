@@ -13,7 +13,7 @@ import copy
 # Les bâtiments finis qui ont leurs étapes de chantier, dans l'ordre du catalogue.
 # Puis les trois pièces de l'enceinte, dont le prefab existe déjà.
 ENCEINTE = ['rempart_pise_10m', 'tour_ksar_0', 'porte_ksar']
-CHANTIERS = ['maison_pise_0', 'scierie', 'four_pain_pise'] + ENCEINTE
+CHANTIERS = ['maison_pise_0', 'scierie', 'four_pain_pise', 'caserne'] + ENCEINTE
 ETAPES = ('piquets', 'murs')
 
 
@@ -23,16 +23,19 @@ def suite(fini):
 
 
 # Dans l'ordre où ils s'ajoutent à la fin du catalogue.
-NOUVEAUX = ['scierie', 'four_pain_pise'] + [s for fini in CHANTIERS for s in suite(fini)[:-1]]
+NOUVEAUX = ['scierie', 'four_pain_pise', 'caserne'] + [s for fini in CHANTIERS for s in suite(fini)[:-1]]
 # Les bâtiments finis des chantiers qu'Unity mesure sans les refaire (leur prefab existe déjà).
 REFERENCES = [fini for fini in CHANTIERS if fini not in NOUVEAUX]
 # Plafonds de triangles par LOD (0, 1, 2).
-PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300)}
+PLAFONDS = {'scierie': (2400, 1200, 400), 'four_pain_pise': (1600, 800, 300), 'caserne': (4600, 1900, 500)}
 for _fini in CHANTIERS:
     # L'enceinte, plus longue et plus haute, a plus de piquets et une plus longue échelle.
     _grand = _fini in ENCEINTE
     PLAFONDS['chantier_{}_piquets'.format(_fini)] = (600, 400, 120) if _grand else (400, 200, 80)
     PLAFONDS['chantier_{}_murs'.format(_fini)] = (1600, 800, 320) if _grand else (1200, 600, 240)
+# La caserne a 56 m de périmètre : autant de piquets que l'enceinte, et des murs sur quatre côtés.
+PLAFONDS['chantier_caserne_piquets'] = (600, 400, 120)
+PLAFONDS['chantier_caserne_murs'] = (2200, 800, 320)
 TOLERANCE_ORIGINE = 0.01       # m : le point le plus bas du LOD0 est au sol à 1 cm près
 TOLERANCE_EMPRISE = 0.3        # m : chaque bord horizontal d'une étape, au bord du bâtiment fini
 HAUTEUR_PIQUETS_MAX = 1.2      # m

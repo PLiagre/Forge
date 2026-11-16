@@ -39,7 +39,31 @@ namespace ForgeLocal3D
             });
             var s = rapport.summary;
             Debug.Log($"BUILD : {s.result}, {s.totalErrors} erreur(s), {s.totalSize / (1024 * 1024)} Mo, {s.totalTime}");
-            EditorApplication.Exit(s.result == BuildResult.Succeeded ? 0 : 1);
+            if (s.result != BuildResult.Succeeded) { EditorApplication.Exit(1); return; }
+            string manque = CopierLaVille(Path.Combine(sortie, "Forge_Data", "StreamingAssets"));
+            if (manque != null) { Debug.LogError("BUILD : " + manque); EditorApplication.Exit(1); return; }
+            EditorApplication.Exit(0);
+        }
+
+        // Les gestes.json de chaque implantation du désert, que la ville lit au lancement (`DesertRoads.CheminGestes`),
+        // copiés sous StreamingAssets du jeu construit : il les lit près de lui, d'où qu'on le lance. Rend la cause d'un
+        // manque, ou null.
+        public static string CopierLaVille(string streamingAssets)
+        {
+            string source = Path.GetFullPath(Path.Combine(Application.dataPath, "..", DesertRoads.Sorties));
+            if (!Directory.Exists(source)) return "sorties de la ville absentes : " + source;
+            int copies = 0;
+            foreach (string dossier in Directory.GetDirectories(source).OrderBy(d => d, StringComparer.Ordinal))
+            {
+                string gestes = Path.Combine(dossier, "routes", "gestes.json");
+                if (!File.Exists(gestes)) continue;
+                string cible = Path.Combine(streamingAssets, DesertRoads.DossierDuBuild, Path.GetFileName(dossier), "routes", "gestes.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(cible));
+                File.Copy(gestes, cible, true);
+                copies++;
+                Debug.Log("BUILD : ville copiée, " + cible);
+            }
+            return copies == 0 ? "aucun gestes.json sous " + source : null;
         }
     }
 }

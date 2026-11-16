@@ -372,7 +372,7 @@ def empreintes():
     return {p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in proteges()}
 
 
-PLANCHES=('ateliers','chantiers')
+PLANCHES=('ateliers','chantiers','caserne')
 # Le cadrage du banc. `inspecter_kit.py` recule sa caméra d'après la largeur de la famille, ce qui
 # coupe les bouts d'une planche large comme celle des six étapes. Le banc ne change pas le script :
 # il le lance par ce relais, qui, juste avant chaque rendu, recule la caméra sans la tourner jusqu'à
@@ -481,7 +481,7 @@ def kit_ateliers():
         print('Textures du kit.',flush=True);prepare(OUT/'textures')
     print('Blender : '+', '.join(kit.NOUVEAUX)+'.',flush=True)
     blender(['fabriquer.py','kit'],'kit_ateliers.log')
-    planche(['scierie','four','chantier'])
+    planche(['scierie','four','chantier','caserne'])
     for sub in ('Models','Data'):(UNITY_ROOT/sub).mkdir(parents=True,exist_ok=True)
     for nom in kit.NOUVEAUX:shutil.copy2(OUT/'bibliotheque'/(nom+'.fbx'),UNITY_ROOT/'Models'/(nom+'.fbx'))
     shutil.copy2(OUT/'bibliotheque/catalogue.json',UNITY_ROOT/'Data/catalogue.json')

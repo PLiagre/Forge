@@ -43,11 +43,14 @@ def salaire_journee_kg(monde, cell_id):
     return salaire * _modificateurs.facteur(monde, "cout_chantier", cell_id, 0)
 
 
-def _ouvrir_maisons(plan, metiers, bourg):
-    """Réserve les places avant l'affectation, parcelles prêtes seulement."""
+def _ouvrir_maisons(plan, metiers, bourg, occupees):
+    """Réserve les places avant l'affectation, parcelles prêtes et libres seulement.
+
+    `occupees` : les parcelles prises (`intentions.parcelles_prises`, un bâtiment du plan ou de province),
+    qui n'ouvrent pas de maison.
+    """
     if metiers is None or bourg is None or bourg.maitre is None or not metiers.get(_constantes.METIER_ARTISANS, 0):
         return plan
-    occupees = {b.parcelle for b in plan.batiments}
     libres = [p for p in plan.parcelles if not p.en_chantier and p.identifiant not in occupees]
     if not libres or _constantes.MAISONS_OUVERTES_PAR_JOUR <= 0:
         return plan
@@ -162,6 +165,7 @@ def avancer_chantiers(world):
     world.origines_des_chantiers = {}
     world.recolte_perdue_par_chantier = {}
     from sim.guerre import places_assiegees
+    from sim.intentions import parcelles_prises
     assiegees = places_assiegees(world)
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
@@ -195,7 +199,8 @@ def avancer_chantiers(world):
             metiers[artisans] = metiers.get(artisans, 0) + metiers.pop(familiaux)
         besoin_bourg = actifs or ouvre_maisons
         bourg = next((lieu for lieu in cell.lieux if lieu.rang == 0), None) if besoin_bourg else None
-        plan = _ouvrir_maisons(plan, metiers, bourg)
+        if plan.parcelles:
+            plan = _ouvrir_maisons(plan, metiers, bourg, parcelles_prises(world, cell_id))
         # Les bras reviennent même si le dernier chantier est achevé.
         if not _plan_actif(plan):
             if metiers is not None and metiers != avant:

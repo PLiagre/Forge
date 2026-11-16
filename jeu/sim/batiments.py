@@ -58,16 +58,22 @@ class BatimentDeProvince:
     en_chantier: bool
     debut: int
     fin: int | None = None
+    # La parcelle du plan de sa cellule qu'il occupe, posé depuis la ville ; None, posé depuis la carte.
+    parcelle: int | None = None
 
     @property
     def source(self) -> str:
         return f"{SOURCE}:{self.nature}-{self.identifiant}"
 
     def en_document(self) -> dict:
-        return {"identifiant": self.identifiant, "nature": self.nature, "cell_id": self.cell_id,
-                "maison": self.maison, "travail_requis": self.travail_requis,
-                "travail_fourni": self.travail_fourni, "en_chantier": self.en_chantier,
-                "debut": self.debut, "fin": self.fin}
+        document = {"identifiant": self.identifiant, "nature": self.nature, "cell_id": self.cell_id,
+                    "maison": self.maison, "travail_requis": self.travail_requis,
+                    "travail_fourni": self.travail_fourni, "en_chantier": self.en_chantier,
+                    "debut": self.debut, "fin": self.fin}
+        # Sans parcelle, la clé manque : les octets et les empreintes d'un bâtiment posé depuis la carte restent.
+        if self.parcelle is not None:
+            document["parcelle"] = self.parcelle
+        return document
 
 
 def _entier(valeur, ou, minimum):
@@ -161,13 +167,30 @@ def verifier(monde, maison, cell_id, nature, types, engages=()) -> str | None:
     return None
 
 
-def poser(monde, maison, cell_id, nature, types=None) -> BatimentDeProvince:
-    """Ouvre le chantier (l'intention s'applique) : ses journées comptées avec la durée modifiée."""
+def devis(monde, maison, cell_id, nature, types=None) -> dict:
+    """Ce que coûterait ce bâtiment dans cette cellule aujourd'hui, et pourquoi le dépôt le refuserait (ou None).
+
+    Les journées et le grain sont ceux que `poser` et `verifier` comptent (durée et coût modifiés compris) ; le
+    refus est celui de `verifier` avec les bâtiments déjà déposés par la maison, sans parcelle. Rien n'est écrit.
+    """
+    from sim.intentions import batiments_engages
+    types = charger_types() if types is None else types
+    type_ = types[nature]
+    return {"nature": nature, "nom": type_.nom, "cell_id": cell_id, "journees": journees(monde, type_, cell_id),
+            "bras_par_jour": type_.bras_par_jour, "cout_kg": cout_kg(monde, type_, cell_id),
+            "refus": verifier(monde, maison, cell_id, nature, types, batiments_engages(monde, maison))}
+
+
+def poser(monde, maison, cell_id, nature, types=None, parcelle=None) -> BatimentDeProvince:
+    """Ouvre le chantier (l'intention s'applique) : ses journées comptées avec la durée modifiée.
+
+    La parcelle, s'il y en a une, ne change ni ses journées ni ses bras : elle dit seulement où il se tient.
+    """
     types = charger_types() if types is None else types
     type_ = types[nature]
     identifiant = max((b.identifiant for b in monde.batiments_de_province), default=-1) + 1
     batiment = BatimentDeProvince(identifiant, nature, cell_id, maison, journees(monde, type_, cell_id), 0, True,
-                                  monde.ticks_ecoules)
+                                  monde.ticks_ecoules, parcelle=parcelle)
     monde.batiments_de_province = [*monde.batiments_de_province, batiment]
     return batiment
 
@@ -230,6 +253,19 @@ def journees_restantes(monde, maison) -> dict:
         if b.en_chantier and b.maison == maison:
             restantes[b.cell_id] = restantes.get(b.cell_id, 0) + b.travail_requis - b.travail_fourni
     return restantes
+
+
+def documents_des_plans(monde) -> dict:
+    """cell_id → ses bâtiments de province, pour `/plan` : où ils se tiennent et où en est leur chantier.
+
+    Une cellule sans bâtiment de province n'a pas d'entrée ; chaque liste est triée par identifiant.
+    """
+    documents = {}
+    for b in sorted(getattr(monde, "batiments_de_province", ()), key=lambda b: b.identifiant):
+        documents.setdefault(b.cell_id, []).append(
+            {"identifiant": b.identifiant, "nature": b.nature, "parcelle": b.parcelle,
+             "travail_requis": b.travail_requis, "travail_fourni": b.travail_fourni, "en_chantier": b.en_chantier})
+    return documents
 
 
 def document_des_batiments(monde, cellules=None, types=None) -> list:

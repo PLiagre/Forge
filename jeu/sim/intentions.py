@@ -286,25 +286,67 @@ class BatirDansUneProvince:
     maison: str
     cell_id: int
     nature: str
+    parcelle: int | None = None
 
     def appliquer(self, monde):
         """Ouvre le chantier du bâtiment (sim.batiments), au tick suivant le dépôt."""
         from sim import batiments
-        batiments.poser(monde, self.maison, self.cell_id, self.nature)
+        batiments.poser(monde, self.maison, self.cell_id, self.nature, parcelle=self.parcelle)
+
+
+def parcelles_prises(monde, cell_id) -> dict:
+    """identifiant de parcelle → « bâtie » ou « promise », pour le plan de `cell_id`.
+
+    Bâtie : un bâtiment du plan ou un bâtiment de province s'y tient. Promise : une pose ou un bâtiment
+    de province déposés pour le tick suivant la désignent. C'est la seule lecture de ce qu'une parcelle
+    porte : la pose d'un bâtiment, celle d'un bâtiment de province et l'ouverture des maisons la partagent.
+    """
+    prises = {b.parcelle: "bâtie" for b in monde.plans[cell_id].batiments}
+    for b in getattr(monde, "batiments_de_province", ()):
+        if b.cell_id == cell_id and b.parcelle is not None:
+            prises[b.parcelle] = "bâtie"
+    for i in monde.intentions_en_attente:
+        if (isinstance(i, (PoseBatiment, BatirDansUneProvince)) and i.cell_id == cell_id
+                and i.parcelle is not None):
+            prises.setdefault(i.parcelle, "promise")
+    return prises
+
+
+def _parcelle_de_province(monde, cell_id, identifiant):
+    """Refuse la parcelle d'un bâtiment de province si elle n'est pas au plan, pas achevée ou déjà prise."""
+    if isinstance(identifiant, bool) or not isinstance(identifiant, int):
+        raise IntentionRefusee(f"parcelle invalide : entier attendu, reçu {identifiant!r}")
+    parcelle = next((p for p in monde.plans[cell_id].parcelles if p.identifiant == identifiant), None)
+    if parcelle is None:
+        raise IntentionRefusee(f"parcelle absente du plan : {identifiant!r}")
+    if parcelle.en_chantier:
+        raise IntentionRefusee(f"parcelle en chantier : {identifiant} ({parcelle.travail_fourni}/"
+                               f"{parcelle.travail_requis} journées)")
+    prise = parcelles_prises(monde, cell_id).get(identifiant)
+    if prise is not None:
+        raise IntentionRefusee(f"parcelle déjà {prise} : {identifiant}")
+
+
+def batiments_engages(monde, maison) -> tuple:
+    """Les (cellule, nature) des bâtiments de province que `maison` a déjà déposés pour le tick suivant."""
+    return tuple((i.cell_id, i.nature) for i in monde.intentions_en_attente
+                 if isinstance(i, BatirDansUneProvince) and i.maison == maison)
 
 
 def _batir_dans_une_province(monde, intention):
-    """Un bâtiment depuis la carte : refusé avec sa raison s'il n'est pas sur ses terres ou pas payable."""
+    """Un bâtiment de la carte, ou de la ville sur une parcelle : refusé avec sa raison, sans rien écrire."""
     from sim import batiments
     maison, cell_id, nature = intention["maison"], intention["cell"], intention["nature"]
     if isinstance(cell_id, bool) or not isinstance(cell_id, int):
         raise IntentionRefusee(f"cell invalide : entier attendu, reçu {cell_id!r}")
-    engages = tuple((i.cell_id, i.nature) for i in monde.intentions_en_attente
-                    if isinstance(i, BatirDansUneProvince) and i.maison == maison)
+    engages = batiments_engages(monde, maison)
     raison = batiments.verifier(monde, maison, cell_id, nature, batiments.charger_types(), engages)
     if raison is not None:
         raise IntentionRefusee(raison)
-    batir = BatirDansUneProvince(maison, cell_id, nature)
+    parcelle = intention.get("parcelle")
+    if parcelle is not None:
+        _parcelle_de_province(monde, cell_id, parcelle)
+    batir = BatirDansUneProvince(maison, cell_id, nature, parcelle)
     monde.intentions_en_attente.append(batir)
     return batir
 
@@ -607,11 +649,9 @@ def _pose_batiment(monde, intention):
     if (isinstance(identifiant, bool) or not isinstance(identifiant, int)
             or not any(p.identifiant == identifiant for p in plan.parcelles)):
         raise IntentionRefusee(f"parcelle absente du plan : {identifiant!r}")
-    if any(b.parcelle == identifiant for b in plan.batiments):
-        raise IntentionRefusee(f"parcelle déjà bâtie : {identifiant}")
-    if any(isinstance(p, PoseBatiment) and p.cell_id == cell_id and p.parcelle == identifiant
-           for p in monde.intentions_en_attente):
-        raise IntentionRefusee(f"parcelle déjà promise : {identifiant}")
+    prise = parcelles_prises(monde, cell_id).get(identifiant)
+    if prise is not None:
+        raise IntentionRefusee(f"parcelle déjà {prise} : {identifiant}")
     nature = intention["nature"]
     if nature not in NATURES_BATIMENT:
         raise IntentionRefusee(f"nature inconnue : {nature!r}")
@@ -699,7 +739,8 @@ def recevoir_intention(monde, intention):
         if (champ not in champs and not (type_intention in (
                 TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT,
                 TYPE_TRACER_ENCEINTE) and champ == "foyers")
-                and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")):
+                and not (type_intention == TYPE_TRACER_ROUTE and champ == "porte_cell_id")
+                and not (type_intention == TYPE_BATIR_DANS_UNE_PROVINCE and champ == "parcelle")):
             raise IntentionRefusee(f"champ inconnu : {champ}")
     if type_intention == TYPE_FIXER_PART:
         return _fixer_part(monde, intention)

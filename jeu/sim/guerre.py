@@ -753,7 +753,7 @@ def devis_des_ordres(monde, maison, cell_id=None, regles=None) -> dict:
     intentions déjà déposées ; le dépôt garde ses propres vérifications. `cell_id` : la terre visée par la
     déclaration (son bourg) et par la marche de chaque armée, ou None. Rien n'est écrit au monde.
     """
-    from sim import intentions as _intentions
+    from sim import batiments as _batiments, intentions as _intentions
     regles = charger_regles() if regles is None else regles
     fiche = _maison(monde, maison)
     if fiche is None:
@@ -769,7 +769,10 @@ def devis_des_ordres(monde, maison, cell_id=None, regles=None) -> dict:
                  for lieu in sorted(capitale.lieux, key=lambda l: l.rang) if lieu.maitre == maison]
     levee = {"refus": raison_levee_fermee(monde, maison, regles), "lieux": lieux, "paysans": paysans,
              "grain_libre_kg": _intentions.grain_libre_de(monde, maison),
-             "ration_kg_par_homme_par_jour": regles.ration_kg_par_homme_par_jour}
+             "ration_kg_par_homme_par_jour": regles.ration_kg_par_homme_par_jour,
+             # Le bâtiment qui ouvre la levée, dans la capitale : son prix et le refus de son dépôt aujourd'hui.
+             "batiment": None if fiche.cell_id is None or fiche.cell_id not in monde.cells
+             else _batiments.devis(monde, maison, fiche.cell_id, regles.batiment_de_levee)}
     cible = None
     if cell_id is not None:
         maitre = getattr(_bourg(monde.cells[cell_id]), "maitre", None)

@@ -35,6 +35,10 @@ namespace ForgeLocal3D
     // Après les maisons, l'enceinte du plan (DesertEnceinte), tours, pans et porte à l'étape du chantier.
     // E passe en mode enceinte. Chaque clic pose un coin, un trait rouge fermé suit le tracé ; Entrée dépose
     // `tracer_enceinte` au monde, seul juge, et Attendre dessine le mur au tick suivant. L'outil ne refuse que moins de trois coins.
+    // 4 passe en mode caserne : le panneau dit son prix, lu dans le devis de la levée (`/guerres/ordres`), et un clic sur une
+    // parcelle forme `batir_dans_une_province` (PoseDeCaserne) pour la maison du joueur. Le monde juge ; la caserne se dessine
+    // sur sa parcelle avec les bâtiments du plan. Hors d'un dépôt, l'outil relit le plan chaque seconde et redessine la ville
+    // quand une étape y change : la caserne monte des piquets aux murs puis s'achève sous les yeux du joueur.
     public sealed class DesertRoadTool : MonoBehaviour
     {
         public DesertRoads roads;public Camera view;
@@ -91,14 +95,25 @@ namespace ForgeLocal3D
         public BatimentPose Pose{get;private set;}
         // Le mode enceinte, et le tracé en cours (null sans matériau de base).
         public bool ModeEnceinte{get;private set;}public LineRenderer TraceEnceinte{get;private set;}
+        // Le mode caserne, le dernier calcul de sa pose (null tant qu'aucun n'a été fait) et son devis lu au monde
+        // (null tant qu'il n'est pas lu ; `AbsenceDuDevis` en nomme alors la cause).
+        public bool ModeCaserne{get;private set;}
+        public CasernePosee PoseCaserne{get;private set;}
+        public LeveeLue DevisDeLaLevee{get;private set;}public string AbsenceDuDevis{get;private set;}
+        // Le dernier dessin des bâtiments de province du plan (piquets, murs, fini, refusee ou sans_parcelle).
+        public readonly List<(long identifiant,string etat,string message)> BatimentsDeProvince=new();
         CommandesDeVille commandes;
-        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · E : enceinte";
+        const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · 4 : caserne · E : enceinte";
         const string AideEnceinte="Clic : poser un coin du mur · Entrée : déposer l'enceinte · Échap : annuler";
         const string SansTrace="Pas de matériau de base : le tracé de l'enceinte ne se voit pas.";
         const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
-        const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · Échap : annuler";
+        const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · 4 : caserne · Échap : annuler";
+        const string AideCaserne="Clic : poser la caserne sur une parcelle achevée · Échap : annuler";
         const string Gestes="C : carte · Espace : pause / reprendre";
-        const double PeriodeLecture=.25;
+        const double PeriodeLecture=.25,PeriodeSuivi=1;
+        // L'état du plan que montre le dernier dessin : ses rues, ses parcelles achevées ou non, l'étape de chaque bâtiment
+        // et de l'enceinte. Le suivi ne redessine que s'il change.
+        string etatDessine;double prochainSuivi;
         static readonly TimeSpan Delai=TimeSpan.FromSeconds(1);
         // L'aiguillage du lancement lit /monde puis /maison ; les gestes gardent leur délai.
         static readonly TimeSpan DelaiAiguillage=TimeSpan.FromSeconds(5);
@@ -170,6 +185,9 @@ namespace ForgeLocal3D
             // De même en mode bâtiment.
             else if(ModeBatiment)
                 panneau.text=(texte==AideBatiment?"":texte+"\n")+"Bâtiment : "+NatureBatiment+" · un clic sur une parcelle\n"+AideBatiment;
+            // De même en mode caserne, avec son prix lu au monde.
+            else if(ModeCaserne)
+                panneau.text=(texte==AideCaserne?"":texte+"\n")+PrixDeLaCaserne()+"\n"+AideCaserne;
             // De même en mode enceinte.
             else if(ModeEnceinte)
                 panneau.text=(texte==AideEnceinte?"":texte+"\n")+"Enceinte · "+points.Count+" coin(s)\n"+AideEnceinte+(TraceEnceinte?"":"\n"+SansTrace);
@@ -197,7 +215,7 @@ namespace ForgeLocal3D
             return TickDuRecu.Replace(ligne,"au jour suivant");
         }).Where(ligne=>ligne.Length>0&&(Aides.Contains(ligne)||TexteDuMonde.Interdit(ligne)==null&&TexteDuMonde.SansUnite(ligne)==null)));
         // Les aides des modes nomment des touches (« 1 : maison ») : ce ne sont pas des nombres du monde, elles se lisent telles quelles.
-        static readonly string[] Aides={Aide,AideEnceinte,AideParcelle,AideBatiment};
+        static readonly string[] Aides={Aide,AideEnceinte,AideParcelle,AideBatiment,AideCaserne};
         public static bool EstUneAide(string ligne)=>Aides.Contains(ligne);
         // Le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
         void Tracer()
@@ -216,6 +234,8 @@ namespace ForgeLocal3D
             if(automatique)return;
             if(enAttente!=null&&Time.realtimeSinceStartupAsDouble>=prochaineLecture)
             {prochaineLecture=Time.realtimeSinceStartupAsDouble+PeriodeLecture;Attendre();}
+            else if(enAttente==null&&Time.realtimeSinceStartupAsDouble>=prochainSuivi)
+            {prochainSuivi=Time.realtimeSinceStartupAsDouble+PeriodeSuivi;Suivre();}
             var mouse=Mouse.current;var k=Keyboard.current;
             if(mouse!=null&&mouse.leftButton.wasPressedThisFrame)Clic(mouse.position.ReadValue());
             if(k==null)return;
@@ -224,8 +244,9 @@ namespace ForgeLocal3D
             if(k.digit1Key.wasPressedThisFrame||k.numpad1Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[0]);
             if(k.digit2Key.wasPressedThisFrame||k.numpad2Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[1]);
             if(k.digit3Key.wasPressedThisFrame||k.numpad3Key.wasPressedThisFrame)EntrerBatiment(PoseDeBatiment.Natures[2]);
+            if(k.digit4Key.wasPressedThisFrame||k.numpad4Key.wasPressedThisFrame)EntrerCaserne();
             if(k.eKey.wasPressedThisFrame)EntrerEnceinte();
-            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(ModeEnceinte)ValiderEnceinte();else if(!ModeBatiment)Valider();}
+            if(k.enterKey.wasPressedThisFrame||k.numpadEnterKey.wasPressedThisFrame){if(ModeParcelle)ValiderParcelle();else if(ModeEnceinte)ValiderEnceinte();else if(!ModeBatiment&&!ModeCaserne)Valider();}
             if(k.escapeKey.wasPressedThisFrame)Annuler();
             if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
             if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
@@ -237,19 +258,79 @@ namespace ForgeLocal3D
             if(!roads.terrain.GetComponent<TerrainCollider>().Raycast(ray,out var hit,10000)){Afficher("Ce point n'est pas sur le terrain.");return false;}
             // En mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
             if(ModeBatiment){var (x,y)=roads.PointExact(hit.point);PoserBatiment(x,y);return true;}
+            if(ModeCaserne){var (x,y)=roads.PointExact(hit.point);PoserCaserne(x,y);return true;}
             if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
             points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:ModeEnceinte?AideEnceinte:Aide);return true;
         }
-        public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;points.Clear();Recu=null;Afficher(Aide);}
+        public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;points.Clear();Recu=null;Afficher(Aide);}
 
         // Le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
-        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;Afficher(AideParcelle);}
+        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;Afficher(AideParcelle);}
 
         // Le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
-        public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;ModeEnceinte=false;NatureBatiment=nature;Afficher(AideBatiment);}
+        public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;ModeEnceinte=false;ModeCaserne=false;NatureBatiment=nature;Afficher(AideBatiment);}
 
         // Le mode enceinte, coins effacés. Échap (Annuler) ramène au mode route.
-        public void EntrerEnceinte(){points.Clear();Recu=null;ModeParcelle=false;NatureBatiment=null;ModeEnceinte=true;Afficher(AideEnceinte);}
+        public void EntrerEnceinte(){points.Clear();Recu=null;ModeParcelle=false;NatureBatiment=null;ModeEnceinte=true;ModeCaserne=false;Afficher(AideEnceinte);}
+
+        // Le mode caserne : le devis se relit au monde pour que le panneau dise son prix et le refus d'aujourd'hui.
+        public void EntrerCaserne(){points.Clear();Recu=null;PoseCaserne=null;ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=true;LireDevis();Afficher(AideCaserne);}
+
+        // La maison du joueur, servie par /monde ; null avec la cause de son absence.
+        string MaisonDuJoueur(out string absence)
+        {
+            using var client=new ClientMonde(Port,Delai);var lu=client.LireAvecMaison();
+            absence=!lu.Presente?lu.Absence:lu.Donnees.MaisonDuJoueur==null?"aucune maison choisie":null;
+            return absence==null?lu.Donnees.MaisonDuJoueur:null;
+        }
+
+        // Le devis de la levée de la maison du joueur : la caserne, son prix et le refus de son dépôt aujourd'hui.
+        void LireDevis()
+        {
+            DevisDeLaLevee=null;AbsenceDuDevis=null;
+            string maison=MaisonDuJoueur(out var absence);
+            if(maison==null){AbsenceDuDevis=absence;return;}
+            using var client=new ClientGuerre(Port,Delai);var lu=client.LireOrdres(maison,null);
+            if(!lu.Presente)AbsenceDuDevis=lu.Absence;
+            else if(lu.Donnees.Levee.Batiment==null)AbsenceDuDevis="la capitale est hors de la carte";
+            else DevisDeLaLevee=lu.Donnees.Levee;
+        }
+
+        // Le prix servi par le monde, écrit par TexteDuMonde ; la vue ne le calcule pas. Le refus du monde suit, tel quel.
+        string PrixDeLaCaserne()
+        {
+            if(DevisDeLaLevee==null)return "Prix de la caserne non lu : "+(AbsenceDuDevis??"aucun devis");
+            var b=DevisDeLaLevee.Batiment;
+            string prix=b.Nom+" : "+TexteDuMonde.Jours(b.Journees)+" de travail, "+TexteDuMonde.Nombre(b.BrasParJour)+" bras par jour, "
+                +TexteDuMonde.Masse(b.CoutKg)+" de grain · grenier : "+TexteDuMonde.Masse(DevisDeLaLevee.GrainLibreKg);
+            if(b.Refus==null)return prix;
+            // Le refus tel que le monde l'écrit, sur une ligne ; s'il montre un numéro ou un nombre sans unité, le joueur ne lirait
+            // que le début de la phrase : il lit alors que la caserne est refusée, et le panneau de mise au point garde la raison.
+            string refus="Le monde la refuserait aujourd'hui : "+b.Refus;
+            return prix+"\n"+(TexteDuMonde.Interdit(refus)==null&&TexteDuMonde.SansUnite(refus)==null?refus:"Le monde la refuserait aujourd'hui.\n"+b.Refus);
+        }
+
+        // Forme la caserne sur la parcelle sous le point pour la maison du joueur, puis la dépose au monde, seul juge (parcelle
+        // en chantier ou prise, grenier, terres). Elle se dessine au tick suivant. L'outil reste en mode caserne ; le devis se relit.
+        void PoserCaserne(double x,double y)
+        {
+            Recu=null;PoseCaserne=null;
+            if(erreurCellule!=null){Afficher(erreurCellule);return;}
+            string maison=MaisonDuJoueur(out var absence);
+            if(maison==null){Afficher("Pas de maison du joueur : "+absence);return;}
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return;}
+            PoseCaserne=PoseDeCaserne.Calculer(lu.Plan,new PointLocal(x,y),maison);
+            if(!PoseCaserne.Presente){Afficher("Caserne refusée par l'outil : "+PoseCaserne.Absence);return;}
+            Recu=depot.Deposer(PoseCaserne.IntentionJson);
+            LireDevis();
+            if(Recu.Acceptee)
+            {
+                enAttente=Recu;
+                Afficher("Caserne déposée au monde : son chantier s'ouvre au tick suivant (après le tick "+Recu.AppliqueeAuTick.Value.ToString(CultureInfo.InvariantCulture)+").");
+            }
+            else Afficher(Recu.Presente?"Le monde refuse la caserne :\n"+Recu.Erreur:"Pas de reçu : "+Recu.Absence);
+        }
 
         // Dépose le contour au monde, seul juge (croisement, place, terres). Rien n'est dessiné ici : Attendre
         // dessine l'enceinte au tick suivant. Rend le reçu, null hors du mode enceinte, faute de coins ou de cellule.
@@ -357,11 +438,38 @@ namespace ForgeLocal3D
             var lu=plan.Lire(Cellule);
             if(!lu.Presente||lu.Plan.Tick<=enAttente.AppliqueeAuTick.Value)return false;
             var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
+            if(ModeCaserne)LireDevis();
             // Une rue neuve a pu changer le sol sous les parcelles : toutes sont redessinées.
             Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais)
                 +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             enAttente=null;
             return true;
+        }
+
+        // Hors d'un dépôt : relit le plan et, si ce qu'il montre a changé depuis le dernier dessin (une rue neuve, une parcelle
+        // achevée, un bâtiment ou l'enceinte passés à l'étape suivante), redessine la ville comme Attendre. Vrai s'il a redessiné.
+        public bool Suivre()
+        {
+            if(erreurCellule!=null||plan==null||etatDessine==null)return false;
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente||EtatDuPlan(lu.Plan)==etatDessine)return false;
+            var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
+            if(ModeCaserne)LireDevis();
+            Afficher(Bilan("Au tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais)
+                +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
+            return true;
+        }
+
+        // Ce qu'un dessin montre du plan, et rien d'autre : le travail qui avance sans changer d'étape ne redessine rien.
+        static string EtatDuPlan(PlanLu p)
+        {
+            var s=new StringBuilder();
+            foreach(var r in p.Rues)s.Append('r').Append(r.Identifiant).Append(';');
+            foreach(var x in p.Parcelles)s.Append('p').Append(x.Identifiant).Append(x.EnChantier?'c':'a').Append(';');
+            foreach(var b in p.Batiments)s.Append('b').Append(b.Identifiant).Append(LectureDuBatiment.Etape(b)).Append(';');
+            foreach(var b in p.BatimentsDeProvince)s.Append('v').Append(b.Identifiant).Append(':').Append(b.Parcelle).Append(LectureDuBatiment.Etape(b)).Append(';');
+            if(p.Enceinte!=null)s.Append('e').Append(PansDeLEnceinte.Etape(p.Enceinte)).Append(p.Portes.Count);
+            return s.ToString();
         }
 
         // La ville d'après le plan, sur une copie vierge du terrain. Appelée au lancement ;
@@ -399,7 +507,7 @@ namespace ForgeLocal3D
             if(!lu.Presente){Afficher(prefixePlan+lu.Absence);return false;}
             if(!LireParametres(out var parametres))return false;
             if(!roads.ResoudreRelief(parametres.parametres,cell.Relief,out var facteur,out var cause)){Afficher("Cellule "+c+" : "+cause);return false;}
-            if(changer){if(cellule!=Cellule)passants?.Retirer();Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;}
+            if(changer){if(cellule!=Cellule)passants?.Retirer();Cellule=cellule;erreurCellule=null;points.Clear();ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;Recu=null;enAttente=null;Posees.Clear();Derniers=new (double,double)[0];Tracee=null;Pose=null;PoseCaserne=null;}
             Ouverture.Clear();essayees.Clear();TickOuverture=-1;
             roads.AppliquerRelief(facteur,cell.Relief);reliefOuvert=cell.Relief;
             DessinerOuverture(lu.Plan,parametres);
@@ -428,6 +536,7 @@ namespace ForgeLocal3D
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return false;}
+            if(ModeCaserne)LireDevis();
             Afficher("Plan du tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             return true;
         }
@@ -445,13 +554,25 @@ namespace ForgeLocal3D
         // posées). Rend la ligne du panneau, puis une ligne par bâtiment refusé.
         string DessinerBatiments(PlanLu lu)
         {
+            etatDessine=EtatDuPlan(lu);
             if(batiments==null)return erreurBatiments;
-            Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments));
+            Batiments.Clear();Batiments.AddRange(batiments.Dessiner(lu.Batiments,lu,BatimentsDeProvince));
             PiecesAvantMaisons=batiments.Racine.childCount;EmpreinteAvantMaisons=batiments.Empreinte;
             string rendu=string.Join("\n",new[]{"Bâtiments : "+Batiments.Count(b=>b.etat=="piquets")+" aux piquets, "+Batiments.Count(b=>b.etat=="murs")+" aux murs, "+Batiments.Count(b=>b.etat=="fini")+" fini(s)."}
-                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message)))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
+                .Concat(Batiments.Where(b=>b.etat=="refusee").Select(b=>b.message))
+                .Concat(BatimentsDeProvince.Where(b=>b.etat!="sans_parcelle").Select(b=>DeProvince(lu,b))))+"\n"+rues1400.Dessiner(lu.Base)+"\n"+maisons.Dessiner(lu.Base);
             string mur=enceinte!=null?enceinte.Dessiner(lu.Enceinte,lu.Portes):lu.Enceinte!=null?erreurEnceinte:"";
             return string.IsNullOrEmpty(mur)?rendu:rendu+"\n"+mur;
+        }
+
+        // La ligne d'un bâtiment de province dessiné : son nom, son étape et le travail servi par le monde, ou son refus.
+        static string DeProvince(PlanLu lu,(long identifiant,string etat,string message) dessin)
+        {
+            if(dessin.etat=="refusee")return dessin.message;
+            var b=lu.BatimentsDeProvince.First(x=>x.Identifiant==dessin.identifiant);
+            string nom=char.ToUpperInvariant(b.Nature[0])+b.Nature.Substring(1);
+            if(!b.EnChantier)return nom+" : chantier achevé.";
+            return nom+" : "+(dessin.etat=="piquets"?"aux piquets":"aux murs")+", "+TexteDuMonde.Jours(b.TravailFourni)+" de travail sur "+TexteDuMonde.Jours(b.TravailRequis)+".";
         }
 
         // Pose en terre battue, dans l'ordre du plan, chaque rue jamais essayée dans la session, aux

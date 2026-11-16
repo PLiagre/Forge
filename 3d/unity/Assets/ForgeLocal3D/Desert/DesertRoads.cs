@@ -45,7 +45,12 @@ namespace ForgeLocal3D
         int seed,n,m,dn,couches;double @base,hauteur,taille,pas;
         float[,] heights;
 
-        public static string CheminGestes(string id)=>Sorties+id+"/routes/gestes.json";
+        // Le dossier, sous StreamingAssets du jeu construit, où le build copie les gestes.json des implantations.
+        public const string DossierDuBuild="ville";
+        // Dans l'éditeur, la sortie de la chaîne du désert, lue depuis le projet ; dans un jeu construit, la copie que le
+        // build a rangée près de lui (`ForgeLocal3D.Build.Nuit`) : il trouve sa ville quel que soit son dossier de lancement.
+        public static string CheminGestes(string id)=>Application.isEditor?Sorties+id+"/routes/gestes.json"
+            :Path.Combine(Application.streamingAssetsPath,DossierDuBuild,id,"routes","gestes.json");
 
         // Sans gestes.json, les paramètres manquent : on refuse de les deviner.
         public static Gestes Lire(string id)

@@ -1132,8 +1132,8 @@ def test_autoconstruction_limites(monkeypatch):
     chantiers.avancer_chantiers(monde); assert len(monde.plans[0].batiments) == 1
     ouvrir = chantiers._ouvrir_maisons
     for cas in ('occupe', 'promis'):
-        def ignorer(plan, *args):
-            faux = copy.deepcopy(plan); faux.batiments.clear(); ajout = ouvrir(faux, *args).batiments
+        def ignorer(plan, metiers, bourg, occupees):
+            faux = copy.deepcopy(plan); faux.batiments.clear(); ajout = ouvrir(faux, metiers, bourg, {}).batiments
             return Plan(parcelles=plan.parcelles, batiments=plan.batiments + [replace(b, identifiant=max(e.identifiant for e in plan.batiments) + 1 + i) for i, b in enumerate(ajout)])
         with monkeypatch.context() as ctx:
             ctx.setattr(chantiers, '_ouvrir_maisons', ignorer)
@@ -1877,7 +1877,7 @@ def test_enceinte_survit_aux_deux_reconstructions():
     monde = _autoconstruction(1)
     plan = replace(monde.plans[0], enceinte=temoin)
     bourg = next(lieu for lieu in monde.cells[0].lieux if lieu.rang == 0)
-    ouvert = chantiers._ouvrir_maisons(plan, dict(lire_habitants_par_metier(monde.cells[0])), bourg)
+    ouvert = chantiers._ouvrir_maisons(plan, dict(lire_habitants_par_metier(monde.cells[0])), bourg, {})
     assert ouvert is not plan and ouvert.batiments and ouvert.enceinte is temoin
     monde = _epreuve_salaire()
     monde.plans[1] = replace(monde.plans[1], enceinte=temoin)
