@@ -30,10 +30,10 @@ from sim.guerre import GuerreInvalide, devis_des_ordres, document_servi_de_la_gu
 from sim.pays import PaysInconnu, pays
 from sim.jauges import avant_le_tick, document_des_jauges
 from sim.evenements import document_de_l_evenement
-from sim.batiments import document_des_batiments
+from sim.batiments import document_des_batiments, documents_des_plans
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.jouables import maisons_jouables
-from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE, recevoir_intention
+from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
@@ -544,10 +544,12 @@ class ServeurMonde(ThreadingHTTPServer):
             plan = self.world.plans[cell_id]
             portes[cell_id] = portes_de_l_enceinte(plan.enceinte.contour, plan.rues, rues)
             controler_portes(plan.enceinte.contour, portes[cell_id], plan.rues, rues)
+        de_province = documents_des_plans(self.world)
         documents_plans = {
             cell_id: (
                 plan.to_dict()
                 | ({"portes": portes[cell_id]} if cell_id in portes else {})
+                | ({"batiments_de_province": de_province[cell_id]} if cell_id in de_province else {})
                 | {"cell_id": cell_id, "rang": 0, "tick": numero_tick, "date": date}
                 | ({"chantiers_du_jour": chantiers[cell_id]} if cell_id in chantiers else {})
                 | ({"recolte_perdue_par_chantier": pertes[cell_id]} if cell_id in pertes else {})
@@ -1103,6 +1105,12 @@ class RequetesMonde(BaseHTTPRequestHandler):
                             raise IntentionRefusee("départ non appliqué : choisir une terre avant de faire la guerre")
                         if intention.get("maison") != joueur:
                             raise IntentionRefusee("maison interdite : seule la maison du joueur fait ses guerres")
+                    if intention.get("type") == TYPE_BATIR_DANS_UNE_PROVINCE:
+                        joueur = self.server.world.maison_du_joueur
+                        if joueur is None:
+                            raise IntentionRefusee("départ non appliqué : choisir une terre avant de bâtir")
+                        if intention.get("maison") != joueur:
+                            raise IntentionRefusee("maison interdite : seule la maison du joueur bâtit dans ses provinces")
                     if intention.get("type") in (TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE):
                         joueur = self.server.world.maison_du_joueur
                         if joueur is None:

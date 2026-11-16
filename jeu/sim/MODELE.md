@@ -3107,7 +3107,21 @@ des rues, parcelles et bâtiments et écrit les métiers de leur cellule. Sans g
 Les lignes `chantiers_du_jour` et `recolte_perdue_par_chantier` de `/plan` suivent l'ordre rue/parcelle/bâtiment/enceinte, puis l'identifiant : la ligne `{"nature": "enceinte", "identifiant": 0, …}`, clé `(cell_id, "enceinte", 0)`, vient après les bâtiments.
 
 `GET /plan?cell=X` sert `cell_id`, `rang: 0`, `tick`, `date`, `rues`,
-`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400). Les documents des gestes sont copiés dans `EtatPublie` avec
+`parcelles`, `batiments`, `enceinte` et ses `portes` si elle existe, et `base` (place, rues, maisons et foyers de 1400).
+Il sert aussi `batiments_de_province`, la liste des bâtiments de province de la
+cellule (« Les bâtiments de province ») triée par identifiant, chacun avec
+exactement `identifiant`, `nature`, `parcelle` (ou `null`, posé depuis la
+carte), `travail_requis`, `travail_fourni` et `en_chantier`. La clé est absente
+quand la cellule n'en a aucun : le plan d'une cellule sans bâtiment de
+province garde ses octets.
+
+**Les parcelles prises.** Une seule lecture, `intentions.parcelles_prises`,
+dit ce qu'une parcelle porte. Elle est **bâtie** si un bâtiment du plan ou un
+bâtiment de province s'y tient, et **promise** si une pose (`poser_batiment`)
+ou un bâtiment de province déposés pour le tick suivant la désignent. La pose
+d'un bâtiment, celle d'un bâtiment de province et l'ouverture autonome des
+maisons (« Le chantier et ses bras ») la lisent toutes : une parcelle prise
+par l'une l'est pour les autres. Les documents des gestes sont copiés dans `EtatPublie` avec
 la photographie du tick, et leurs octets naissent à la première lecture : une
 lecture n'attend pas le calcul du tick et ne consulte pas le monde mutable. Un paramètre absent ou mal formé donne 400 ; une cellule
 inconnue donne 404 en la nommant. Le plan ne s'ajoute ni à `/monde`, ni à
@@ -3257,7 +3271,7 @@ L'année donne 7 → 7 dépôts acceptés. Ces mesures ponctuelles ne séparent 
 ## Le chantier et ses bras
 
 Les maisons en `autoconstruction` sont bâties sans salaire : aucun débit du grenier ni versement aux paniers ; la consommation ordinaire continue.
-Après le retour des bras, les foyers d'artisans sans logis, dernier incomplet compris, ouvrent au plus `MAISONS_OUVERTES_PAR_JOUR = 1` maison par bourg doté d'un maître, par identifiant de parcelle libre et déjà achevée. Les places promises par toute maison en chantier se déduisent du besoin avant l'affectation ; seules les maisons achevées logent réellement.
+Après le retour des bras, les foyers d'artisans sans logis, dernier incomplet compris, ouvrent au plus `MAISONS_OUVERTES_PAR_JOUR = 1` maison par bourg doté d'un maître, par identifiant de parcelle libre et déjà achevée. Libre veut dire non prise (`intentions.parcelles_prises`, « Le plan du bourg ») : aucune maison ne s'ouvre sous un bâtiment du plan ni sous un bâtiment de province, une caserne par exemple. Les places promises par toute maison en chantier se déduisent du besoin avant l'affectation ; seules les maisons achevées logent réellement.
 Chaque maison autonome prend au plus une personne, artisan disponible, par jour restant. Le métier `autoconstructeurs` préserve son origine et empêche Ateliers de la réemployer ; seuls ses survivants présents reviennent aux artisans au début de Chantiers le lendemain, même après achèvement. Population et somme des métiers sont conservées. Le plan publie ce marqueur, conservé après travail, seulement pour ces maisons ; les poses manuelles gardent salaire et priorités.
 
 `World.chantiers_du_jour`, vide à l'ouverture et absent des sauvegardes, observe sans décider : chaque appel remplace le relevé, aux mêmes clés que les envois.
@@ -3751,8 +3765,8 @@ et du Droit par la succession.
 `sim/batiments.py` et `data/batiments.toml` (VISION.md, « Les gestes d'un
 pays »). Un bâtiment de province se pose dans une
 cellule — la province, à l'échelle d'EU4 — depuis la carte, sans descendre en
-3D : il ne prend pas de parcelle du plan du bourg (la parcelle trouvée par le
-plan n'est pas faite).
+3D, ou depuis la ville, sur une parcelle du plan du bourg (« La parcelle »,
+plus bas).
 
 **Les données.** Chaque bâtiment dit ses journées de travail (une personne,
 un jour), ses bras par jour au plus, son coût en pièces, ses modificateurs et
@@ -3788,7 +3802,26 @@ ses journées au salaire du bourg (coût et durée modifiés compris, en comptan
 les bâtiments déjà déposés pour le tick), ou moins de paysans dans la cellule
 que ses bras d'un jour (« pas assez de bras »). À l'étape des intentions, `poser` ouvre le chantier
 dans `World.batiments_de_province`, ses journées comptées par
-`ajuster_journees`.
+`ajuster_journees`. Le service n'accepte ce geste du joueur que pour sa
+maison, une fois son départ appliqué.
+
+**La parcelle** (niveau 2, plausible, jamais sourcée). Le geste accepte un
+champ facultatif `parcelle` : l'identifiant d'une parcelle du plan de la
+cellule, où le bâtiment se tient. C'est ainsi que la ville pose la caserne
+« sur une parcelle, comme une maison ». Absent ou `null`, le geste reste celui
+de la carte. Après les refus ci-dessus, la parcelle se refuse avec sa raison :
+pas un entier (« parcelle invalide »), absente du plan (« parcelle absente du
+plan »), encore en chantier (« parcelle en chantier : 1 (5/20 journées) »),
+ou prise (« parcelle déjà bâtie » ou « déjà promise », voir « Le plan du
+bourg »). Le bâtiment garde sa parcelle dans `BatimentDeProvince.parcelle`, et
+la garde quand une place tombe. `en_document` (donc `to_dict`, `/pays` et
+l'empreinte) n'écrit la clé `parcelle` que si elle existe : un bâtiment posé
+depuis la carte a les mêmes octets qu'avant. **Un seul chantier, un seul
+prix** : la parcelle ne change ni les journées, ni les bras, ni le grain de
+`data/batiments.toml`. Le bâtiment n'entre pas dans `plan.batiments`, et
+`poser_batiment` garde ses trois natures. Les matériaux, l'emprise propre du
+bâtiment (il prend toute sa parcelle, à la vue de la dessiner) et son
+orientation restent de niveau 3.
 
 **Le chantier.** Chaque jour, après les chantiers du plan et avant la
 production, `avancer` prend pour chaque bâtiment en chantier au plus ses bras
@@ -3838,7 +3871,8 @@ est fixé : l'IA ne compare pas des kilos à des foyers, chaque raison se lit su
 le monde.
 
 `GET /pays` sert les bâtiments et chantiers des cellules du pays ; `to_dict()`
-les porte sous `batiments_de_province` dès qu'il y en a un.
+les porte sous `batiments_de_province` dès qu'il y en a un. `GET /plan?cell=X`
+sert ceux de sa cellule (« Le plan du bourg »).
 
 ## La guerre
 
