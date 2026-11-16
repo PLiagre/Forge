@@ -93,6 +93,25 @@ def contour_servi(cellule_carte):
     return contour
 
 
+def terres_et_pays(monde, matiere) -> dict:
+    """`terres` et `pays` de `GET /terres` : le maître du bourg de chaque cellule et son pays.
+
+    Le pays d'une terre est la maison au sommet de la suzeraineté du maître de son bourg
+    (`guerre.racine`) ; une terre sans maître n'a pas de pays. `pays` nomme chaque pays présent,
+    trié par identifiant, du nom servi par les fiches des maisons (`null` s'il est absent).
+    """
+    from sim.guerre import racine
+    from sim.maisons_servies import _nom_de_maison
+    par_id = {m.id: m for m in monde.maisons}
+    terres = []
+    for cid, cellule in sorted(monde.cells.items()):
+        maitre = next((l.maitre for l in cellule.lieux if l.rang == 0), None)
+        terres.append({"cell_id": cid, "maitre": maitre, "pays": None if maitre is None else racine(par_id, maitre)})
+    presents = sorted({t["pays"] for t in terres if t["pays"] is not None})
+    pays = [{"id": p, "nom": _nom_de_maison(matiere, par_id[p]) if p in par_id else None} for p in presents]
+    return {"terres": terres, "pays": pays}
+
+
 def document_carte(world, table=None, maisons=None):
     """Rend la carte figée et sa vue des puissances, réutilisable pour les départs."""
     if not world.carte:

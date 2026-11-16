@@ -19,7 +19,7 @@ namespace ForgeLocal3D
         public ParticleSystem sand,veil; public ParticleSystem[] smoke,flames;
         public int weather=0;
         public float hour=17f;
-        public bool showPanel=true;
+        public bool showPanel=false; // le réglage se montre avec H
         static readonly string[] States={"Plein soleil","Vent de sable","Brume de chaleur"};
         void OnEnable(){Apply();}
         void Update()

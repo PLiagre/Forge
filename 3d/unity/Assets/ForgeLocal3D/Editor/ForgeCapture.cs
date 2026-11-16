@@ -353,7 +353,12 @@ namespace ForgeLocal3D
                 }
                 if (Time.realtimeSinceStartupAsDouble - debutScenario > DELAI_SCENARIO_S)
                     throw new TimeoutException("pas fini en " + DELAI_SCENARIO_S + " s");
-                if (enCours.MoveNext()) return;
+                if (enCours.MoveNext())
+                {
+                    // Un scénario qui change de scène rend la caméra à photographier : celle de la scène d'avant n'existe plus.
+                    if (enCours.Current is Camera nouvelle && nouvelle != null) cameraScene = nouvelle;
+                    return;
+                }
                 string chemin = Path.Combine(dossierScenarios, nomScene + "--" + nom + ".png");
                 var pixels = CitadelPlayCheck.Capture(cameraScene, chemin, 1600, 900);
                 // Deux photos de suite ne sont jamais identiques à l'octet (ombres, rendu) : la chaîne lit la

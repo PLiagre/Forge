@@ -13,6 +13,7 @@ import copy
 import json
 import math
 import random
+import re
 import tomllib
 
 import pytest
@@ -128,8 +129,7 @@ def test_sans_caserne_achevee_la_levee_est_refusee_et_dit_pourquoi(depart):
     monde = copy.deepcopy(depart)
     cid = _capitale(monde)
     monde.greniers[BAR][NOURRITURE] = 20000.0
-    with pytest.raises(IntentionRefusee, match=f"la levée est fermée : aucune caserne achevée dans la capitale "
-                                               rf"\(cellule {cid}\)"):
+    with pytest.raises(IntentionRefusee, match="^la levée est fermée : aucune caserne achevée dans votre capitale$"):
         recevoir_intention(monde, _levee(cid))
     # Une caserne en chantier ne l'ouvre pas encore.
     journees = B.charger_types()["caserne"].journees
@@ -150,7 +150,7 @@ def test_une_capitale_qui_n_est_plus_tenue_ferme_la_levee(depart):
     recevoir_intention(monde, _levee(cid))
     monde.intentions_en_attente.clear()
     monde.cells[cid].lieux[0].maitre = "grande-3"
-    with pytest.raises(IntentionRefusee, match=rf"le bourg de la capitale \(cellule {cid}\) est à 'grande-3'"):
+    with pytest.raises(IntentionRefusee, match="^la levée est fermée : le bourg de votre capitale n'est plus à vous$"):
         recevoir_intention(monde, _levee(cid))
 
 
@@ -162,11 +162,12 @@ def test_un_lieu_ne_donne_que_sa_part(depart, regles):
     lieu = monde.cells[cid].lieux[1]
     maximum = math.floor(regles.part_maximale_levee * lieu.population)
     assert maximum > 0 and G.levee_maximale(monde, cid, 1, regles) == maximum
-    with pytest.raises(IntentionRefusee, match=f"peut en donner {maximum}, {maximum + 1} demandés"):
+    with pytest.raises(IntentionRefusee, match=f"peut en donner {G.ecrire_nombre(maximum)} hommes, "
+                                               f"{G.ecrire_nombre(maximum + 1)} hommes demandés \\(au plus 10 %"):
         recevoir_intention(monde, _levee(cid, {1: maximum + 1}))
     recevoir_intention(monde, _levee(cid, {1: maximum - 3}, vivres=0))
     # Une levée déjà déposée compte : il ne reste que trois hommes à ce lieu.
-    with pytest.raises(IntentionRefusee, match="peut en donner 3, 4 demandés"):
+    with pytest.raises(IntentionRefusee, match="peut en donner 3 hommes, 4 hommes demandés"):
         recevoir_intention(monde, _levee(cid, {1: 4}, vivres=0))
     recevoir_intention(monde, _levee(cid, {1: 3}, vivres=0))
     _appliquer(monde)
@@ -193,16 +194,17 @@ def test_les_refus_des_gestes_de_guerre(depart):
         ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, 0, 0]], "vivres_kg": 0}, "au moins un homme"),
         ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, 0, 1], [cid, 0, 2]], "vivres_kg": 0}, "deux fois"),
         (_levee(cid, vivres=-1), "vivres_kg invalide"),
-        (_levee(cid, vivres=1000.5), "grenier insuffisant : 1000.5 kg de vivres demandés, 1000 kg"),
+        (_levee(cid, vivres=1000.5), "^grenier insuffisant : 1 000,5 kg de vivres demandés, 1 000 kg disponibles$"),
         ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, autre.rang, 1]], "vivres_kg": 0},
-         f"ce lieu n'est pas à toi : \\({cid}, {autre.rang}\\) est à '{autre.maitre}'"),
-        ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, 99, 1]], "vivres_kg": 0}, "lieu inconnu"),
+         "^ce lieu n'est pas à vous$"),
+        ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, 99, 1]], "vivres_kg": 0},
+         "^ce lieu n'existe pas sur la carte$"),
         ({"type": "declarer_guerre", "maison": BAR, "cible": BAR}, "à soi-même"),
         ({"type": "declarer_guerre", "maison": BAR, "cible": "maison-inventee"}, "cible inconnue"),
         ({"type": "declarer_guerre", "maison": "maison-inventee", "cible": cible}, "maison inconnue"),
-        ({"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0}, "armée inconnue : 0"),
+        ({"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0}, "^cette armée n'existe plus$"),
         ({"type": "assieger", "maison": BAR, "armee": True}, "armée invalide"),
-        ({"type": "renvoyer_armee", "maison": BAR, "armee": 7}, "armée inconnue : 7"),
+        ({"type": "renvoyer_armee", "maison": BAR, "armee": 7}, "^cette armée n'existe plus$"),
         ({"type": "lever_armee", "maison": BAR, "lieux": [[cid, 0, 1]], "vivres_kg": 0, "jour": 3}, "champ inconnu"),
         ({"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine}, "champ manquant : rang"),
     ]
@@ -216,7 +218,7 @@ def test_les_refus_des_gestes_de_guerre(depart):
     paysans = metiers.pop(c.METIER_PAYSANS)
     metiers[c.METIER_OUVRIERS] = paysans
     sans.cells[cid].habitants_par_metier = metiers
-    with pytest.raises(IntentionRefusee, match=f"pas assez de paysans : 15 hommes demandés dans la cellule {cid}, 0"):
+    with pytest.raises(IntentionRefusee, match="^pas assez de paysans : 15 hommes demandés sur cette terre, 0 paysans$"):
         recevoir_intention(sans, _levee(cid, vivres=0))
 
 
@@ -229,26 +231,26 @@ def test_la_guerre_se_declare_puis_l_armee_marche_et_assiege(depart):
     armee = monde.armees[0]
     assert (armee.identifiant, armee.maison, armee.cell_id, armee.rang) == (0, BAR, cid, 0)
     # L'armée n'assiège pas sa propre place, ni une place d'une maison avec qui elle n'est pas en guerre.
-    with pytest.raises(IntentionRefusee, match="cette place est à toi"):
+    with pytest.raises(IntentionRefusee, match="^cette place est à vous$"):
         recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
     # Une autre maison ne commande pas l'armée de Bar.
-    with pytest.raises(IntentionRefusee, match=f"cette armée n'est pas à toi : elle est à {BAR}"):
+    with pytest.raises(IntentionRefusee, match="^cette armée n'est pas à vous$"):
         recevoir_intention(monde, {"type": "renvoyer_armee", "maison": cible, "armee": 0})
     # Un seul geste par armée et par jour.
     recevoir_intention(monde, {"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0})
-    with pytest.raises(IntentionRefusee, match="déjà déposé pour l'armée 0"):
+    with pytest.raises(IntentionRefusee, match="^un ordre est déjà donné à cette armée aujourd'hui$"):
         recevoir_intention(monde, {"type": "renvoyer_armee", "maison": BAR, "armee": 0})
     _appliquer(monde)
     armee = monde.armees[0]
     assert armee.destination == (voisine, 0) and armee.route == (voisine,)
-    with pytest.raises(IntentionRefusee, match="marche encore"):
+    with pytest.raises(IntentionRefusee, match="^l'armée marche encore : elle assiège une fois arrivée$"):
         recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
     # Arrivée (le maillon de la marche la pose là) : pas encore en guerre avec le maître.
     G._remplacer(monde, G.replace(armee, cell_id=voisine, rang=0, destination=None, route=()))
-    with pytest.raises(IntentionRefusee, match=f"pas en guerre avec le maître de la place : '{cible}'"):
+    with pytest.raises(IntentionRefusee, match="^vous n'êtes pas en guerre avec le maître de cette place$"):
         recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
     recevoir_intention(monde, {"type": "declarer_guerre", "maison": BAR, "cible": cible})
-    with pytest.raises(IntentionRefusee, match=f"déjà en guerre avec {BAR}"):
+    with pytest.raises(IntentionRefusee, match="^vous êtes déjà en guerre avec cette maison$"):
         recevoir_intention(monde, {"type": "declarer_guerre", "maison": cible, "cible": BAR})
     # La déclaration déposée vaut pour le siège déposé après elle.
     recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
@@ -256,11 +258,11 @@ def test_la_guerre_se_declare_puis_l_armee_marche_et_assiege(depart):
     assert [g.en_document() for g in monde.guerres] == [
         {"identifiant": 0, "agresseur": BAR, "defenseur": cible, "debut": monde.ticks_ecoules}]
     assert monde.armees[0].siege == voisine
-    with pytest.raises(IntentionRefusee, match="assiège déjà"):
+    with pytest.raises(IntentionRefusee, match="^l'armée assiège déjà cette place$"):
         recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
     # Un lieu qui n'est pas un bourg n'est pas une place.
     G._remplacer(monde, G.replace(monde.armees[0], rang=1, siege=None))
-    with pytest.raises(IntentionRefusee, match="n'est pas un bourg"):
+    with pytest.raises(IntentionRefusee, match="^ce lieu n'est pas une place : l'armée n'est pas dans un bourg$"):
         recevoir_intention(monde, {"type": "assieger", "maison": BAR, "armee": 0})
 
 
@@ -272,7 +274,7 @@ def test_sans_chemin_terrestre_l_armee_ne_marche_pas(depart):
     terrestres = {x for e in monde.adjacency for x in (e["a"], e["b"])
                   if e["a"] in monde.cells and e["b"] in monde.cells}
     ile = min(set(monde.cells) - terrestres)
-    with pytest.raises(IntentionRefusee, match=f"aucun chemin terrestre de la cellule {cid} à la cellule {ile}"):
+    with pytest.raises(IntentionRefusee, match="^aucun chemin terrestre jusqu'à ce lieu$"):
         recevoir_intention(monde, {"type": "marcher", "maison": BAR, "armee": 0, "cell": ile, "rang": 0})
     # Contre-épreuve : vers une voisine, la route existe.
     assert G.chemin(monde, cid, _voisine(monde, cid)[0]) is not None
@@ -292,7 +294,7 @@ def test_la_levee_puis_le_renvoi_conservent_habitants_et_kilos(depart, monkeypat
     recevoir_intention(monde, _levee(cid, vivres=500.0))
     assert grain_libre(monde, BAR) == 20000.0 - 500.0
     # Le grenier ne paie pas deux fois : la seconde levée voit les vivres déjà engagés.
-    with pytest.raises(IntentionRefusee, match="19500 kg disponibles"):
+    with pytest.raises(IntentionRefusee, match="19 500 kg disponibles"):
         recevoir_intention(monde, _levee(cid, {2: 1}, vivres=19500.5))
     _appliquer(monde)
     armee = monde.armees[0]
@@ -600,6 +602,246 @@ def test_service_sert_les_guerres_et_refuse_les_gestes_d_une_autre_maison():
         assert requete_service(port, "/tick?n=1", "POST")[0] == 200
         document = requete_service(port, "/guerres")[1]
         assert [(g["agresseur"], g["defenseur"]) for g in document["guerres"]] == [(BAR, cible)]
+
+
+# --- Ce que l'écran lit : les refus, le devis, les terres --------------------------------
+
+# Les deux juges de l'écran (`TexteDuMonde.Interdit` et `SansUnite`, côté Unity), dans les mêmes termes :
+# un mot de mise au point ou un identifiant de lieu, et un nombre sans unité ni place dans une date.
+_MOT_INTERDIT = re.compile(r"(?<!\w)(?:cellule|rang|ticks?)(?!\w)", re.IGNORECASE)
+_IDENTIFIANT_DE_LIEU = re.compile(r"(?<![^\W_])[0-9]+-[0-9]+(?![^\W_])")
+_NOMBRE_ECRIT = re.compile(r"(?<![^\W_])(?:[0-9]{1,3}(?:[   ][0-9]{3})+(?![0-9])|[0-9]+)(?:,[0-9]+)?")
+_UNITE = re.compile(r"[  ]?(?:kg|t|%|jours?|ans?|habitants?|foyers?|personnes?|bras|lieux?|maisons?|chantiers?"
+                    r"|km|m|points?|hommes?|paysans?)(?![^\W\d_])", re.IGNORECASE)
+_DATE_ECRITE = re.compile(r"(?<![^\W_])jour[  ]([0-9]+)[  ]de[  ]([0-9]+)", re.IGNORECASE)
+
+
+def _illisible(texte, *identifiants):
+    """Ce que l'écran refuserait de montrer dans `texte`, ou None : le premier mot interdit, sinon le premier
+    nombre sans unité."""
+    trouves = [m for m in (_MOT_INTERDIT.search(texte), _IDENTIFIANT_DE_LIEU.search(texte)) if m]
+    trouves += [m for i in identifiants if (m := re.search(rf"(?<!\w){re.escape(i)}(?!\w)", texte))]
+    if trouves:
+        return min(trouves, key=lambda m: m.start()).group()
+    dates = {(m.start(g), m.end(g)) for m in _DATE_ECRITE.finditer(texte) for g in (1, 2)}
+    for n in _NOMBRE_ECRIT.finditer(texte):
+        if (n.start(), n.end()) not in dates and not _UNITE.match(texte, n.end()):
+            return n.group()
+    return None
+
+
+def _refus(monde, intention):
+    """Le refus que le dépôt rend à l'intention, ou None s'il l'accepte ; le monde est rendu tel quel."""
+    attente = list(monde.intentions_en_attente)
+    try:
+        recevoir_intention(monde, intention)
+        return None
+    except IntentionRefusee as refus:
+        return str(refus)
+    finally:
+        monde.intentions_en_attente[:] = attente
+
+
+def test_les_refus_de_guerre_se_lisent_au_joueur(depart):
+    monde = _avec_caserne(depart, grain=1000.0)
+    cid = _capitale(monde)
+    voisine, cible = _voisine(monde, cid)
+    autre = next(l for l in monde.cells[cid].lieux if l.maitre != BAR)
+    sans_caserne = copy.deepcopy(depart)
+    refus = [
+        _refus(sans_caserne, _levee(cid)),
+        _refus(monde, _levee(cid, vivres=1000.5)),
+        _refus(monde, _levee(cid, {1: 10 ** 6})),
+        _refus(monde, {"type": "lever_armee", "maison": BAR, "lieux": [[cid, autre.rang, 1]], "vivres_kg": 0}),
+        _refus(monde, {"type": "lever_armee", "maison": BAR, "lieux": [[cid, 99, 1]], "vivres_kg": 0}),
+        _refus(monde, {"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0}),
+    ]
+    recevoir_intention(monde, _levee(cid, vivres=0))
+    _appliquer(monde)
+    refus += [
+        _refus(monde, {"type": "assieger", "maison": BAR, "armee": 0}),
+        _refus(monde, {"type": "renvoyer_armee", "maison": cible, "armee": 0}),
+        _refus(monde, {"type": "marcher", "maison": BAR, "armee": 0, "cell": cid, "rang": 0}),
+    ]
+    G._remplacer(monde, G.replace(monde.armees[0], cell_id=voisine, rang=0))
+    refus.append(_refus(monde, {"type": "assieger", "maison": BAR, "armee": 0}))
+    recevoir_intention(monde, {"type": "declarer_guerre", "maison": BAR, "cible": cible})
+    refus += [_refus(monde, {"type": "declarer_guerre", "maison": BAR, "cible": cible}),
+              _refus(monde, {"type": "renvoyer_armee", "maison": BAR, "armee": 0}) or "accepté"]
+    recevoir_intention(monde, {"type": "renvoyer_armee", "maison": BAR, "armee": 0})
+    refus.append(_refus(monde, {"type": "assieger", "maison": BAR, "armee": 0}))
+    assert refus.pop(-2) == "accepté" and all(refus) and len(set(refus)) == len(refus), refus
+    identifiants = (BAR, cible, autre.maitre, str(cid), str(voisine))
+    assert [(r, _illisible(r, *identifiants)) for r in refus if _illisible(r, *identifiants)] == []
+    # Contre-épreuve : les textes d'avant montraient la cellule, la maison ou un nombre nu ; le juge les voit.
+    anciens = [f"la levée est fermée : aucune caserne achevée dans la capitale (cellule {cid})",
+               f"trop d'hommes : ({cid}, 1) peut en donner 42, 43 demandés",
+               "grenier insuffisant : 1000.5 kg de vivres demandés, 1000 kg disponibles",
+               f"déjà en guerre avec {cible}", "armée inconnue : 7"]
+    assert all(_illisible(a, *identifiants) for a in anciens)
+
+
+def test_le_devis_dit_le_refus_du_depot(depart, regles):
+    sans_caserne = copy.deepcopy(depart)
+    cid = _capitale(sans_caserne)
+    voisine, cible = _voisine(sans_caserne, cid)
+    devis = G.devis_des_ordres(sans_caserne, BAR)
+    # Sans armée ni terre visée : la levée seule, fermée avec la raison du dépôt.
+    assert devis["cible"] is None and devis["armees"] == []
+    assert devis["levee"]["refus"] == _refus(sans_caserne, _levee(cid)) is not None
+
+    monde = _avec_caserne(depart)
+    avant, attente = monde.to_dict(), list(monde.intentions_en_attente)
+    devis = G.devis_des_ordres(monde, BAR, voisine)
+    assert monde.to_dict() == avant and monde.intentions_en_attente == attente, "le devis a écrit au monde"
+    levee = devis["levee"]
+    assert levee["refus"] is None and levee["grain_libre_kg"] == grain_libre(monde, BAR) == 20000.0
+    assert levee["ration_kg_par_homme_par_jour"] == regles.ration_kg_par_homme_par_jour
+    assert [(l["cell_id"], l["rang"]) for l in levee["lieux"]] == [
+        (cid, l.rang) for l in monde.cells[cid].lieux if l.maitre == BAR] and levee["lieux"]
+    # Le maximum servi de chaque lieu passe au dépôt, un homme de plus non.
+    for lieu in levee["lieux"]:
+        n = lieu["hommes_max"]
+        assert n == min(levee["paysans"], G.levee_maximale(monde, cid, lieu["rang"], regles)) > 0
+        assert _refus(monde, _levee(cid, {lieu["rang"]: n}, vivres=0)) is None
+        assert _refus(monde, _levee(cid, {lieu["rang"]: n + 1}, vivres=0)) is not None
+    # Une levée déposée compte dans le devis comme au dépôt.
+    rang = levee["lieux"][0]["rang"]
+    recevoir_intention(monde, _levee(cid, {rang: levee["lieux"][0]["hommes_max"]}, vivres=500.0))
+    suivant = G.devis_des_ordres(monde, BAR)["levee"]
+    assert suivant["lieux"][0]["hommes_max"] == 0 and suivant["grain_libre_kg"] == 19500.0
+    # La déclaration vise le maître du bourg de la terre ; déposée, la seconde est refusée par les deux.
+    assert devis["cible"] == {"cell_id": voisine, "maitre": cible, "declaration": {"refus": None}}
+    declaration = {"type": "declarer_guerre", "maison": BAR, "cible": cible}
+    assert _refus(monde, declaration) is None
+    recevoir_intention(monde, declaration)
+    assert G.devis_des_ordres(monde, BAR, voisine)["cible"]["declaration"]["refus"] == _refus(monde, declaration)
+    assert G.devis_des_ordres(monde, BAR, cid)["cible"]["declaration"]["refus"] == _refus(
+        monde, {"type": "declarer_guerre", "maison": BAR, "cible": BAR}) is not None
+    _appliquer(monde)
+
+    # Une armée : sa marche, son siège et son renvoi, chacun avec le refus du dépôt.
+    (armee,) = G.devis_des_ordres(monde, BAR, voisine)["armees"]
+    gestes = {"assieger": {"type": "assieger", "maison": BAR, "armee": armee["identifiant"]},
+              "renvoyer": {"type": "renvoyer_armee", "maison": BAR, "armee": armee["identifiant"]}}
+    marcher = {"type": "marcher", "maison": BAR, "armee": armee["identifiant"], "cell": voisine, "rang": 0}
+    assert armee["marche"]["refus"] is None and _refus(monde, marcher) is None
+    assert armee["marche"]["route"] == list(G.chemin(monde, cid, voisine)) == [voisine]
+    from sim.convois import _longueur_arete
+    assert armee["marche"]["km"] == _longueur_arete(monde, cid, voisine) > 0
+    assert armee["marche"]["jours"] == max(1, math.ceil(armee["marche"]["km"] / regles.vitesse_marche_km_par_jour))
+    for nom, geste in gestes.items():
+        assert armee[nom]["refus"] == _refus(monde, geste), nom
+    assert armee["assieger"]["refus"] is not None and armee["renvoyer"]["refus"] is None
+    assert (armee["renvoyer"]["hommes"], armee["renvoyer"]["vivres_kg"]) == (monde.armees[0].hommes, 500.0)
+    vers_soi = G.devis_des_ordres(monde, BAR, cid)["armees"][0]["marche"]
+    assert vers_soi["refus"] == _refus(monde, marcher | {"cell": cid}) is not None and vers_soi["route"] == []
+    # Un ordre donné : les trois autres se refusent, au devis comme au dépôt.
+    recevoir_intention(monde, marcher)
+    (armee,) = G.devis_des_ordres(monde, BAR, voisine)["armees"]
+    for nom, geste in gestes.items():
+        assert armee[nom]["refus"] == _refus(monde, geste) is not None, nom
+    assert armee["marche"]["refus"] == _refus(monde, marcher) is not None
+    with pytest.raises(G.GuerreInvalide):
+        G.devis_des_ordres(monde, "maison-inventee")
+
+
+def test_le_pays_d_une_terre_change_a_la_chute_et_pas_sans_elle(campagne, depart):
+    from types import SimpleNamespace
+    from sim.carte_servie import terres_et_pays
+    from sim.noms import noms_depuis_monde
+    noms = SimpleNamespace(noms=noms_depuis_monde(depart))
+    par_id = {m.id: m for m in depart.maisons}
+
+    def pays(monde):
+        document = terres_et_pays(monde, noms)
+        assert [t["cell_id"] for t in document["terres"]] == sorted(monde.cells)
+        assert {p["id"] for p in document["pays"]} == {t["pays"] for t in document["terres"]} - {None}
+        return {t["cell_id"]: t["pays"] for t in document["terres"]}, document
+
+    avant, document = pays(depart)
+    # Le pays est la racine de la suzeraineté du maître du bourg, nommé comme sa fiche.
+    for terre in document["terres"]:
+        maitre = depart.cells[terre["cell_id"]].lieux[0].maitre
+        assert terre["maitre"] == maitre and terre["pays"] == (None if maitre is None else G.racine(par_id, maitre))
+    assert any(t["maitre"] != t["pays"] for t in document["terres"] if t["maitre"]), "aucun vassal : échantillon vide"
+    assert all(p["nom"] for p in document["pays"])
+    # Une place prise à une maison d'un autre pays passe au pays du preneur, et elle seule.
+    monde = copy.deepcopy(depart)
+    racine_de_bar = G.racine(par_id, BAR)
+    place = next(cid for cid, cel in sorted(monde.cells.items())
+                 if cel.lieux[0].maitre is not None and G.racine(par_id, cel.lieux[0].maitre) != racine_de_bar)
+    armee = G.Armee(0, BAR, place, 0, ((_capitale(monde), 0, 10),), 0.0, 0, siege=place)
+    monde.armees = [armee]
+    assert pays(monde)[0] == avant, "une armée devant la place ne change aucun pays"
+    G.tomber(monde, armee)
+    apres, _ = pays(monde)
+    assert {cid for cid in avant if avant[cid] != apres[cid]} == {place} and apres[place] == racine_de_bar
+    # Une place prise dans le même pays change de maître, pas de pays : sa couleur reste.
+    voisine, cible = campagne["voisine"], campagne["cible"]
+    assert G.racine(par_id, cible) == racine_de_bar, "la voisine de Bar a changé de pays : échantillon à revoir"
+    document = terres_et_pays(campagne["monde"], noms)
+    terre = next(t for t in document["terres"] if t["cell_id"] == voisine)
+    assert (terre["maitre"], terre["pays"]) == (BAR, racine_de_bar) and depart.cells[voisine].lieux[0].maitre == cible
+
+
+def test_le_service_sert_les_terres_les_armees_dessinees_et_le_devis():
+    import json
+    from sim.places import places_du_monde
+    from sim.service import _serialiser
+    from sim.tests.test_monde import _service_epreuve, requete_service
+
+    with _service_epreuve() as (serveur, port):
+        statut, terres, octets = requete_service(port, "/terres")
+        assert statut == 200 and octets == _serialiser(terres)
+        assert (terres["tick"], terres["date"]) == (0, serveur.world.date_simulation)
+        assert {t["cell_id"]: t["maitre"] for t in terres["terres"]} == {
+            cid: c.lieux[0].maitre for cid, c in serveur.world.cells.items()}
+        assert requete_service(port, "/guerres/ordres")[0] == 400
+        assert requete_service(port, "/guerres/ordres?maison=maison-inventee")[0] == 404
+        assert requete_service(port, f"/guerres/ordres?maison={BAR}&cell=sept")[0] == 400
+        assert requete_service(port, f"/guerres/ordres?maison={BAR}&cell=999999")[0] == 404
+
+        assert requete_service(port, "/intention", "POST",
+                               json.dumps({"type": "choisir_depart", "seigneurie": 1}).encode())[0] == 200
+        assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+        with serveur.verrou_tick:
+            prepare = _avec_caserne(serveur.world)
+            serveur.world.batiments_de_province = prepare.batiments_de_province
+            serveur.world.greniers[BAR][NOURRITURE] = 20000.0
+        cid = _capitale(serveur.world)
+        voisine, cible = _voisine(serveur.world, cid)
+        statut, devis, _ = requete_service(port, f"/guerres/ordres?maison={BAR}&cell={voisine}")
+        with serveur.verrou_tick:
+            attendu = json.loads(_serialiser(G.devis_des_ordres(serveur.world, BAR, voisine)))
+        assert statut == 200 and devis == attendu and devis["levee"]["refus"] is None
+        for corps in (_levee(cid), {"type": "declarer_guerre", "maison": BAR, "cible": cible}):
+            assert requete_service(port, "/intention", "POST", json.dumps(corps).encode())[0] == 200
+        assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+        marche = {"type": "marcher", "maison": BAR, "armee": 0, "cell": voisine, "rang": 0}
+        assert requete_service(port, "/intention", "POST", json.dumps(marche).encode())[0] == 200
+        assert requete_service(port, "/tick?n=1", "POST")[0] == 200
+
+        (armee,) = requete_service(port, "/guerres")[1]["armees"]
+        places = places_du_monde(serveur.world)
+        monde_armee = serveur.world.armees[0]
+        depart = places[monde_armee.cell_id][monde_armee.rang].en_document()
+        if monde_armee.destination is not None:
+            assert armee["etapes"] == [places[c][0].en_document() for c in monde_armee.route] != []
+            # En marche, elle est dessinée sur son tronçon, avancée de la part qu'elle en a faite.
+            assert monde_armee.avance_km > 0, "l'armée n'a pas avancé : échantillon vide"
+            part = monde_armee.avance_km / G._troncon_km(serveur.world, monde_armee)[0]
+            assert 0 < part < 1 and armee["point"] == {
+                cle: depart[cle] + (armee["etapes"][0][cle] - depart[cle]) * part for cle in depart}
+        else:
+            assert armee["point"] == depart
+            assert armee["etapes"] == [] and (monde_armee.cell_id, monde_armee.rang) == (voisine, 0)
+        # Le tick a avancé, les terres ne changent pas : seuls le tick et la date se récrivent.
+        statut, apres, octets = requete_service(port, "/terres")
+        assert octets == _serialiser(apres) and apres["tick"] == 3
+        assert (apres["terres"], apres["pays"]) == (terres["terres"], terres["pays"])
+        # La photographie garde la guerre sans les places.
+        assert "point" not in G.document_de_la_guerre(serveur.world)["armees"][0]
 
 
 # --- L'IA fait la guerre par les gestes du joueur ----------------------------------------

@@ -15,8 +15,8 @@ namespace ForgeLocal3D
     // L'outil ne pose pas la route : il l'essaie sur le relief (DesertRoads.Poser
     // en essai, qui refuse la route trop raide), la dépose au monde comme intention `tracer_route`,
     // puis dessine au tick suivant les rues neuves que `/plan` publie. Toute route en chantier est
-    // en terre battue. Le panneau est un texte posé devant la caméra : il apparaît aussi dans les
-    // captures.
+    // en terre battue. Le panneau est un texte que le cabinet de la ville (CabinetDeVille) pose sur l'image :
+    // il apparaît aussi dans les captures. Les deux TextMesh de la caméra gardent ce texte sans le dessiner.
     // Au lancement, l'outil lit le plan de sa cellule et pose toutes ses rues, dans l'ordre
     // du plan, sur une copie vierge du terrain. Une rue que le relief refuse reste au plan : le panneau
     // la déclare par son identifiant. Unity ne garde aucun plan à lui : relancé, il redessine la même ville.
@@ -45,6 +45,8 @@ namespace ForgeLocal3D
         readonly List<(double x,double y)> points=new();
         public (double x,double y)[] Derniers{get;private set;}=new (double,double)[0];
         public string Message{get;private set;}="";
+        // Le texte d'aide du panneau tel que Afficher l'a composé : message, état du mode, relief, gestes.
+        public string TexteDesOutils{get;private set;}="";
         // Le service du monde : la cellule lue sur la ligne de commande, le port du service local.
         public long Cellule{get;private set;}=-1;public int Port{get;private set;}=-1;
         // Le reçu du dernier dépôt ; null tant que rien n'est déposé.
@@ -112,8 +114,10 @@ namespace ForgeLocal3D
                 t.fontSize=64;t.anchor=TextAnchor.LowerLeft;t.color=couleur;return t;
             }
             panneau=Texte("Panneau des routes",view.transform,new Color(.12f,.06f,.03f));
-            // Un halo clair derrière le texte : il reste lisible sur le sable comme dans l'ombre.
             halo=Texte("Halo",panneau.transform,new Color(1f,.95f,.84f,.9f));
+            // Les TextMesh portent le texte, ils ne le dessinent plus : le cabinet de la ville l'écrit sur l'image.
+            panneau.GetComponent<MeshRenderer>().enabled=false;halo.GetComponent<MeshRenderer>().enabled=false;
+            gameObject.AddComponent<Forge.Interface.CabinetDeVille>().Initialiser(view,FindFirstObjectByType<PanneauLieu>(),()=>TexteDesOutils);
             var defaut=Forge.Pont.MateriauDeBase.Prendre();
             if(defaut){var go=new GameObject("Tracé de l'enceinte");go.transform.SetParent(transform,false);TraceEnceinte=go.AddComponent<LineRenderer>();TraceEnceinte.loop=true;
                 TraceEnceinte.widthMultiplier=1.5f;TraceEnceinte.material=new Material(defaut){name="Tracé de l'enceinte",color=new Color(.6f,.05f,.05f)};TraceEnceinte.positionCount=0;TraceEnceinte.enabled=false;}
@@ -176,9 +180,25 @@ namespace ForgeLocal3D
             }
             if(reliefOuvert!=null)panneau.text+="\nRelief : "+reliefOuvert;
             panneau.text+="\n"+Gestes;
+            TexteDesOutils=PourLeJoueur(panneau.text);
+            // Après le bilan de l'ouverture, le panneau ne redit pas l'aide du tracé : le joueur la garde sous les yeux.
+            if(!Aides.Any(a=>TexteDesOutils.Contains(a)))TexteDesOutils+="\n"+Aide;
             halo.text=panneau.text;
-            Placer();Tracer();
+            Tracer();
         }
+        // Le texte du panneau, lu par les épreuves mot pour mot, dit au joueur : les comptes de coins et de points avec leur unité,
+        // le tick d'un reçu devient le jour suivant, et toute ligne de mise au point (bilans, numéros, ticks) reste au seul panneau.
+        static readonly System.Text.RegularExpressions.Regex CoinsPoses=new(@"(\d+)(/2)? coin\(s\)"),PointsPoses=new(@"(\d+) point\(s\)"),
+            TickDuRecu=new(@"au tick suivant \(après le tick \d+\)");
+        public static string PourLeJoueur(string texte)=>string.Join("\n",texte.Split('\n').Select(ligne=>
+        {
+            ligne=CoinsPoses.Replace(ligne,m=>m.Groups[1].Value+(m.Groups[1].Value=="1"||m.Groups[1].Value=="0"?" coin posé":" coins posés")+(m.Groups[2].Success?" sur deux":""));
+            ligne=PointsPoses.Replace(ligne,m=>m.Groups[1].Value+(m.Groups[1].Value=="1"?" point":" points"));
+            return TickDuRecu.Replace(ligne,"au jour suivant");
+        }).Where(ligne=>ligne.Length>0&&(Aides.Contains(ligne)||TexteDuMonde.Interdit(ligne)==null&&TexteDuMonde.SansUnite(ligne)==null)));
+        // Les aides des modes nomment des touches (« 1 : maison ») : ce ne sont pas des nombres du monde, elles se lisent telles quelles.
+        static readonly string[] Aides={Aide,AideEnceinte,AideParcelle,AideBatiment};
+        public static bool EstUneAide(string ligne)=>Aides.Contains(ligne);
         // Le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
         void Tracer()
         {
@@ -188,18 +208,8 @@ namespace ForgeLocal3D
                 for(int k=0;k<n;k++){var v=new Vector3((float)-(ax+(bx-ax)*k/n),0,(float)-(ay+(by-ay)*k/n));v.y=t.SampleHeight(v)+t.transform.position.y+1;s.Add(v);}}
             TraceEnceinte.loop=true;TraceEnceinte.positionCount=s.Count;TraceEnceinte.SetPositions(s.ToArray());TraceEnceinte.enabled=s.Count>0;
         }
-        // En bas à gauche de l'image, à hauteur de lecture quelle que soit la focale.
-        public void Placer()
-        {
-            if(!panneau)return;
-            float d=view.nearClipPlane+.5f,h=2*d*Mathf.Tan(view.fieldOfView*Mathf.Deg2Rad/2),w=h*view.aspect;
-            var t=panneau.transform;t.localRotation=Quaternion.identity;t.localScale=Vector3.one;panneau.characterSize=1;
-            var r=panneau.GetComponent<MeshRenderer>();float lignes=Mathf.Max(1,panneau.text.Count(c=>c=='\n')+1);
-            float ligne=r.localBounds.size.y/lignes;
-            if(ligne>0)t.localScale=Vector3.one*(h/32/ligne);
-            halo.transform.localPosition=new Vector3(ligne*.06f,-ligne*.06f,ligne*.05f);
-            t.localPosition=new Vector3(-w/2+h*.03f,-h/2+h*.04f,d);
-        }
+        // Les TextMesh ne se dessinent plus et ne se placent plus : le cabinet de la ville écrit le texte. Gardée pour ses appelants.
+        public void Placer(){}
 
         void Update()
         {
@@ -220,7 +230,6 @@ namespace ForgeLocal3D
             if(k.cKey.wasPressedThisFrame||commandes.RetourDemande)commandes.Retour();
             if(k.spaceKey.wasPressedThisFrame)commandes.Basculer();
         }
-        void LateUpdate()=>Placer();
 
         public bool Clic(Vector2 ecran)
         {
