@@ -167,6 +167,20 @@ def verifier(monde, maison, cell_id, nature, types, engages=()) -> str | None:
     return None
 
 
+def devis(monde, maison, cell_id, nature, types=None) -> dict:
+    """Ce que coûterait ce bâtiment dans cette cellule aujourd'hui, et pourquoi le dépôt le refuserait (ou None).
+
+    Les journées et le grain sont ceux que `poser` et `verifier` comptent (durée et coût modifiés compris) ; le
+    refus est celui de `verifier` avec les bâtiments déjà déposés par la maison, sans parcelle. Rien n'est écrit.
+    """
+    from sim.intentions import batiments_engages
+    types = charger_types() if types is None else types
+    type_ = types[nature]
+    return {"nature": nature, "nom": type_.nom, "cell_id": cell_id, "journees": journees(monde, type_, cell_id),
+            "bras_par_jour": type_.bras_par_jour, "cout_kg": cout_kg(monde, type_, cell_id),
+            "refus": verifier(monde, maison, cell_id, nature, types, batiments_engages(monde, maison))}
+
+
 def poser(monde, maison, cell_id, nature, types=None, parcelle=None) -> BatimentDeProvince:
     """Ouvre le chantier (l'intention s'applique) : ses journées comptées avec la durée modifiée.
 

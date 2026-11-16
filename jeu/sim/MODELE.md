@@ -4022,7 +4022,13 @@ rien. Chaque refus y est celui que le dépôt rendrait au même instant, par les
 mêmes fonctions et les mêmes intentions déjà déposées. `levee` : son refus
 (`raison_levee_fermee`), les lieux de la capitale tenus par la maison avec
 `hommes_max` (leur part restante, au plus les paysans libres de la cellule),
-`paysans`, `grain_libre_kg` et `ration_kg_par_homme_par_jour`. `cible` (avec
+`paysans`, `grain_libre_kg`, `ration_kg_par_homme_par_jour`, et `batiment` :
+le devis du bâtiment de levée dans la capitale (`batiments.devis` : `nature`,
+`nom`, `cell_id`, `journees` et `cout_kg` comptés comme au dépôt, durée et coût
+modifiés compris, `bras_par_jour`, et `refus`, celui de
+`batir_dans_une_province` sans parcelle, bâtiments déjà déposés compris), ou
+`null` pour une capitale hors de la carte. La ville y lit le prix de la
+caserne avant de la poser. `cible` (avec
 `cell`) : le maître du bourg de C et le refus de lui déclarer la guerre.
 `armees` : pour chaque armée de la maison, son lieu, ses hommes, ses vivres,
 son siège et sa destination ; `marche` vers le bourg de C (avec `cell` : son

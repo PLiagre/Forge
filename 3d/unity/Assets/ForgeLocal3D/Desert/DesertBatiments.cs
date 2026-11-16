@@ -35,53 +35,79 @@ namespace ForgeLocal3D
 
         float Sol(Vector3 p)=>terrain.SampleHeight(p)+terrain.transform.position.y;
 
-        public List<(long identifiant,string etat,string message)> Dessiner(IReadOnlyList<BatimentDuPlan> batiments)
+        public List<(long identifiant,string etat,string message)> Dessiner(IReadOnlyList<BatimentDuPlan> batiments)=>Dessiner(batiments,null,null);
+
+        // Les bâtiments du plan, puis, si `plan` est donné, ses bâtiments de province (la caserne) sur leur parcelle,
+        // par la même pose et le même kit ; leur dessin s'écrit dans `deProvince`. Un bâtiment de province sans parcelle
+        // (posé depuis la carte) n'a pas de place dans la ville : il s'y note « sans_parcelle », sans pièce ni refus.
+        public List<(long identifiant,string etat,string message)> Dessiner(IReadOnlyList<BatimentDuPlan> batiments,PlanLu plan,List<(long identifiant,string etat,string message)> deProvince)
         {
             // D'abord vider : un Destroy différé laisserait les anciennes pièces comptées dans la même image.
             // Maillages et matériaux sont ceux des prefabs du kit : jamais détruits.
             for(int i=Racine.childCount-1;i>=0;i--)Object.DestroyImmediate(Racine.GetChild(i).gameObject);
             var resultats=new List<(long identifiant,string etat,string message)>();var description=new StringBuilder();
-            float limite=terrain.terrainData.size.x/2-1;
             foreach(var b in batiments)
             {
                 string id=b.Identifiant.ToString(CultureInfo.InvariantCulture);
                 if(description.Length>0)description.Append('\n');
-                string cause=null,nomPiece=null;Transform piece=null;
-                var pose=LectureDuBatiment.Poser(b);var etape=LectureDuBatiment.Etape(b);
-                if(!pose.Presente)cause=pose.Absence;
-                else if(b.Emprise.Any(c=>Math.Abs(c.X)>limite||Math.Abs(c.Y)>limite))cause="hors du terrain.";
-                else
+                resultats.Add(Placer("Bâtiment "+id,id,b.Identifiant,b.Nature,LectureDuBatiment.Etape(b),LectureDuBatiment.Poser(b),b.Emprise,description));
+            }
+            deProvince?.Clear();
+            if(plan!=null)foreach(var b in plan.BatimentsDeProvince)
+            {
+                string id=b.Identifiant.ToString(CultureInfo.InvariantCulture);
+                if(description.Length>0)description.Append('\n');
+                description.Append("province ");
+                if(b.Parcelle==BatimentDeProvinceDuPlan.SansParcelle)
                 {
-                    var p=kit.Piece(b.Nature,etape);
-                    if(!p.Presente)cause=p.Absence;
-                    else
-                    {
-                        // Repère : (x, y) du plan devient (-x, sol, -y).
-                        var centre=new Vector3((float)-pose.CentreX,0,(float)-pose.CentreY);centre.y=Sol(centre);
-                        var go=Object.Instantiate(p.Prefab,Racine);go.name="Bâtiment "+id;
-                        go.transform.SetPositionAndRotation(centre,Quaternion.Euler(0,(float)pose.LacetDegres,0));
-                        double debord=Debord(go,b.Emprise);
-                        if(debord>0)
-                        {
-                            Object.DestroyImmediate(go);
-                            cause=p.Prefab.name+" déborde de son emprise de "+debord.ToString("F2",CultureInfo.InvariantCulture)+" m.";
-                        }
-                        else{piece=go.transform;nomPiece=p.Prefab.name;}
-                    }
+                    deProvince?.Add((b.Identifiant,"sans_parcelle",""));description.Append(id).Append(" sans_parcelle");continue;
                 }
-                if(cause!=null)
-                {
-                    resultats.Add((b.Identifiant,"refusee","Bâtiment "+id+" non posé : "+cause));
-                    description.Append(id).Append(" refusee");continue;
-                }
-                string etat=etape.ToString().ToLowerInvariant();
-                description.Append(id).Append(' ').Append(etat).Append(' ').Append(nomPiece);
-                var v=piece.position;
-                foreach(var c in new[]{v.x,v.y,v.z,piece.eulerAngles.y})description.Append(' ').Append(c.ToString("F2",CultureInfo.InvariantCulture));
-                resultats.Add((b.Identifiant,etat,""));
+                var parcelle=plan.Parcelles.FirstOrDefault(p=>p.Identifiant==b.Parcelle);
+                string nom=char.ToUpperInvariant(b.Nature[0])+b.Nature.Substring(1)+" "+id;
+                var r=Placer(nom,id,b.Identifiant,b.Nature,LectureDuBatiment.Etape(b),LectureDuBatiment.Poser(b,plan),parcelle?.Contour,description);
+                deProvince?.Add(r);
             }
             Empreinte=Hacher(description.ToString());
             return resultats;
+        }
+
+        // Pose la pièce du kit de `nature` à son étape, au centre de l'emprise, façade vers la rue ; refuse une pose absente,
+        // une emprise hors du terrain, une pièce absente du kit ou qui déborde de son emprise. Une ligne de description.
+        (long identifiant,string etat,string message) Placer(string nom,string id,long identifiant,string nature,EtapeDuBatiment etape,PoseDuBatiment pose,IReadOnlyList<PointLocal> emprise,StringBuilder description)
+        {
+            float limite=terrain.terrainData.size.x/2-1;
+            string cause=null,nomPiece=null;Transform piece=null;
+            if(!pose.Presente)cause=pose.Absence;
+            else if(emprise.Any(c=>Math.Abs(c.X)>limite||Math.Abs(c.Y)>limite))cause="hors du terrain.";
+            else
+            {
+                var p=kit.Piece(nature,etape);
+                if(!p.Presente)cause=p.Absence;
+                else
+                {
+                    // Repère : (x, y) du plan devient (-x, sol, -y).
+                    var centre=new Vector3((float)-pose.CentreX,0,(float)-pose.CentreY);centre.y=Sol(centre);
+                    var go=Object.Instantiate(p.Prefab,Racine);go.name=nom;
+                    go.transform.SetPositionAndRotation(centre,Quaternion.Euler(0,(float)pose.LacetDegres,0));
+                    double debord=Debord(go,emprise);
+                    if(debord>0)
+                    {
+                        Object.DestroyImmediate(go);
+                        cause=p.Prefab.name+" déborde de son emprise de "+debord.ToString("F2",CultureInfo.InvariantCulture)+" m.";
+                    }
+                    else{piece=go.transform;nomPiece=p.Prefab.name;}
+                }
+            }
+            if(cause!=null)
+            {
+                description.Append(id).Append(" refusee");
+                return (identifiant,"refusee",nom+" non posé : "+cause);
+            }
+            string etat=etape.ToString().ToLowerInvariant();
+            description.Append(id).Append(' ').Append(etat).Append(' ').Append(nomPiece);
+            var v=piece.position;
+            foreach(var c in new[]{v.x,v.y,v.z,piece.eulerAngles.y})description.Append(' ').Append(c.ToString("F2",CultureInfo.InvariantCulture));
+            return (identifiant,etat,"");
         }
 
         // La plus grande distance, au plan, d'un coin de boîte de maillage hors de l'emprise et à plus de

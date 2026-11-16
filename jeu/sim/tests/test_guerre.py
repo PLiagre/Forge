@@ -746,6 +746,25 @@ def test_le_devis_dit_le_refus_du_depot(depart, regles):
         G.devis_des_ordres(monde, "maison-inventee")
 
 
+def test_le_devis_dit_le_prix_de_la_caserne_et_le_refus_de_son_depot(depart, regles):
+    monde = copy.deepcopy(depart)
+    cid = _capitale(monde)
+    caserne = B.charger_types()[regles.batiment_de_levee]
+    batiment = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]
+    # Son prix est celui du dépôt : ses journées au salaire du bourg ; sans grain, le refus du dépôt.
+    attendu = {"nature": "caserne", "nom": caserne.nom, "cell_id": cid, "journees": caserne.journees,
+               "bras_par_jour": caserne.bras_par_jour, "cout_kg": B.cout_kg(monde, caserne, cid)}
+    assert {k: v for k, v in batiment.items() if k != "refus"} == attendu and attendu["cout_kg"] > 0
+    depot = {"type": "batir_dans_une_province", "maison": BAR, "cell": cid, "nature": "caserne"}
+    assert batiment["refus"] == _refus(monde, depot) is not None and batiment["refus"].startswith("grenier insuffisant")
+    # Le grain au grenier : le devis ne refuse plus, le dépôt passe ; déposée, la seconde se refuse des deux côtés.
+    monde.greniers[BAR][NOURRITURE] = 20000.0
+    assert G.devis_des_ordres(monde, BAR)["levee"]["batiment"]["refus"] is None is _refus(monde, depot)
+    recevoir_intention(monde, depot)
+    refus = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]["refus"]
+    assert refus == _refus(monde, depot) and "une seule caserne" in refus
+
+
 def test_le_pays_d_une_terre_change_a_la_chute_et_pas_sans_elle(campagne, depart):
     from types import SimpleNamespace
     from sim.carte_servie import terres_et_pays

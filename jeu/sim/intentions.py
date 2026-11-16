@@ -327,14 +327,19 @@ def _parcelle_de_province(monde, cell_id, identifiant):
         raise IntentionRefusee(f"parcelle déjà {prise} : {identifiant}")
 
 
+def batiments_engages(monde, maison) -> tuple:
+    """Les (cellule, nature) des bâtiments de province que `maison` a déjà déposés pour le tick suivant."""
+    return tuple((i.cell_id, i.nature) for i in monde.intentions_en_attente
+                 if isinstance(i, BatirDansUneProvince) and i.maison == maison)
+
+
 def _batir_dans_une_province(monde, intention):
     """Un bâtiment de la carte, ou de la ville sur une parcelle : refusé avec sa raison, sans rien écrire."""
     from sim import batiments
     maison, cell_id, nature = intention["maison"], intention["cell"], intention["nature"]
     if isinstance(cell_id, bool) or not isinstance(cell_id, int):
         raise IntentionRefusee(f"cell invalide : entier attendu, reçu {cell_id!r}")
-    engages = tuple((i.cell_id, i.nature) for i in monde.intentions_en_attente
-                    if isinstance(i, BatirDansUneProvince) and i.maison == maison)
+    engages = batiments_engages(monde, maison)
     raison = batiments.verifier(monde, maison, cell_id, nature, batiments.charger_types(), engages)
     if raison is not None:
         raise IntentionRefusee(raison)
