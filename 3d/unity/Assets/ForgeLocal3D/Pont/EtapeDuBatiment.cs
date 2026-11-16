@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Forge.Pont
@@ -49,9 +50,37 @@ namespace Forge.Pont
         public static EtapeDuBatiment Etape(BatimentDuPlan b)
         {
             if (b == null) throw new ArgumentNullException(nameof(b));
-            if (!b.EnChantier) return EtapeDuBatiment.Fini;
+            return Etape(b.EnChantier, b.TravailRequis, b.TravailFourni);
+        }
+
+        // Un bâtiment de province suit la même règle, sur le chantier que le monde sert.
+        public static EtapeDuBatiment Etape(BatimentDeProvinceDuPlan b)
+        {
+            if (b == null) throw new ArgumentNullException(nameof(b));
+            return Etape(b.EnChantier, b.TravailRequis, b.TravailFourni);
+        }
+
+        private static EtapeDuBatiment Etape(bool enChantier, long requis, long fourni)
+        {
+            if (!enChantier) return EtapeDuBatiment.Fini;
             // `fourni × 2 < requis`, écrit sans débordement.
-            return b.TravailFourni < b.TravailRequis - b.TravailFourni ? EtapeDuBatiment.Piquets : EtapeDuBatiment.Murs;
+            return fourni < requis - fourni ? EtapeDuBatiment.Piquets : EtapeDuBatiment.Murs;
+        }
+
+        // Un bâtiment de province se pose sur le contour de sa parcelle, par la même règle de façade qu'un
+        // bâtiment du plan. Sans parcelle (posé depuis la carte) ou sur une parcelle que le plan n'a pas, il est
+        // déclaré absent : la vue ne lui invente pas de place.
+        public static PoseDuBatiment Poser(BatimentDeProvinceDuPlan b, PlanLu plan)
+        {
+            if (b == null) throw new ArgumentNullException(nameof(b));
+            if (plan == null) throw new ArgumentNullException(nameof(plan));
+            string id = b.Identifiant.ToString(CultureInfo.InvariantCulture);
+            if (b.Parcelle == BatimentDeProvinceDuPlan.SansParcelle)
+                return PoseDuBatiment.Absente(b.Nature + " " + id + " : aucune parcelle, posé depuis la carte");
+            foreach (var parcelle in plan.Parcelles)
+                if (parcelle.Identifiant == b.Parcelle) return Poser(b.Nature + " " + id, parcelle.Contour);
+            return PoseDuBatiment.Absente(b.Nature + " " + id + " : parcelle "
+                + b.Parcelle.ToString(CultureInfo.InvariantCulture) + " absente du plan");
         }
 
         // Le centre est la moyenne des sommets de l'emprise ; la façade est toujours le côté `c0→c1`
@@ -59,14 +88,17 @@ namespace Forge.Pont
         public static PoseDuBatiment Poser(BatimentDuPlan b)
         {
             if (b == null) throw new ArgumentNullException(nameof(b));
-            string id = b.Identifiant.ToString(CultureInfo.InvariantCulture);
-            var emprise = b.Emprise;
+            return Poser("bâtiment " + b.Identifiant.ToString(CultureInfo.InvariantCulture), b.Emprise);
+        }
+
+        private static PoseDuBatiment Poser(string nom, IReadOnlyList<PointLocal> emprise)
+        {
             if (emprise.Count < 3)
-                return PoseDuBatiment.Absente("bâtiment " + id + " : emprise de "
+                return PoseDuBatiment.Absente(nom + " : emprise de "
                     + emprise.Count.ToString(CultureInfo.InvariantCulture) + " point(s)");
             foreach (var p in emprise)
                 if (!EstFini(p.X) || !EstFini(p.Y))
-                    return PoseDuBatiment.Absente("bâtiment " + id + " : point non fini");
+                    return PoseDuBatiment.Absente(nom + " : point non fini");
 
             double cx = 0, cy = 0;
             foreach (var p in emprise) { cx += p.X; cy += p.Y; }
@@ -76,11 +108,11 @@ namespace Forge.Pont
             PointLocal c0 = emprise[0], c1 = emprise[1];
             double ex = c1.X - c0.X, ey = c1.Y - c0.Y;
             double longueur = Math.Sqrt(ex * ex + ey * ey);
-            if (longueur == 0) return PoseDuBatiment.Absente("bâtiment " + id + " : façade nulle");
+            if (longueur == 0) return PoseDuBatiment.Absente(nom + " : façade nulle");
 
             double mx = ey / longueur, my = -ex / longueur;
             double s = mx * (cx - (c0.X + c1.X) / 2) + my * (cy - (c0.Y + c1.Y) / 2);
-            if (s == 0) return PoseDuBatiment.Absente("bâtiment " + id + " : emprise plate");
+            if (s == 0) return PoseDuBatiment.Absente(nom + " : emprise plate");
             // `m` pointe vers l'intérieur du lot : la façade regarde de l'autre côté.
             if (s > 0) { mx = -mx; my = -my; }
 

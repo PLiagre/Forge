@@ -15,6 +15,7 @@
 import copy
 import json
 import math
+from pathlib import Path
 import random
 import tomllib
 
@@ -434,6 +435,58 @@ def test_le_service_ne_laisse_le_joueur_batir_que_pour_sa_maison():
         serveur.shutdown()
         fil.join()
         serveur.server_close()
+
+
+ZAB, BISKRA = "seigneurie-6", 10103
+FIGEES = Path(__file__).parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+ROUTE_EST = {"type": "tracer_route", "maison": ZAB, "cell": BISKRA, "points": [[66, -8], [120, -8]], "largeur_m": 4}
+DECOUPE_EST = {"type": "decouper_parcelle", "maison": ZAB, "cell": BISKRA, "rue": 0, "segment": 0, "debut_m": 14,
+               "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}
+
+
+def plans_de_la_caserne_de_biskra():
+    """Le joueur du Zab, par le service et ses seuls gestes : la part au plus haut, une route à l'est de la place,
+    une parcelle de 10 m × 20 m, puis la caserne sur elle. Rend les octets de `/plan` de Biskra au premier
+    jour du chantier puis au jour de son achèvement, avec leurs ticks : les réponses figées du pont."""
+    from sim.tests.test_carte_servie import _service_local
+    from sim.tests.test_monde import requete_service
+    with _service_local() as (serveur, port):
+        def deposer(intention):
+            statut, recu, _ = requete_service(port, "/intention", "POST", json.dumps(intention).encode())
+            assert statut == 200, recu
+        tick = lambda: requete_service(port, "/tick?n=1", "POST")  # noqa: E731
+        plan = lambda: requete_service(port, f"/plan?cell={BISKRA}")  # noqa: E731
+        deposer({"type": "choisir_depart", "seigneurie": 6})
+        tick()
+        deposer({"type": "fixer_part", "maison": ZAB, "part": c.PART_MAXIMALE})
+        deposer(ROUTE_EST)
+        tick()
+        deposer(DECOUPE_EST)
+        tick()
+        while plan()[1]["parcelles"][0]["en_chantier"]:
+            tick()
+        deposer({"type": "batir_dans_une_province", "maison": ZAB, "cell": BISKRA, "nature": "caserne", "parcelle": 0})
+        tick()
+        _, document, en_chantier = plan()
+        tick_en_chantier = document["tick"]
+        while plan()[1]["batiments_de_province"][0]["en_chantier"]:
+            tick()
+        _, document, achevee = plan()
+        return tick_en_chantier, en_chantier, document["tick"], achevee
+
+
+def test_les_plans_figes_de_la_caserne_sont_ceux_du_service():
+    """Les octets que lit le pont (`ClientPlanTests`, `PoseDeCaserneTests`) sont ceux que le service rend."""
+    tick_chantier, chantier, tick_achevee, achevee = plans_de_la_caserne_de_biskra()
+    figee = FIGEES / f"plan-biskra-caserne-graine0-tick{tick_chantier}.json"
+    assert figee.read_bytes() == chantier
+    assert (FIGEES / f"plan-biskra-caserne-achevee-graine0-tick{tick_achevee}.json").read_bytes() == achevee
+    premier, dernier = (json.loads(o)["batiments_de_province"] for o in (chantier, achevee))
+    caserne = B.charger_types()["caserne"]
+    assert premier == [{"identifiant": premier[0]["identifiant"], "nature": "caserne", "parcelle": 0,
+                        "travail_requis": caserne.journees, "travail_fourni": caserne.bras_par_jour, "en_chantier": True}]
+    assert dernier[0] | {"travail_fourni": 0, "en_chantier": True} == premier[0] | {"travail_fourni": 0}
+    assert dernier[0]["travail_fourni"] == caserne.journees and dernier[0]["en_chantier"] is False
 
 
 # --- Le marché et la grange : trois bâtiments, un seul grenier ----------------------
