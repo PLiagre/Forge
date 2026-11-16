@@ -2605,11 +2605,11 @@ propre `verrou_maisons` protège ce cache ; une lecture ne prend jamais le
 verrou du tick. Une modification du monde vivant ne change donc pas une
 fiche du tick déjà publié, même avant sa première lecture.
 
-Les lieux, les plans et les occupations suivent la même règle : leurs documents
-sont copiés à la publication, dans le même appel à `_construire_etat`, et
-leurs octets naissent à la première lecture (`OctetsDifferes`, qui ne garde ni
-serveur ni verrou), puis restent. Un tick ne sérialise que `/monde`, l'IA et
-les modificateurs.
+Les lieux, les plans, les occupations et les guerres suivent la même règle :
+leurs documents sont copiés à la publication, dans le même appel à
+`_construire_etat`, et leurs octets naissent à la première lecture
+(`OctetsDifferes` et `DocumentDiffere`, qui ne gardent ni serveur ni verrou),
+puis restent. Un tick ne sérialise que `/monde`, l'IA et les modificateurs.
 
 Un siège hors carte porte le nom du registre, des coordonnées nulles et sa
 raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
@@ -3970,7 +3970,9 @@ se ferme.
 `{tick, date, guerres, armees, prises, morts_des_armees}`
 (`guerre.document_de_la_guerre`, sans arrondi) : chaque armée porte son lieu,
 ses effectifs par lieu d'origine, son effectif total, ses vivres, sa route en
-cellules, sa destination et la cellule qu'elle assiège ou `null`. Le service
+cellules, sa destination et la cellule qu'elle assiège ou `null`. Le document
+est copié à la publication ; ses octets naissent à la première lecture de
+`/guerres`, sans le verrou du tick, puis restent pour ce tick publié. Le service
 seul ajoute à chaque armée `etapes`, les places qu'elle doit encore atteindre
 dans l'ordre du maillon (avec une route : son bourg si elle part d'un autre
 lieu, le bourg de chaque cellule de sa route, puis le lieu visé s'il n'est pas
