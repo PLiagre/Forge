@@ -303,7 +303,11 @@ namespace ForgeLocal3D
             var b=DevisDeLaLevee.Batiment;
             string prix=b.Nom+" : "+TexteDuMonde.Jours(b.Journees)+" de travail, "+TexteDuMonde.Nombre(b.BrasParJour)+" bras par jour, "
                 +TexteDuMonde.Masse(b.CoutKg)+" de grain · grenier : "+TexteDuMonde.Masse(DevisDeLaLevee.GrainLibreKg);
-            return b.Refus==null?prix:prix+"\nLe monde la refuserait aujourd'hui :\n"+b.Refus;
+            if(b.Refus==null)return prix;
+            // Le refus tel que le monde l'écrit, sur une ligne ; s'il montre un numéro ou un nombre sans unité, le joueur ne lirait
+            // que le début de la phrase : il lit alors que la caserne est refusée, et le panneau de mise au point garde la raison.
+            string refus="Le monde la refuserait aujourd'hui : "+b.Refus;
+            return prix+"\n"+(TexteDuMonde.Interdit(refus)==null&&TexteDuMonde.SansUnite(refus)==null?refus:"Le monde la refuserait aujourd'hui.\n"+b.Refus);
         }
 
         // Forme la caserne sur la parcelle sous le point pour la maison du joueur, puis la dépose au monde, seul juge (parcelle
@@ -434,6 +438,7 @@ namespace ForgeLocal3D
             var lu=plan.Lire(Cellule);
             if(!lu.Presente||lu.Plan.Tick<=enAttente.AppliqueeAuTick.Value)return false;
             var essais=Dessiner(lu.Plan);Posees.AddRange(essais);
+            if(ModeCaserne)LireDevis();
             // Une rue neuve a pu changer le sol sous les parcelles : toutes sont redessinées.
             Afficher(Bilan("Après le tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+essais.Count(e=>e.resultat.acceptee)+" rue(s) neuve(s) posée(s).",essais)
                 +"\n"+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
@@ -531,6 +536,7 @@ namespace ForgeLocal3D
             if(erreurCellule!=null){Afficher(erreurCellule);return false;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return false;}
+            if(ModeCaserne)LireDevis();
             Afficher("Plan du tick "+lu.Plan.Tick.ToString(CultureInfo.InvariantCulture)+" : "+DessinerParcelles(lu.Plan)+"\n"+DessinerBatiments(lu.Plan));
             return true;
         }
