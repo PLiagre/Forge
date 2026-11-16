@@ -1119,6 +1119,185 @@ def bread_oven():
     return m
 
 
+def barracks_tower():
+    """Tour de guet basse de la caserne, centrée sur l'origine : base de grès, fût de pisé à fruit
+    léger, meurtrières, parapet à merlons à redans et mât d'étendard. Environ 3 × 3 m, 8 m avec le mât."""
+    t = Mesh(); za = .8; haut = 5.7; b = 2.85; tp = 2.25
+    def half(z): return b / 2 - (b - tp) / 2 * (z - za) / (haut - za)
+    frustum(t, 0, 0, 0, (b + .3, b + .3), (b + .2, b + .2), za, 'gres_ocre')
+    frustum(t, 0, 0, za, (b, b), (tp, tp), haut - za, 'pise')
+    # Meurtrières sur trois faces ; l'une est éclairée, celle du corps de garde.
+    for side, verre in ((0, 'baie_sombre'), (1, 'baie_sombre'), (3, 'lumiere')):
+        n = Mesh()
+        for z, h, w, niveau, noir in ((3.3, .9, .3, 1, verre), (1.7, .6, .24, 0, 'baie_sombre')):
+            n.detail = niveau
+            n.surface([(-w / 2, -.04, z), (w / 2, -.04, z), (w / 2, -.04, z + h), (-w / 2, -.04, z + h)], [(0, 1, 2, 3)], mat(noir))
+            outline(n, [(-w / 2, 0), (-w / 2, h), (w / 2, h), (w / 2, 0)], 0, -.05, z, .07, 'pise_clair', .07, closed=True)
+        place_on(t, n, side, half(3.5) + .03)
+    s = tp / 2
+    for sign in (-1, 1):
+        t.box((0, sign * (s - .15), haut + .3), (tp, .3, .6), mat('pise'))
+        t.box((sign * (s - .15), 0, haut + .3), (.3, tp - .6, .6), mat('pise'))
+    t.detail = 1
+    for cx in (-1, 1):
+        for cy in (-1, 1):
+            stepped(t, cx * (s - .2), cy * (s - .2), haut + .6, .4, 'pise')
+    for sign in (-1, 1):
+        pyramid(t, 0, sign * (s - .15), haut + .6, .5, .3, .4, 'pise')
+        pyramid(t, sign * (s - .15), 0, haut + .6, .3, .5, .4, 'pise')
+    # Trois gargouilles en demi-troncs de palmier sous le parapet.
+    t.detail = 0
+    for x in (-.55, 0, .55):
+        t.cylinder((x, -s + .1, haut - .1), (x, -s - .45, haut - .18), .06, .055, mat('bois_palmier'), 6)
+    t.detail = 2
+    # Le mât de l'étendard, planté au centre de la terrasse : la toile flotte vers l'est.
+    mat_haut = 8.0
+    t.cylinder((0, 0, haut), (0, 0, mat_haut), .055, .04, mat('bois_sombre'), 6)
+    t.detail = 1
+    t.ico((0, 0, mat_haut + .07), (.08, .08, .08), mat('cuivre'), 1)
+    t.detail = 2
+    toile = [[(.04 + i * .34, .1 * math.sin(i * 1.3) * i / 4, mat_haut - .1 - j * .38) for i in range(5)] for j in range(3)]
+    for j in range(2):
+        for i in range(4):
+            quad = [toile[j][i], toile[j][i + 1], toile[j + 1][i + 1], toile[j + 1][i]]
+            t.surface(quad, [(0, 1, 2, 3)], mat('tissu_etendard'))
+            t.surface(quad, [(3, 2, 1, 0)], mat('tissu_etendard'))
+    return t
+
+
+def barracks():
+    """Caserne saharienne : une cour fermée de murs de pisé sur assise de grès, une porte en arc
+    outrepassé sur la façade, un corps de logis bas à terrasse le long du mur est, un escalier
+    de terrasse, une tour de guet à l'angle de la façade, un râtelier de lances et un poteau
+    d'exercice. Environ 9,3 × 18,7 m, la porte regarde le sud (-Y), vers la rue."""
+    m = Mesh(); A = 4.65; B = 9.35; e = .6; za = .7; zt = 3.6
+    xo = A - .1; yo = B - .1
+    gw = 2.2; ah = 3.0; jamb = .35
+    pts = horseshoe(gw, ah, 20, 10); spring = pts[1][1]; r = max(abs(p[0]) for p in pts); arc = pts[1:-1]
+    side_len = 2 * (yo - e)
+    # La tour de l'angle ouest de la façade tient lieu de mur sur sa largeur.
+    tour = 3.15; tour_x = -A + tour / 2; tour_y = -B + tour / 2
+    transform_into(m, barracks_tower(), (tour_x, tour_y, 0))
+    # L'assise de grès : façade à droite de la porte, fond, flancs.
+    x1 = gw / 2 + jamb; long_f = A - x1
+    frustum(m, (A + x1) / 2, -(B - .4), 0, (long_f, .8), (long_f - .1, .7), za, 'gres_ocre')
+    frustum(m, 0, B - .4, 0, (2 * A, .8), (2 * A - .1, .7), za, 'gres_ocre')
+    y_ouest = -B + tour
+    frustum(m, A - .4, 0, 0, (.8, 2 * B - 1.6), (.7, 2 * B - 1.7), za, 'gres_ocre')
+    frustum(m, -A + .4, (y_ouest + B - .8) / 2, 0, (.8, B - .8 - y_ouest), (.7, B - .9 - y_ouest), za, 'gres_ocre')
+    # Les murs de pisé, façade et fond droits, flancs à léger fruit.
+    pise = zt - za; long_p = xo - x1
+    m.box(((xo + x1) / 2, -(yo - e / 2), za + pise / 2), (long_p, e, pise), mat('pise'))
+    frustum(m, 0, yo - e / 2, za, (2 * xo, e), (2 * xo, e - .1), pise, 'pise')
+    frustum(m, xo - e / 2, 0, za, (e, side_len), (e - .1, side_len), pise, 'pise')
+    y_mur = -yo + tour - .1; long_o = yo - e - y_mur
+    frustum(m, -xo + e / 2, (y_mur + yo - e) / 2, za, (e, long_o), (e - .1, long_o), pise, 'pise')
+    # La porte : pieds-droits de pierre, pisé au-dessus du départ de l'arc, tympan plein,
+    # claveaux de brique crue et vantaux ouverts le long du passage.
+    for sx in (-1, 1):
+        m.box((sx * (gw / 2 + jamb / 2), -(yo - e / 2), spring / 2), (jamb, e, spring), mat('pierre_taille'))
+        m.box((sx * (r + (gw / 2 + jamb - r) / 2), -(yo - e / 2), (spring + zt) / 2), (gw / 2 + jamb - r, e, zt - spring), mat('pise'))
+    for (a, b), (c, d) in zip(arc, arc[1:]):
+        m.surface([(a, -yo, b), (c, -yo, d), (c, -yo, zt), (a, -yo, zt)], [(0, 1, 2, 3)], mat('pise'))
+        m.surface([(a, -yo + e, b), (c, -yo + e, d), (c, -yo + e, zt), (a, -yo + e, zt)], [(3, 2, 1, 0)], mat('pise'))
+        m.surface([(a, -yo, b), (a, -yo + e, b), (c, -yo + e, d), (c, -yo, d)], [(0, 1, 2, 3)], mat('pise_clair'))
+    m.detail = 0
+    for (a, b), (c, d) in zip(arc, arc[1:]):
+        m.beam((a, -yo - .05, b), (c, -yo - .05, d), .3, mat('brique_crue'), .12)
+    m.detail = 2
+    m.box((0, -(yo - e / 2), .04), (gw, e, .08), mat('sol_dalle'))
+    m.detail = 1
+    for sx in (-1, 1):
+        m.box((sx * (gw / 2 - .05), -yo + e + .55, 1.3), (.08, 1.1, 2.5), mat('bois_peint_vert'))
+    m.detail = 2
+    # Parapet extérieur, chaperon et merlons : pyramides sur la façade, le fond et les flancs.
+    m.box((0, -yo + .15, zt + .25), (2 * xo, .3, .5), mat('pise'))
+    m.box((0, yo - .15, zt + .25), (2 * xo, .3, .5), mat('pise'))
+    m.box((xo - .15, 0, zt + .25), (.3, side_len + .6, .5), mat('pise'))
+    m.box((-xo + .15, (y_mur + yo) / 2, zt + .25), (.3, yo - y_mur, .5), mat('pise'))
+    m.detail = 1
+    for x in (-1.3, 0, 1.3, 2.6, 3.9):
+        pyramid(m, x, -yo + .15, zt + .5, .8, .3, .45, 'pise')
+    for x in (-3.9 + 1.3 * k for k in range(7)):
+        pyramid(m, x, yo - .15, zt + .5, .8, .3, .45, 'pise')
+    for y in (-5.4 + 1.8 * k for k in range(7)):
+        pyramid(m, xo - .15, y, zt + .5, .3, .8, .45, 'pise')
+    for y in (-5.0 + 1.8 * k for k in range(7)):
+        pyramid(m, -xo + .15, y, zt + .5, .3, .8, .45, 'pise')
+    m.detail = 2
+    m.detail = 1
+    for cx, cy in ((1, -1), (1, 1), (-1, 1)):
+        stepped(m, cx * (xo - .3), cy * (yo - .3), zt + .5, .5, 'pise')
+    m.detail = 2
+    # Cour damée.
+    m.box((0, 0, .02), (2 * (xo - e) + .1, side_len + .1, .04), mat('pise_clair'))
+    # Le corps de logis, bas, plâtré, à terrasse et parapet, adossé au mur est.
+    lx0 = .9; lx1 = xo - e + .1; ly0 = -3.5; ly1 = 5.5; zl = 3.1
+    lc = (lx0 + lx1) / 2; ly = (ly0 + ly1) / 2; lw = lx1 - lx0; ll = ly1 - ly0
+    frustum(m, lc, ly, 0, (lw + .3, ll + .3), (lw + .2, ll + .2), .45, 'gres_ocre')
+    frustum(m, lc, ly, .45, (lw, ll), (lw - .1, ll - .1), zl - .45, 'enduit_pise')
+    m.box((lx0 + .13, ly, zl + .3), (.26, ll, .6), mat('enduit_pise'))
+    m.box((lc, ly0 + .13, zl + .3), (lw, .26, .6), mat('enduit_pise'))
+    m.box((lc - .5, ly1 - .13, zl + .3), (lw - 1.0, .26, .6), mat('enduit_pise'))
+    m.detail = 1
+    m.box((lx0 + .13, ly, zl + .64), (.34, ll + .06, .08), mat('pise_clair'))
+    for y in (ly0 + .8 + k * (ll - 1.6) / 4 for k in range(5)):
+        pyramid(m, lx0 + .13, y, zl + .68, .3, .26, .34, 'enduit_pise')
+    m.detail = 2
+    # Façade sur la cour : trois portes cintrées et deux fenêtres grillagées, gargouilles en palmier.
+    face = Mesh(); face.detail = 1
+    for x in (-3, 0, 3):
+        face.detail = 1
+        opening(face, x, 0, 1.0, 2.1, 'bois_sombre', arch=True, frame='pierre_taille', frame_width=.18, y0=-.18)
+    for x in (-1.5, 1.5):
+        face.detail = 0
+        opening(face, x, 1.5, .5, .75, 'baie_sombre', grille=True, frame_width=.15)
+    face.detail = 0
+    for x in (-2.2, 2.2):
+        face.cylinder((x, .1, zl - .15), (x, -.5, zl - .25), .07, .065, mat('bois_palmier'), 6)
+    face.detail = 2
+    transform_into(m, face, (lx0 - .01, ly, 0), -math.pi / 2)
+    # L'escalier de terrasse, contre le mur est, côté fond ; le parapet nord s'ouvre sur sa tête.
+    marches = 6; sx0 = lx1 - 1.5; sw = 1.2; run = .45; sc = sx0 + sw / 2; yf = ly1 + marches * run
+    # Au loin, un seul coin de pierre à pente régulière, plus étroit que les marches qui le cachent.
+    cin = [(sc - sw / 2 + .05, yf, 0), (sc + sw / 2 - .05, yf, 0), (sc + sw / 2 - .05, ly1, zl - .05), (sc - sw / 2 + .05, ly1, zl - .05)]
+    m.surface(cin + [(sc - sw / 2 + .05, ly1, 0), (sc + sw / 2 - .05, ly1, 0)],
+              [(0, 3, 2, 1), (0, 4, 3), (1, 2, 5), (4, 5, 2, 3), (0, 1, 5, 4)], mat('pierre_taille'))
+    m.detail = 0
+    for k in range(marches):
+        h = zl * (k + 1) / marches
+        m.box((sc, yf - (k + .5) * run, h / 2), (sw, run, h), mat('pierre_taille'))
+        m.box((sc, yf - (k + .5) * run - .02, h + .02), (sw + .06, run - .02, .04), mat('gres_clair'))
+    m.detail = 2
+    # Le râtelier de lances, le long du mur ouest : trois poteaux, deux lisses, sept hampes.
+    rx = -3.45; ys = (-1.8, .2, 2.2)
+    m.detail = 1
+    for y in ys:
+        m.cylinder((rx, y, 0), (rx, y, 1.6), .06, .055, mat('bois_palmier'), 6)
+    for z in (.55, 1.3):
+        m.beam((rx, ys[0] - .15, z), (rx, ys[-1] + .15, z), .07, mat('bois_palmier'))
+    m.detail = 0
+    for k in range(7):
+        y = ys[0] + .1 + k * (ys[-1] - ys[0] - .2) / 6
+        m.beam((rx + .22, y, .05), (rx + .03, y, 2.35), .035, mat('bois_sombre'))
+    m.detail = 0
+    for k in range(7):
+        y = ys[0] + .1 + k * (ys[-1] - ys[0] - .2) / 6
+        m.cylinder((rx + .03, y, 2.35), (rx + .02, y, 2.62), .035, 0, mat('fer_noir'), 4)
+    m.detail = 2
+    # Le poteau d'exercice : un fût, un bras et une botte de paille pour la tête.
+    px, py = -.9, 2.8
+    m.detail = 0
+    m.cylinder((px, py, 0), (px, py, 1.75), .11, .1, mat('bois_palmier'), 8)
+    m.beam((px - .5, py, 1.25), (px + .5, py, 1.25), .08, mat('bois_palmier'))
+    m.ico((px, py, 1.85), (.2, .2, .22), mat('tissu_ecru'), 1)
+    jar(m, lx0 - .35, 2.2, 0, .9)
+    jar(m, lx0 - .35, -.6, 0, .75)
+    m.detail = 2
+    warp(m, .03, 8, 8.0)
+    return m
+
+
 # ---------------------------------------------------------------- étapes de chantier
 
 def emprise(builder):
@@ -1304,12 +1483,16 @@ def jobs(tex):
     result += [(f'souk_{k}', lambda j=k: stall(j), 'module') for k in ('epices', 'tissus', 'poteries', 'dattes')]
     result += [('souk_tapis', rug_rack, 'module'), ('souk_jarres', jars, 'module'), ('souk_velum', velum, 'module')]
     # Toujours à la fin, pour qu'une reconstruction complète garde l'ordre du catalogue.
-    result += [('scierie', sawmill, 'batiment'), ('four_pain_pise', bread_oven, 'batiment')]
+    result += [('scierie', sawmill, 'batiment'), ('four_pain_pise', bread_oven, 'batiment'), ('caserne', barracks, 'batiment')]
     # Les étapes de chantier, posées sur l'emprise du bâtiment fini, après lui.
     tous = ('-Y', '+X', '+Y', '-X')
     for fini, builder, cotes in (('maison_pise_0', lambda: house(0), tous), ('scierie', sawmill, ('+Y', '-X')), ('four_pain_pise', bread_oven, tous)):
         result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_piquets(emprise(b)), 'batiment'),
                    (f'chantier_{fini}_murs', lambda b=builder, c=cotes: chantier_murs(emprise(b), c), 'batiment')]
+    # La caserne, large de 9,5 m, haute de 8 m avec son mât : ses piquets prennent l'aire décapée
+    # de l'enceinte, que des piquets d'un mètre ne suffisent pas à montrer à cette échelle.
+    result += [('chantier_caserne_piquets', lambda: chantier_trace(emprise(barracks)), 'batiment'),
+               ('chantier_caserne_murs', lambda: chantier_murs(emprise(barracks), tous), 'batiment')]
     # Les étapes de l'enceinte, après celles des bâtiments. La porte garde son passage libre.
     for fini, builder, passage in (('rempart_pise_10m', wall, 0.0), ('tour_ksar_0', lambda: tower(0), 0.0), ('porte_ksar', gate, PORTE_PASSAGE)):
         result += [(f'chantier_{fini}_piquets', lambda b=builder: chantier_trace(emprise(b)), 'batiment'),

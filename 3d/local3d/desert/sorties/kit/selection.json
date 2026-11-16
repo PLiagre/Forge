@@ -2,12 +2,15 @@
   "modules": [
     "scierie",
     "four_pain_pise",
+    "caserne",
     "chantier_maison_pise_0_piquets",
     "chantier_maison_pise_0_murs",
     "chantier_scierie_piquets",
     "chantier_scierie_murs",
     "chantier_four_pain_pise_piquets",
     "chantier_four_pain_pise_murs",
+    "chantier_caserne_piquets",
+    "chantier_caserne_murs",
     "chantier_rempart_pise_10m_piquets",
     "chantier_rempart_pise_10m_murs",
     "chantier_tour_ksar_0_piquets",
@@ -44,6 +47,14 @@
         "chantier_four_pain_pise_piquets",
         "chantier_four_pain_pise_murs",
         "four_pain_pise"
+      ]
+    },
+    {
+      "fini": "caserne",
+      "etapes": [
+        "chantier_caserne_piquets",
+        "chantier_caserne_murs",
+        "caserne"
       ]
     },
     {

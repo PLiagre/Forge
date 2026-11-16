@@ -29,9 +29,13 @@ camera = bpy.data.objects.new('Camera', bpy.data.cameras.new('Camera')); sc.coll
 (OUT / 'diagnostic').mkdir(parents=True, exist_ok=True)
 groups = [('maison', ['maison']), ('ksar', ['tour', 'rempart', 'porte', 'pont']), ('mosquee', ['mosquee', 'minaret', 'coupole', 'fontaine', 'escalier']),
           ('vegetation', ['palmier', 'acacia']), ('relief', ['falaise', 'dune', 'butte']), ('vie', ['chameau', 'tente', 'lanterne', 'etendard', 'garde', 'dalles', 'jarres', 'puits']),
-          ('souk', ['souk']), ('ateliers', ['scierie', 'four']), ('chantiers', ['chantier'])]
+          ('souk', ['souk']), ('ateliers', ['scierie', 'four']), ('chantiers', ['chantier']), ('caserne', [])]
+# Une planche peut aussi montrer des pièces nommées, dans l'ordre : la caserne et ses deux étapes de chantier.
+nommees = {'caserne': ['chantier_caserne_piquets', 'chantier_caserne_murs', 'caserne']}
+par_nom = {o.name: o for o in dst.objects}
 for label, prefixes in groups:
-    items = [o for p in prefixes for o in families.get(p, [])]
+    items = [par_nom[n + '_LOD0'] for n in nommees.get(label, []) if n + '_LOD0' in par_nom]
+    items += [o for p in prefixes for o in families.get(p, [])]
     if not items:
         continue
     for o in sc.collection.objects[:]:

@@ -97,7 +97,7 @@ depuis leur propre relief (faces d'avalanche plus sombres, rides éoliennes).
 py 3d/local3d/atelier_desert.py kit      # Unity fermé
 ```
 
-Ajoute les seuls modules de `kit.NOUVEAUX` (`scierie`, `four_pain_pise`)
+Ajoute les seuls modules de `kit.NOUVEAUX` (`scierie`, `four_pain_pise`, `caserne`)
 sans reconstruire le kit : Blender les fabrique par le même chemin que la
 bibliothèque (`fabriquer.py kit`), refuse un module au-dessus de son plafond ou
 portant un matériau hors catalogue, puis réécrit `catalogue.json` en reprenant les
@@ -112,8 +112,8 @@ les nouveaux modules : `inspecter_kit.py` tourne tel quel dans un banc d'essai
 (`sorties/cache/planche/`) dont la bibliothèque est `sorties/cache/kit_nouveaux.blend`,
 tant qu'une reconstruction complète ne les a pas fait entrer dans `Kit_Desert.blend`.
 
-Il ajoute aussi les **étapes de chantier** de `maison_pise_0`, de la scierie
-et du four (`kit.CHANTIERS`) : `chantier_<fini>_piquets` (piquets et cordeau) puis
+Il ajoute aussi les **étapes de chantier** de `maison_pise_0`, de la scierie,
+du four et de la caserne (`kit.CHANTIERS`) : `chantier_<fini>_piquets` (piquets et cordeau) puis
 `chantier_<fini>_murs` (murs à mi-hauteur, perches, planches sur boulins, échelle).
 Leur emprise se tire des sommets du bâtiment fini (`assets.emprise`), jamais d'un
 nombre recopié. Le catalogue déclare leur ordre dans une clé à part, `chantiers`,
@@ -121,7 +121,7 @@ après `materials` : `{"maison_pise_0": [piquets, murs, "maison_pise_0"], …}`
 (`kit.suite`). Unity mesure l'enveloppe du LOD0 de chaque étape et celle du bâtiment
 fini (le prefab de `maison_pise_0`, déjà là, est seulement chargé : `references`
 de `selection.json`) ; `kit.juger` vérifie l'emprise, les hauteurs et la suite. La
-planche `sorties/diagnostic/kit_chantiers.png` montre les six étapes.
+planche `sorties/diagnostic/kit_chantiers.png` montre les étapes, et `kit_caserne.png` celles de la caserne avec son bâtiment fini.
 
 Il ajoute les étapes de l'enceinte (`kit.ENCEINTE` : `rempart_pise_10m`,
 `tour_ksar_0`, `porte_ksar`), mesurées sur leur prefab existant comme références.
@@ -131,7 +131,7 @@ perche à chaque coin, une échelle contre la face +Y. Pour la porte, deux massi
 laissent libre le passage de `assets.PORTE_PASSAGE` m, celui que lit `gate()`.
 
 Il fait voir ce qu'Unity affichera : `sorties/diagnostic/kit_chantiers_unity.png`,
-une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four), trois colonnes
+une rangée par bâtiment de `kit.CHANTIERS` (maison, scierie, four, caserne, enceinte), trois colonnes
 (piquets, murs, fini), rendue avec les prefabs et les matériaux d'Unity. Python
 écrit les rangées dans `selection.json` (`planche`, d'après `kit.suite`) ;
 `DesertKit.Planche` ouvre une scène neuve qu'il n'enregistre jamais (une lumière,

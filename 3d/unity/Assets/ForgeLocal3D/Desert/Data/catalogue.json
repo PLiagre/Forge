@@ -971,6 +971,25 @@
       ]
     },
     {
+      "id": "caserne",
+      "kind": "batiment",
+      "triangles": [
+        4417,
+        1801,
+        446
+      ],
+      "bounds_min": [
+        -4.650000095367432,
+        -9.460206031799316,
+        -2.60770320892334e-08
+      ],
+      "bounds_max": [
+        4.650000095367432,
+        9.350000381469727,
+        8.148467063903809
+      ]
+    },
+    {
       "id": "chantier_maison_pise_0_piquets",
       "kind": "batiment",
       "triangles": [
@@ -1082,6 +1101,44 @@
         1.7841565608978271,
         1.2291998863220215,
         1.4264918565750122
+      ]
+    },
+    {
+      "id": "chantier_caserne_piquets",
+      "kind": "batiment",
+      "triangles": [
+        442,
+        370,
+        58
+      ],
+      "bounds_min": [
+        -4.6994500160217285,
+        -9.509378433227539,
+        0.0
+      ],
+      "bounds_max": [
+        4.6994500160217285,
+        9.39917278289795,
+        1.0
+      ]
+    },
+    {
+      "id": "chantier_caserne_murs",
+      "kind": "batiment",
+      "triangles": [
+        2070,
+        538,
+        130
+      ],
+      "bounds_min": [
+        -4.706000328063965,
+        -9.520828247070312,
+        -3.725290298461914e-09
+      ],
+      "bounds_max": [
+        4.706000328063965,
+        9.410622596740723,
+        5.296504020690918
       ]
     },
     {
@@ -1756,6 +1813,11 @@
       "chantier_four_pain_pise_piquets",
       "chantier_four_pain_pise_murs",
       "four_pain_pise"
+    ],
+    "caserne": [
+      "chantier_caserne_piquets",
+      "chantier_caserne_murs",
+      "caserne"
     ],
     "rempart_pise_10m": [
       "chantier_rempart_pise_10m_piquets",
