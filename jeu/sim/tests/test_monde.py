@@ -3888,6 +3888,19 @@ def test_un_tick_ne_serialise_que_le_monde_l_ia_et_les_modificateurs(monkeypatch
         assert len(appels) == 1
         assert etat.lieux[cid] is octets and len(appels) == 1
         assert octets == serialiser(json.loads(octets))
+        # Le maître d'un bourg passe à la maison qui tient un autre bourg : le tick suivant copie les
+        # terres sans les sérialiser, et la première lecture de `/terres` porte le nouveau maître.
+        with serveur.verrou_tick:
+            bourgs = [c.lieux[0] for _cid, c in sorted(serveur.world.cells.items())
+                      if c.lieux and c.lieux[0].maitre is not None]
+            bourg = bourgs[0]
+            ancien = bourg.maitre
+            bourg.maitre = next(b.maitre for b in bourgs if b.maitre != ancien)
+            terre = next(cid for cid, c in serveur.world.cells.items() if c.lieux and c.lieux[0] is bourg)
+        etat, du_tick = un_tick(serveur)
+        assert du_tick <= 3
+        terres = json.loads(etat.terres.octets())
+        assert {t["cell_id"]: t["maitre"] for t in terres["terres"]}[terre] == bourg.maitre != ancien
         # Contre-épreuve : un tick qui lit tous les lieux avant de rendre sérialise une fois par cellule.
         construire = ServeurMonde._construire_etat
 
