@@ -2562,9 +2562,11 @@ sommet de la suzeraineté de ce maître (`guerre.racine`), `null` sans maître.
 `pays` nomme chaque pays présent, trié par identifiant, du nom des fiches des
 maisons (`null` s'il est absent). Une place prise à une maison d'un autre pays
 passe au pays du preneur ; prise dans le même pays, elle change de maître, pas
-de pays. Les terres ne se recalculent que si le maître d'un bourg, un suzerain
-ou les noms changent ; seuls le tick et la date s'écrivent chaque jour, et les
-octets restent ceux du document entier aux clés triées.
+de pays. La publication copie le document des terres et des pays et ne le
+refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
+date et le tick du jour. Les octets naissent à la première lecture de `/terres`
+(`TerresDifferees`), puis restent ; ce sont ceux du document entier aux clés
+triées.
 
 **Niveau 1 :** trait des contours de la carte figée, puissances, maisons et
 villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
@@ -2605,11 +2607,12 @@ propre `verrou_maisons` protège ce cache ; une lecture ne prend jamais le
 verrou du tick. Une modification du monde vivant ne change donc pas une
 fiche du tick déjà publié, même avant sa première lecture.
 
-Les lieux, les plans, les occupations et les guerres suivent la même règle :
-leurs documents sont copiés à la publication, dans le même appel à
+Les lieux, les plans, les occupations, les guerres et les terres suivent la même
+règle : leurs documents sont copiés à la publication, dans le même appel à
 `_construire_etat`, et leurs octets naissent à la première lecture
-(`OctetsDifferes` et `DocumentDiffere`, qui ne gardent ni serveur ni verrou),
-puis restent. Un tick ne sérialise que `/monde`, l'IA et les modificateurs.
+(`OctetsDifferes`, `DocumentDiffere` et `TerresDifferees`, qui ne gardent ni
+serveur ni verrou), puis restent. Un tick ne sérialise que `/monde`, l'IA et
+les modificateurs.
 
 Un siège hors carte porte le nom du registre, des coordonnées nulles et sa
 raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
