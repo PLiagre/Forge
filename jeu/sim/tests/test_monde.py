@@ -3801,7 +3801,7 @@ def test_tick_sous_le_budget_du_service(monkeypatch):
 
 def _tout_lire_publie(serveur, etat):
     """Tous les octets d'un état publié, dans un ordre fixé : ce que Unity et l'IA peuvent lire."""
-    lus = [etat.monde, etat.ia, etat.modificateurs, etat.guerres.octets()]
+    lus = [etat.monde, etat.ia, etat.modificateurs, etat.guerres.octets(), etat.terres.octets()]
     for cid in sorted(etat.lieux):
         lus += [etat.lieux[cid], etat.lieux_avec_bourg[cid],
                 serveur.octets_plan(etat, cid), serveur.octets_occupation(etat, cid)]
@@ -3830,6 +3830,11 @@ def _lire_en_retard(ticks, alterer=False):
         if alterer:
             monde = tard.world
             monde.cells[cid].lieux[0].population += 1
+            # Le maître du bourg change pour celui d'un autre bourg : /terres du monde vivant diverge du tick publié.
+            actuel = monde.cells[cid].lieux[0].maitre
+            monde.cells[cid].lieux[0].maitre = next(
+                autre for c in sorted(monde.cells)
+                if (autre := monde.cells[c].lieux[0].maitre) is not None and autre != actuel)
             monde.plans[cid].batiments.pop()
             grenier = next(iter(monde.greniers.values()))
             grenier[next(iter(grenier))] += 1000
@@ -3851,6 +3856,12 @@ def test_publication_differee_lit_le_tick_publie(monkeypatch):
     # L'altération change bien ce que le monde vivant dirait des guerres : les octets publiés sont ceux du tick.
     from sim.guerre import document_de_la_guerre
     assert tard.etat_publie.guerres.octets() != service._serialiser(document_de_la_guerre(tard.world))
+    # Idem pour /terres : les octets publiés ne sont pas ceux que le monde vivant servirait à la lecture tardive.
+    from sim.carte_servie import terres_et_pays
+    vivant = {"date": tard.etat_publie.date, "tick": tard.etat_publie.tick} | terres_et_pays(tard.world, tard.etat_publie.maisons)
+    assert tard.etat_publie.terres.octets() != service._serialiser(vivant)
+    publie = {t["cell_id"]: t["maitre"] for t in json.loads(tard.etat_publie.terres.octets())["terres"]}
+    assert publie[cid] != tard.world.cells[cid].lieux[0].maitre
     # Contre-épreuve : un bourg qui garde le panier vivant au lieu d'une copie change après coup.
     with monkeypatch.context() as ctx:
         ctx.setattr(service, "copier_panier", lambda entite: entite.stocks)
