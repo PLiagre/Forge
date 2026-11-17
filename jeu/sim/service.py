@@ -491,7 +491,8 @@ class ServeurMonde(ThreadingHTTPServer):
         gardees = self._terres
         if gardees is None or gardees[0] != cle or gardees[1] is not noms:
             gardees = self._terres = (cle, noms, DocumentDiffere(terres_et_pays(self.world, matiere)))
-        return TerresDifferees(gardees[2], matiere.date, matiere.tick)
+        _cle, _noms, corps = gardees
+        return TerresDifferees(corps, matiere.date, matiere.tick)
 
     def _construire_etat(
         self,
