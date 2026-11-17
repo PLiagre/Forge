@@ -24,7 +24,7 @@ namespace Forge.Interface
         public const string CHOIX_RECU = "Espace : lancer le temps ; le monde applique votre choix au jour suivant";
         public const string LANCER = "Espace : lancer le temps";
         public const string ENTRER = " · double-clic sur votre siège : entrer dans votre ville";
-        public const float HAUTEUR_TERRE = 0.65f; // au-dessus des cellules (0) et de leurs contours (0,5), sous les disques des lieux (0,8) et les noms (1)
+        public const float HAUTEUR_TERRE = 0.65f; // au-dessus du terrain (0 au plus haut) et des contours (0,5), sous les disques des lieux (0,8) et les noms (1)
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
@@ -36,14 +36,13 @@ namespace Forge.Interface
         BarreDuPays jauges;
         Transform terres;
         readonly Dictionary<long, GameObject> terresEclairees = new Dictionary<long, GameObject>();
-        readonly List<Material> teintesDeTerre = new List<Material>();
+        readonly List<Object> matieresDeTerre = new List<Object>(); // les maillages et le matériau des surbrillances
         string ensembleDesTerres;
         MonoBehaviour passage; System.Reflection.PropertyInfo siegeLu;
         Transform choix;
         Button confirmer;
         Button[] temps;
         CelluleDeCarte retenue;
-        MeshRenderer territoireTeinte;
         FicheDeDepart candidate;
         RecuIntention recuJournalise;
         string liste;
@@ -150,7 +149,7 @@ namespace Forge.Interface
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
-            terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous « Cellules de la carte »
+            terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous son terrain
             Afficher();
         }
 
@@ -194,22 +193,15 @@ namespace Forge.Interface
         public bool Relacher()
         {
             if (retenue == null) return false;
-            if (territoireTeinte != null) territoireTeinte.SetPropertyBlock(null);
-            territoireTeinte = null; retenue = null; return true;
+            carte.Demarquer(); retenue = null; return true;
         }
 
         public void Garder(CelluleDeCarte cellule)
         {
             if (cellule == null) return;
             retenue = cellule;
-            if (territoireTeinte != null) territoireTeinte.SetPropertyBlock(null);
-            territoireTeinte = GetComponentsInChildren<MeshRenderer>().FirstOrDefault(r => r.name == "Cellule " + cellule.CellId);
-            if (territoireTeinte != null)
-            {
-                var teinte = new MaterialPropertyBlock();
-                teinte.SetColor("_BaseColor", SocleInterface.Couleur("alerte"));
-                territoireTeinte.SetPropertyBlock(teinte);
-            }
+            // Une terre que la carte ne dessine pas se garde sans marque, et l'ancienne marque tombe.
+            if (!carte.Marquer(cellule.CellId, SocleInterface.Couleur("alerte"))) carte.Demarquer();
             // Sans maison, la terre d'une fiche servie est proposée ; seul « Choisir cette maison » envoie le choix.
             var propose = FichesProposees()?.FirstOrDefault(f => f.CellId == cellule.CellId);
             if (propose != null) candidate = propose;
@@ -250,8 +242,8 @@ namespace Forge.Interface
         {
             foreach (var objet in terresEclairees.Values) if (objet != null) Detruire(objet);
             terresEclairees.Clear();
-            foreach (var teinte in teintesDeTerre) if (teinte != null) Detruire(teinte);
-            teintesDeTerre.Clear();
+            foreach (var matiere in matieresDeTerre) if (matiere != null) Detruire(matiere);
+            matieresDeTerre.Clear();
             ensembleDesTerres = null;
         }
 
@@ -268,23 +260,28 @@ namespace Forge.Interface
             foreach (var terre in terresEclairees) terre.Value.SetActive(retenue == null || retenue.CellId != terre.Key);
         }
 
+        // La surbrillance d'une terre est son contour servi, triangulé à plat au-dessus du terrain ; une fiche dont la carte
+        // ne dessine pas la cellule n'en a pas.
         void PoserTerres(IReadOnlyList<FicheDeDepart> fiches)
         {
-            var voulues = new HashSet<string>(fiches.Select(f => "Cellule " + f.CellId));
-            var rendus = GetComponentsInChildren<MeshRenderer>().Where(r => voulues.Contains(r.name)).GroupBy(r => r.name).ToDictionary(g => g.Key, g => g.First());
+            if (carte.Lue == null || !carte.Origine.HasValue) return;
+            var servies = new Dictionary<long, CelluleDeCarte>();
+            foreach (var cellule in carte.Lue.Cellules) servies[cellule.CellId] = cellule;
+            Material or = null;
             foreach (var fiche in fiches)
             {
-                if (terresEclairees.ContainsKey(fiche.CellId) || !rendus.TryGetValue("Cellule " + fiche.CellId, out var rendu)) continue;
-                if (!rendu.TryGetComponent<MeshFilter>(out var filtre) || filtre.sharedMesh == null || rendu.sharedMaterial == null) continue;
-                var maillage = filtre.sharedMesh;
-                var objet = new GameObject("Terre conseillée " + fiche.CellId, typeof(MeshFilter), typeof(MeshRenderer));
-                objet.transform.SetParent(terres, false);
-                objet.transform.SetPositionAndRotation(rendu.transform.position + transform.up * HAUTEUR_TERRE, rendu.transform.rotation);
-                objet.transform.localScale = rendu.transform.localScale;
+                if (terresEclairees.ContainsKey(fiche.CellId) || !servies.TryGetValue(fiche.CellId, out var cellule) || carte.TeinteDe(fiche.CellId) == null) continue;
+                var sommets = new List<Vector3>();
+                foreach (var polygone in cellule.Contour) sommets.AddRange(TriangulationDeCarte.Trianguler(polygone, carte.Origine.Value).Sommets);
+                if (sommets.Count == 0) continue;
+                if (or == null) { or = new Material(MateriauDeBase.Prendre()) { name = "Terre conseillée", color = SocleInterface.Couleur("or") }; matieresDeTerre.Add(or); }
+                var maillage = new Mesh { name = "Terre conseillée " + fiche.CellId, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                maillage.SetVertices(sommets); maillage.SetTriangles(Enumerable.Range(0, sommets.Count).ToArray(), 0); maillage.RecalculateNormals(); maillage.RecalculateBounds(); matieresDeTerre.Add(maillage);
+                var objet = new GameObject(maillage.name, typeof(MeshFilter), typeof(MeshRenderer));
+                objet.transform.SetParent(terres, false); objet.transform.localPosition = Vector3.up * HAUTEUR_TERRE;
                 objet.GetComponent<MeshFilter>().sharedMesh = maillage;
-                var teinte = new Material(rendu.sharedMaterial) { name = "Terre conseillée", color = SocleInterface.Couleur("or") };
-                teintesDeTerre.Add(teinte);
-                objet.GetComponent<MeshRenderer>().sharedMaterial = teinte;
+                var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterial = or;
+                rendu.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rendu.receiveShadows = false;
                 terresEclairees.Add(fiche.CellId, objet);
             }
         }

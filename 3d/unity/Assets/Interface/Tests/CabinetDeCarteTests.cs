@@ -19,7 +19,7 @@ namespace Forge.Interface.Tests
             cabinet = racine.AddComponent<CabinetDeCarte>();
             cabinet.Construire();
         }
-        [TearDown] public void Fermer() => Object.DestroyImmediate(racine);
+        [TearDown] public void Fermer() { racine.GetComponent<CarteDessinee>().Arreter(); Object.DestroyImmediate(racine); }
 
         [Test] public void LeChoixDirectDuPrototypeEstArrete()
         {
@@ -73,7 +73,7 @@ namespace Forge.Interface.Tests
         }
 
         const string JOUEUR = "maison-joueur", B = "maison-b", C = "maison-c";
-        LieuxDeCarte lieux; CarteDessinee carte; LecturePartie partie; Camera camera; Material cellule; MeshRenderer celluleRendu; double horloge;
+        LieuxDeCarte lieux; CarteDessinee carte; LecturePartie partie; Camera camera; double horloge;
         [Test] public void LeCabinetConstruitUneSeuleVueDesLieux() { int avant = racine.GetComponents<MonoBehaviour>().Length; Assert.That(racine.GetComponents<LieuxDeCarte>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<LieuxDeCarte>(), Has.Length.EqualTo(1)); Assert.That(racine.GetComponents<MonoBehaviour>().Length, Is.EqualTo(avant)); }
         [Test] public void TousLesLieuxDesCellulesTenuesOntLeurCouleur()
         {
@@ -107,8 +107,8 @@ namespace Forge.Interface.Tests
             Reprise(cell => cell == 10 ? LectureLieu.De(new Lieu(10, 8, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: null, absenceDesLieux: "clé absente : lieux")) : Complet(cell, 8), () => Rendu(10, 0) == null && Rendu(20, 0) != null, "\nTerre sans lieux lus : clé absente : lieux");
             Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 1, 2), new LieuPlace(1, null, B, new FluxDeLieu(0, 1, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), () => Rendu(10, 0) != null && Rendu(10, 1) == null && Rendu(20, 0) != null, "\nAlba · Brivas : point absent");
             Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 1, 2), new LieuPlace(1, new PointCarte(4000, 2000), null, new FluxDeLieu(0, 1, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), () => Rendu(10, 1) == null && Rendu(10, 0) != null, "\nAlba · Brivas : maître absent");
-            Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle; Vector3 pos = camera.transform.position; Color teinte = cellule.color; int nombre = Disques(); Servir(cell => Complet(cell, 9)); Servir(cell => Complet(cell, 10)); Servir(cell => Complet(cell, 11));
-            Assert.That(Disques() == nombre && carte.Vue.Centre == centre && carte.Vue.Echelle == echelle && camera.transform.position == pos && celluleRendu.sharedMaterial == cellule && cellule.color == teinte, Is.True); Assert.That(racine.transform.Find(LieuxDeCarte.RACINE).GetComponentsInChildren<Collider>(true), Is.Empty);
+            Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle; Vector3 pos = camera.transform.position; Color teinte = carte.TeinteDe(10).Value; int nombre = Disques(); Servir(cell => Complet(cell, 9)); Servir(cell => Complet(cell, 10)); Servir(cell => Complet(cell, 11));
+            Assert.That(Disques() == nombre && carte.Vue.Centre == centre && carte.Vue.Echelle == echelle && camera.transform.position == pos && carte.TeinteDe(10) == teinte, Is.True); Assert.That(racine.transform.Find(LieuxDeCarte.RACINE).GetComponentsInChildren<Collider>(true), Is.Empty);
         }
         // Flèches du prélèvement et du dû.
         FlechesDeCarte fleches; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
@@ -199,7 +199,8 @@ namespace Forge.Interface.Tests
             Assert.That(Mathf.Abs(Vector3.Distance(pied, a) - R) < 1e-2f && Mathf.Abs(Vector3.Distance(v[5], b) - R) < 1e-2f && Vector3.Dot(v[5] - pied, b - a) > 0f && f.GetComponent<Collider>() == null, Is.True, nom + " pied " + pied + " pointe " + v[5]);
             Assert.That(Vector3.Distance(v[0], v[3]), Is.EqualTo(FlechesDeCarte.Epaisseur(kg)).Within(1e-2f), nom); Assert.That((Color32)f.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)(nom == "du dû" ? FlechesDeCarte.VIOLET : FlechesDeCarte.ORANGE)));
         }
-        void Preparer() { horloge = 0; lieux = racine.GetComponent<LieuxDeCarte>(); carte = racine.GetComponent<CarteDessinee>(); typeof(CarteDessinee).GetField("origine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(carte, (PointCarte?)new PointCarte(3000000, 1500000)); Poser(carte, "Vue", new VueDeCarte(new Bounds(Vector3.zero, new Vector3(8000f, 1f, 6000f)), 1.6f)); camera = new GameObject("caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.transform.position = new Vector3(3, 4, 5); carte.camera = camera; celluleRendu = new GameObject("Cellule 10").AddComponent<MeshRenderer>(); celluleRendu.transform.SetParent(racine.transform, false); cellule = new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = Color.green }; celluleRendu.sharedMaterial = cellule; Assert.That(carte.Vue != null && carte.PositionSurLaCarte(new PointCarte(1, 1), 0f) != null, Is.True); }
+        // La terre 10 est posée pour de bon ; l'origine et la vue sont ensuite celles que les lieux témoins attendent.
+        void Preparer() { horloge = 0; lieux = racine.GetComponent<LieuxDeCarte>(); Dessiner(10); typeof(CarteDessinee).GetField("origine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(carte, (PointCarte?)new PointCarte(3000000, 1500000)); Poser(carte, "Vue", new VueDeCarte(new Bounds(Vector3.zero, new Vector3(8000f, 1f, 6000f)), 1.6f)); camera = new GameObject("caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.transform.position = new Vector3(3, 4, 5); carte.camera = camera; Assert.That(carte.Vue != null && carte.PositionSurLaCarte(new PointCarte(1, 1), 0f) != null, Is.True); }
         void Publier(string id, params LieuTenu[] tenus) { if (partie == null) partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), id))); Poser(partie, "Maison", Lecture<MaisonLue>.De(new MaisonLue(id, "Maison", new SiegeDeMaison(tenus[0].CellId, tenus[0].Rang, "Siège", new PointCarte(1, 2)), tenus, new Dictionary<string, string>()))); }
         static void Poser(object cible, string nom, object valeur) => cible.GetType().GetProperty(nom).GetSetMethod(true).Invoke(cible, new[] { valeur });
         void Servir(Func<long, LectureLieu> lire) { lieux.Lecteur = lire; lieux.Pas(horloge); var fin = DateTime.UtcNow.AddSeconds(5); while (lieux.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); Assert.That(lieux.LectureEnVol, Is.False, lieux.TexteLegende); lieux.Pas(horloge); horloge += LieuxDeCarte.PERIODE_S; }
@@ -214,16 +215,29 @@ namespace Forge.Interface.Tests
         // Un clic gauche court garde la terre, un glisser ne choisit rien, Échap ferme le dossier avant d'ouvrir le menu.
         static readonly Vector2 O = new Vector2(400, 300);
         static CelluleDeCarte Terre(long id, string ville) => new CelluleDeCarte(id, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"), null, new[] { new VilleDeCarte(ville, 12, new PointCarte(0, 0)) });
-        MeshRenderer Teinte(long id) { var r = new GameObject("Cellule " + id).AddComponent<MeshRenderer>(); r.transform.SetParent(racine.transform, false); return r; }
+        // Une carte témoin posée pour de bon, sans service : une terre carrée de 10 km par numéro, d'ouest en est.
+        void Dessiner(params long[] ids)
+        {
+            carte = racine.GetComponent<CarteDessinee>(); carte.Montrer(new CarteLue(ids.Length, ids.Select((id, rang) => Carre(id, rang * 10000d)).ToArray()));
+            Assert.That(carte.CellulesPosees, Is.EqualTo(ids.Length), "la carte témoin n'est pas posée");
+        }
+        static CelluleDeCarte Carre(long id, double x)
+        {
+            var anneau = new[] { new PointCarte(x, 0), new PointCarte(x + 10000, 0), new PointCarte(x + 10000, 10000), new PointCarte(x, 10000), new PointCarte(x, 0) };
+            return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0]);
+        }
         bool Geste(CelluleDeCarte sous, params Vector2[] chemin) { bool garde = cabinet.Noter(chemin[0], true, false, false, sous); for (int i = 1; i < chemin.Length; i++) garde |= cabinet.Noter(chemin[i], false, i == chemin.Length - 1, false, sous); return garde; }
         string Territoire() => racine.GetComponentsInChildren<Text>(true).Single(t => t.transform.parent.name == "Lecture du territoire").text;
         [Test] public void UnClicSansMouvementGardeLaTerre()
         {
-            var teinte = Teinte(7); var sept = Terre(7, "Ville test");
+            Dessiner(7, 8); var sept = Terre(7, "Ville test"); Color teinte = carte.TeinteDe(7).Value; Assert.That(carte.Marquee, Is.Null);
             Assert.That(Geste(sept, O, O), Is.True); Assert.That(cabinet.Retenue, Is.SameAs(sept)); cabinet.Afficher(); Assert.That(Territoire(), Does.Contain("Ville test"));
-            cabinet.Relacher(); Assert.That(cabinet.Noter(O, true, true, false, sept) && cabinet.Retenue == sept, Is.True, "appui et relâché dans la même image");
+            Assert.That(carte.Marquee, Is.EqualTo(7), "la terre gardée n'est pas marquée");
+            cabinet.Relacher(); Assert.That(carte.Marquee, Is.Null, "la terre relâchée reste marquée"); Assert.That(cabinet.Noter(O, true, true, false, sept) && cabinet.Retenue == sept, Is.True, "appui et relâché dans la même image");
             cabinet.Relacher(); Assert.That(Geste(sept, O, O + new Vector2(6, 0)) && cabinet.Retenue == sept, Is.True, "relâché à 6 px");
-            Assert.That(teinte.HasPropertyBlock(), Is.True);
+            Assert.That(carte.Marquee, Is.EqualTo(7)); Assert.That(carte.TeinteDe(7), Is.EqualTo(teinte), "la marque couvre la teinte de la terre, elle ne la change pas");
+            // Une terre que la carte ne dessine pas se garde sans marque, et la marque d'avant tombe.
+            var absente = Terre(9, "Ville neuve"); Assert.That(Geste(absente, O, O) && cabinet.Retenue == absente, Is.True); Assert.That(carte.Marquee, Is.Null);
         }
         [Test] public void UnGlisserNeChangePasLaTerreGardee()
         {
@@ -241,9 +255,9 @@ namespace Forge.Interface.Tests
         }
         [Test] public void EchapFermeLeDossierAvantDOuvrirLeMenu()
         {
-            var teinte = Teinte(7); var menu = racine.GetComponent<MenuCabinet>(); Assert.That(Geste(Terre(7, "Ville test"), O, O) && !menu.Ouvert, Is.True); cabinet.Afficher();
+            Dessiner(7); var menu = racine.GetComponent<MenuCabinet>(); Assert.That(Geste(Terre(7, "Ville test"), O, O) && !menu.Ouvert && carte.Marquee == 7, Is.True); cabinet.Afficher();
             menu.Echap(); cabinet.Afficher();
-            Assert.That(cabinet.Retenue == null && !menu.Ouvert && !teinte.HasPropertyBlock(), Is.True, "le premier Échap ferme le dossier, pas plus");
+            Assert.That(cabinet.Retenue == null && !menu.Ouvert && carte.Marquee == null, Is.True, "le premier Échap ferme le dossier, pas plus");
             Assert.That(Territoire(), Does.Contain("Clic gauche sur une terre pour ouvrir son dossier.").And.Not.Contain("Ville test"));
             menu.Echap(); Assert.That(menu.Ouvert, Is.True); menu.Echap(); Assert.That(menu.Ouvert, Is.False);
             menu.Echap(); Assert.That(menu.Ouvert, Is.True, "sans terre gardée, Échap ouvre le menu"); menu.Fermer();
@@ -335,34 +349,31 @@ namespace Forge.Interface.Tests
 
         [Test] public void Les_terres_conseillees_s_eclairent_et_un_clic_propose_la_maison()
         {
-            var materiau = new Material(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial) { color = Color.green }; var maillages = new Dictionary<long, Mesh> { { 10340, new Mesh() }, { 77, new Mesh() } };
-            try
-            {
-                foreach (var (id, maillage) in maillages.Select(m => (m.Key, m.Value)))
-                {
-                    var objet = new GameObject("Cellule " + id, typeof(MeshFilter), typeof(MeshRenderer)); objet.transform.SetParent(racine.transform, false);
-                    objet.GetComponent<MeshFilter>().sharedMesh = maillage; objet.GetComponent<MeshRenderer>().sharedMaterial = materiau; objet.transform.localPosition = new Vector3(id, 0, 0);
-                }
-                partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Departs", DepartsDe(Fiche(42, 10340), Fiche(43, 9999)));
-                cabinet.Afficher();
-                Transform terres = racine.transform.Find(CabinetDeCarte.TERRES); Assert.That(terres, Is.Not.Null, "la racine des terres conseillées manque"); Assert.That(terres.parent, Is.SameAs(racine.transform));
-                Transform[] Actives() => terres.Cast<Transform>().Where(t => t.gameObject.activeSelf).ToArray();
-                var allumees = Actives(); Assert.That(allumees.Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "une surbrillance par fiche dont la carte a la cellule");
-                var terre = allumees[0].gameObject; Assert.That(terre.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(maillages[10340])); Assert.That(terre.GetComponent<Collider>() == null, Is.True);
-                Assert.That((Color32)terre.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)SocleInterface.Couleur("or"))); Assert.That(terre.GetComponent<MeshRenderer>().sharedMaterial, Is.Not.SameAs(materiau));
-                Assert.That(Vector3.Distance(terre.transform.position, new Vector3(10340, 0, 0) + racine.transform.up * CabinetDeCarte.HAUTEUR_TERRE), Is.LessThan(1e-3f));
-                Assert.That(racine.transform.Find("Cellules de la carte"), Is.Null);
-                cabinet.Afficher(); Assert.That(Actives()[0].gameObject, Is.SameAs(terre), "un second Afficher recrée la surbrillance");
+            // La carte dessine les terres 10340 et 77 ; la fiche 43 conseille une terre (9999) qu'elle ne dessine pas.
+            Dessiner(10340, 77); Color teinte = carte.TeinteDe(10340).Value; Material terrain = racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial;
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Departs", DepartsDe(Fiche(42, 10340), Fiche(43, 9999)));
+            cabinet.Afficher();
+            Transform terres = racine.transform.Find(CabinetDeCarte.TERRES); Assert.That(terres, Is.Not.Null, "la racine des terres conseillées manque"); Assert.That(terres.parent, Is.SameAs(racine.transform));
+            Transform[] Actives() => terres.Cast<Transform>().Where(t => t.gameObject.activeSelf).ToArray();
+            var allumees = Actives(); Assert.That(allumees.Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "une surbrillance par fiche dont la carte dessine la cellule");
+            var terre = allumees[0].gameObject; Mesh maillage = terre.GetComponent<MeshFilter>().sharedMesh;
+            // La surbrillance a la forme du contour servi, à plat, tournée vers le haut : sans normales, son matériau éclairé sort noir.
+            Vector3[] attendus = TriangulationDeCarte.Trianguler(carte.Lue.Cellules[0].Contour[0], carte.Origine.Value).Sommets.ToArray();
+            Assert.That(attendus, Has.Length.EqualTo(6), "un carré : deux triangles"); Assert.That(maillage.vertices, Is.EqualTo(attendus), "la surbrillance n'a pas la forme de la cellule servie");
+            Assert.That(maillage.normals.Length == attendus.Length && maillage.normals.All(n => n.y > 0.99f), Is.True, "la surbrillance n'a pas ses normales vers le haut");
+            Assert.That(terre.GetComponent<Collider>() == null, Is.True);
+            Assert.That((Color32)terre.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)SocleInterface.Couleur("or"))); Assert.That(terre.GetComponent<MeshRenderer>().sharedMaterial, Is.Not.SameAs(terrain));
+            Assert.That(Vector3.Distance(terre.transform.position, racine.transform.TransformPoint(Vector3.up * CabinetDeCarte.HAUTEUR_TERRE)), Is.LessThan(1e-3f));
+            Assert.That(carte.TeinteDe(10340), Is.EqualTo(teinte), "la surbrillance se pose au-dessus du terrain, elle ne reteint pas la terre"); Assert.That(carte.Marquee, Is.Null);
+            cabinet.Afficher(); Assert.That(Actives()[0].gameObject, Is.SameAs(terre), "un second Afficher recrée la surbrillance");
 
-                Assert.That(Geste(Terre(10340, "Ville test"), O, O), Is.True); cabinet.Afficher();
-                Assert.That(Actives(), Is.Empty, "la terre gardée garde son rouge : sa surbrillance est inactive");
-                Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra")); Assert.That(racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Choisir cette maison").interactable, Is.True);
-                cabinet.Relacher(); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" })); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"));
-                Assert.That(Geste(Terre(77, "Ville sans fiche"), O, O), Is.True); cabinet.Afficher(); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"), "une terre sans fiche ne change pas la maison consultée");
-                Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(terres.childCount, Is.Zero, "une maison choisie : plus de terre éclairée");
-                Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "sans maison, la surbrillance revient");
-            }
-            finally { foreach (var maillage in maillages.Values) Object.DestroyImmediate(maillage); Object.DestroyImmediate(materiau); }
+            Assert.That(Geste(Terre(10340, "Ville test"), O, O), Is.True); cabinet.Afficher();
+            Assert.That(Actives(), Is.Empty, "la terre gardée garde son rouge : sa surbrillance est inactive"); Assert.That(carte.Marquee, Is.EqualTo(10340));
+            Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra")); Assert.That(racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Choisir cette maison").interactable, Is.True);
+            cabinet.Relacher(); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" })); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"));
+            Assert.That(Geste(Terre(77, "Ville sans fiche"), O, O), Is.True); cabinet.Afficher(); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"), "une terre sans fiche ne change pas la maison consultée");
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(terres.childCount, Is.Zero, "une maison choisie : plus de terre éclairée");
+            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "sans maison, la surbrillance revient");
         }
 
         // Chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.

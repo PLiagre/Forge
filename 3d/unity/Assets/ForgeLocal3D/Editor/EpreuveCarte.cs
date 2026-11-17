@@ -15,7 +15,7 @@ namespace ForgeLocal3D
     //   Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCarte.Jouer -forgeEpreuve <rapport.json>
     //         [-forgeCell C] [-forgeEpreuveRetirer]
     // ouvre la scène de la carte en Play, attend qu'elle soit posée, survole la cellule C (le milieu du plus grand triangle
-    // de son dessin), attend que la fiche ait lu le monde, puis le nom servi de son bourg (au plus ATTENTE_MONDE_S ;
+    // de son contour servi), attend que la fiche ait lu le monde, puis le nom servi de son bourg (au plus ATTENTE_MONDE_S ;
     // un nom qui n'arrive pas laisse partir le rapport tel quel, le juge le refuse), puis écrit un rapport : les cellules posées et servies, la
     // cellule survolée, le texte de la fiche et le tick du monde lu. Il ne juge rien : le verdict est celui du script, qui
     // compare au service. Une carte qui ne se pose pas (le monde ne répond pas) se rapporte telle quelle, avec son message.
@@ -98,19 +98,16 @@ namespace ForgeLocal3D
             r.carte = carte.TexteAffiche ?? ""; r.cellules_servies = carte.CellulesServies; r.cellules_posees = carte.CellulesPosees;
             if (carte.CellulesServies < 0) yield break; // la carte ne s'est pas posée : le rapport le dit, le script juge
 
-            Transform racine = carte.transform.Find("Cellules de la carte") ?? throw new InvalidOperationException("la carte posée n'a pas de « Cellules de la carte »");
-            string nom = "Cellule " + r.cellule.ToString(CultureInfo.InvariantCulture);
             if (retirer)
             {
-                Transform autre = racine.Cast<Transform>().FirstOrDefault(t => t.name != nom) ?? throw new InvalidOperationException("aucune autre cellule à retirer");
-                r.retiree = long.Parse(autre.name.Substring("Cellule ".Length), CultureInfo.InvariantCulture);
-                Object.DestroyImmediate(autre.gameObject);
+                CelluleDeCarte autre = carte.Lue.Cellules.FirstOrDefault(c => c.CellId != r.cellule && carte.TeinteDe(c.CellId) != null) ?? throw new InvalidOperationException("aucune autre cellule à retirer");
+                carte.Retirer(autre.CellId); r.retiree = autre.CellId;
             }
             r.cellules_posees = carte.CellulesPosees;
 
-            Transform dessin = racine.Find(nom);
-            if (dessin == null) { r.defaut = "la cellule " + r.cellule + " n'est pas dessinée"; yield break; }
-            Vector3 point = dessin.TransformPoint(Milieu(dessin.GetComponent<MeshFilter>().sharedMesh));
+            CelluleDeCarte dessinee = carte.TeinteDe(r.cellule) != null ? carte.Lue.Cellules.First(c => c.CellId == r.cellule) : null;
+            if (dessinee == null) { r.defaut = "la cellule " + r.cellule + " n'est pas dessinée"; yield break; }
+            Vector3 point = carte.transform.TransformPoint(Milieu(dessinee, carte.Origine.Value));
             fin = Time.realtimeSinceStartupAsDouble + ATTENTE_MONDE_S;
             while (fiche.MondeLu == null && fiche.AbsenceDuMonde == null && Time.realtimeSinceStartupAsDouble < fin) yield return null;
             fiche.SurvolerPoint(point);
@@ -121,16 +118,20 @@ namespace ForgeLocal3D
             r.tick = fiche.MondeLu != null ? fiche.MondeLu.Tick : -1;
         }
 
-        // Le milieu du plus grand triangle du dessin : un point bien à la cellule, loin de ses bords.
-        static Vector3 Milieu(Mesh maillage)
+        // Le milieu du plus grand triangle du contour servi, à plat : un point bien à la cellule, loin de ses bords.
+        static Vector3 Milieu(CelluleDeCarte cellule, PointCarte origine)
         {
-            var s = maillage.vertices; var t = maillage.triangles; int meilleur = 0; float aire = -1;
-            for (int k = 0; k < t.Length; k += 3)
+            Vector3 milieu = Vector3.zero; float aire = -1;
+            foreach (PolygoneDeCarte polygone in cellule.Contour)
             {
-                float a = Vector3.Cross(s[t[k + 1]] - s[t[k]], s[t[k + 2]] - s[t[k]]).magnitude;
-                if (a > aire) { aire = a; meilleur = k; }
+                var s = TriangulationDeCarte.Trianguler(polygone, origine).Sommets;
+                for (int k = 0; k + 2 < s.Count; k += 3)
+                {
+                    float a = Vector3.Cross(s[k + 1] - s[k], s[k + 2] - s[k]).magnitude;
+                    if (a > aire) { aire = a; milieu = (s[k] + s[k + 1] + s[k + 2]) / 3; }
+                }
             }
-            return (s[t[meilleur]] + s[t[meilleur + 1]] + s[t[meilleur + 2]]) / 3;
+            return milieu;
         }
     }
 }

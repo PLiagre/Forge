@@ -24,6 +24,7 @@ namespace Forge.Pont {
         public static Color CouleurPourPuissance(long id) {
             Color couleur = Color.HSVToRGB((float)((id * PasDeTeinte) % 1.0), Saturation, Valeur); couleur.a = 1f; return couleur;
         }
+        public static Color CouleurDe(CelluleDeCarte cellule) => cellule.Puissance == null ? CouleurSansPuissance : CouleurPourPuissance(cellule.Puissance.Id);
         public static CarteMaillee Mailler(CarteLue carte) {
             if (carte == null) throw new ArgumentNullException(nameof(carte));
             if (carte.Cellules.Count == 0) throw new ArgumentException("une carte vide n'a aucun maillage");
@@ -34,12 +35,12 @@ namespace Forge.Pont {
                 foreach (PolygoneDeCarte polygone in cellule.Contour) sommets.AddRange(TriangulationDeCarte.Trianguler(polygone, origine).Sommets);
                 if (sommets.Count == 0) throw new ArgumentException("cellule " + cellule.CellId + " : aucun triangle");
                 if (sommets.Count >= 65535) throw new ArgumentException("cellule " + cellule.CellId + " : " + sommets.Count + " sommets");
-                Color couleur = cellule.Puissance == null ? CouleurSansPuissance : CouleurPourPuissance(cellule.Puissance.Id);
-                cellules.Add(new MaillageDeCellule(cellule.CellId, new MaillageDePolygone(sommets), couleur));
+                cellules.Add(new MaillageDeCellule(cellule.CellId, new MaillageDePolygone(sommets), CouleurDe(cellule)));
             }
             return new CarteMaillee(origine, new ReadOnlyCollection<MaillageDeCellule>(cellules));
         }
-        private static PointCarte Centre(CarteLue carte) {
+        // Le centre de la boîte de tous les points servis : l'origine des km locaux de la carte.
+        internal static PointCarte Centre(CarteLue carte) {
             double minX = double.PositiveInfinity, minY = double.PositiveInfinity, maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
             foreach (CelluleDeCarte cellule in carte.Cellules)
                 foreach (PolygoneDeCarte polygone in cellule.Contour) {

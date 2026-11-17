@@ -5,30 +5,41 @@ using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Forge.Pont {
-    // La carte de 1400 servie par `sim/` : une cellule par objet, à la couleur de sa puissance, sans aucun
-    // nombre calculé ici. Lecture et maillage partent hors du fil principal ; la pose se fait dans Update, une
-    // seule fois. Sans carte, le texte dit pourquoi et rien n'est posé ; la lecture repart plus tard.
+    // La carte de 1400 servie par `sim/` : un terrain en relief d'un seul tenant, où chaque cellule servie a sa teinte,
+    // au départ celle de sa puissance, sans aucun nombre du monde calculé ici. Lecture et levé du terrain partent hors
+    // du fil principal ; la pose se fait dans Update, une seule fois. Sans carte, le texte dit pourquoi et rien n'est
+    // posé ; la lecture repart plus tard. Une vue change la teinte d'une cellule par `Teinter`, jamais par un objet.
     // Le bord de chaque anneau, le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
     // Cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
         public const float HAUTEUR_CONTOUR = 0.5f, LARGEUR_CONTOUR = 4f, HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
-        private const string SANS_MATERIAU = "carte non dessinée : matériau Forge/Carte absent";
+        public const string TERRAIN = "Terrain de la carte", SHADER_DU_TERRAIN = "Forge/CarteRelief";
+        private const string SANS_MATERIAU = "carte non dessinée : matériau Forge/Carte ou shader " + SHADER_DU_TERRAIN + " absent";
+        private const int LARGEUR_PALETTE = 256; // une teinte par cellule, rangée par lignes ; la case 0 est la mer
         private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f; private const int TAILLE_POLICE = 24;
         private const int TAILLE_NOM = 16; private const float TAILLE_CARACTERE = 25f; // une ligne de nom : environ 40 km, dessinée près de sa taille à l'écran
-        private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), BORD = new Color(0.1f, 0.08f, 0.06f); private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
+        private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), RIVAGE = new Color(0.2f, 0.3f, 0.42f), ROCHE = new Color(0.85f, 0.83f, 0.78f), BORD = new Color(0.1f, 0.08f, 0.06f);
+        private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public new Camera camera;
-        private Text texte; private Transform racine; private ClientCarte client;
-        private Task<(CarteLue lue, CarteMaillee carte, string absence)> enCours;
+        private Text texte; private ClientCarte client;
+        private Task<(CarteLue lue, TerrainDeCarte terrain, string absence)> enCours;
         private double prochaineLecture; private bool close; // carte posée, ou refusée faute de matériau : plus aucune lecture ne part
         private bool cameraCreee; private Bounds boite; // la boîte des cellules, en local : ce que la caméra créée cadre
         private readonly List<Object> crees = new List<Object>();
+        private Material matiere; private Texture2D palette; private Color[] teintes; private bool aVerser; // la palette, et si elle attend d'être versée au shader
+        private Dictionary<long, int> rangs; private bool[] posees; private int nombrePosees; // le rang servi de chaque cellule, et celles que le terrain dessine
+        private Color mer = MER, rivage = RIVAGE, roche = ROCHE;
+        private long? marquee; private Color marque; // la cellule marquée et la couleur qui couvre sa teinte
 
         public string TexteAffiche => texte != null ? texte.text : null;
         public int CellulesServies { get; private set; } = -1;
-        public int CellulesPosees => racine != null ? racine.childCount : 0;
+        // Les cellules servies que le terrain dessine : celles qui ont au moins un texel et une teinte, et qu'on n'a pas retirées.
+        public int CellulesPosees => nombrePosees;
+        // Le terrain levé de la carte posée ; null avant la pose.
+        public TerrainDeCarte Terrain { get; private set; }
         public bool LectureEnVol => enCours != null && !enCours.IsCompleted;
         public VueDeCarte Vue { get; private set; } // ce que la caméra créée montre ; null sans carte posée ou avec une caméra donnée
         private ReperageDeCarte reperage; // la cellule sous un point
@@ -43,7 +54,37 @@ namespace Forge.Pont {
             if (reperage == null) return null;
             Vector3 local = transform.InverseTransformPoint(monde); return reperage.Sous(local.x, local.z);
         }
+        // La teinte dont une cellule posée est dessinée ; null si le terrain ne la dessine pas.
+        public Color? TeinteDe(long cellId) => rangs != null && rangs.TryGetValue(cellId, out int rang) && posees[rang] ? teintes[rang + 1] : (Color?)null;
+        // Dessine une cellule posée d'une autre teinte ; faux si le terrain ne la dessine pas.
+        public bool Teinter(long cellId, Color teinte) {
+            if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
+            teinte.a = 1f; teintes[rang + 1] = teinte; aVerser = true; return true;
+        }
+        // Retire une cellule du dessin : son sol rend la mer, elle perd sa marque et ne compte plus parmi les posées.
+        public bool Retirer(long cellId) {
+            if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
+            posees[rang] = false; nombrePosees--; teintes[rang + 1] = Color.clear; if (marquee == cellId) marquee = null; aVerser = true; return true;
+        }
+        // La cellule marquée, ou null : une seule à la fois.
+        public long? Marquee => marquee;
+        // Couvre une cellule posée d'une couleur sans toucher à sa teinte, qui revient quand la marque part ; faux si le
+        // terrain ne la dessine pas, et la marque d'avant reste.
+        public bool Marquer(long cellId, Color couleur) {
+            if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
+            couleur.a = 1f; marquee = cellId; marque = couleur; aVerser = true; return true;
+        }
+        public void Demarquer() { if (marquee.HasValue) { marquee = null; aVerser = true; } }
+        // Les couleurs de l'habillage : la mer au large (celle du fond de la caméra), la mer au rivage, les cimes.
+        public void Habiller(Color large, Color auRivage, Color cimes) {
+            mer = large; rivage = auRivage; roche = cimes;
+            if (matiere == null) return;
+            matiere.SetColor("_Mer", mer); matiere.SetColor("_Rivage", rivage); matiere.SetColor("_Roche", roche);
+        }
+        // Pose une carte déjà lue, sans service : le terrain se lève sur place. Sans effet sur une carte déjà posée.
+        public void Montrer(CarteLue lue) { if (!close) Poser(lue, TerrainDeCarte.Lever(lue)); }
         private void Start() => Demarrer();
+        private void LateUpdate() => Verser();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         private void OnDestroy() => Arreter();
         // Sur la caméra posée, comme PanneauLieu, juste derrière son plan proche : la capture voit le texte.
@@ -72,46 +113,67 @@ namespace Forge.Pont {
             if (client == null) return;
             if (enCours != null && enCours.IsCompleted) {
                 var lu = enCours.Result; enCours = null;
-                if (lu.absence == null) Poser(lu.lue, lu.carte);
+                if (lu.absence == null) Poser(lu.lue, lu.terrain);
                 else { Dire(MESSAGE_ABSENCE + "\n" + lu.absence); prochaineLecture = maintenant + PERIODE_RELECTURE_S; }
             }
             Cadrer(); // la fenêtre peut avoir changé de forme
+            Verser();
             if (close || enCours != null || maintenant < prochaineLecture) return;
             ClientCarte lecteur = client; enCours = Task.Run(() => Lire(lecteur));
         }
-        // Hors du fil principal : la carte servie, puis ses maillages ; une carte que le maillage refuse est une absence.
-        private static (CarteLue, CarteMaillee, string) Lire(ClientCarte lecteur) {
+        // Hors du fil principal : la carte servie, puis son terrain ; une carte que le levé refuse est une absence.
+        private static (CarteLue, TerrainDeCarte, string) Lire(ClientCarte lecteur) {
             LectureCarte lecture = lecteur.Lire();
             if (!lecture.Presente) return (null, null, lecture.Absence);
-            try { return (lecture.Carte, MaillageDeCarte.Mailler(lecture.Carte), null); }
+            try { return (lecture.Carte, TerrainDeCarte.Lever(lecture.Carte), null); }
             catch (System.ArgumentException erreur) { return (null, null, "carte : " + erreur.Message); }
         }
-        private void Poser(CarteLue lue, CarteMaillee carte) {
+        private void Poser(CarteLue lue, TerrainDeCarte terrain) {
             close = true;
             RenderPipelineAsset pipeline = GraphicsSettings.currentRenderPipeline;
             // Le matériau par défaut du pipeline peut n'exister que dans l'éditeur.
             Material defaut = Resources.Load<Material>("Forge/Carte");
             if (defaut == null && pipeline != null) defaut = pipeline.defaultMaterial;
-            if (defaut == null) { Dire(SANS_MATERIAU); return; }
-            racine = new GameObject("Cellules de la carte").transform; racine.SetParent(transform, false);
-            var materiaux = new Dictionary<Color, Material>(); // un par couleur, jamais par rang
-            foreach (MaillageDeCellule cellule in carte.Cellules) {
-                var maillage = new Mesh { name = "Cellule " + cellule.CellId };
-                maillage.SetVertices(new List<Vector3>(cellule.Maillage.Sommets));
-                maillage.SetTriangles(new List<int>(cellule.Maillage.Triangles), 0);
-                maillage.RecalculateNormals(); maillage.RecalculateBounds(); crees.Add(maillage);
-                if (racine.childCount == 0) boite = maillage.bounds; else boite.Encapsulate(maillage.bounds);
-                if (!materiaux.TryGetValue(cellule.Couleur, out Material materiau)) {
-                    materiau = new Material(defaut) { name = "Couleur " + materiaux.Count, color = cellule.Couleur };
-                    materiaux.Add(cellule.Couleur, materiau); crees.Add(materiau);
-                }
-                var objet = new GameObject("Cellule " + cellule.CellId, typeof(MeshFilter), typeof(MeshRenderer));
-                objet.transform.SetParent(racine, false);
-                objet.GetComponent<MeshFilter>().sharedMesh = maillage; objet.GetComponent<MeshRenderer>().sharedMaterial = materiau;
+            Shader relief = Resources.Load<Shader>(SHADER_DU_TERRAIN);
+            if (defaut == null || relief == null) { Dire(SANS_MATERIAU); return; }
+            var maillage = new Mesh { name = TERRAIN, indexFormat = IndexFormat.UInt32 };
+            maillage.SetVertices(terrain.SommetsDuMaillage); maillage.SetUVs(0, terrain.UvDuMaillage); maillage.SetTriangles(terrain.TrianglesDuMaillage, 0);
+            maillage.RecalculateBounds(); crees.Add(maillage);
+            // Les numéros de cellules se lisent au texel près ; le relief se lit entre ses altitudes.
+            Texture2D cellules = Creer("Cellules de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R16, FilterMode.Point, true);
+            cellules.SetPixelData(terrain.TexelsDesCellules, 0); cellules.Apply(false, true);
+            Texture2D altitudes = Creer("Relief de la carte", terrain.LargeurDuRelief, terrain.HauteurDuRelief, TextureFormat.RFloat, FilterMode.Bilinear, true);
+            altitudes.SetPixelData(terrain.TexelsDuRelief, 0); altitudes.Apply(false, true);
+            int servies = lue.Cellules.Count;
+            palette = Creer("Teintes de la carte", LARGEUR_PALETTE, (servies + LARGEUR_PALETTE) / LARGEUR_PALETTE, TextureFormat.RGBA32, FilterMode.Point, false);
+            teintes = new Color[palette.width * palette.height]; rangs = new Dictionary<long, int>(servies); posees = new bool[servies]; nombrePosees = 0;
+            for (int rang = 0; rang < servies; rang++) {
+                CelluleDeCarte cellule = lue.Cellules[rang]; rangs[cellule.CellId] = rang;
+                if (terrain.TexelsDe(rang) == 0) continue; // sans texel, rien ne la dessine
+                Color teinte = MaillageDeCarte.CouleurDe(cellule); teinte.a = 1f; teintes[rang + 1] = teinte; posees[rang] = true; nombrePosees++;
             }
-            Tracer(lue, carte.Origine, defaut); Nommer(lue, carte.Origine); reperage = new ReperageDeCarte(lue, carte.Origine); origine = carte.Origine; Lue = lue;
-            if (cameraCreee && camera != null && racine.childCount > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
-            CellulesServies = lue.Cellules.Count; Dire(""); Cadrer();
+            matiere = new Material(relief) { name = TERRAIN }; crees.Add(matiere);
+            matiere.SetTexture("_Cellules", cellules); matiere.SetTexture("_Relief", altitudes); matiere.SetTexture("_Palette", palette);
+            matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
+            Habiller(mer, rivage, roche); aVerser = true; Verser();
+            var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
+            sol.GetComponent<MeshFilter>().sharedMesh = maillage;
+            var rendu = sol.GetComponent<MeshRenderer>(); rendu.sharedMaterial = matiere; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
+            boite = terrain.Boite; Terrain = terrain;
+            Tracer(lue, terrain.Origine, defaut); Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); origine = terrain.Origine; Lue = lue;
+            if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
+            CellulesServies = servies; Dire(""); Cadrer();
+        }
+        private Texture2D Creer(string nom, int largeur, int hauteur, TextureFormat format, FilterMode filtre, bool lineaire) {
+            var texture = new Texture2D(largeur, hauteur, format, false, lineaire) { name = nom, filterMode = filtre, wrapMode = TextureWrapMode.Clamp };
+            crees.Add(texture); return texture;
+        }
+        // La palette ne part au shader que si une teinte ou la marque a changé depuis le dernier versement.
+        private void Verser() {
+            if (!aVerser || palette == null) return;
+            aVerser = false; palette.SetPixels(teintes);
+            if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) palette.SetPixel((rang + 1) % LARGEUR_PALETTE, (rang + 1) / LARGEUR_PALETTE, marque);
+            palette.Apply(false);
         }
         // Un trait par anneau servi, déjà fermé : l'extérieur de chaque polygone, puis ses trous.
         private void Tracer(CarteLue lue, PointCarte origine, Material defaut) {
@@ -147,6 +209,6 @@ namespace Forge.Pont {
             if (Vue == null || camera == null) return;
             Vue.Changer(camera.aspect); Vue.Poser(camera, transform, HAUTEUR_CAMERA);
         }
-        private void Dire(string message) { texte.text = message; texte.gameObject.SetActive(message != ""); }
+        private void Dire(string message) { if (texte == null) return; texte.text = message; texte.gameObject.SetActive(message != ""); }
     }
 }
