@@ -84,8 +84,7 @@ namespace Forge.Pont.Tests {
                 Assert.AreNotEqual(f.CellId, Sous(f.Siege.Lat, f.Siege.Lon), f.Nom + " : en (lat, lon), encore dans sa cellule");
                 cellules.Add(f.CellId); Assert.AreEqual(1, Recues("/maison?id=seigneurie-" + f.Id), f.Nom);
             }
-            MeshRenderer[] posees = objet.transform.Find("Cellules de la carte").GetComponentsInChildren<MeshRenderer>();
-            Assert.IsTrue(cellules.Count == 6 && posees.Length == 596 && posees.All(m => m.sharedMaterial.color != ReperesDeDepart.COULEUR_REPERE), "des terres partagent une cellule, ou une cellule a la couleur des repères");
+            Assert.IsTrue(cellules.Count == 6 && carte.CellulesPosees == 596 && carte.Lue.Cellules.All(c => carte.TeinteDe(c.CellId) != ReperesDeDepart.COULEUR_REPERE), "des terres partagent une cellule, ou une cellule a la couleur des repères");
             Assert.IsTrue(Recues("/departs") == 1 && Recues() == 2 + fiches.Count && reperes.TexteAffiche == null, Recues() + " requêtes ; " + reperes.TexteAffiche);
             for (int i = 1; i <= 20; i++) { carte.Pas(1 + 3 * i); reperes.Pas(1 + 3 * i); Assert.IsFalse(reperes.LectureEnVol, "une lecture repart à " + (1 + 3 * i) + " s"); }
             Thread.Sleep(100); Assert.IsTrue(Recues() == 2 + fiches.Count && reperes.ReperesPoses == 6, Recues() + " requêtes après vingt pas");
@@ -275,14 +274,15 @@ namespace Forge.Pont.Tests {
         [Test] public void Le_domaine_rendu_garde_la_vue_que_le_joueur_glisse() {
             Publier(null); ServirLieu(CorpsLieu(AvecVoisin())); Monter();
             Jusqua(1, () => reperes.ReperesPoses == 6 && fiche.MondeLu != null);
-            MeshRenderer[] cellules = objet.transform.Find("Cellules de la carte").GetComponentsInChildren<MeshRenderer>();
-            var avant = cellules.Select(m => (m, m.sharedMaterial, m.sharedMaterial.color)).ToArray(); Publier(MAISON_MOREE);
+            Material terrain = objet.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial;
+            var avant = carte.Lue.Cellules.Select(c => (id: c.CellId, teinte: carte.TeinteDe(c.CellId))).ToArray(); Assert.IsTrue(avant.Length == 596 && avant.All(c => c.teinte.HasValue), "des cellules sans teinte"); Publier(MAISON_MOREE);
             Jusqua(2, () => DisquesActifs() == 4 && DepartsActifs() == 0);
-            foreach (var (m, mat, col) in avant) Assert.IsTrue(m.sharedMaterial == mat && m.sharedMaterial.color == col, m.name);
+            foreach (var (id, teinte) in avant) Assert.IsTrue(carte.TeinteDe(id) == teinte, "cellule " + id);
+            Assert.AreSame(terrain, objet.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial, "le terrain a changé de matériau");
             Material joueur = null;
             for (long r = 0; r < 4; r++) { Transform lieu = LieuPose(r); var disque = lieu.Find("Disque").GetComponent<MeshRenderer>(); var bord = lieu.Find("Bord").GetComponent<MeshRenderer>(); if (joueur == null) joueur = disque.sharedMaterial; Assert.IsTrue(disque.sharedMaterial == joueur && ((Color32)disque.sharedMaterial.color).Equals((Color32)ReperesDeDepart.COULEUR_JOUEUR) && bord.sharedMaterial.color.maxColorComponent < 0.25f && bord.gameObject.activeInHierarchy && disque.GetComponent<Collider>() == null, "rang " + r); }
             CelluleDeCarte sous = carte.CelluleSous(LieuPose(0).position);
-            Assert.AreNotEqual((Color32)cellules.Single(m => m.name == "Cellule " + sous.CellId).sharedMaterial.color, (Color32)joueur.color);
+            Assert.AreNotEqual((Color32)carte.TeinteDe(sous.CellId).Value, (Color32)joueur.color);
             int depots = Recues("/intention"); reperes.Survoler(Ecran(MOREE)); reperes.Choisir(Ecran(MOREE));
             Assert.IsTrue(reperes.Survolee == null && reperes.FicheAffichee == null && Recues("/intention") == depots, Recues("/intention") + " dépôts");
             Vector2 avantGlisse = carte.Vue.Centre; carte.Vue.Glisser(new Vector2(40f, -30f), 900f); Vector2 glisse = carte.Vue.Centre;

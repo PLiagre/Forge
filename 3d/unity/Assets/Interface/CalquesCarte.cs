@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Forge.Pont;
 using UnityEngine;
@@ -46,8 +45,7 @@ namespace Forge.Interface
         CarteDessinee carte;
         Func<MondeLu> monde;
         Func<CelluleDeCarte> selection;
-        Dictionary<long, MeshRenderer> rendus;
-        readonly Dictionary<long, (Material copie, Color maison)> teintes = new Dictionary<long, (Material, Color)>(); // couleur de la maison relevée une fois, jamais relue sur la copie teinte
+        Dictionary<long, Color> maisons; // la couleur de la maison de chaque terre dessinée, relevée une fois à la pose, jamais relue sur le terrain reteint
         TextMesh[] noms;
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
@@ -135,13 +133,13 @@ namespace Forge.Interface
             changement = false; precedent = lu; territoirePrecedent = retenu; versionDesPays = version; ecrite = null;
             try
             {
-                if (rendus == null)
+                if (maisons == null)
                 {
-                    var racine = carte.transform.Find("Cellules de la carte");
-                    rendus = racine.GetComponentsInChildren<MeshRenderer>().ToDictionary(
-                        r => long.Parse(r.name.Substring("Cellule ".Length), CultureInfo.InvariantCulture));
-                    foreach (var r in rendus) { teintes.Add(r.Key, (new Material(r.Value.sharedMaterial), r.Value.sharedMaterial.color)); r.Value.sharedMaterial = teintes[r.Key].copie; }
-                    carte.camera.backgroundColor = SocleInterface.Couleur("mer");
+                    maisons = new Dictionary<long, Color>();
+                    foreach (var cellule in carte.Lue.Cellules) { Color? maison = carte.TeinteDe(cellule.CellId); if (maison.HasValue) maisons.Add(cellule.CellId, maison.Value); }
+                    // La mer du terrain est celle du fond ; elle s'éclaircit un peu vers le papier au rivage, et les cimes tirent sur le papier.
+                    Color mer = SocleInterface.Couleur("mer"), papier = SocleInterface.Couleur("papier");
+                    carte.camera.backgroundColor = mer; carte.Habiller(mer, Color.Lerp(mer, papier, .11f), papier);
                     var police = SocleInterface.Police(titre: true);
                     noms = carte.GetComponentsInChildren<TextMesh>().Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
                     foreach (var nom in noms)
@@ -153,32 +151,27 @@ namespace Forge.Interface
                 }
                 ModeDeCarte mode = Mode; bool habitants = mode == ModeDeCarte.Habitants;
                 RepartitionHabitants repartition = habitants ? new RepartitionHabitants(lu) : null;
-                if (habitants && rendus.Count != lu.Cellules.Count) throw new ArgumentException("Carte et populations ne couvrent pas les mêmes territoires");
+                if (habitants && maisons.Count != lu.Cellules.Count) throw new ArgumentException("Carte et populations ne couvrent pas les mêmes territoires");
                 // Valider toutes les cellules avant de changer une seule couleur.
-                if (habitants) foreach (long id in rendus.Keys) repartition.Position(id);
-                foreach (var paire in rendus)
+                if (habitants) foreach (long id in maisons.Keys) repartition.Position(id);
+                foreach (var paire in maisons)
                 {
-                    paire.Value.SetPropertyBlock(null);
-                    Color servie = guerre?.CouleurDe(paire.Key) ?? teintes[paire.Key].maison; // le pays servi, sinon la puissance relevée au dessin
-                    teintes[paire.Key].copie.color = Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f);
+                    Color servie = guerre?.CouleurDe(paire.Key) ?? paire.Value; // le pays servi, sinon la puissance relevée au dessin
+                    carte.Teinter(paire.Key, Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f));
                 }
                 Recrire(repartition); repartie = repartition;
             }
             catch (Exception e)
             {
                 ecrite = null;
-                if (rendus != null) foreach (var paire in rendus)
-                {
-                    paire.Value.SetPropertyBlock(null);
-                    if (teintes.TryGetValue(paire.Key, out var t)) t.copie.color = paire.Key == retenu ? SocleInterface.Couleur("alerte") : SocleInterface.Pigment(t.maison);
-                }
+                if (maisons != null) foreach (var paire in maisons)
+                    carte.Teinter(paire.Key, paire.Key == retenu ? SocleInterface.Couleur("alerte") : SocleInterface.Pigment(paire.Value));
                 string raison = Indisponible(e.Message), detail = DetailDuMode(ModeDeCarte.Puissances);
                 try { Legender(raison, detail); }
                 catch (ArgumentException) { Ecrire(COUPEE, raison + "\n" + detail); } // trop longue pour trois lignes : entière dans l'infobulle
             }
         }
         void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint, guerre), detail = DetailDuMode(Mode, lieux, fleches, guerre); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
-        void OnDestroy() { foreach (var t in teintes.Values) if (Application.isPlaying) Destroy(t.copie); else DestroyImmediate(t.copie); teintes.Clear(); }
 
         // Sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
         // dirait qu'elles sont celles du jour servi. La légende des habitants garde sa date, celle du monde lu.
