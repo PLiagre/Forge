@@ -131,6 +131,28 @@ class DocumentDiffere:
         return self._octets
 
 
+class TerresDifferees:
+    """Octets de `/terres` au tick publié, sérialisés à la première lecture, puis gardés.
+
+    Le corps des terres et des pays est une `DocumentDiffere` partagée d'un tick à l'autre tant que
+    leur clé ne change pas ; seuls la date copiée et le tick sont propres au jour. Les octets sont
+    ceux de `_serialiser` du document entier, clés triées : date, pays, terres, tick. Comme
+    `DocumentDiffere`, ne garde ni serveur ni verrou et ne lit jamais le monde vivant."""
+
+    def __init__(self, corps: DocumentDiffere, date: dict, tick: int):
+        self._corps = corps
+        self._date = date
+        self._tick = tick
+        self._octets = None
+
+    def octets(self) -> bytes:
+        if self._octets is None:
+            # Le corps de l'objet, sans ses accolades, se glisse entre la date et le tick.
+            self._octets = (b'{"date":' + _serialiser(self._date) + b"," + self._corps.octets()[1:-1]
+                            + b',"tick":' + str(self._tick).encode() + b"}")
+        return self._octets
+
+
 def _octets_du_bourg(bourg, lieux, cell_id) -> bytes:
     """« bourg » est la première clé dans l'ordre canonique : on reprend les octets du lieu."""
     return b'{"bourg":' + _serialiser(bourg) + b"," + lieux[cell_id][1:]
@@ -287,7 +309,7 @@ def _travail_enceinte_cli(recue: str) -> float:
 
 @dataclass(frozen=True)
 class EtatPublie:
-    """Photographie du tick ; lieux, plans, occupations, maisons et guerres se complètent à la première lecture."""
+    """Photographie du tick ; lieux, plans, occupations, maisons, guerres et terres se complètent à la première lecture."""
 
     monde: bytes
     lieux: Mapping[int, bytes]
@@ -303,7 +325,7 @@ class EtatPublie:
     octets_maisons: dict[str | None, bytes]
     modificateurs: bytes = b""
     guerres: DocumentDiffere | None = None
-    terres: bytes = b""
+    terres: TerresDifferees | None = None
     # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
     duree_dernier_jour_ms: float = -1
 
@@ -360,7 +382,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._occupations_base = {}
         self._carte_figee = None
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
-        self._terres = None  # (maîtres et suzerains, noms, octets de terres et pays) : relu quand l'un change
+        self._terres = None  # (maîtres et suzerains, noms, document différé des terres et pays) : refait quand l'un change
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
         self._arret_horloge = False
@@ -461,18 +483,15 @@ class ServeurMonde(ThreadingHTTPServer):
             self._places = (cle, places_du_monde(self.world))
         return self._places[1]
 
-    def _octets_des_terres(self, matiere: MatiereMaisons, noms) -> bytes:
-        """`/terres` au tick publié. Les terres et les pays ne se refont que si le maître d'un bourg, un
-        suzerain ou les noms changent ; seuls le tick et la date s'écrivent à chaque jour. Les octets sont
-        ceux de `_serialiser` du document entier, clés triées : date, pays, terres, tick."""
+    def _terres_du_tick(self, matiere: MatiereMaisons, noms) -> TerresDifferees:
+        """`/terres` au tick publié, copié sans être sérialisé. Les terres et les pays ne se refont que si
+        le maître d'un bourg, un suzerain ou les noms changent ; sinon leur document, et ses octets s'ils
+        ont déjà été lus, passent au jour suivant. Seuls la date et le tick sont copiés chaque jour."""
         cle = (bourgs_et_maitres(self.world), tuple((m.id, m.suzerain) for m in self.world.maisons))
         gardees = self._terres
         if gardees is None or gardees[0] != cle or gardees[1] is not noms:
-            # Le corps de l'objet, sans ses accolades, se glisse entre la date et le tick.
-            gardees = self._terres = (cle, noms, _serialiser(terres_et_pays(self.world, matiere))[1:-1])
-        _cle, _noms, corps = gardees
-        return (b'{"date":' + _serialiser(matiere.date) + b"," + corps
-                + b',"tick":' + str(matiere.tick).encode() + b"}")
+            gardees = self._terres = (cle, noms, DocumentDiffere(terres_et_pays(self.world, matiere)))
+        return TerresDifferees(gardees[2], matiere.date, matiere.tick)
 
     def _construire_etat(
         self,
@@ -593,7 +612,7 @@ class ServeurMonde(ThreadingHTTPServer):
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
             # `document_servi_de_la_guerre` rend des copies : le monde vivant peut changer avant la lecture.
             guerres=DocumentDiffere(document_servi_de_la_guerre(self.world, places)),
-            terres=self._octets_des_terres(matiere, noms),
+            terres=self._terres_du_tick(matiere, noms),
         )
 
     def octets_des_ordres(self, maison_id, cell_id=None):
@@ -846,8 +865,8 @@ class RequetesMonde(BaseHTTPRequestHandler):
             self._repondre_octets(HTTPStatus.OK, etat.guerres.octets())
             return
         if cible.path == "/terres":
-            # Le maître du bourg de chaque terre et son pays, au tick publié.
-            self._repondre_octets(HTTPStatus.OK, etat.terres)
+            # Le maître du bourg de chaque terre et son pays, au tick publié ; leurs octets naissent à la première lecture.
+            self._repondre_octets(HTTPStatus.OK, etat.terres.octets())
             return
         if cible.path == "/guerres/ordres":
             # Le devis des ordres de guerre de la maison : leur prix et leur refus d'avance, au tick du monde.
