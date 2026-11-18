@@ -1,0 +1,239 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Forge.Pont;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace Forge.Interface
+{
+    // Le nom d'un pays, écrit en capitales le long de son tracé : le nom servi, ce qui en est écrit, et comment.
+    public sealed class NomCourbe
+    {
+        public string Pays { get; } public string Texte { get; } public string Ecrit { get; }
+        public TraceDeNom Trace { get; } public NomCompose Compose { get; }
+        // Le corps des lettres en km de la carte : il suit l'étendue du territoire.
+        public float Corps => Compose != null ? Compose.Corps : 0f;
+        // De 0 (caché) à 1, selon la taille du nom à l'écran ; la force de son halo ; son corps à l'écran, en
+        // pixels ; et la taille, en pixels, des lettres tirées de la police.
+        public float Opacite { get; internal set; } public float Halo { get; internal set; } public float CorpsPx { get; internal set; } public int Taille { get; internal set; }
+        public MeshRenderer Rendu { get; } public Mesh Maillage { get; }
+        internal bool AMailler;
+        internal NomCourbe(string pays, string texte, string ecrit, TraceDeNom trace, NomCompose compose, MeshRenderer rendu, Mesh maillage)
+        { Pays = pays; Texte = texte; Ecrit = ecrit; Trace = trace; Compose = compose; Rendu = rendu; Maillage = maillage; }
+    }
+
+    // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire. Une lettre est un carré de
+    // l'atlas de la police, posé à sa place sur le tracé et tourné dans le sens de l'écriture ; un nom est un seul
+    // maillage, dessiné deux fois : le halo clair qui le détache du relief, puis l'encre. À chaque image, un nom se
+    // règle sur sa taille à l'écran : trop petit pour se lire, il se cache ; quand la vue s'approche au point qu'il
+    // la remplirait, il s'efface et laisse lire ce qu'il couvrait. Ses lettres sont tirées de la police à la taille la
+    // plus proche de celle de l'écran, pour rester nettes de loin comme de près.
+    // La police est dynamique : son atlas peut être refait à tout moment, et les lettres y changent alors de place.
+    // Les noms redemandent donc leurs lettres à chaque image et se remaillent dès que l'atlas est refait.
+    public sealed class NomsCourbes : IDisposable
+    {
+        public const string RACINE = "Noms des pays", SHADER = "Forge/NomDeCarte";
+        // Au-dessus des terres en surbrillance (0,65), qui sinon couvriraient des lettres ; sous les repères des lieux
+        // (0,8), les armées et les noms des villes.
+        public const float HAUTEUR = 0.7f;
+        // Ce que l'encre d'un nom couvre du terrain, au plus : le relief et les teintes se lisent au travers.
+        public const float FORCE = 0.85f;
+        // Un nom se cache quand son corps passe sous LISIBLE_PX pixels, sur FONDU_PX pixels ; il s'efface quand son
+        // corps dépasse PROCHE de la hauteur de l'écran, et a disparu à DISPARU.
+        public const float LISIBLE_PX = 10f, FONDU_PX = 2.5f, PROCHE = 0.10f, DISPARU = 0.15f;
+        // Le halo : son rayon en corps ; sa force sous un petit nom, qui en a le plus besoin, et sous un grand.
+        public const float RAYON_DU_HALO = 0.09f, HALO_PETIT = 0.75f, HALO_GRAND = 0.3f, PETIT_PX = 16f, GRAND_PX = 64f;
+        // Un nom à demi effacé ne réserve plus sa place : les noms des villes reviennent.
+        public const float OPACITE_QUI_RESERVE = 0.5f;
+        // Les tailles tirées de la police, en pixels ; la mise en page se fait à la taille de référence.
+        static readonly int[] TAILLES = { 12, 16, 24, 32, 48, 64, 96, 128 }; const int REFERENCE = 64;
+        const string CAPITALE = "H"; const float HAUTEUR_DE_CAPITALE = 0.7f, AVANCE_INCONNUE = 0.5f; const int ESSAIS = 4;
+
+        readonly Transform racine; readonly Font police; readonly Material encre, halo; readonly Material[] matieres; readonly bool matieresCreees;
+        readonly List<NomCourbe> noms = new List<NomCourbe>(); bool refait; readonly Color32 deSecours;
+
+        public IReadOnlyList<NomCourbe> Noms => noms;
+        public Font Police => police;
+        public Transform Racine => racine;
+        // Les deux matériaux d'un nom : celui de son encre, et celui de son halo (nul faute du shader des noms).
+        public Material Encre => encre;
+        public Material MatiereDuHalo => halo;
+
+        public NomsCourbes(Transform parent, Font police, Color teinteDeLEncre, Color teinteDuHalo)
+        {
+            this.police = police != null ? police : throw new ArgumentNullException(nameof(police));
+            racine = new GameObject(RACINE).transform; racine.SetParent(parent, false);
+            Shader shader = Resources.Load<Shader>(SHADER); deSecours = teinteDeLEncre;
+            if (shader != null)
+            {
+                teinteDeLEncre.a = FORCE; teinteDuHalo.a = 1f;
+                halo = new Material(shader) { name = RACINE + " (halo)", mainTexture = police.material.mainTexture }; halo.SetColor("_Teinte", teinteDuHalo); halo.SetFloat("_Halo", 1f);
+                encre = new Material(shader) { name = RACINE + " (encre)", mainTexture = police.material.mainTexture }; encre.SetColor("_Teinte", teinteDeLEncre); encre.SetFloat("_Halo", 0f);
+                halo.renderQueue = encre.renderQueue - 1; matieres = new[] { halo, encre }; matieresCreees = true;
+            }
+            else { encre = police.material; matieres = new[] { encre }; } // faute du shader des noms, celui de la police : sans halo, et devant tout
+            Font.textureRebuilt += AtlasRefait;
+        }
+
+        public void Dispose()
+        {
+            Font.textureRebuilt -= AtlasRefait; Vider();
+            if (matieresCreees) { Detruire(encre); Detruire(halo); }
+            if (racine != null) Detruire(racine.gameObject);
+        }
+
+        // De 0 à 1 : ce qu'un nom montre de son encre quand son corps fait `corpsPx` pixels sur un écran de `ecranPx` de haut.
+        public static float Opacite(float corpsPx, float ecranPx)
+        {
+            if (ecranPx <= 0f) return 0f;
+            return Lisse(LISIBLE_PX - FONDU_PX, LISIBLE_PX, corpsPx) * (1f - Lisse(PROCHE * ecranPx, DISPARU * ecranPx, corpsPx));
+        }
+        // La force du halo d'un nom de ce corps à l'écran : forte sous un petit nom, légère sous un grand.
+        public static float ForceDuHalo(float corpsPx) => Mathf.Lerp(HALO_PETIT, HALO_GRAND, Mathf.InverseLerp(PETIT_PX, GRAND_PX, corpsPx));
+        static float Lisse(float de, float a, float x) { float t = Mathf.Clamp01((x - de) / (a - de)); return t * t * (3f - 2f * t); }
+        // La plus petite taille tirée de la police qui ne s'agrandit pas à l'écran ; la plus grande au-delà.
+        public static int TaillePour(float corpsPx) { foreach (int taille in TAILLES) if (taille >= corpsPx) return taille; return TAILLES[TAILLES.Length - 1]; }
+
+        // Le corps d'un nom à l'écran, en pixels, là où il est écrit : le km de la carte y est mesuré dans le sens
+        // de l'écriture et en travers, et le plus grand des deux est gardé.
+        public float CorpsALEcran(Camera camera, NomCourbe nom)
+        {
+            if (camera == null || nom.Compose == null) return 0f;
+            float milieu = (nom.Trace.Debut + nom.Trace.Fin) / 2f; Vector2 p = nom.Trace.Point(milieu), sens = nom.Trace.Sens(milieu), haut = new Vector2(-sens.y, sens.x);
+            Vector2 ici = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p)));
+            Vector2 enLong = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p + sens)));
+            Vector2 enTravers = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p + haut)));
+            return nom.Corps * Mathf.Max((enLong - ici).magnitude, (enTravers - ici).magnitude);
+        }
+
+        // La place que chaque lettre d'un nom lisible tient à l'écran, ajoutée à `places` : un nom de ville ne s'écrit pas dessus.
+        public void Reserver(Camera camera, List<Rect> places)
+        {
+            if (camera == null) return;
+            Rect ecran = camera.pixelRect;
+            foreach (NomCourbe nom in noms)
+            {
+                if (nom.Opacite < OPACITE_QUI_RESERVE) continue;
+                float demi = nom.CorpsPx * 0.45f;
+                for (int i = 0; i < nom.Ecrit.Length; i++)
+                {
+                    if (char.IsWhiteSpace(nom.Ecrit[i])) continue;
+                    Vector2 p = camera.WorldToScreenPoint(racine.TransformPoint(Poser(nom.Compose.Lettres[i].Point)));
+                    var place = new Rect(p.x - demi, p.y - demi, 2f * demi, 2f * demi);
+                    if (place.Overlaps(ecran)) places.Add(place);
+                }
+            }
+        }
+
+        // Écrit un nom par pays tracé, à la place de ceux d'avant. Un pays dont le tracé ne laisse rien écrire n'a pas de nom.
+        public void Ecrire(IEnumerable<(string pays, string nom, TraceDeNom trace)> pays)
+        {
+            Vider();
+            foreach (var (id, texte, trace) in pays)
+            {
+                if (trace == null || string.IsNullOrEmpty(texte)) continue;
+                string ecrit = texte.ToUpperInvariant(); Demander(ecrit, REFERENCE);
+                var avances = new float[ecrit.Length];
+                for (int i = 0; i < ecrit.Length; i++) avances[i] = police.GetCharacterInfo(ecrit[i], out CharacterInfo lettre, REFERENCE) ? lettre.advance / (float)REFERENCE : AVANCE_INCONNUE;
+                NomCompose compose = trace.Composer(avances);
+                if (compose == null) continue;
+                var objet = new GameObject("Pays " + id, typeof(MeshFilter), typeof(MeshRenderer)); objet.transform.SetParent(racine, false);
+                var maillage = new Mesh { name = "Nom de " + id }; maillage.MarkDynamic(); objet.GetComponent<MeshFilter>().sharedMesh = maillage;
+                var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterials = matieres; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false; rendu.enabled = false;
+                noms.Add(new NomCourbe(id, texte, ecrit, trace, compose, rendu, maillage));
+            }
+        }
+
+        // Règle chaque nom sur la vue : son opacité, son halo, la taille de ses lettres, et son maillage quand il le
+        // faut ou que l'atlas a été refait.
+        public void Suivre(Camera camera)
+        {
+            if (camera == null || noms.Count == 0) return;
+            float ecran = camera.pixelHeight;
+            foreach (NomCourbe nom in noms)
+            {
+                float px = CorpsALEcran(camera, nom), opacite = Opacite(px, ecran), force = ForceDuHalo(px); nom.CorpsPx = px;
+                if (opacite > 0f) { int taille = TaillePour(px); if (taille != nom.Taille) { nom.Taille = taille; nom.AMailler = true; } }
+                if (Mathf.Abs(opacite - nom.Opacite) > 1f / 512f || (opacite == 0f) != (nom.Opacite == 0f) || Mathf.Abs(force - nom.Halo) > 1f / 128f)
+                { nom.Opacite = opacite; nom.Halo = force; if (!nom.AMailler) Teinter(nom); }
+                nom.Rendu.enabled = opacite > 0f;
+            }
+            // Les lettres montrées restent dans l'atlas tant qu'elles sont demandées ; une demande peut le refaire, et
+            // tout se redemande alors.
+            for (int essai = 0; essai < ESSAIS; essai++)
+            {
+                bool avant = refait; refait = false;
+                foreach (int taille in TAILLES)
+                {
+                    var lettres = new StringBuilder();
+                    foreach (NomCourbe nom in noms) if (nom.Opacite > 0f && nom.Taille == taille) lettres.Append(nom.Ecrit);
+                    if (lettres.Length > 0) Demander(lettres.ToString(), taille);
+                }
+                if (!refait) { refait = avant; break; }
+            }
+            if (refait) { refait = false; Atlas(); foreach (NomCourbe nom in noms) nom.AMailler = true; }
+            foreach (NomCourbe nom in noms) if (nom.AMailler && nom.Opacite > 0f) Mailler(nom);
+        }
+
+        void Demander(string lettres, int taille) => police.RequestCharactersInTexture(lettres + CAPITALE, taille);
+        void Atlas() { if (!matieresCreees) return; encre.mainTexture = police.material.mainTexture; halo.mainTexture = police.material.mainTexture; }
+
+        // L'atlas vient d'être refait : les noms montrés se remaillent tout de suite, sans rien demander à la police,
+        // et tout sera redemandé à la prochaine image.
+        void AtlasRefait(Font changee)
+        {
+            if (changee != police) return;
+            refait = true; Atlas();
+            foreach (NomCourbe nom in noms) if (nom.Opacite > 0f && nom.Taille > 0) Mailler(nom);
+        }
+
+        // Un carré par lettre, à sa place sur le tracé ; les capitales sont centrées en hauteur sur la ligne du tracé.
+        // Le carré déborde du dessin de la lettre de la marge du halo, et son cadre dit où la lettre finit dans l'atlas.
+        void Mailler(NomCourbe nom)
+        {
+            int taille = nom.Taille; float echelle = nom.Corps / taille, rayon = RAYON_DU_HALO * taille, marge = Mathf.Ceil(rayon) + 1f;
+            float capitale = police.GetCharacterInfo(CAPITALE[0], out CharacterInfo h, taille) && h.maxY > 0 ? h.maxY : HAUTEUR_DE_CAPITALE * taille;
+            int n = nom.Ecrit.Length; var sommets = new List<Vector3>(4 * n); var uv = new List<Vector2>(4 * n); var cadres = new List<Vector4>(4 * n); var rayons = new List<Vector2>(4 * n); var triangles = new List<int>(6 * n);
+            bool complet = true;
+            for (int i = 0; i < n; i++)
+            {
+                if (char.IsWhiteSpace(nom.Ecrit[i])) continue;
+                if (!police.GetCharacterInfo(nom.Ecrit[i], out CharacterInfo lettre, taille)) { complet = false; continue; }
+                if (lettre.glyphWidth == 0 || lettre.glyphHeight == 0) continue;
+                PlaceDeLettre place = nom.Compose.Lettres[i]; Vector2 sens = place.Sens, haut = place.Haut; int premier = sommets.Count;
+                // Dans l'atlas, ce que vaut un pixel de la lettre vers sa droite et vers son haut : une lettre peut y être couchée.
+                Vector2 bas = lettre.uvBottomLeft, versLaDroite = (lettre.uvBottomRight - bas) / (lettre.maxX - lettre.minX), versLeHaut = (lettre.uvTopLeft - bas) / (lettre.maxY - lettre.minY);
+                Vector2 coin = lettre.uvTopRight; var cadre = new Vector4(Mathf.Min(bas.x, coin.x), Mathf.Min(bas.y, coin.y), Mathf.Max(bas.x, coin.x), Mathf.Max(bas.y, coin.y));
+                for (int k = 0; k < 4; k++)
+                {
+                    bool aDroite = k == 1 || k == 2, enHaut = k >= 2;
+                    float x = aDroite ? lettre.maxX + marge : lettre.minX - marge, y = enHaut ? lettre.maxY + marge : lettre.minY - marge;
+                    sommets.Add(Poser(place.Point + sens * ((x - lettre.advance / 2f) * echelle) + haut * ((y - capitale / 2f) * echelle)));
+                    uv.Add(bas + versLaDroite * (x - lettre.minX) + versLeHaut * (y - lettre.minY)); cadres.Add(cadre); rayons.Add(new Vector2(rayon, 0f));
+                }
+                triangles.Add(premier); triangles.Add(premier + 2); triangles.Add(premier + 1); triangles.Add(premier); triangles.Add(premier + 3); triangles.Add(premier + 2);
+            }
+            Mesh m = nom.Maillage; m.Clear(); m.SetVertices(sommets); m.SetUVs(0, uv); m.SetUVs(1, cadres); m.SetUVs(2, rayons);
+            m.subMeshCount = matieres.Length; for (int s = 0; s < matieres.Length; s++) m.SetTriangles(triangles, s);
+            m.RecalculateBounds(); nom.AMailler = !complet; Teinter(nom);
+        }
+        static Vector3 Poser(Vector2 p) => new Vector3(p.x, HAUTEUR, p.y);
+
+        // Par sommet : l'opacité du nom (alpha) et la force de son halo (rouge) ; sous le shader de la police, la teinte de l'encre.
+        void Teinter(NomCourbe nom)
+        {
+            var teinte = new Color32((byte)Mathf.RoundToInt(255f * nom.Halo), 0, 0, (byte)Mathf.RoundToInt(255f * nom.Opacite));
+            if (!matieresCreees) { teinte = deSecours; teinte.a = (byte)Mathf.RoundToInt(255f * FORCE * nom.Opacite); }
+            var teintes = new Color32[nom.Maillage.vertexCount]; for (int k = 0; k < teintes.Length; k++) teintes[k] = teinte;
+            nom.Maillage.colors32 = teintes;
+        }
+
+        void Vider()
+        {
+            foreach (NomCourbe nom in noms) { Detruire(nom.Maillage); if (nom.Rendu != null) Detruire(nom.Rendu.gameObject); }
+            noms.Clear();
+        }
+        static void Detruire(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o); }
+    }
+}

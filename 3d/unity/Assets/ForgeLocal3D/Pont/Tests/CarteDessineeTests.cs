@@ -239,19 +239,21 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(carte.Retirer(8) && carte.PaysDe(8) == null && !carte.Rattacher(8, "b", Color.blue), "une cellule retirée garde un pays");
             Assert.AreEqual(loin, carte.DistanceALaFrontiere(-.5f, .5f), "une frontière avec une cellule retirée");
         }
-        // Le shader du terrain ne se compile qu'à son premier dessin : une erreur y laisse la carte sans un trait et tous
-        // les autres tests verts. Ses passes sont donc compilées ici, et aucune ne rend d'erreur.
-        [Test] public void Le_shader_du_terrain_se_compile_sans_erreur() {
-            Shader shader = Resources.Load<Shader>(CarteDessinee.SHADER_DU_TERRAIN);
-            Assert.IsNotNull(shader, CarteDessinee.SHADER_DU_TERRAIN);
+        // Un shader ne se compile qu'à son premier dessin : une erreur y laisse la carte sans un trait, ou sans un nom, et
+        // tous les autres tests verts. Les passes de chaque shader de la carte sont donc compilées ici, et aucune ne rend d'erreur.
+        [Test] public void Le_shader_du_terrain_se_compile_sans_erreur() => Compiler(CarteDessinee.SHADER_DU_TERRAIN, 2);
+        [Test] public void Le_shader_des_noms_se_compile_sans_erreur() => Compiler("Forge/NomDeCarte", 1);
+        private static void Compiler(string nom, int passes) {
+            Shader shader = Resources.Load<Shader>(nom);
+            Assert.IsNotNull(shader, nom);
             var mat = new Material(shader);
             try {
-                Assert.AreEqual(2, mat.passCount, "les passes du terrain");
+                Assert.AreEqual(passes, mat.passCount, "les passes de " + nom);
                 for (int passe = 0; passe < mat.passCount; passe++) UnityEditor.ShaderUtil.CompilePass(mat, passe, true);
                 var erreurs = new List<string>();
                 foreach (var m in UnityEditor.ShaderUtil.GetShaderMessages(shader))
                     if (m.severity == UnityEditor.Rendering.ShaderCompilerMessageSeverity.Error) erreurs.Add(m.message + " (ligne " + m.line + ")");
-                Assert.IsTrue(erreurs.Count == 0 && !UnityEditor.ShaderUtil.ShaderHasError(shader), erreurs.Count + " erreurs : " + string.Join(" ; ", erreurs));
+                Assert.IsTrue(erreurs.Count == 0 && !UnityEditor.ShaderUtil.ShaderHasError(shader), nom + " : " + erreurs.Count + " erreurs : " + string.Join(" ; ", erreurs));
             } finally { UnityEngine.Object.DestroyImmediate(mat); }
         }
         [Test] public void Le_materiau_de_carte_existe_sans_les_ressources_de_l_editeur() {

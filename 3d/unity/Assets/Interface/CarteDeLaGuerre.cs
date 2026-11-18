@@ -11,7 +11,7 @@ using UnityEngine.Rendering;
 namespace Forge.Interface
 {
     // La guerre sur la carte : le pays de chaque terre (que les calques peignent, et dont le terrain trace la frontière),
-    // le nom de chaque pays, et les armées avec leur nombre et leur route. Tout vient de `/terres` et `/guerres`, lus hors du
+    // le nom de chaque pays, couché sur le grand axe de sa terre (`NomsCourbes`), et les armées avec leur nombre et leur route. Tout vient de `/terres` et `/guerres`, lus hors du
     // fil principal toutes les PERIODE_S ; ici ne se fait que le dessin : aucun nombre du monde n'est calculé. Une absence se
     // dit dans la légende.
     public sealed class CarteDeLaGuerre : MonoBehaviour
@@ -19,12 +19,13 @@ namespace Forge.Interface
         public const string NOMS = "Noms des pays", ARMEES = "Armées de la carte";
         public const string ENTETE = "Traits sombres bordés de la couleur de chaque pays : les frontières entre pays, chacun nommé sur sa terre. Disques : les armées, avec leurs hommes et, en cuivre, leur route.";
         public const float PERIODE_S = 2f;
-        // Les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux (0,8) ; les noms des pays au-dessus des villes (1).
+        // Les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux (0,8) ; leurs nombres au-dessus des villes (1).
         public const float HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
         public const float LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
-        // La police tirée à 64 points puis réduite : nette à l'écran. Un nom de pays près de deux fois un nom de ville, le nombre
-        // d'une armée un peu plus grand qu'un nom de ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
-        const float TAILLE_NOM_PAYS = 7f, TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -22f; const int POLICE = 64;
+        // La police tirée à 64 points puis réduite : nette à l'écran. Le nombre d'une armée un peu plus grand qu'un nom de
+        // ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
+        const float TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -22f; const int POLICE = 64;
+        static readonly NomCourbe[] AUCUN_NOM = new NomCourbe[0];
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(10); static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
 
         public Func<Lecture<TerresDeLaCarte>> LecteurTerres;
@@ -38,19 +39,23 @@ namespace Forge.Interface
         public int CotesDeFrontiere { get; private set; }
         public string TexteLegende { get; private set; } = ENTETE;
         public bool LectureEnVol => (vol != null && !vol.IsCompleted) || (calcul != null && !calcul.IsCompleted);
-        public IReadOnlyList<TextMesh> NomsDesPays => noms;
+        public IReadOnlyList<NomCourbe> NomsDesPays => ecriture != null ? ecriture.Noms : AUCUN_NOM;
+        public NomsCourbes Ecriture => ecriture;
         public IReadOnlyList<TextMesh> NombresDesArmees => nombres;
 
         CarteDessinee carte; VoisinageDeCarte voisinage; string echecDuVoisinage; Task<VoisinageDeCarte> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
-        string cleDesTerres; bool aRetracer; Transform racineDesNoms, racineDesArmees; Material chemin, bord;
+        string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin, bord;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
-        readonly List<TextMesh> noms = new List<TextMesh>(), nombres = new List<TextMesh>();
+        readonly List<TextMesh> nombres = new List<TextMesh>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
 
         public void Installer() { carte = GetComponent<CarteDessinee>(); }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
-        void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); mats.Clear(); }
+        void LateUpdate() => SuivreLaVue();
+        void OnDestroy() { ecriture?.Dispose(); ecriture = null; foreach (var o in crees) Detruire(o); crees.Clear(); mats.Clear(); }
+        // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image.
+        public void SuivreLaVue() { if (carte != null) ecriture?.Suivre(carte.camera); }
 
         // La teinte d'un pays ne dépend que de son identifiant, comme celle d'une puissance de 1400.
         public static Color CouleurDuPays(string id)
@@ -63,7 +68,7 @@ namespace Forge.Interface
         public Color? CouleurDe(long cellId) => Terres == null ? (Color?)null : CouleurDuPays(Terres.PaysDe(cellId));
         // Le pays d'une maison : celui des terres dont elle tient le bourg ; une maison sans bourg est son propre pays.
         public string PaysDeLaMaison(string maison) => Terres?.Terres.FirstOrDefault(t => t.Maitre == maison)?.Pays ?? maison;
-        public bool Possede(Transform t) => (racineDesNoms != null && t.IsChildOf(racineDesNoms)) || (racineDesArmees != null && t.IsChildOf(racineDesArmees));
+        public bool Possede(Transform t) => (ecriture != null && t.IsChildOf(ecriture.Racine)) || (racineDesArmees != null && t.IsChildOf(racineDesArmees));
         public static string Nombre(ArmeeLue armee) => TexteDuMonde.Nombre(armee.Hommes) + (armee.Hommes > 1 ? " hommes" : " homme") + (armee.Siege != null ? " · siège" : "");
 
         public void Pas(double t)
@@ -136,26 +141,18 @@ namespace Forge.Interface
             CotesDeFrontiere = n;
         }
 
-        // Un nom par pays, au centre de celle de ses terres qui est la plus proche du centre de toutes ses terres.
+        // Un nom par pays, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
+        // pays servi de chaque terre, et se refait donc quand une terre change de pays.
         void NommerLesPays()
         {
-            foreach (var nom in noms) if (nom != null) Detruire(nom.gameObject);
-            noms.Clear();
-            if (voisinage == null || Terres == null) return;
-            if (racineDesNoms == null) { racineDesNoms = new GameObject(NOMS).transform; racineDesNoms.SetParent(transform, false); crees.Add(racineDesNoms.gameObject); }
-            var police = SocleInterface.Police(titre: true);
-            foreach (var pays in Terres.Pays)
-            {
-                var centres = Terres.Terres.Where(t => t.Pays == pays.Id && voisinage.Centres.ContainsKey(t.CellId)).Select(t => voisinage.Centres[t.CellId]).ToList();
-                if (centres.Count == 0) continue;
-                Vector2 moyen = centres.Aggregate(Vector2.zero, (s, c) => s + c) / centres.Count, retenu = centres[0];
-                foreach (var c in centres) if ((c - moyen).sqrMagnitude < (retenu - moyen).sqrMagnitude) retenu = c;
-                var texte = new GameObject("Pays " + pays.Id).AddComponent<TextMesh>(); texte.transform.SetParent(racineDesNoms, false);
-                texte.transform.SetLocalPositionAndRotation(new Vector3(retenu.x, HAUTEUR_NOM, retenu.y), VERS_LE_BAS);
-                texte.font = police; texte.GetComponent<MeshRenderer>().sharedMaterial = police.material; texte.fontSize = POLICE; texte.characterSize = TAILLE_NOM_PAYS;
-                texte.anchor = TextAnchor.MiddleCenter; texte.color = SocleInterface.Couleur("encre"); texte.text = pays.Nom ?? "Pays sans nom";
-                noms.Add(texte);
-            }
+            if (carte.Terrain == null || carte.Lue == null || Terres == null) { ecriture?.Ecrire(new (string, string, TraceDeNom)[0]); return; }
+            if (ecriture == null) ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"));
+            var rangs = new Dictionary<string, int>(); for (int k = 0; k < Terres.Pays.Count; k++) rangs[Terres.Pays[k].Id] = k;
+            var pays = new int[carte.Lue.Cellules.Count];
+            for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
+            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
+            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom ?? "Pays sans nom", traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
+            SuivreLaVue();
         }
 
         // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au sud et sa route servie.
@@ -209,7 +206,7 @@ namespace Forge.Interface
         {
             var sb = new StringBuilder(ENTETE);
             if (AbsenceDesTerres != null) sb.Append("\nPays non lus : ").Append(TexteDuMonde.Absence(AbsenceDesTerres)).Append(". Couleurs des puissances du départ conservées.");
-            if (echecDuVoisinage != null) sb.Append("\nPays non nommés : ").Append(TexteDuMonde.Absence(echecDuVoisinage));
+            if (echecDuVoisinage != null) sb.Append("\nFrontières non comptées : ").Append(TexteDuMonde.Absence(echecDuVoisinage));
             if (AbsenceDesGuerres != null) sb.Append("\nArmées non lues : ").Append(TexteDuMonde.Absence(AbsenceDesGuerres));
             else if (Guerres != null)
                 foreach (var armee in Guerres.Armees)
