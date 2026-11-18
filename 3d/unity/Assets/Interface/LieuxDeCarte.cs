@@ -12,31 +12,62 @@ namespace Forge.Interface
     // Lieux des cellules tenues, couleur du maître, rouge si les départs dépassent les arrivées. Lecture seule.
     // Chaque lieu est une figurine posée sur le sol : un bourg pour le rang 0 de sa terre, un hameau pour les autres ;
     // le dessus de son socle porte la couleur, comme le disque qu'il remplace, sous des maisons aux toits de cuivre. De loin, une figurine ne descend jamais sous `MIN_PX` pixels de large.
+    // Quand la vue recule et que deux figurines se recouvriraient à l'écran de plus de `RECOUVREMENT`, une seule se montre :
+    // le lieu en rouge avant les autres, puis le bourg avant le hameau, puis le premier servi. Un lieu se cache aussi sous
+    // une armée et sous le nombre de ses hommes. Tous reviennent quand la vue s'approche.
     public sealed class LieuxDeCarte : MonoBehaviour
     {
         public const string RACINE = "Lieux de la carte", ENTETE = "Blanc : vos lieux. Couleurs : autres maîtres. Rouge : départs supérieurs aux arrivées sur trente jours.";
-        public const string FIGURINE = "Figurine"; public const float PERIODE_S = 2f, MIN_PX = 26f; public const int BOURG = 1, HAMEAU = 0; public static readonly Color ROUGE = new Color(0.86f, 0.05f, 0.04f); // « alerte » (#8B342E) rend un rose terne sur la carte éclairée
+        public const string FIGURINE = "Figurine"; public const float PERIODE_S = 2f, MIN_PX = 26f, RECOUVREMENT = 0.25f; public const int BOURG = 1, HAMEAU = 0; public static readonly Color ROUGE = new Color(0.86f, 0.05f, 0.04f); // « alerte » (#8B342E) rend un rose terne sur la carte éclairée
         const float TEINTE_MIN = 0.18f, ETENDUE_TEINTE = 0.5f, SATURATION = 0.7f, VALEUR = 0.75f; const uint PAS_DE_TEINTE = 500; // du jaune au bleu : ni blanc ni rouge
         public Func<long, LectureLieu> Lecteur;
         public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lus par la légende du mode Puissances et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
+        public int Poses => vus.Count; public int Montres { get; private set; } // les lieux posés au dernier réglage sur la vue, et ceux qui se montrent
         public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé
         CarteDessinee carte; CabinetDeCarte cabinet; Transform racine; readonly Mesh[] formes = new Mesh[2];
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
-        Task<Paquet> vol; double prochaine; string peinte;
+        Task<Paquet> vol; double prochaine; string peinte; CarteDeLaGuerre guerre; CalquesCarte calques;
+        struct Vu { public GameObject Figurine; public Vector2 Ecran; public float RayonPx; public int Ordre; public bool Montre; }
+        readonly List<Vu> vus = new List<Vu>(); readonly List<Vector3> armees = new List<Vector3>();
+        static readonly Comparison<Vu> PAR_ORDRE = (a, b) => a.Ordre.CompareTo(b.Ordre); const int RANGS = 1 << 20;
         sealed class Paquet { public string Maison; public List<(long cell, LectureLieu lieu)> Cellules; }
         public void Installer() { carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); TexteLegende = ENTETE; }
+        // Les armées et les nombres de leurs hommes, sous lesquels un lieu se cache.
+        public void Eviter(CarteDeLaGuerre guerre, CalquesCarte calques) { this.guerre = guerre; this.calques = calques; }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void LateUpdate() => SuivreLaVue();
         void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); }
         // La taille de la figurine d'un lieu : un bourg au rang 0 de sa terre, un hameau ailleurs.
         public static int Taille(long rang) => rang == 0 ? BOURG : HAMEAU;
-        // Chaque figurine se règle sur la vue : jamais sous `MIN_PX` pixels de large.
+        // Chaque figurine se règle sur la vue : jamais sous `MIN_PX` pixels de large, et cachée quand elle en recouvrirait
+        // une autre qui passe avant elle, une armée, ou le nombre d'une armée.
         public void SuivreLaVue()
         {
+            vus.Clear(); Montres = 0;
             if (racine == null || carte == null || carte.camera == null) return;
-            foreach (Transform lieu in racine) { var figurine = lieu.Find(FIGURINE); if (figurine == null) continue; float rayon = FormesDeCarte.RayonDuBourg(figurine.GetComponent<MeshFilter>().sharedMesh == formes[BOURG] ? BOURG : HAMEAU); figurine.localScale = Vector3.one * FormesDeCarte.EchellePourLEcran(carte.camera, lieu.position, rayon, MIN_PX); }
+            Camera camera = carte.camera; mats.TryGetValue(ROUGE, out Material alerte); int rang = 0;
+            foreach (Transform lieu in racine)
+            {
+                var figurine = lieu.Find(FIGURINE); if (figurine == null) continue;
+                bool bourg = figurine.GetComponent<MeshFilter>().sharedMesh == formes[BOURG], rouge = alerte != null && figurine.GetComponent<MeshRenderer>().sharedMaterial == alerte;
+                float rayon = FormesDeCarte.RayonDuBourg(bourg ? BOURG : HAMEAU), echelle = FormesDeCarte.EchellePourLEcran(camera, lieu.position, rayon, MIN_PX), kmParPixel = FormesDeCarte.KmParPixel(camera, lieu.position);
+                figurine.localScale = Vector3.one * echelle;
+                vus.Add(new Vu { Figurine = figurine.gameObject, Ecran = camera.WorldToScreenPoint(lieu.position), RayonPx = kmParPixel > 0f ? rayon * echelle / kmParPixel : 0f, Ordre = ((rouge ? 0 : 2) + (bourg ? 0 : 1)) * RANGS + rang++ });
+            }
+            armees.Clear(); if (guerre != null) guerre.PlacesDesArmees(camera, armees);
+            IReadOnlyList<Rect> nombres = calques != null ? calques.PlacesDesNombres : null;
+            vus.Sort(PAR_ORDRE);
+            for (int k = 0; k < vus.Count; k++)
+            {
+                Vu v = vus[k]; float serre = (1f - RECOUVREMENT) * v.RayonPx; bool libre = true;
+                for (int a = 0; a < armees.Count && libre; a++) if (((Vector2)armees[a] - v.Ecran).magnitude < serre + (1f - RECOUVREMENT) * armees[a].z) libre = false;
+                if (nombres != null) for (int n = 0; n < nombres.Count && libre; n++) { Rect r = nombres[n]; var proche = new Vector2(Mathf.Clamp(v.Ecran.x, r.xMin, r.xMax), Mathf.Clamp(v.Ecran.y, r.yMin, r.yMax)); if ((proche - v.Ecran).magnitude < serre) libre = false; }
+                for (int j = 0; j < k && libre; j++) { Vu q = vus[j]; if (q.Montre && (v.Ecran - q.Ecran).magnitude < (1f - RECOUVREMENT) * (v.RayonPx + q.RayonPx)) libre = false; }
+                v.Montre = libre; vus[k] = v; if (libre) Montres++;
+                if (v.Figurine.activeSelf != libre) v.Figurine.SetActive(libre);
+            }
         }
         // Une terre se nomme par son bourg (le rang 0 servi), un lieu par son nom servi ; l'absence se dit, jamais un numéro.
         public static string Bourg(Lieu lieu) { var b = lieu.Bourg; return b?.Nom ?? "Bourg sans nom (" + TexteDuMonde.Absence(b == null ? "bourg non servi" : b.AbsenceDuNom, Cle(lieu)) + ")"; }

@@ -24,7 +24,7 @@ namespace ForgeLocal3D.Captures
         const int JOURS_MAX_CASERNE = 60, JOURS_MAX_MARCHE = 40, JOURS_MAX_SIEGE = 60, JOURS_DE_MARCHE_AVANT_PHOTO = 7, JOURS_DE_SIEGE_AVANT_PHOTO = 3;
         // Les vivres d'une levée : de quoi marcher et tenir un long siège, au plus une part du grain libre servi.
         const double JOURS_DE_VIVRES = 140, PART_DU_GRAIN = 0.8;
-        const float DEMI_KM = 220f; const int IMAGES_DE_POSE = 12;
+        const float DEMI_KM = 220f, DEMI_LOIN_KM = 700f; const int IMAGES_DE_POSE = 12;
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(60);
         static string maison; static long armee = -1; static PointCarte? capitale;
 
@@ -135,6 +135,17 @@ namespace ForgeLocal3D.Captures
                 && guerre.Terres.PaysDe(PLACE) == guerre.PaysDeLaMaison(maison), () => "terre prise non relue au tick " + tick); e.MoveNext();) yield return null;
             var lieu = guerre.Guerres?.Armees.FirstOrDefault(a => a.Identifiant == armee);
             Cadrer(carte, lieu != null ? carte.PositionSurLaCarte(lieu.Point, 0f).Value : carte.PositionSurLaCarte(capitale.Value, 0f).Value, DEMI_KM);
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            yield return carte.camera;
+        }
+
+        // La même terre vue de loin : les lieux qui se recouvriraient se cachent, l'armée et le nombre de ses hommes restent lisibles.
+        [ScenarioDeCapture("guerre", "05-terre-prise-de-loin")]
+        static IEnumerator TerrePriseDeLoin(Camera camera)
+        {
+            var (carte, guerre) = Carte();
+            var lieu = guerre.Guerres?.Armees.FirstOrDefault(a => a.Identifiant == armee);
+            Cadrer(carte, lieu != null ? carte.PositionSurLaCarte(lieu.Point, 0f).Value : carte.PositionSurLaCarte(capitale.Value, 0f).Value, DEMI_LOIN_KM);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             yield return carte.camera;
         }

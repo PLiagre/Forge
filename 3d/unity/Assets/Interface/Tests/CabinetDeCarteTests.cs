@@ -19,7 +19,7 @@ namespace Forge.Interface.Tests
             cabinet = racine.AddComponent<CabinetDeCarte>();
             cabinet.Construire();
         }
-        [TearDown] public void Fermer() { racine.GetComponent<CarteDessinee>().Arreter(); Object.DestroyImmediate(racine); }
+        [TearDown] public void Fermer() { if (ecran != null) { camera.targetTexture = null; Object.DestroyImmediate(ecran); ecran = null; } racine.GetComponent<CarteDessinee>().Arreter(); Object.DestroyImmediate(racine); }
 
         [Test] public void LeChoixDirectDuPrototypeEstArrete()
         {
@@ -211,6 +211,78 @@ namespace Forge.Interface.Tests
             Assert.That(APlat(pied, pointe), Is.GreaterThan(CarteDessinee.PAS_DU_DRAPE_KM), "échantillon vide : la flèche " + nom + " tient dans un seul pas");
             Assert.That(APlat(v[0], v[1]), Is.EqualTo(FlechesDeCarte.Epaisseur(kg)).Within(1e-2f), nom + " : la hampe n'a pas l'épaisseur de ce qui est envoyé"); Assert.That((Color32)f.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)(nom == "du dû" ? FlechesDeCarte.VIOLET : FlechesDeCarte.ORANGE)));
         }
+        [Test] public void De_loin_deux_lieux_qui_se_recouvriraient_n_en_montrent_qu_un_le_rouge_puis_le_bourg()
+        {
+            // Trois lieux en ligne, d'ouest en est, à 40 km l'un de l'autre : le bourg, un hameau, un hameau.
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); EnLigne(true, false);
+            // De près, 900 pixels pour 120 km : chacun se voit.
+            Voir(60); Assert.That(Vector2.Distance(camera.WorldToScreenPoint(Figurine(10, 0).parent.position), camera.WorldToScreenPoint(Figurine(10, 1).parent.position)) * 120f / ECRAN_PX, Is.EqualTo(40f).Within(.01f), "échantillon faussé : les lieux témoins ne sont pas à 40 km"); Assert.That(Montres(), Is.EqualTo((true, true, true)), "un lieu est caché de près"); Assert.That((lieux.Poses, lieux.Montres), Is.EqualTo((3, 3)));
+            // 900 pixels pour 2 000 km : les figurines font 26 pixels et les lieux sont à 18 pixels l'un de l'autre.
+            // Le hameau du milieu recouvrirait le bourg : il se cache. Celui de l'est, à 36 pixels du bourg, reste.
+            Voir(1000); Assert.That(Montres(), Is.EqualTo((true, false, true)), "ce n'est pas le hameau qui se cache derrière le bourg"); Assert.That(lieux.Montres, Is.EqualTo(2));
+            // De deux fois plus loin, le hameau de l'est aussi recouvrirait le bourg : seul le bourg reste.
+            Voir(2000); Assert.That(Montres(), Is.EqualTo((true, false, false)), "ce n'est pas le bourg qui reste");
+            // Le hameau de l'est passe au rouge : c'est lui qui reste, et le bourg qui se cache.
+            EnLigne(true, true); Voir(2000); Assert.That(Montres(), Is.EqualTo((false, false, true)), "un lieu en rouge se cache derrière un lieu sans alerte");
+            Voir(1000); Assert.That(Montres(), Is.EqualTo((true, false, true)));
+            // Deux hameaux sans alerte : le premier servi reste.
+            EnLigne(false, false); Voir(2000); Assert.That((Figurine(10, 1).gameObject.activeSelf, Figurine(10, 2).gameObject.activeSelf), Is.EqualTo((true, false)), "de deux hameaux, ce n'est pas le premier servi qui reste");
+            // La vue revenue, tous reviennent.
+            EnLigne(true, true); Voir(60); Assert.That(Montres(), Is.EqualTo((true, true, true)), "les lieux ne reviennent pas quand la vue s'approche");
+        }
+        [Test] public void De_loin_un_lieu_se_cache_sous_une_armee_et_sous_le_nombre_de_ses_hommes()
+        {
+            // Le bourg ; un hameau à 60 km à l'est ; un hameau à 70 km au sud du point où l'armée se tiendra, 20 km à l'est du premier hameau.
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); var guerre = racine.GetComponent<CarteDeLaGuerre>(); var calques = racine.GetComponent<CalquesCarte>();
+            Servir(_ => LectureLieu.De(Cellule(10, 3, Place(10, 0, 1000, 2000, B, 1, 2), Place(10, 1, 61000, 2000, JOUEUR, 1, 2), Place(10, 2, 81000, -68000, C, 1, 2))));
+            // 900 pixels pour 2 000 km, sans armée : les trois lieux, à plus de 26 pixels l'un de l'autre, se voient.
+            Armees(guerre, calques); Voir(1000); Assert.That(Montres(), Is.EqualTo((true, true, true)), "échantillon faussé : un lieu est caché sans armée");
+            // L'armée arrive : sa figurine, de 34 pixels, est à 9 pixels du hameau, qui se cache sous elle.
+            Armees(guerre, calques, new ArmeeLue(0, JOUEUR, 10, 0, 1200, 500, 10L, null, new long[0], new PointCarte(81000, 2000), new PointCarte[0])); Voir(1000);
+            var places = new List<Vector3>(); guerre.PlacesDesArmees(camera, places); Assert.That(places, Has.Count.EqualTo(1)); Assert.That(places[0].z, Is.EqualTo(CarteDeLaGuerre.MIN_PX / 2f).Within(.01f), "la place de l'armée ne dit pas le rayon de sa figurine");
+            Assert.That(((Vector2)places[0] - (Vector2)camera.WorldToScreenPoint(Figurine(10, 1).parent.position)).magnitude, Is.EqualTo(9f).Within(.1f), "la place de l'armée n'est pas là où elle se dessine");
+            // Le hameau du sud est hors de la figurine de l'armée, mais sous le nombre de ses hommes : il se cache aussi.
+            Vector2 sud = camera.WorldToScreenPoint(Figurine(10, 2).parent.position); Assert.That(calques.PlacesDesNombres, Has.Count.EqualTo(1), "le nombre de l'armée n'est pas montré");
+            Assert.That(calques.PlacesDesNombres[0].Contains(sud), Is.True, "échantillon faussé : le hameau du sud n'est pas sous le nombre " + calques.PlacesDesNombres[0] + " " + sud);
+            Assert.That((sud - (Vector2)places[0]).magnitude, Is.GreaterThan(LieuxDeCarte.MIN_PX / 2f + places[0].z), "échantillon faussé : le hameau du sud touche la figurine de l'armée");
+            Assert.That(Montres(), Is.EqualTo((true, false, false)), "un lieu se montre sous l'armée ou sous son nombre"); Assert.That(lieux.Montres, Is.EqualTo(1));
+            // De près, l'armée est à 150 pixels du hameau et son nombre loin de celui du sud : tous reviennent.
+            Voir(60);
+            Assert.That(Montres(), Is.EqualTo((true, true, true)), "les lieux ne reviennent pas quand la vue s'approche de l'armée");
+            // L'armée partie, plus rien ne se cache de loin.
+            Armees(guerre, calques); Voir(1000); Assert.That(calques.PlacesDesNombres, Is.Empty); Assert.That(Montres(), Is.EqualTo((true, true, true)), "un lieu reste caché sous une armée partie");
+        }
+        // Les trois lieux témoins de la terre 10, en ligne d'ouest en est à 40 km l'un de l'autre ; sans son bourg, il en reste deux.
+        void EnLigne(bool bourg, bool rougeALEst)
+        {
+            var places = new List<LieuPlace> { Place(10, 1, 41000, 2000, JOUEUR, 1, 2), Place(10, 2, 81000, 2000, C, rougeALEst ? 7 : 1, 2) }; if (bourg) places.Insert(0, Place(10, 0, 1000, 2000, B, 1, 2));
+            Servir(_ => LectureLieu.De(Cellule(10, 3, places.ToArray())));
+        }
+        // La caméra témoin regarde d'en haut le lieu de rang 1 : `demi` km de part et d'autre sur un écran de 900 pixels de haut, et les lieux s'y règlent.
+        const int ECRAN_PX = 900; RenderTexture ecran;
+        void Voir(float demi)
+        {
+            if (ecran == null) { ecran = new RenderTexture(1600, ECRAN_PX, 16); camera.targetTexture = ecran; camera.orthographic = true; }
+            camera.transform.SetPositionAndRotation(Figurine(10, 1).parent.position + Vector3.up * 100f, Quaternion.Euler(90, 0, 0)); camera.orthographicSize = demi;
+            // Dans l'ordre d'une image : les armées et leurs nombres se règlent sur la vue, les étiquettes se posent, puis les lieux se rangent.
+            racine.GetComponent<CarteDeLaGuerre>().SuivreLaVue(); var calques = racine.GetComponent<CalquesCarte>(); Peindre(calques); Peindre(calques); lieux.SuivreLaVue();
+        }
+        static void Peindre(CalquesCarte calques) => typeof(CalquesCarte).GetMethod("LateUpdate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(calques, null);
+        // Les armées que la carte de la guerre lit et pose, sur la terre 10 tenue par le joueur.
+        void Armees(CarteDeLaGuerre guerre, CalquesCarte calques, params ArmeeLue[] armees)
+        {
+            guerre.LecteurTerres = () => Lecture<TerresDeLaCarte>.De(new TerresDeLaCarte(5, new DateDuMonde(1400, 6), new[] { new PaysDeLaCarte("a", "Avalon") }, new[] { new TerreLue(10, JOUEUR, "a") }));
+            guerre.LecteurGuerres = () => Lecture<GuerresLues>.De(new GuerresLues(5, new DateDuMonde(1400, 6), new GuerreLue[0], armees, new PriseLue[0], 0));
+            for (int passe = 0; passe < 4; passe++)
+            {
+                guerre.Pas(horlogeDeGuerre); var fin = DateTime.UtcNow.AddSeconds(10); while (guerre.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5);
+                Assert.That(guerre.LectureEnVol, Is.False, "lecture de la guerre encore en vol"); guerre.Pas(horlogeDeGuerre); horlogeDeGuerre += CarteDeLaGuerre.PERIODE_S;
+            }
+            Assert.That(guerre.NombresDesArmees.Count(n => n != null), Is.EqualTo(armees.Length), "les armées témoins ne sont pas posées : " + guerre.AbsenceDesGuerres + " " + guerre.AbsenceDesTerres);
+        }
+        double horlogeDeGuerre;
+        Transform Figurine(long cell, long rang) => racine.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/" + LieuxDeCarte.FIGURINE);
+        (bool, bool, bool) Montres() => (Figurine(10, 0).gameObject.activeSelf, Figurine(10, 1).gameObject.activeSelf, Figurine(10, 2).gameObject.activeSelf);
         // La terre 10 est posée pour de bon ; l'origine et la vue sont ensuite celles que les lieux témoins attendent.
         void Preparer() { horloge = 0; lieux = racine.GetComponent<LieuxDeCarte>(); Dessiner(10); typeof(CarteDessinee).GetField("origine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(carte, (PointCarte?)new PointCarte(3000000, 1500000)); Poser(carte, "Vue", new VueDeCarte(new Bounds(Vector3.zero, new Vector3(8000f, 1f, 6000f)), 1.6f)); camera = new GameObject("caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.transform.position = new Vector3(3, 4, 5); carte.camera = camera; Assert.That(carte.Vue != null && carte.PositionSurLaCarte(new PointCarte(1, 1), 0f) != null, Is.True); }
         void Publier(string id, params LieuTenu[] tenus) { if (partie == null) partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), id))); Poser(partie, "Maison", Lecture<MaisonLue>.De(new MaisonLue(id, "Maison", new SiegeDeMaison(tenus[0].CellId, tenus[0].Rang, "Siège", new PointCarte(1, 2)), tenus, new Dictionary<string, string>()))); }

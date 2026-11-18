@@ -144,7 +144,7 @@ namespace Forge.Interface
             gameObject.AddComponent<VillesDeCarte>().Installer();
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
-            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);
+            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre); lieux.Eviter(guerre, calques);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
             Afficher();
         }

@@ -55,7 +55,7 @@ namespace Forge.Interface
         // L'étiquette d'écran de chaque texte posé sur la carte, et la toile qui les porte, sur la caméra de la carte.
         readonly Dictionary<TextMesh, Text> ecrites = new Dictionary<TextMesh, Text>(); readonly Dictionary<Text, (string texte, int points, float largeur)> largeurs = new Dictionary<Text, (string, int, float)>();
         Canvas toileDesEtiquettes;
-        readonly List<Rect> etiquettes = new List<Rect>();
+        readonly List<Rect> etiquettes = new List<Rect>(), nombres = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
         LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
         CarteDeLaGuerre guerre; int versionDesPays = -1; // les pays servis des terres, et leur version au dernier passage
@@ -215,9 +215,12 @@ namespace Forge.Interface
                 ecrites.Clear(); foreach (var paire in gardees) ecrites.Add(paire.Key, paire.Value);
             }
             if (toileDesEtiquettes != null && carte.camera != null) toileDesEtiquettes.planeDistance = carte.camera.nearClipPlane * 1.5f;
-            if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true, CORPS_DE_NOMBRE_PX); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
+            nombres.Clear();
+            if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true, CORPS_DE_NOMBRE_PX); nombres.AddRange(etiquettes); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
             foreach (var nom in noms) Espacer(nom, false, CORPS_DE_VILLE_PX);
         }
+        // Les places, en pixels de l'écran, des nombres des armées montrés à la dernière image.
+        public IReadOnlyList<Rect> PlacesDesNombres => nombres;
         // L'étiquette d'écran d'un texte posé sur la carte ; null tant qu'il n'a pas été présenté.
         public Text EtiquetteDe(TextMesh nom) => nom != null && ecrites.TryGetValue(nom, out Text texte) ? texte : null;
         Text Etiqueter(TextMesh nom)
