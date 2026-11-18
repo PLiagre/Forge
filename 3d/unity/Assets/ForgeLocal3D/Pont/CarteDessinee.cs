@@ -9,18 +9,22 @@ namespace Forge.Pont {
     // au départ celle de sa puissance, sans aucun nombre du monde calculé ici. Lecture et levé du terrain partent hors
     // du fil principal ; la pose se fait dans Update, une seule fois. Sans carte, le texte dit pourquoi et rien n'est
     // posé ; la lecture repart plus tard. Une vue change la teinte d'une cellule par `Teinter`, jamais par un objet.
-    // Le bord de chaque anneau, le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
+    // Les traits sont dessinés par le terrain lui-même, aux côtés servis : le bord de chaque cellule, la côte et ses
+    // lignes d'eau, et la frontière entre deux cellules que `Rattacher` donne à des pays différents, doublée d'un
+    // liseré à la couleur de chaque pays. Au départ, chaque cellule est rattachée à sa puissance servie.
+    // Le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
     // Cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
-        public const float HAUTEUR_CONTOUR = 0.5f, LARGEUR_CONTOUR = 4f, HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
+        public const float HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
         public const string TERRAIN = "Terrain de la carte", SHADER_DU_TERRAIN = "Forge/CarteRelief";
-        private const string SANS_MATERIAU = "carte non dessinée : matériau Forge/Carte ou shader " + SHADER_DU_TERRAIN + " absent";
+        private const string SANS_SHADER = "carte non dessinée : shader " + SHADER_DU_TERRAIN + " absent";
         private const int LARGEUR_PALETTE = 256; // une teinte par cellule, rangée par lignes ; la case 0 est la mer
+        private const string PUISSANCE = "puissance "; // la clé du pays de départ d'une cellule : sa puissance servie
         private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f; private const int TAILLE_POLICE = 24;
         private const int TAILLE_NOM = 16; private const float TAILLE_CARACTERE = 25f; // une ligne de nom : environ 40 km, dessinée près de sa taille à l'écran
-        private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), RIVAGE = new Color(0.2f, 0.3f, 0.42f), ROCHE = new Color(0.85f, 0.83f, 0.78f), BORD = new Color(0.1f, 0.08f, 0.06f);
+        private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), RIVAGE = new Color(0.2f, 0.3f, 0.42f), ROCHE = new Color(0.85f, 0.83f, 0.78f), BORD = new Color(0.1f, 0.08f, 0.06f), EAUX = new Color(0.5f, 0.6f, 0.7f);
         private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public new Camera camera;
@@ -31,7 +35,13 @@ namespace Forge.Pont {
         private readonly List<Object> crees = new List<Object>();
         private Material matiere; private Texture2D palette; private Color[] teintes; private bool aVerser; // la palette, et si elle attend d'être versée au shader
         private Dictionary<long, int> rangs; private bool[] posees; private int nombrePosees; // le rang servi de chaque cellule, et celles que le terrain dessine
-        private Color mer = MER, rivage = RIVAGE, roche = ROCHE;
+        private Color mer = MER, rivage = RIVAGE, roche = ROCHE, encreDesCotes = BORD, encreDesBords = BORD, encreDesFrontieres = BORD, encreDesEaux = EAUX;
+        // Les pays : la clé de chacun par indice (0 : aucun pays), l'indice du pays de chaque case de la palette, et la
+        // couleur du liseré de chaque pays. Les deux tables attendent d'être versées quand un rattachement les change.
+        private List<string> cles; private Dictionary<string, int> indicesDesPays; private ushort[] indices; private Color[] couleursDesPays;
+        private Texture2D paysDesCellules, teintesDesPays; private bool paysAVerser;
+        // Les distances aux frontières, un octet par texel ; la zone à mesurer de nouveau, et si la grille attend d'être versée.
+        private Texture2D frontieres; private byte[] champ; private RectInt? sale; private bool frontieresAVerser;
         private long? marquee; private Color marque; // la cellule marquée et la couleur qui couvre sa teinte
 
         public string TexteAffiche => texte != null ? texte.text : null;
@@ -64,7 +74,38 @@ namespace Forge.Pont {
         // Retire une cellule du dessin : son sol rend la mer, elle perd sa marque et ne compte plus parmi les posées.
         public bool Retirer(long cellId) {
             if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
-            posees[rang] = false; nombrePosees--; teintes[rang + 1] = Color.clear; if (marquee == cellId) marquee = null; aVerser = true; return true;
+            posees[rang] = false; nombrePosees--; teintes[rang + 1] = Color.clear; if (marquee == cellId) marquee = null; aVerser = true;
+            Salir(Terrain.ZoneDe(rang)); return true; // ses voisines n'ont plus de frontière avec elle
+        }
+        // Rattache une cellule posée à un pays, nommé par sa clé, et donne au pays la couleur de son liseré ; sans clé,
+        // la cellule n'est à aucun pays. Une frontière sépare deux cellules voisines qui ne sont pas au même pays.
+        // Faux si le terrain ne la dessine pas.
+        public bool Rattacher(long cellId, string pays, Color couleur) {
+            if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
+            int indice = 0;
+            if (!string.IsNullOrEmpty(pays) && !indicesDesPays.TryGetValue(pays, out indice)) {
+                if (cles.Count == couleursDesPays.Length) { indices[rang + 1] = 0; Tasser(); Salir(Terrain.ZoneDe(rang)); }
+                indice = cles.Count; cles.Add(pays); indicesDesPays[pays] = indice;
+            }
+            couleur.a = 1f;
+            if (indice > 0 && couleursDesPays[indice] != couleur) { couleursDesPays[indice] = couleur; paysAVerser = true; }
+            if (indices[rang + 1] != indice) { indices[rang + 1] = (ushort)indice; paysAVerser = true; Salir(Terrain.ZoneDe(rang)); }
+            return true;
+        }
+        // La clé du pays d'une cellule posée ; null si elle n'est à aucun pays ou que le terrain ne la dessine pas.
+        public string PaysDe(long cellId) => rangs != null && rangs.TryGetValue(cellId, out int rang) && posees[rang] ? cles[indices[rang + 1]] : null;
+        // Sous un point en km locaux, la distance en km à la plus proche frontière du pays qui tient ce point, telle
+        // que le terrain la dessine ; la portée des frontières quand elle est plus loin, en mer ou sans frontière ;
+        // -1 sans carte posée.
+        public float DistanceALaFrontiere(float x, float z) {
+            if (champ == null) return -1f;
+            Mesurer(); return Terrain.FrontiereEn(champ, x, z);
+        }
+        // Les encres des traits du terrain : la côte, le bord des cellules, les frontières, les lignes d'eau.
+        public void Encrer(Color cotes, Color bords, Color desFrontieres, Color eaux) {
+            encreDesCotes = cotes; encreDesBords = bords; encreDesFrontieres = desFrontieres; encreDesEaux = eaux;
+            if (matiere == null) return;
+            matiere.SetColor("_EncreDesCotes", cotes); matiere.SetColor("_EncreDesBords", bords); matiere.SetColor("_EncreDesFrontieres", desFrontieres); matiere.SetColor("_EncreDesEaux", eaux);
         }
         // La cellule marquée, ou null : une seule à la fois.
         public long? Marquee => marquee;
@@ -130,37 +171,44 @@ namespace Forge.Pont {
         }
         private void Poser(CarteLue lue, TerrainDeCarte terrain) {
             close = true;
-            RenderPipelineAsset pipeline = GraphicsSettings.currentRenderPipeline;
-            // Le matériau par défaut du pipeline peut n'exister que dans l'éditeur.
-            Material defaut = Resources.Load<Material>("Forge/Carte");
-            if (defaut == null && pipeline != null) defaut = pipeline.defaultMaterial;
             Shader relief = Resources.Load<Shader>(SHADER_DU_TERRAIN);
-            if (defaut == null || relief == null) { Dire(SANS_MATERIAU); return; }
+            if (relief == null) { Dire(SANS_SHADER); return; }
             var maillage = new Mesh { name = TERRAIN, indexFormat = IndexFormat.UInt32 };
             maillage.SetVertices(terrain.SommetsDuMaillage); maillage.SetUVs(0, terrain.UvDuMaillage); maillage.SetTriangles(terrain.TrianglesDuMaillage, 0);
             maillage.RecalculateBounds(); crees.Add(maillage);
-            // Les numéros de cellules se lisent au texel près ; le relief se lit entre ses altitudes.
+            // Les numéros de cellules et les distances se lisent au texel près ; le relief se lit entre ses altitudes.
             Texture2D cellules = Creer("Cellules de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R16, FilterMode.Point, true);
             cellules.SetPixelData(terrain.TexelsDesCellules, 0); cellules.Apply(false, true);
             Texture2D altitudes = Creer("Relief de la carte", terrain.LargeurDuRelief, terrain.HauteurDuRelief, TextureFormat.RFloat, FilterMode.Bilinear, true);
             altitudes.SetPixelData(terrain.TexelsDuRelief, 0); altitudes.Apply(false, true);
+            Texture2D bords = Creer("Bords de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.RG16, FilterMode.Point, true);
+            bords.SetPixelData(terrain.TexelsDesBords, 0); bords.Apply(false, true);
+            frontieres = Creer("Frontières de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R8, FilterMode.Point, true);
+            champ = new byte[terrain.Largeur * terrain.Hauteur]; Terrain = terrain; sale = terrain.Tout;
             int servies = lue.Cellules.Count;
             palette = Creer("Teintes de la carte", LARGEUR_PALETTE, (servies + LARGEUR_PALETTE) / LARGEUR_PALETTE, TextureFormat.RGBA32, FilterMode.Point, false);
             teintes = new Color[palette.width * palette.height]; rangs = new Dictionary<long, int>(servies); posees = new bool[servies]; nombrePosees = 0;
+            // Les deux tables des pays se rangent comme la palette : la case d'une cellule dit son pays, celle d'un pays sa couleur.
+            paysDesCellules = Creer("Pays des cellules", palette.width, palette.height, TextureFormat.R16, FilterMode.Point, true);
+            teintesDesPays = Creer("Teintes des pays", palette.width, palette.height, TextureFormat.RGBA32, FilterMode.Point, false);
+            indices = new ushort[teintes.Length]; couleursDesPays = new Color[teintes.Length]; cles = new List<string> { null }; indicesDesPays = new Dictionary<string, int>();
             for (int rang = 0; rang < servies; rang++) {
                 CelluleDeCarte cellule = lue.Cellules[rang]; rangs[cellule.CellId] = rang;
                 if (terrain.TexelsDe(rang) == 0) continue; // sans texel, rien ne la dessine
                 Color teinte = MaillageDeCarte.CouleurDe(cellule); teinte.a = 1f; teintes[rang + 1] = teinte; posees[rang] = true; nombrePosees++;
+                if (cellule.Puissance != null) Rattacher(cellule.CellId, PUISSANCE + cellule.Puissance.Id, teinte);
             }
             matiere = new Material(relief) { name = TERRAIN }; crees.Add(matiere);
             matiere.SetTexture("_Cellules", cellules); matiere.SetTexture("_Relief", altitudes); matiere.SetTexture("_Palette", palette);
+            matiere.SetTexture("_Bords", bords); matiere.SetTexture("_Frontieres", frontieres); matiere.SetTexture("_Pays", paysDesCellules); matiere.SetTexture("_TeintesDesPays", teintesDesPays);
             matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
-            Habiller(mer, rivage, roche); aVerser = true; Verser();
+            matiere.SetFloat("_Pas", terrain.Pas); matiere.SetFloat("_PorteeDesBords", TerrainDeCarte.PORTEE_DES_BORDS_KM); matiere.SetFloat("_PorteeDesFrontieres", TerrainDeCarte.PORTEE_DES_FRONTIERES_KM);
+            Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); aVerser = true; paysAVerser = true; Verser();
             var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
             sol.GetComponent<MeshFilter>().sharedMesh = maillage;
             var rendu = sol.GetComponent<MeshRenderer>(); rendu.sharedMaterial = matiere; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
-            boite = terrain.Boite; Terrain = terrain;
-            Tracer(lue, terrain.Origine, defaut); Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); origine = terrain.Origine; Lue = lue;
+            boite = terrain.Boite;
+            Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); origine = terrain.Origine; Lue = lue;
             if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = servies; Dire(""); Cadrer();
         }
@@ -168,28 +216,43 @@ namespace Forge.Pont {
             var texture = new Texture2D(largeur, hauteur, format, false, lineaire) { name = nom, filterMode = filtre, wrapMode = TextureWrapMode.Clamp };
             crees.Add(texture); return texture;
         }
-        // La palette ne part au shader que si une teinte ou la marque a changé depuis le dernier versement.
+        // Rien ne part au shader qui n'ait changé depuis le dernier versement : la palette pour une teinte ou la marque,
+        // la grille des frontières et les tables des pays pour un rattachement ou un retrait.
         private void Verser() {
-            if (!aVerser || palette == null) return;
-            aVerser = false; palette.SetPixels(teintes);
-            if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) palette.SetPixel((rang + 1) % LARGEUR_PALETTE, (rang + 1) / LARGEUR_PALETTE, marque);
-            palette.Apply(false);
-        }
-        // Un trait par anneau servi, déjà fermé : l'extérieur de chaque polygone, puis ses trous.
-        private void Tracer(CarteLue lue, PointCarte origine, Material defaut) {
-            Transform bords = new GameObject("Contours de la carte").transform; bords.SetParent(transform, false);
-            var sombre = new Material(defaut) { name = "Contour", color = BORD }; crees.Add(sombre);
-            foreach (CelluleDeCarte cellule in lue.Cellules) {
-                int rang = 0;
-                foreach (PolygoneDeCarte polygone in cellule.Contour)
-                    for (int a = -1; a < polygone.Trous.Count; a++) {
-                        IReadOnlyList<PointCarte> anneau = a < 0 ? polygone.Exterieur : polygone.Trous[a];
-                        var trait = new GameObject("Contour " + cellule.CellId + "." + rang++).AddComponent<LineRenderer>(); trait.transform.SetParent(bords, false);
-                        trait.useWorldSpace = false; trait.loop = false; trait.widthMultiplier = LARGEUR_CONTOUR; trait.sharedMaterial = sombre; trait.shadowCastingMode = ShadowCastingMode.Off;
-                        var points = new Vector3[anneau.Count]; for (int k = 0; k < points.Length; k++) points[k] = Place(anneau[k], origine, HAUTEUR_CONTOUR);
-                        trait.positionCount = points.Length; trait.SetPositions(points);
-                    }
+            if (palette == null) return;
+            if (aVerser) {
+                aVerser = false; palette.SetPixels(teintes);
+                if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) palette.SetPixel((rang + 1) % LARGEUR_PALETTE, (rang + 1) / LARGEUR_PALETTE, marque);
+                palette.Apply(false);
             }
+            Mesurer();
+            if (frontieresAVerser) { frontieresAVerser = false; frontieres.SetPixelData(champ, 0); frontieres.Apply(false); }
+            if (!paysAVerser) return;
+            paysAVerser = false; paysDesCellules.SetPixelData(indices, 0); paysDesCellules.Apply(false); teintesDesPays.SetPixels(couleursDesPays); teintesDesPays.Apply(false);
+        }
+        // Mesure de nouveau les frontières là où une cellule a changé de pays ou quitté le dessin ; une cellule que le
+        // terrain ne dessine pas n'en a pas et n'en fait pas.
+        private void Mesurer() {
+            if (!sale.HasValue) return;
+            var pays = new int[posees.Length]; for (int r = 0; r < pays.Length; r++) pays[r] = posees[r] ? indices[r + 1] : -1;
+            Terrain.Frontieres(pays, champ, sale.Value); sale = null; frontieresAVerser = true;
+        }
+        private void Salir(RectInt zone) {
+            if (!sale.HasValue) { sale = zone; return; }
+            RectInt s = sale.Value; int x0 = Mathf.Min(s.xMin, zone.xMin), y0 = Mathf.Min(s.yMin, zone.yMin);
+            sale = new RectInt(x0, y0, Mathf.Max(s.xMax, zone.xMax) - x0, Mathf.Max(s.yMax, zone.yMax) - y0);
+        }
+        // Quand la table des pays est pleine, n'y garde que ceux qui tiennent encore une cellule : leurs indices se
+        // resserrent, et deux cellules du même pays le restent.
+        private void Tasser() {
+            var neufs = new int[cles.Count]; var gardees = new List<string> { null }; var couleurs = new Color[couleursDesPays.Length];
+            for (int c = 1; c < indices.Length; c++) {
+                int ancien = indices[c]; if (ancien == 0) continue;
+                if (neufs[ancien] == 0) { neufs[ancien] = gardees.Count; couleurs[gardees.Count] = couleursDesPays[ancien]; gardees.Add(cles[ancien]); }
+                indices[c] = (ushort)neufs[ancien];
+            }
+            cles = gardees; couleursDesPays = couleurs; indicesDesPays.Clear(); paysAVerser = true;
+            for (int k = 1; k < cles.Count; k++) indicesDesPays[cles[k]] = k;
         }
         // Un nom par ville servie, à sa place, lisible d'en haut, nord en haut.
         private void Nommer(CarteLue lue, PointCarte origine) {

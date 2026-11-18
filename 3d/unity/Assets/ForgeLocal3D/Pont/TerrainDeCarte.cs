@@ -5,16 +5,24 @@ using UnityEngine;
 
 namespace Forge.Pont {
     // Le terrain de la carte, levé d'un seul tenant depuis la carte servie. Rien ici ne touche un objet d'Unity : le
-    // levé part hors du fil principal. Trois grilles couvrent le même rectangle, la boîte des cellules bordée de mer :
+    // levé part hors du fil principal. Quatre grilles couvrent le même rectangle, la boîte des cellules bordée de mer :
     // - les cellules : un texel tous les `Pas` km, 0 pour la mer, sinon le rang servi + 1. Un texel est à la cellule
     //   dont un polygone contient son centre (règle pair-impair, trous compris). Une cellule plus petite qu'un texel
-    //   en reçoit un quand même, pris à la mer ou à une voisine qui en garde : aucune cellule servie ne disparaît ;
+    //   en reçoit un quand même, pris à la mer ou à une voisine qui en garde : aucune cellule servie ne disparaît.
+    //   Le bord commun de deux cellules est servi deux fois, une par cellule, et les deux tracés peuvent s'écarter
+    //   ou se recouvrir d'un ou deux kilomètres : celui de la cellule du plus petit rang fait foi. Elle garde les
+    //   texels recouverts, et la mer prise entre les deux tracés va à l'autre ;
+    // - les bords : pour chaque texel, la distance au plus proche bord de sa cellule (pour la mer, au plus proche
+    //   rivage), et la distance à la plus proche côte. Ces distances se mesurent aux côtés servis eux-mêmes, pas à
+    //   la grille : un trait tiré d'elles reste net bien en dessous du texel ;
     // - le relief : une altitude tous les `PasDuRelief` km, positive à terre, nulle au rivage, négative en mer ;
     // - le maillage : un sommet tous les `PasDuMaillage` km, à son altitude, la plus haute cime possible au plan 0.
     //   Tout le terrain reste donc sous les calques posés à plat au-dessus de ce plan.
     // Le relief est un décor : il ne vient d'aucune mesure et ne décide aucune grandeur du monde. Il habille la classe
     // de relief servie de chaque cellule, plus haute et plus heurtée de la plaine à la haute montagne, et s'efface vers
     // la côte. Il ne dépend que de la carte : deux levés de la même carte sont égaux.
+    // Les frontières ne sont pas levées : elles dépendent de qui tient chaque cellule, et se mesurent à la demande
+    // dans une grille de plus (`Frontieres`), aux mêmes côtés.
     public sealed class TerrainDeCarte {
         public const float MARGE_DE_MER_KM = 160f, PAS_MINIMAL_KM = 1f;
         public const int COTE_MAXIMAL = 4096, TEXELS_PAR_RELIEF = 2, TEXELS_PAR_MAILLE = 8;
@@ -29,8 +37,22 @@ namespace Forge.Pont {
             { "montagne", (14f, 7f) }, { "haute_montagne", (26f, 12f) }
         };
         private const string SANS_CLASSE = "plaine"; // un relief non servi, ou d'une classe inconnue, se dessine en plaine
+        // Deux tracés du même bord s'écartent de moins de deux fois FENTE_KM : une mer plus étroite entre deux cellules
+        // est une fente du service, et se comble.
+        public const float FENTE_KM = 1.3f;
+        // Au-delà de sa portée, une distance ne se mesure plus : elle vaut la portée.
+        public const float PORTEE_DES_BORDS_KM = 12f, PORTEE_DES_FRONTIERES_KM = 16f;
+        public const byte AU_LOIN = 255; // l'octet d'une distance au moins égale à la portée
+        private const int BANDE = 64; // les lignes de texels qu'une même tâche mesure
+
+        // Un morceau de côté servi qui sépare deux cellules sur la grille : celle qui le sert, celle d'en face (0 pour
+        // la mer), en numéros de texel, et ses deux bouts en texels.
+        private struct Morceau { public ushort Dedans, Dehors; public float Ax, Az, Bx, Bz; }
+        // Les deux cellules les plus proches d'un texel de mer : leur rang, leur distance, et vers où elles sont.
+        private struct Proches { public int R1, R2; public double D1, X1, Z1, D2, X2, Z2; }
 
         private readonly ushort[] cellules; private readonly int[] texels; private readonly float[] altitudes;
+        private readonly byte[] bords; private readonly Morceau[] morceaux; private readonly RectInt[] zones;
         private readonly Vector3[] sommets; private readonly Vector2[] uv; private readonly int[] triangles;
         private readonly double minX, minZ, pas;
 
@@ -48,20 +70,28 @@ namespace Forge.Pont {
         public Vector2 Coin => new Vector2((float)minX, (float)minZ);
         public IReadOnlyList<ushort> Cellules => cellules;
         public IReadOnlyList<float> Altitudes => altitudes;
+        // Deux octets par texel : la distance au bord de sa cellule, puis à la côte (`Distance` les rend en km).
+        public IReadOnlyList<byte> Bords => bords;
+        // Combien de morceaux de côtés séparent deux cellules, ou une cellule et la mer.
+        public int Separations => morceaux.Length;
         public IReadOnlyList<Vector3> Sommets => sommets;
         public IReadOnlyList<Vector2> Uv => uv;
         public IReadOnlyList<int> Triangles => triangles;
         // Combien de texels porte la cellule de ce rang servi.
         public int TexelsDe(int rang) => texels[rang];
+        // Les texels où la cellule de ce rang peut se trouver, et ceux de tout le terrain.
+        public RectInt ZoneDe(int rang) => zones[rang];
+        public RectInt Tout => new RectInt(0, 0, Largeur, Hauteur);
         internal ushort[] TexelsDesCellules => cellules;
+        internal byte[] TexelsDesBords => bords;
         internal float[] TexelsDuRelief => altitudes;
         internal Vector3[] SommetsDuMaillage => sommets;
         internal Vector2[] UvDuMaillage => uv;
         internal int[] TrianglesDuMaillage => triangles;
 
-        private TerrainDeCarte(PointCarte origine, Bounds boite, int largeur, int hauteur, double pas, double minX, double minZ, ushort[] cellules, int[] texels, float[] altitudes) {
+        private TerrainDeCarte(PointCarte origine, Bounds boite, int largeur, int hauteur, double pas, double minX, double minZ, ushort[] cellules, int[] texels, float[] altitudes, byte[] bords, Morceau[] morceaux, RectInt[] zones) {
             Origine = origine; Boite = boite; Largeur = largeur; Hauteur = hauteur; Pas = (float)pas; this.pas = pas; this.minX = minX; this.minZ = minZ;
-            this.cellules = cellules; this.texels = texels; this.altitudes = altitudes;
+            this.cellules = cellules; this.texels = texels; this.altitudes = altitudes; this.bords = bords; this.morceaux = morceaux; this.zones = zones;
             int nx = largeur / TEXELS_PAR_MAILLE + 1, nz = hauteur / TEXELS_PAR_MAILLE + 1; double maille = pas * TEXELS_PAR_MAILLE;
             sommets = new Vector3[nx * nz]; uv = new Vector2[nx * nz]; triangles = new int[(nx - 1) * (nz - 1) * 6];
             for (int j = 0; j < nz; j++)
@@ -82,6 +112,34 @@ namespace Forge.Pont {
         public ushort CelluleEn(float x, float z) {
             int i = (int)Math.Floor((x - minX) / pas), j = (int)Math.Floor((z - minZ) / pas);
             return i < 0 || j < 0 || i >= Largeur || j >= Hauteur ? (ushort)0 : cellules[j * Largeur + i];
+        }
+
+        // La distance en km que dit l'octet d'une grille de distances : son carré, pour que les petites distances, celles
+        // qui placent un trait, soient les plus fines. `AU_LOIN` rend la portée.
+        public static float Distance(byte code, float portee) => portee * (code / 255f) * (code / 255f);
+        // Sous un point en km locaux, la distance au plus proche bord de la cellule du texel, puis à la plus proche côte ;
+        // hors du rectangle, la portée.
+        public float BordEn(float x, float z) => Distance(Octet(bords, 2, 0, x, z), PORTEE_DES_BORDS_KM);
+        public float CoteEn(float x, float z) => Distance(Octet(bords, 2, 1, x, z), PORTEE_DES_BORDS_KM);
+        // La même lecture dans une grille mesurée par `Frontieres`.
+        public float FrontiereEn(byte[] champ, float x, float z) => Distance(Octet(champ, 1, 0, x, z), PORTEE_DES_FRONTIERES_KM);
+        private byte Octet(byte[] champ, int saut, int decalage, float x, float z) {
+            int i = (int)Math.Floor((x - minX) / pas), j = (int)Math.Floor((z - minZ) / pas);
+            return i < 0 || j < 0 || i >= Largeur || j >= Hauteur ? AU_LOIN : champ[(j * Largeur + i) * saut + decalage];
+        }
+
+        // Mesure dans `champ`, un octet par texel, la distance de chaque texel à la plus proche frontière de son pays :
+        // un côté entre deux cellules de pays différents. `pays` dit le pays de chaque rang servi ; un pays négatif est
+        // hors du jeu, comme la mer : il n'a pas de frontière et n'en fait pas. Seuls les texels de la zone, élargie de
+        // la portée, sont mesurés de nouveau : c'est assez quand seules les cellules de la zone ont changé de pays.
+        public void Frontieres(IReadOnlyList<int> pays, byte[] champ, RectInt zone) {
+            if (pays == null || pays.Count != texels.Length) throw new ArgumentException("un pays par cellule servie");
+            if (champ == null || champ.Length != Largeur * Hauteur) throw new ArgumentException("un octet par texel");
+            var groupes = new int[texels.Length + 1]; groupes[0] = -1;
+            for (int r = 0; r < texels.Length; r++) groupes[r + 1] = pays[r];
+            double portee = PORTEE_DES_FRONTIERES_KM / pas; int marge = (int)Math.Ceiling(portee) + 1;
+            Porter(cellules, Largeur, morceaux, champ, 1, 0, groupes, portee,
+                Math.Max(0, zone.xMin - marge), Math.Max(0, zone.yMin - marge), Math.Min(Largeur, zone.xMax + marge), Math.Min(Hauteur, zone.yMax + marge));
         }
 
         // L'altitude du relief sous un point en km locaux, lue entre les quatre altitudes voisines ; hors du rectangle, celle du bord.
@@ -126,10 +184,12 @@ namespace Forge.Pont {
             int largeur = ParMailles(large / pas), hauteur = ParMailles(haut / pas);
 
             var cellules = new ushort[largeur * hauteur]; var texels = new int[n];
-            for (int r = 0; r < n; r++)
+            // Du dernier rang au premier : un texel que deux cellules recouvrent reste à celle du plus petit rang.
+            for (int r = n - 1; r >= 0; r--)
                 foreach (List<double[]> polygone in polygones[r]) Remplir(cellules, texels, largeur, hauteur, minX, minZ, pas, polygone, (ushort)(r + 1));
             for (int r = 0; r < n; r++)
                 if (texels[r] == 0) Garantir(cellules, texels, largeur, hauteur, minX, minZ, pas, polygones[r][0][0], (ushort)(r + 1));
+            Combler(cellules, texels, largeur, hauteur, minX, minZ, pas, polygones);
 
             var socles = new float[n]; var heurts = new float[n];
             for (int r = 0; r < n; r++) {
@@ -137,7 +197,25 @@ namespace Forge.Pont {
                 (socles[r], heurts[r]) = classe != null && CLASSES.TryGetValue(classe, out var valeurs) ? valeurs : CLASSES[SANS_CLASSE];
             }
             float[] altitudes = Relief(cellules, largeur, hauteur, minX, minZ, pas, socles, heurts);
-            return new TerrainDeCarte(origine, boite, largeur, hauteur, pas, minX, minZ, cellules, texels, altitudes);
+
+            Morceau[] morceaux = Separer(cellules, largeur, hauteur, minX, minZ, pas, polygones);
+            // Les bords : chaque cellule est son propre groupe. Les côtes : toute la terre est un groupe, la mer l'autre.
+            var chacune = new int[n + 1]; var terre = new int[n + 1];
+            for (int v = 1; v <= n; v++) { chacune[v] = v; terre[v] = 1; }
+            var bords = new byte[2 * largeur * hauteur];
+            Porter(cellules, largeur, morceaux, bords, 2, 0, chacune, PORTEE_DES_BORDS_KM / pas, 0, 0, largeur, hauteur);
+            Porter(cellules, largeur, morceaux, bords, 2, 1, terre, PORTEE_DES_BORDS_KM / pas, 0, 0, largeur, hauteur);
+            // La boîte de chaque cellule en texels, élargie de ce que le comblement ou un texel garanti peut lui ajouter.
+            var zones = new RectInt[n]; int ajout = (int)Math.Ceiling(FENTE_KM / pas) + 3;
+            for (int r = 0; r < n; r++) {
+                double ax = double.PositiveInfinity, az = double.PositiveInfinity, bx = double.NegativeInfinity, bz = double.NegativeInfinity;
+                foreach (List<double[]> polygone in polygones[r])
+                    for (int k = 0; k + 1 < polygone[0].Length; k += 2) { ax = Math.Min(ax, polygone[0][k]); bx = Math.Max(bx, polygone[0][k]); az = Math.Min(az, polygone[0][k + 1]); bz = Math.Max(bz, polygone[0][k + 1]); }
+                int i0 = Math.Max(0, (int)Math.Floor((ax - minX) / pas) - ajout), j0 = Math.Max(0, (int)Math.Floor((az - minZ) / pas) - ajout);
+                int i1 = Math.Min(largeur, (int)Math.Ceiling((bx - minX) / pas) + ajout), j1 = Math.Min(hauteur, (int)Math.Ceiling((bz - minZ) / pas) + ajout);
+                zones[r] = new RectInt(i0, j0, Math.Max(0, i1 - i0), Math.Max(0, j1 - j0));
+            }
+            return new TerrainDeCarte(origine, boite, largeur, hauteur, pas, minX, minZ, cellules, texels, altitudes, bords, morceaux, zones);
         }
 
         // Le nombre de texels d'un côté : assez pour le couvrir, en mailles entières.
@@ -184,6 +262,126 @@ namespace Forge.Pont {
                         if (avant != 0 && texels[avant - 1] < 2) continue;
                         Prendre(cellules, texels, j * largeur + i, valeur); return;
                     }
+        }
+
+        // Un texel de mer pris entre deux cellules, à moins de FENTE_KM de chacune et l'une en face de l'autre, est dans
+        // une fente entre deux tracés du même bord : il va à celle du plus grand rang, et la grille suit ainsi le tracé
+        // de l'autre. Un détroit plus étroit que deux fois FENTE_KM entre deux cellules se ferme donc au dessin.
+        private static void Combler(ushort[] cellules, int[] texels, int largeur, int hauteur, double minX, double minZ, double pas, List<List<double[]>>[] polygones) {
+            double portee = FENTE_KM / pas; var proches = new Dictionary<int, Proches>();
+            for (int r = 0; r < polygones.Length; r++)
+                foreach (List<double[]> polygone in polygones[r])
+                    foreach (double[] a in polygone)
+                        for (int k = 0; k + 3 < a.Length; k += 2) {
+                            double ax = (a[k] - minX) / pas, az = (a[k + 1] - minZ) / pas, dx = (a[k + 2] - minX) / pas - ax, dz = (a[k + 3] - minZ) / pas - az;
+                            double l2 = dx * dx + dz * dz, inv = l2 > 0 ? 1 / l2 : 0;
+                            int i0 = Math.Max(0, (int)Math.Ceiling(Math.Min(ax, ax + dx) - portee - 0.5)), i1 = Math.Min(largeur - 1, (int)Math.Floor(Math.Max(ax, ax + dx) + portee - 0.5));
+                            int j0 = Math.Max(0, (int)Math.Ceiling(Math.Min(az, az + dz) - portee - 0.5)), j1 = Math.Min(hauteur - 1, (int)Math.Floor(Math.Max(az, az + dz) + portee - 0.5));
+                            for (int j = j0; j <= j1; j++)
+                                for (int i = i0; i <= i1; i++) {
+                                    int index = j * largeur + i; if (cellules[index] != 0) continue;
+                                    double px = i + 0.5 - ax, pz = j + 0.5 - az, t = Math.Min(Math.Max((px * dx + pz * dz) * inv, 0), 1);
+                                    double x = t * dx - px, z = t * dz - pz, d = Math.Sqrt(x * x + z * z); if (d >= portee) continue;
+                                    if (!proches.TryGetValue(index, out Proches p)) p = new Proches { R1 = -1, R2 = -1 };
+                                    if (p.R1 == r) { if (d < p.D1) { p.D1 = d; p.X1 = x; p.Z1 = z; } }
+                                    else if (p.R1 < 0 || d < p.D1) { p.R2 = p.R1; p.D2 = p.D1; p.X2 = p.X1; p.Z2 = p.Z1; p.R1 = r; p.D1 = d; p.X1 = x; p.Z1 = z; }
+                                    else if (p.R2 == r) { if (d < p.D2) { p.D2 = d; p.X2 = x; p.Z2 = z; } }
+                                    else if (p.R2 < 0 || d < p.D2) { p.R2 = r; p.D2 = d; p.X2 = x; p.Z2 = z; }
+                                    proches[index] = p;
+                                }
+                        }
+            foreach (KeyValuePair<int, Proches> paire in proches) {
+                Proches p = paire.Value;
+                if (p.R2 >= 0 && p.X1 * p.X2 + p.Z1 * p.Z2 <= 0) Prendre(cellules, texels, paire.Key, (ushort)(Math.Max(p.R1, p.R2) + 1));
+            }
+        }
+
+        // Les côtés servis qui séparent vraiment deux cellules sur la grille, coupés en bouts d'un texel au plus, chacun
+        // jugé en son milieu : la grille doit dire sa cellule juste en dedans, et une autre, ou la mer, juste en dehors.
+        // Le texel du milieu lui-même est lu, du dedans comme du dehors : d'une pointe de terre ou d'une entaille de mer
+        // plus fine qu'un texel, la grille ne garde que des texels épars, que les sondes d'à côté enjambent.
+        // Un côté qui longe l'intérieur d'une cellule (un tracé recouvert, le bord d'une fente comblée) ne sépare rien.
+        // Entre deux cellules, seul le côté de celle du plus petit rang est gardé : un bord n'a qu'un tracé. Les bouts
+        // qui se suivent sur un même côté, face à la même voisine, font un seul morceau.
+        private static Morceau[] Separer(ushort[] cellules, int largeur, int hauteur, double minX, double minZ, double pas, List<List<double[]>>[] polygones) {
+            var morceaux = new List<Morceau>();
+            int Lue(double x, double z) {
+                int i = (int)Math.Floor(x), j = (int)Math.Floor(z);
+                return i < 0 || j < 0 || i >= largeur || j >= hauteur ? 0 : cellules[j * largeur + i];
+            }
+            for (int r = 0; r < polygones.Length; r++) {
+                int soi = r + 1;
+                foreach (List<double[]> polygone in polygones[r])
+                    for (int a = 0; a < polygone.Count; a++) {
+                        double[] anneau = polygone[a]; double aire = 0;
+                        for (int k = 0; k + 3 < anneau.Length; k += 2) aire += anneau[k] * anneau[k + 3] - anneau[k + 2] * anneau[k + 1];
+                        // Un anneau extérieur qui tourne à gauche, ou un trou qui tourne à droite, a le dehors de la cellule à sa droite.
+                        double sens = (aire > 0) == (a == 0) ? 1 : -1;
+                        for (int k = 0; k + 3 < anneau.Length; k += 2) {
+                            double ax = (anneau[k] - minX) / pas, az = (anneau[k + 1] - minZ) / pas, dx = (anneau[k + 2] - minX) / pas - ax, dz = (anneau[k + 3] - minZ) / pas - az;
+                            double l = Math.Sqrt(dx * dx + dz * dz); if (l <= 0) continue;
+                            double nx = sens * dz / l, nz = -sens * dx / l; // vers le dehors, long d'un texel
+                            int bouts = Math.Max(1, (int)Math.Ceiling(l)), debut = 0, voisine = -1; // -1 : rien n'est séparé
+                            for (int b = 0; b <= bouts; b++) {
+                                int vue = -1;
+                                if (b < bouts) {
+                                    double mx = ax + (b + 0.5) / bouts * dx, mz = az + (b + 0.5) / bouts * dz;
+                                    int dehors = Lue(mx, mz);
+                                    if (dehors == soi || Lue(mx - 0.75 * nx, mz - 0.75 * nz) == soi || Lue(mx - 1.25 * nx, mz - 1.25 * nz) == soi) {
+                                        if (dehors == soi) dehors = Lue(mx + 0.75 * nx, mz + 0.75 * nz);
+                                        if (dehors == soi) dehors = Lue(mx + 1.5 * nx, mz + 1.5 * nz);
+                                        if (dehors == soi) dehors = Lue(mx + 2.5 * nx, mz + 2.5 * nz);
+                                        if (dehors == 0 || dehors > soi) vue = dehors;
+                                    }
+                                }
+                                if (vue == voisine) continue;
+                                if (voisine >= 0) morceaux.Add(new Morceau { Dedans = (ushort)soi, Dehors = (ushort)voisine,
+                                    Ax = (float)(ax + dx * debut / bouts), Az = (float)(az + dz * debut / bouts), Bx = (float)(ax + dx * b / bouts), Bz = (float)(az + dz * b / bouts) });
+                                voisine = vue; debut = b;
+                            }
+                        }
+                    }
+            }
+            return morceaux.ToArray();
+        }
+
+        // Écrit dans un canal de `champ` (un octet tous les `saut`, à partir de `decalage`), pour chaque texel du
+        // rectangle [i0, i1[ × [j0, j1[, la distance de son centre au plus proche morceau qui sépare son groupe d'un
+        // autre, ou `AU_LOIN` à `portee` texels et plus. `groupes` range chaque numéro de texel dans un groupe ; un
+        // groupe négatif n'a pas de bord et n'en fait pas. Chaque bande de lignes est à une seule tâche, qui y passe
+        // tous les morceaux à sa portée : le résultat ne dépend pas de l'ordre des tâches.
+        private static void Porter(ushort[] cellules, int largeur, Morceau[] morceaux, byte[] champ, int saut, int decalage, int[] groupes, double portee, int i0, int j0, int i1, int j1) {
+            if (i1 <= i0 || j1 <= j0) return;
+            var parBande = new List<int>[(j1 - j0 + BANDE - 1) / BANDE];
+            for (int m = 0; m < morceaux.Length; m++) {
+                Morceau c = morceaux[m]; int g1 = groupes[c.Dedans], g2 = groupes[c.Dehors];
+                if (g1 == g2 || g1 < 0 || g2 < 0 || Math.Max(c.Ax, c.Bx) + portee < i0 || Math.Min(c.Ax, c.Bx) - portee > i1) continue;
+                int bas = Math.Max(j0, (int)Math.Floor(Math.Min(c.Az, c.Bz) - portee - 0.5)), haut = Math.Min(j1 - 1, (int)Math.Ceiling(Math.Max(c.Az, c.Bz) + portee - 0.5));
+                for (int b = (bas - j0) / BANDE; bas <= haut && b <= (haut - j0) / BANDE; b++) (parBande[b] ?? (parBande[b] = new List<int>())).Add(m);
+            }
+            double portee2 = portee * portee;
+            Parallel.For(0, parBande.Length, b => {
+                int debut = j0 + b * BANDE, fin = Math.Min(debut + BANDE, j1);
+                for (int j = debut; j < fin; j++)
+                    for (int i = i0; i < i1; i++) champ[(j * largeur + i) * saut + decalage] = AU_LOIN;
+                if (parBande[b] == null) return;
+                foreach (int m in parBande[b]) {
+                    Morceau c = morceaux[m]; int g1 = groupes[c.Dedans], g2 = groupes[c.Dehors];
+                    double dx = c.Bx - c.Ax, dz = c.Bz - c.Az, l2 = dx * dx + dz * dz, inv = l2 > 0 ? 1 / l2 : 0;
+                    int ia = Math.Max(i0, (int)Math.Ceiling(Math.Min(c.Ax, c.Bx) - portee - 0.5)), ib = Math.Min(i1 - 1, (int)Math.Floor(Math.Max(c.Ax, c.Bx) + portee - 0.5));
+                    int ja = Math.Max(debut, (int)Math.Ceiling(Math.Min(c.Az, c.Bz) - portee - 0.5)), jb = Math.Min(fin - 1, (int)Math.Floor(Math.Max(c.Az, c.Bz) + portee - 0.5));
+                    for (int j = ja; j <= jb; j++) {
+                        double pz = j + 0.5 - c.Az; int ligne = j * largeur;
+                        for (int i = ia; i <= ib; i++) {
+                            int g = groupes[cellules[ligne + i]]; if (g != g1 && g != g2) continue;
+                            double px = i + 0.5 - c.Ax, t = Math.Min(Math.Max((px * dx + pz * dz) * inv, 0), 1);
+                            double ex = px - t * dx, ez = pz - t * dz, d2 = ex * ex + ez * ez; if (d2 >= portee2) continue;
+                            byte code = (byte)(255 * Math.Sqrt(Math.Sqrt(d2) / portee) + 0.5); int k = (ligne + i) * saut + decalage;
+                            if (code < champ[k]) champ[k] = code;
+                        }
+                    }
+                }
+            });
         }
 
         private static float[] Relief(ushort[] cellules, int largeur, int hauteur, double minX, double minZ, double pasDesCellules, float[] socles, float[] heurts) {

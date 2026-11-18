@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
 using NUnit.Framework;
 using UnityEngine;
@@ -86,7 +87,7 @@ namespace Forge.Pont.Tests {
             for (int k = 0; k < t.Length; k++) if (t[k] != terrain.Triangles[k]) ecarts++;
             Assert.AreEqual(0, ecarts, "sommets ou triangles différents du terrain levé");
             Assert.LessOrEqual(m.bounds.max.y, 0f, "une cime dépasse le plan des calques");
-            // Un seul matériau, au shader du relief, qui reçoit les trois grilles du terrain et ses bornes.
+            // Un seul matériau, au shader du relief, qui reçoit les grilles du terrain, ses distances aux traits, les tables des pays et ses bornes.
             MeshRenderer rendu = sol.GetComponent<MeshRenderer>(); Material mat = rendu.sharedMaterial;
             Assert.IsTrue(rendu.sharedMaterials.Length == 1 && mat.shader.name == CarteDessinee.SHADER_DU_TERRAIN, mat.shader.name);
             Texture cellules = mat.GetTexture("_Cellules"), relief = mat.GetTexture("_Relief"); var palette = mat.GetTexture("_Palette") as Texture2D;
@@ -95,15 +96,38 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(palette != null && palette.width * palette.height > servies && palette.filterMode == FilterMode.Point, "la palette n'a pas une case par cellule servie, plus la mer");
             Assert.AreEqual(0, ((Color32)palette.GetPixel(0, 0)).a, "la case de la mer a une teinte");
             Assert.IsTrue(mat.GetFloat("_PasDuRelief") == terrain.PasDuRelief && mat.GetFloat("_Fond") == TerrainDeCarte.FOND && mat.GetFloat("_Plafond") == TerrainDeCarte.PLAFOND, "le shader n'a pas les bornes du terrain");
+            Texture bords = mat.GetTexture("_Bords"), frontieres = mat.GetTexture("_Frontieres"), desPays = mat.GetTexture("_Pays"), teintesDesPays = mat.GetTexture("_TeintesDesPays");
+            Assert.IsTrue(bords != null && bords.width == terrain.Largeur && bords.height == terrain.Hauteur && bords.filterMode == FilterMode.Point, "les distances aux bords n'ont pas un texel par texel du terrain");
+            Assert.IsTrue(frontieres != null && frontieres.width == terrain.Largeur && frontieres.height == terrain.Hauteur && frontieres.filterMode == FilterMode.Point, "les distances aux frontières n'ont pas un texel par texel du terrain");
+            Assert.IsTrue(desPays != null && desPays.width == palette.width && desPays.height == palette.height && desPays.filterMode == FilterMode.Point, "la table des pays n'a pas une case par case de la palette");
+            Assert.IsTrue(teintesDesPays != null && teintesDesPays.width == palette.width && teintesDesPays.height == palette.height && teintesDesPays.filterMode == FilterMode.Point, "la table des liserés n'a pas la taille de la palette");
+            Assert.IsTrue(mat.GetFloat("_Pas") == terrain.Pas && mat.GetFloat("_PorteeDesBords") == TerrainDeCarte.PORTEE_DES_BORDS_KM && mat.GetFloat("_PorteeDesFrontieres") == TerrainDeCarte.PORTEE_DES_FRONTIERES_KM, "le shader n'a pas le pas du terrain ni les portées de ses distances");
             // Chaque cellule servie a la couleur de sa puissance, lue par son numéro et versée à son rang.
-            var couleurs = new HashSet<Color>(); int fausses = 0;
+            var couleurs = new HashSet<Color>(); int fausses = 0, sansPuissance = 0, avecPuissance = 0, malRattachees = 0;
             for (int i = 0; i < servies; i++) {
                 MaillageDeCellule c = attendue.Cellules[i]; Color? teinte = carte.TeinteDe(c.CellId);
                 Assert.IsTrue(teinte.HasValue, "cellule " + c.CellId + " sans teinte"); Assert.AreEqual((Color32)c.Couleur, (Color32)teinte.Value, "cellule " + c.CellId);
                 if (!Proches(Versee(i), c.Couleur)) fausses++; couleurs.Add(c.Couleur);
+                CelluleDeCarte servie = carte.Lue.Cellules[i]; string pays = carte.PaysDe(c.CellId);
+                if (servie.CellId != c.CellId) malRattachees++;
+                else if (servie.Puissance == null) { sansPuissance++; if (pays != null) malRattachees++; }
+                else { avecPuissance++; if (pays != "puissance " + servie.Puissance.Id) malRattachees++; }
             }
             Assert.AreEqual(0, fausses, "teintes versées différentes des couleurs attendues");
             Assert.AreEqual(40, couleurs.Count, "couleurs de puissance");
+            // À la pose, chaque cellule est au pays de sa puissance servie ; sans puissance, à aucun.
+            Assert.IsTrue(sansPuissance == 31 && avecPuissance == 565 && malRattachees == 0, sansPuissance + " sans puissance, " + avecPuissance + " avec, " + malRattachees + " mal rattachées");
+            // Les frontières se mesurent sur ce rattachement : à terre, des points en sont proches et d'autres hors de portée ; en mer, aucune.
+            int pres = 0, loin = 0, enMer = 0, merMesuree = 0;
+            for (int j = 8; j < terrain.Hauteur; j += 16)
+                for (int i = 8; i < terrain.Largeur; i += 16) {
+                    float x = terrain.Coin.x + (i + .5f) * terrain.Pas, z = terrain.Coin.y + (j + .5f) * terrain.Pas, d = carte.DistanceALaFrontiere(x, z);
+                    if (terrain.CelluleEn(x, z) == 0) { enMer++; if (d != TerrainDeCarte.PORTEE_DES_FRONTIERES_KM) merMesuree++; }
+                    else if (d < 2f) pres++; else if (d == TerrainDeCarte.PORTEE_DES_FRONTIERES_KM) loin++;
+                }
+            TestContext.Out.WriteLine(pres + " points à moins de 2 km d'une frontière, " + loin + " hors de portée, " + enMer + " en mer");
+            Assert.IsTrue(pres > 100 && loin > 100 && enMer > 1000, pres + " près d'une frontière, " + loin + " hors de portée, " + enMer + " en mer : l'échantillon ne juge rien");
+            Assert.AreEqual(0, merMesuree, "une frontière est mesurée en mer");
             Assert.IsTrue(carte.TexteAffiche == "" && !objet.GetComponentInChildren<Text>(true).gameObject.activeSelf);
             for (int i = 1; i <= 20; i++) { carte.Pas(1 + 10 * i); Assert.IsFalse(carte.LectureEnVol); }
             Assert.IsTrue(Volatile.Read(ref requetes) == 1 && carte.CellulesPosees == servies && TerrainsSousLaCarte == 1 && carte.Terrain == terrain, TerrainsSousLaCarte + " terrain(s)");
@@ -173,6 +197,63 @@ namespace Forge.Pont.Tests {
             TerrainDeCarte terrain = carte.Terrain; carte.Montrer(new CarteLue(1, new[] { Carre(9, 0) }));
             Assert.IsTrue(carte.Terrain == terrain && carte.CellulesServies == 2 && TerrainsSousLaCarte == 1 && carte.TeinteDe(9) == null, "une seconde carte a remplacé la première");
         }
+        // Verse au shader ce qui a changé, comme le fait chaque image du jeu.
+        private void Verser() => typeof(CarteDessinee).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(carte, null);
+        // L'indice de pays versé au shader pour la cellule de ce rang servi, et la couleur de liseré versée à cet indice.
+        private int PaysVerse(int rang) { var table = (Texture2D)Matiere.GetTexture("_Pays"); return Mathf.RoundToInt(table.GetPixel((rang + 1) % table.width, (rang + 1) / table.width).r * 65535f); }
+        private Color32 LisereVerse(int indice) { var table = (Texture2D)Matiere.GetTexture("_TeintesDesPays"); return table.GetPixel(indice % table.width, indice / table.width); }
+        // Deux terres de 10 km accolées, 7 à l'ouest et 8 à l'est : leur côté commun est en x = 0, la terre va de
+        // z = -5 à z = 5, et les centres des texels d'un km tombent sur les demi-entiers.
+        [Test] public void La_frontiere_suit_le_pays_de_chaque_terre() {
+            float loin = TerrainDeCarte.PORTEE_DES_FRONTIERES_KM; Color32 rouge = Color.red, bleu = Color.blue, vert = Color.green;
+            objet = new GameObject("Carte du test"); carte = objet.AddComponent<CarteDessinee>();
+            Assert.IsTrue(carte.DistanceALaFrontiere(0, 0) == -1f && !carte.Rattacher(7, "a", Color.red) && carte.PaysDe(7) == null, "une carte avant la pose a des pays ou des frontières");
+            carte.Montrer(new CarteLue(2, new[] { Carre(7, 0), Carre(8, 10000) }));
+            Assert.IsTrue(carte.PaysDe(7) == null && carte.PaysDe(8) == null && carte.DistanceALaFrontiere(-.5f, .5f) == loin, "deux terres sans puissance ont une frontière : " + carte.DistanceALaFrontiere(-.5f, .5f));
+            Assert.IsTrue(carte.Rattacher(7, "a", Color.red) && carte.Rattacher(8, "b", Color.blue) && carte.PaysDe(7) == "a" && carte.PaysDe(8) == "b", "les terres ne sont pas rattachées");
+            // La distance à la frontière est celle du côté commun, des deux côtés ; la côte n'est pas une frontière.
+            foreach (float x in new[] { -3.5f, -.5f, .5f, 3.5f }) Assert.AreEqual(Mathf.Abs(x), carte.DistanceALaFrontiere(x, .5f), .1f, "en x = " + x);
+            Assert.AreEqual(9.5f, carte.DistanceALaFrontiere(-9.5f, .5f), .1f, "au rivage, la frontière n'est pas celle du côté commun");
+            Assert.AreEqual(loin, carte.DistanceALaFrontiere(.5f, 5.5f), "une frontière est mesurée en mer");
+            // Les tables versées au shader : l'indice du pays à la case de la cellule, la couleur du liseré à la case du pays.
+            Verser(); int a = PaysVerse(0), b = PaysVerse(1);
+            Assert.IsTrue(a > 0 && b > 0 && a != b, "indices versés : " + a + ", " + b);
+            Assert.IsTrue(Proches(LisereVerse(a), rouge) && Proches(LisereVerse(b), bleu) && LisereVerse(0).a == 0, "liserés versés : " + LisereVerse(a) + ", " + LisereVerse(b) + ", sans pays " + LisereVerse(0));
+            // Contre-épreuve : un seul pays, aucune frontière ; elle revient avec le second pays.
+            Assert.IsTrue(carte.Rattacher(8, "a", Color.red)); Assert.AreEqual(loin, carte.DistanceALaFrontiere(-.5f, .5f), "une frontière au milieu d'un pays");
+            Verser(); Assert.AreEqual(PaysVerse(0), PaysVerse(1), "deux terres du même pays n'ont pas le même indice versé");
+            Assert.IsTrue(carte.Rattacher(8, "b", Color.blue)); Assert.AreEqual(.5f, carte.DistanceALaFrontiere(-.5f, .5f), .1f, "la frontière n'est pas revenue");
+            // Une terre sans pays a une frontière avec celle d'un pays, aucune avec une autre terre sans pays.
+            Assert.IsTrue(carte.Rattacher(8, null, Color.clear) && carte.PaysDe(8) == null); Assert.AreEqual(.5f, carte.DistanceALaFrontiere(.5f, .5f), .1f, "pas de frontière entre un pays et une terre sans pays");
+            Verser(); Assert.AreEqual(0, PaysVerse(1), "une terre sans pays a un indice de pays");
+            Assert.IsTrue(carte.Rattacher(7, "", Color.clear) && carte.PaysDe(7) == null); Assert.AreEqual(loin, carte.DistanceALaFrontiere(.5f, .5f), "une frontière entre deux terres sans pays");
+            Assert.IsFalse(carte.Rattacher(-5, "a", Color.red), "une cellule non servie a été rattachée");
+            // Plus de pays que la table n'a de cases : elle se resserre sur ceux qui tiennent une terre, sans en mêler deux.
+            Assert.IsTrue(carte.Rattacher(7, "a", Color.red)); int cases = Matiere.GetTexture("_Pays").width * Matiere.GetTexture("_Pays").height, pays = cases + 44;
+            for (int k = 0; k < pays; k++) Assert.IsTrue(carte.Rattacher(8, "p" + k, Color.green), "p" + k);
+            Assert.IsTrue(carte.PaysDe(7) == "a" && carte.PaysDe(8) == "p" + (pays - 1), carte.PaysDe(7) + ", " + carte.PaysDe(8));
+            Assert.AreEqual(.5f, carte.DistanceALaFrontiere(-.5f, .5f), .1f, "la table resserrée a perdu la frontière");
+            Verser(); a = PaysVerse(0); b = PaysVerse(1);
+            Assert.IsTrue(a > 0 && b > 0 && a != b && a < cases && b < cases && Proches(LisereVerse(a), rouge) && Proches(LisereVerse(b), vert), "après " + pays + " pays : indices " + a + " et " + b + ", liserés " + LisereVerse(a) + " et " + LisereVerse(b));
+            // Une cellule retirée n'a plus de pays et ne fait plus de frontière.
+            Assert.IsTrue(carte.Retirer(8) && carte.PaysDe(8) == null && !carte.Rattacher(8, "b", Color.blue), "une cellule retirée garde un pays");
+            Assert.AreEqual(loin, carte.DistanceALaFrontiere(-.5f, .5f), "une frontière avec une cellule retirée");
+        }
+        // Le shader du terrain ne se compile qu'à son premier dessin : une erreur y laisse la carte sans un trait et tous
+        // les autres tests verts. Ses passes sont donc compilées ici, et aucune ne rend d'erreur.
+        [Test] public void Le_shader_du_terrain_se_compile_sans_erreur() {
+            Shader shader = Resources.Load<Shader>(CarteDessinee.SHADER_DU_TERRAIN);
+            Assert.IsNotNull(shader, CarteDessinee.SHADER_DU_TERRAIN);
+            var mat = new Material(shader);
+            try {
+                Assert.AreEqual(2, mat.passCount, "les passes du terrain");
+                for (int passe = 0; passe < mat.passCount; passe++) UnityEditor.ShaderUtil.CompilePass(mat, passe, true);
+                var erreurs = new List<string>();
+                foreach (var m in UnityEditor.ShaderUtil.GetShaderMessages(shader))
+                    if (m.severity == UnityEditor.Rendering.ShaderCompilerMessageSeverity.Error) erreurs.Add(m.message + " (ligne " + m.line + ")");
+                Assert.IsTrue(erreurs.Count == 0 && !UnityEditor.ShaderUtil.ShaderHasError(shader), erreurs.Count + " erreurs : " + string.Join(" ; ", erreurs));
+            } finally { UnityEngine.Object.DestroyImmediate(mat); }
+        }
         [Test] public void Le_materiau_de_carte_existe_sans_les_ressources_de_l_editeur() {
             Servir(0, 200, Fixture);
             Attendue(out int servies);
@@ -214,7 +295,7 @@ namespace Forge.Pont.Tests {
             Assert.Less(montre.ElapsedMilliseconds, DELAI_MAX_PAS_MS, "le pas a attendu le service");
             Assert.IsTrue(carte.LectureEnVol);
         }
-        // Contours, noms et caméra, avec ou sans caméra donnée. L'attendu : la carte lue par ClientCarte, l'origine de Mailler, et la conversion écrite ici.
+        // Noms et caméra, avec ou sans caméra donnée. L'attendu : la carte lue par ClientCarte, l'origine de Mailler, et la conversion écrite ici.
         private CarteLue Lue(out PointCarte origine) {
             LectureCarte lecture; using (var client = new ClientCarte(port, ClientCarte.DelaiMinimal)) lecture = client.Lire();
             Assert.IsTrue(lecture.Presente, lecture.Absence); Interlocked.Exchange(ref requetes, 0); origine = MaillageDeCarte.Mailler(lecture.Carte).Origine; return lecture.Carte;
@@ -222,23 +303,47 @@ namespace Forge.Pont.Tests {
         private static Vector3 Converti(PointCarte p, PointCarte o, float y) => new Vector3((float)((p.X - o.X) / 1000), y, (float)((p.Y - o.Y) / 1000));
         private static bool Egal(Vector3 a, Vector3 b) => a.x == b.x && a.y == b.y && a.z == b.z; // `==` de Vector3 tolère un écart : on compare composante par composante
         private int Nommes(string nom) { int n = 0; foreach (Transform t in objet.GetComponentsInChildren<Transform>(true)) if (t.name == nom) n++; return n; }
-        private void Contours(CarteLue lue, PointCarte o) {
-            LineRenderer[] traits = objet.transform.Find("Contours de la carte").GetComponentsInChildren<LineRenderer>(true);
-            int i = 0, trous = 0, points = 0, ecarts = 0;
-            foreach (CelluleDeCarte c in lue.Cellules) { int rang = 0;
+        // Les traits de la carte (bords des cellules, côte, frontières) se dessinent dans le terrain, d'après ses
+        // distances : aucun contour n'est posé au-dessus de lui, et chaque point servi d'un anneau est près d'un trait.
+        // Le service simplifie chaque anneau à part : deux bords voisins ne coïncident pas partout, et le terrain n'en
+        // trace qu'un, celui de la cellule servie la première. Un point de l'autre bord en est donc à la largeur de la
+        // fente ou du recouvrement, d'où la part tolérée au-delà de deux texels. Les autres points sans trait sont au
+        // bout d'une aiguille de terre ou de mer plus fine qu'un texel, dont la grille n'a rien gardé : autour d'eux,
+        // elle dit partout la même cellule.
+        [Test] public void Les_traits_viennent_du_terrain_sans_aucun_contour_pose() {
+            Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1);
+            Assert.IsTrue(objet.GetComponentsInChildren<LineRenderer>(true).Length == 0 && Nommes("Contours de la carte") == 0, objet.GetComponentsInChildren<LineRenderer>(true).Length + " trait(s) posé(s) au-dessus du terrain");
+            TerrainDeCarte t = carte.Terrain;
+            Assert.IsTrue(t.Bords.Count == 2 * t.Largeur * t.Hauteur && t.Separations > 0, t.Bords.Count + " distances, " + t.Separations + " séparations");
+            int points = 0, anneaux = 0, eloignes = 0, dessinables = 0; float pire = 0f, seuil = 2f * t.Pas;
+            foreach (CelluleDeCarte c in lue.Cellules)
                 foreach (PolygoneDeCarte p in c.Contour) {
-                    var anneaux = new List<IReadOnlyList<PointCarte>> { p.Exterieur }; anneaux.AddRange(p.Trous); trous += p.Trous.Count;
-                    foreach (IReadOnlyList<PointCarte> a in anneaux) {
-                        Assert.Less(i, traits.Length, "moins de contours que d'anneaux"); LineRenderer t = traits[i++]; Assert.AreEqual("Contour " + c.CellId + "." + rang++, t.name);
-                        Assert.IsTrue(!t.useWorldSpace && !t.loop && t.positionCount == a.Count, t.name + " : " + t.positionCount + " positions pour " + a.Count + " points");
-                        points += a.Count; for (int k = 0; k < a.Count; k++) if (!Egal(t.GetPosition(k), Converti(a[k], o, CarteDessinee.HAUTEUR_CONTOUR))) ecarts++;
+                    var tous = new List<IReadOnlyList<PointCarte>> { p.Exterieur }; tous.AddRange(p.Trous);
+                    foreach (IReadOnlyList<PointCarte> a in tous) { anneaux++;
+                        foreach (PointCarte q in a) {
+                            Vector3 v = Converti(q, o, 0f); float d = Mathf.Min(t.BordEn(v.x, v.z), t.CoteEn(v.x, v.z));
+                            points++; if (d > pire) pire = d;
+                            if (d <= seuil) continue;
+                            eloignes++; int ici = t.CelluleEn(v.x, v.z); bool unie = true;
+                            for (int dj = -1; dj <= 1; dj++)
+                                for (int di = -1; di <= 1; di++)
+                                    if (t.CelluleEn(v.x + di * t.Pas, v.z + dj * t.Pas) != ici) unie = false;
+                            if (!unie) dessinables++;
+                        }
                     }
                 }
-            }
-            Assert.IsTrue(i == traits.Length && i == 746 && trous == 71 && points == 19789, i + " anneaux dont " + trous + " trous, " + points + " points, " + traits.Length + " contours");
-            Assert.AreEqual(0, ecarts, "positions différentes des points convertis");
-        }
-        [Test] public void Chaque_anneau_servi_a_son_contour() { Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1); Contours(lue, o);
+            TestContext.Out.WriteLine(points + " points servis sur " + anneaux + " anneaux, " + eloignes + " à plus de " + seuil + " km d'un trait, le pire à " + pire + " km, " + t.Separations + " séparations");
+            Assert.IsTrue(anneaux == 746 && points == 19789, anneaux + " anneaux, " + points + " points");
+            Assert.LessOrEqual(eloignes, points / 100, eloignes + " points servis sur " + points + " sont à plus de " + seuil + " km d'un trait du terrain");
+            Assert.AreEqual(0, dessinables, dessinables + " points servis sans trait ont, à un texel d'eux, deux cellules que la grille distingue");
+            // Contre-épreuve : au cœur des terres, des texels sont hors de portée de tout bord.
+            int auCoeur = 0;
+            for (int j = 8; j < t.Hauteur; j += 16)
+                for (int i = 8; i < t.Largeur; i += 16) {
+                    float x = t.Coin.x + (i + .5f) * t.Pas, z = t.Coin.y + (j + .5f) * t.Pas;
+                    if (t.CelluleEn(x, z) != 0 && t.BordEn(x, z) == TerrainDeCarte.PORTEE_DES_BORDS_KM) auCoeur++;
+                }
+            Assert.Greater(auCoeur, 100, "aucune terre n'est loin d'un bord : la distance ne juge rien");
             Assert.IsTrue(carte.CellulesPosees == 596 && TerrainsSousLaCarte == 1, TerrainsSousLaCarte + " MeshFilter sous la carte");
         }
         private void Noms(CarteLue lue, PointCarte o) {
@@ -297,7 +402,7 @@ namespace Forge.Pont.Tests {
                 Lire(1); for (int i = 1; i <= 5; i++) carte.Pas(1 + i);
                 Assert.IsTrue(carte.CellulesPosees == servies && carte.camera == donnee && Nommes("Caméra de la carte") == 0, carte.CellulesPosees + " cellules, " + Nommes("Caméra de la carte") + " caméra(s) créée(s)");
                 Assert.IsTrue(Egal(donnee.transform.position, position) && donnee.transform.rotation == rotation && !donnee.orthographic, "la caméra donnée a été touchée : " + donnee.transform.position + " " + donnee.transform.eulerAngles);
-                Contours(lue, o); Noms(lue, o); // avec une caméra donnée aussi, la carte trace ses bords et nomme ses villes
+                Noms(lue, o); // avec une caméra donnée aussi, la carte nomme ses villes
             } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
         }
         // La caméra créée montre la vue que le joueur glisse et zoome, sans sortir de la carte servie.
