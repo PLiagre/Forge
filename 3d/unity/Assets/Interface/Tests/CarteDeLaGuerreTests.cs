@@ -77,13 +77,18 @@ namespace Forge.Interface.Tests
 
         [Test] public void Une_frontiere_entre_deux_pays_aucune_dans_un_meme_pays()
         {
-            Servir(Terres(A, A, B)); Mesh maillage = racine.transform.Find(CarteDeLaGuerre.FRONTIERES).GetComponent<MeshFilter>().sharedMesh;
-            // Le côté commun de 20 et 30, tracé depuis chacune des deux ; le côté commun de 10 et 20 est dans le même pays.
-            Assert.That(guerre.CotesDeFrontiere, Is.EqualTo(2)); Assert.That(maillage.vertexCount, Is.EqualTo(8));
-            Assert.That(maillage.vertices.All(v => Mathf.Abs(v.x - 5f) <= CarteDeLaGuerre.LARGEUR_FRONTIERE_KM / 2f + 1e-4f && Mathf.Approximately(v.y, CarteDeLaGuerre.HAUTEUR_FRONTIERE)), Is.True, "la frontière n'est pas sur le côté de 20 et 30");
-            Servir(Terres(A, A, A)); Assert.That(guerre.CotesDeFrontiere, Is.Zero, "contre-épreuve : un seul pays, aucune frontière"); Assert.That(maillage.vertexCount, Is.Zero);
-            Servir(Terres(A, B, B)); Assert.That(guerre.CotesDeFrontiere, Is.EqualTo(2)); Assert.That(maillage.vertices.All(v => Mathf.Abs(v.x + 5f) <= CarteDeLaGuerre.LARGEUR_FRONTIERE_KM / 2f + 1e-4f), Is.True, "la frontière n'a pas suivi la terre prise");
-            Assert.That(racine.transform.Find(CarteDeLaGuerre.FRONTIERES).GetComponent<Collider>(), Is.Null);
+            float loin = TerrainDeCarte.PORTEE_DES_FRONTIERES_KM;
+            Servir(Terres(A, A, B)); Peindre();
+            // Le côté commun de 20 et 30 (x = 5), compté depuis chacune des deux ; le côté commun de 10 et 20 est dans le même pays.
+            // Le terrain trace la frontière : la distance qu'il en donne est celle de ce côté, lue au centre d'un texel d'un km.
+            Assert.That(guerre.CotesDeFrontiere, Is.EqualTo(2)); Assert.That((carte.PaysDe(10), carte.PaysDe(20), carte.PaysDe(30)), Is.EqualTo((A, A, B)));
+            Assert.That(carte.DistanceALaFrontiere(4.5f, .5f), Is.EqualTo(.5f).Within(.1f)); Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f));
+            Assert.That(carte.DistanceALaFrontiere(-4.5f, .5f), Is.EqualTo(9.5f).Within(.1f), "une frontière sur le côté de 10 et 20, dans le même pays");
+            Servir(Terres(A, A, A)); Peindre(); Assert.That(guerre.CotesDeFrontiere, Is.Zero, "contre-épreuve : un seul pays, aucune frontière"); Assert.That(carte.DistanceALaFrontiere(4.5f, .5f), Is.EqualTo(loin));
+            Servir(Terres(A, B, B)); Peindre(); Assert.That(guerre.CotesDeFrontiere, Is.EqualTo(2));
+            Assert.That(carte.DistanceALaFrontiere(-4.5f, .5f), Is.EqualTo(.5f).Within(.1f), "la frontière n'a pas suivi la terre prise"); Assert.That(carte.DistanceALaFrontiere(-5.5f, .5f), Is.EqualTo(.5f).Within(.1f));
+            Assert.That(carte.DistanceALaFrontiere(4.5f, .5f), Is.EqualTo(9.5f).Within(.1f), "l'ancienne frontière est restée");
+            Assert.That(racine.transform.Find("Frontières des pays"), Is.Null, "la guerre pose encore un tracé de frontières au-dessus du terrain");
         }
 
         [Test] public void Un_nom_par_pays_sur_sa_terre_la_plus_centrale()
@@ -120,8 +125,11 @@ namespace Forge.Interface.Tests
         [Test] public void Une_lecture_absente_se_dit_et_rend_les_couleurs_du_depart()
         {
             Servir(Terres(A, A, B)); Peindre(); Assert.That(Teinte(30), Is.EqualTo(DuPays(B))); int version = guerre.Version;
+            Assert.That(carte.PaysDe(30), Is.EqualTo(B)); Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f));
             Servir(() => Lecture<TerresDeLaCarte>.Absent("service coupé"), () => Lecture<GuerresLues>.Absent("délai dépassé")); Peindre();
             Assert.That(guerre.Version, Is.EqualTo(version + 1)); Assert.That(guerre.CouleurDe(30), Is.Null); Assert.That(Teinte(30), Is.EqualTo(Depart));
+            // Les terres témoin n'ont pas de puissance servie : au départ elles ne sont à aucun pays, et rien ne les sépare.
+            Assert.That(carte.PaysDe(30), Is.Null, "sans pays lus, la terre garde un pays servi"); Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(TerrainDeCarte.PORTEE_DES_FRONTIERES_KM), "sans pays lus, une frontière reste tracée");
             Assert.That(guerre.TexteLegende, Does.Contain("\nPays non lus : service coupé").And.Contain("\nArmées non lues : délai dépassé"));
             Assert.That(guerre.CotesDeFrontiere, Is.Zero); Assert.That(guerre.NomsDesPays, Is.Empty);
             Servir(() => throw new InvalidOperationException("lecteur en panne")); Assert.That(guerre.AbsenceDesTerres, Is.EqualTo("terres : lecteur en panne"));

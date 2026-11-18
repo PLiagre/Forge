@@ -10,17 +10,18 @@ using UnityEngine.Rendering;
 
 namespace Forge.Interface
 {
-    // La guerre sur la carte : le pays de chaque terre (que les calques peignent), les frontières entre pays, leurs noms,
-    // et les armées avec leur nombre et leur route. Tout vient de `/terres` et `/guerres`, lus hors du fil principal toutes
-    // les PERIODE_S ; ici ne se fait que le dessin : aucun nombre du monde n'est calculé. Une absence se dit dans la légende.
+    // La guerre sur la carte : le pays de chaque terre (que les calques peignent, et dont le terrain trace la frontière),
+    // le nom de chaque pays, et les armées avec leur nombre et leur route. Tout vient de `/terres` et `/guerres`, lus hors du
+    // fil principal toutes les PERIODE_S ; ici ne se fait que le dessin : aucun nombre du monde n'est calculé. Une absence se
+    // dit dans la légende.
     public sealed class CarteDeLaGuerre : MonoBehaviour
     {
-        public const string FRONTIERES = "Frontières des pays", NOMS = "Noms des pays", ARMEES = "Armées de la carte";
-        public const string ENTETE = "Traits rouge sombre : les frontières entre pays, chacun nommé sur sa terre. Disques : les armées, avec leurs hommes et, en cuivre, leur route.";
+        public const string NOMS = "Noms des pays", ARMEES = "Armées de la carte";
+        public const string ENTETE = "Traits sombres bordés de la couleur de chaque pays : les frontières entre pays, chacun nommé sur sa terre. Disques : les armées, avec leurs hommes et, en cuivre, leur route.";
         public const float PERIODE_S = 2f;
-        // Au-dessus des contours (0,5) et sous les flèches (0,56) ; les armées au-dessus des lieux (0,8) ; les noms des pays au-dessus des villes (1).
-        public const float HAUTEUR_FRONTIERE = 0.52f, HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
-        public const float LARGEUR_FRONTIERE_KM = 9f, LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
+        // Les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux (0,8) ; les noms des pays au-dessus des villes (1).
+        public const float HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
+        public const float LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
         // La police tirée à 64 points puis réduite : nette à l'écran. Un nom de pays près de deux fois un nom de ville, le nombre
         // d'une armée un peu plus grand qu'un nom de ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
         const float TAILLE_NOM_PAYS = 7f, TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -22f; const int POLICE = 64;
@@ -42,7 +43,7 @@ namespace Forge.Interface
 
         CarteDessinee carte; VoisinageDeCarte voisinage; string echecDuVoisinage; Task<VoisinageDeCarte> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
-        string cleDesTerres; bool aRetracer; Transform frontieres, racineDesNoms, racineDesArmees; Mesh maillage; Material trait, chemin, bord;
+        string cleDesTerres; bool aRetracer; Transform racineDesNoms, racineDesArmees; Material chemin, bord;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<TextMesh> noms = new List<TextMesh>(), nombres = new List<TextMesh>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
@@ -119,39 +120,20 @@ namespace Forge.Interface
             return sb.ToString();
         }
 
-        // Les frontières et les noms, refaits seulement quand les pays des terres changent (ou quand le voisinage arrive).
+        // Le compte des frontières et les noms, refaits seulement quand les pays des terres changent (ou quand le voisinage arrive).
         void Retracer()
         {
             aRetracer = false;
-            TracerLesFrontieres(); NommerLesPays();
+            CompterLesFrontieres(); NommerLesPays();
         }
 
-        void TracerLesFrontieres()
+        // Les côtés servis qui séparent deux pays. Le terrain trace leur frontière ; il ne s'en tient ici que le compte.
+        void CompterLesFrontieres()
         {
-            var sommets = new List<Vector3>(); var normales = new List<Vector3>(); var triangles = new List<int>(); int n = 0;
+            int n = 0;
             if (voisinage != null && Terres != null)
-                foreach (var cote in voisinage.Cotes)
-                {
-                    if (Terres.PaysDe(cote.Dedans) == Terres.PaysDe(cote.Dehors)) continue;
-                    Vector3 a = new Vector3(cote.De.x, HAUTEUR_FRONTIERE, cote.De.y), b = new Vector3(cote.A.x, HAUTEUR_FRONTIERE, cote.A.y), d = (b - a).normalized;
-                    Vector3 p = new Vector3(d.z, 0f, -d.x) * (LARGEUR_FRONTIERE_KM / 2f); int i = sommets.Count;
-                    sommets.Add(a - p); sommets.Add(b - p); sommets.Add(b + p); sommets.Add(a + p);
-                    normales.AddRange(new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
-                    // Une seule face, tournée vers le haut et éclairée comme les terres : (a − p, b − p, b + p) tourne dans le sens
-                    // horaire vu d'en haut, la règle des triangles des terres (`TriangulationDeCarte.Ajouter`).
-                    triangles.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
-                    n++;
-                }
+                foreach (var cote in voisinage.Cotes) if (Terres.PaysDe(cote.Dedans) != Terres.PaysDe(cote.Dehors)) n++;
             CotesDeFrontiere = n;
-            if (frontieres == null)
-            {
-                var objet = new GameObject(FRONTIERES, typeof(MeshFilter), typeof(MeshRenderer)); objet.transform.SetParent(transform, false); crees.Add(objet);
-                frontieres = objet.transform; maillage = new Mesh { name = FRONTIERES, indexFormat = IndexFormat.UInt32 }; crees.Add(maillage);
-                objet.GetComponent<MeshFilter>().sharedMesh = maillage;
-                trait = new Material(MateriauDeBase.Prendre()) { name = FRONTIERES, color = SocleInterface.Couleur("sang") }; crees.Add(trait);
-                var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterial = trait; rendu.shadowCastingMode = ShadowCastingMode.Off;
-            }
-            maillage.Clear(); maillage.SetVertices(sommets); maillage.SetNormals(normales); maillage.SetTriangles(triangles, 0); maillage.RecalculateBounds();
         }
 
         // Un nom par pays, au centre de celle de ses terres qui est la plus proche du centre de toutes ses terres.
@@ -227,7 +209,7 @@ namespace Forge.Interface
         {
             var sb = new StringBuilder(ENTETE);
             if (AbsenceDesTerres != null) sb.Append("\nPays non lus : ").Append(TexteDuMonde.Absence(AbsenceDesTerres)).Append(". Couleurs des puissances du départ conservées.");
-            if (echecDuVoisinage != null) sb.Append("\nFrontières non tracées : ").Append(TexteDuMonde.Absence(echecDuVoisinage));
+            if (echecDuVoisinage != null) sb.Append("\nPays non nommés : ").Append(TexteDuMonde.Absence(echecDuVoisinage));
             if (AbsenceDesGuerres != null) sb.Append("\nArmées non lues : ").Append(TexteDuMonde.Absence(AbsenceDesGuerres));
             else if (Guerres != null)
                 foreach (var armee in Guerres.Armees)

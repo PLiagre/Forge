@@ -24,7 +24,7 @@ namespace Forge.Interface
         public const string CHOIX_RECU = "Espace : lancer le temps ; le monde applique votre choix au jour suivant";
         public const string LANCER = "Espace : lancer le temps";
         public const string ENTRER = " · double-clic sur votre siège : entrer dans votre ville";
-        public const float HAUTEUR_TERRE = 0.65f; // au-dessus du terrain (0 au plus haut) et des contours (0,5), sous les disques des lieux (0,8) et les noms (1)
+        public const float HAUTEUR_TERRE = 0.65f; // au-dessus du terrain (0 au plus haut), sous les disques des lieux (0,8) et les noms (1)
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;

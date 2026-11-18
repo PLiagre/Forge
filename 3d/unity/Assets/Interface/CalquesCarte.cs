@@ -41,11 +41,12 @@ namespace Forge.Interface
         // La bande des modes en bas à droite de la vue de la carte, sa légende juste au-dessus (unités de la toile, 1920 × 1080).
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Calque indisponible : détail dans l'infobulle.";
         public const string PUISSANCES = "Puissances de la carte · Rouge : territoire conservé", FLUX = "Orange : prélevé de chaque lieu vers votre siège · Violet : dû de votre siège à son suzerain · Sur trente jours · Rouge : territoire conservé";
-        public const int LIGNES_MAX = 3; const float X = 776, LARGEUR = 486, BAS = 1004, MARGE = 4;
+        public const int LIGNES_MAX = 3; public const float FORCE_DU_LISERE = .55f; const float X = 776, LARGEUR = 486, BAS = 1004, MARGE = 4;
         CarteDessinee carte;
         Func<MondeLu> monde;
         Func<CelluleDeCarte> selection;
         Dictionary<long, Color> maisons; // la couleur de la maison de chaque terre dessinée, relevée une fois à la pose, jamais relue sur le terrain reteint
+        Dictionary<long, string> departs; // le rattachement de chaque terre à la pose, relevé avec sa couleur : celui qui revient quand les pays ne sont pas lus
         TextMesh[] noms;
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
@@ -81,6 +82,8 @@ namespace Forge.Interface
         public static Color Teinte(ModeDeCarte mode, bool retenue, Color maison, float position) => retenue ? SocleInterface.Couleur("alerte")
             : mode == ModeDeCarte.Habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * position)
             : mode == ModeDeCarte.Flux ? SocleInterface.Couleur("papier") : SocleInterface.Pigment(maison);
+        // Le liseré d'un pays le long de sa frontière : son pigment, tiré vers l'encre pour se lire sur sa propre teinte comme sur le papier.
+        public static Color Lisere(Color pays) => Color.Lerp(SocleInterface.Pigment(pays), SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
         public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition) => mode == ModeDeCarte.Flux ? FLUX
             : LegendeDuCalque(mode == ModeDeCarte.Puissances ? null : repartition ?? throw new ArgumentNullException(nameof(repartition), "légende des habitants sans répartition"));
         public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Habitants ? "Plus une terre est foncée, plus elle compte d'habitants. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes."
@@ -135,11 +138,13 @@ namespace Forge.Interface
             {
                 if (maisons == null)
                 {
-                    maisons = new Dictionary<long, Color>();
-                    foreach (var cellule in carte.Lue.Cellules) { Color? maison = carte.TeinteDe(cellule.CellId); if (maison.HasValue) maisons.Add(cellule.CellId, maison.Value); }
+                    maisons = new Dictionary<long, Color>(); departs = new Dictionary<long, string>();
+                    foreach (var cellule in carte.Lue.Cellules) { Color? maison = carte.TeinteDe(cellule.CellId); if (maison.HasValue) { maisons.Add(cellule.CellId, maison.Value); departs.Add(cellule.CellId, carte.PaysDe(cellule.CellId)); } }
                     // La mer du terrain est celle du fond ; elle s'éclaircit un peu vers le papier au rivage, et les cimes tirent sur le papier.
                     Color mer = SocleInterface.Couleur("mer"), papier = SocleInterface.Couleur("papier");
                     carte.camera.backgroundColor = mer; carte.Habiller(mer, Color.Lerp(mer, papier, .11f), papier);
+                    // Les traits du terrain à l'encre ; les lignes d'eau, une mer tirée vers le papier.
+                    Color encre = SocleInterface.Couleur("encre"); carte.Encrer(encre, encre, encre, Color.Lerp(mer, papier, .45f));
                     var police = SocleInterface.Police(titre: true);
                     noms = carte.GetComponentsInChildren<TextMesh>().Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
                     foreach (var nom in noms)
@@ -157,6 +162,7 @@ namespace Forge.Interface
                 foreach (var paire in maisons)
                 {
                     Color servie = guerre?.CouleurDe(paire.Key) ?? paire.Value; // le pays servi, sinon la puissance relevée au dessin
+                    carte.Rattacher(paire.Key, guerre?.Terres != null ? guerre.Terres.PaysDe(paire.Key) : departs[paire.Key], Lisere(servie)); // la frontière suit le même pays que la teinte
                     carte.Teinter(paire.Key, Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f));
                 }
                 Recrire(repartition); repartie = repartition;
@@ -165,7 +171,10 @@ namespace Forge.Interface
             {
                 ecrite = null;
                 if (maisons != null) foreach (var paire in maisons)
+                {
+                    carte.Rattacher(paire.Key, departs[paire.Key], Lisere(paire.Value));
                     carte.Teinter(paire.Key, paire.Key == retenu ? SocleInterface.Couleur("alerte") : SocleInterface.Pigment(paire.Value));
+                }
                 string raison = Indisponible(e.Message), detail = DetailDuMode(ModeDeCarte.Puissances);
                 try { Legender(raison, detail); }
                 catch (ArgumentException) { Ecrire(COUPEE, raison + "\n" + detail); } // trop longue pour trois lignes : entière dans l'infobulle

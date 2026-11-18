@@ -13,7 +13,7 @@ namespace Forge.Interface
     public sealed class FlechesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, plafond 8 km.";
-        public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // entre les contours (0,5) et le bord des disques (0,63)
+        public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du terrain (0 au plus haut), sous le bord des disques (0,63)
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);

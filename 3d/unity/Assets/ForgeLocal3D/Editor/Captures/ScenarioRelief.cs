@@ -8,12 +8,13 @@ using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D.Captures
 {
-    // Le terrain de la carte, photographié branché au service : toute la carte, puis deux vues rapprochées, l'une
-    // sur des montagnes, l'autre sur des côtes découpées. Les vues se cadrent sur une ville servie, jamais sur un
-    // point écrit en dur ; une ville que la carte ne sert pas fait échouer le scénario.
+    // Le terrain de la carte, photographié branché au service : toute la carte, puis quatre vues de plus en plus
+    // proches, sur des montagnes, des côtes découpées, des frontières serrées et un rivage, où se jugent les traits
+    // que le terrain dessine. Les vues se cadrent sur une ville servie, jamais sur un point écrit en dur ; une ville
+    // que la carte ne sert pas fait échouer le scénario.
     static class ScenarioRelief
     {
-        const float DEMI_ALPES_KM = 420f, DEMI_EGEE_KM = 380f; const int IMAGES_DE_POSE = 12;
+        const float DEMI_ALPES_KM = 420f, DEMI_EGEE_KM = 380f, DEMI_FRONTIERES_KM = 110f, DEMI_RIVAGE_KM = 60f; const int IMAGES_DE_POSE = 12;
 
         [ScenarioDeCapture("relief", "01-toute-la-carte")]
         static IEnumerator TouteLaCarte(Camera camera)
@@ -33,6 +34,12 @@ namespace ForgeLocal3D.Captures
 
         [ScenarioDeCapture("relief", "03-cotes")]
         static IEnumerator Cotes(Camera camera) => Sur("Athènes", DEMI_EGEE_KM);
+
+        [ScenarioDeCapture("relief", "04-frontieres")]
+        static IEnumerator Frontieres(Camera camera) => Sur("Mantoue", DEMI_FRONTIERES_KM);
+
+        [ScenarioDeCapture("relief", "05-rivage")]
+        static IEnumerator Rivage(Camera camera) => Sur("Gênes", DEMI_RIVAGE_KM);
 
         static IEnumerator Sur(string ville, float demi)
         {
