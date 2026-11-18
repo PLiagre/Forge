@@ -6,7 +6,10 @@
 // le bord des cellules, la frontière, les lignes d'eau au large du rivage, la côte.
 // Le relief ombre la terre d'une lumière fixe du nord-ouest et pâlit les cimes ; la mer s'éclaircit vers le rivage et
 // rend au large la couleur exacte de `_Mer`, celle du fond de la caméra. Rien n'est éclairé par la scène : la carte
-// est mate. Le terrain se dessine avant tout le reste de la carte : les noms des pays s'impriment sur lui, puis
+// est mate. La lumière est un peu chaude sur les versants éclairés, un peu froide dans l'ombre. De près, quand un pixel
+// couvre moins d'un km, un grain fin anime le relief, plus fort sur les pentes : sans lui le relief, levé tous les
+// deux km, se lit comme un flou. Autour de la carte, un cadre : un filet épais doublé d'un filet fin, et au-delà la
+// table, de la couleur du fond de la caméra. Le terrain se dessine avant tout le reste de la carte : les noms des pays s'impriment sur lui, puis
 // viennent les objets posés dessus.
 Shader "Forge/CarteRelief"
 {
@@ -33,6 +36,10 @@ Shader "Forge/CarteRelief"
         _Fond("Fond de la mer, en km", Float) = 6
         _Plafond("Plus haute cime, en km", Float) = 40
         _Vigueur("Vigueur de l'ombre", Float) = 1.6
+        _Grain("Force du grain de près", Float) = 1
+        _Table("Table autour de la carte", Color) = (0.08, 0.16, 0.3, 1)
+        _Filet("Filet du cadre", Color) = (0.1, 0.08, 0.06, 0)
+        _Cadre("Cadre de la carte, en km depuis le coin du terrain : ouest, sud, est, nord", Vector) = (-1000000, -1000000, 1000000, 1000000)
     }
     SubShader
     {
@@ -42,7 +49,8 @@ Shader "Forge/CarteRelief"
         CBUFFER_START(UnityPerMaterial)
             float4 _Cellules_TexelSize, _Palette_TexelSize, _Relief_TexelSize;
             float4 _Mer, _Rivage, _Roche, _EncreDesCotes, _EncreDesBords, _EncreDesFrontieres, _EncreDesEaux;
-            float _Pas, _PorteeDesBords, _PorteeDesFrontieres, _PasDuRelief, _Fond, _Plafond, _Vigueur;
+            float4 _Table, _Filet, _Cadre;
+            float _Pas, _PorteeDesBords, _PorteeDesFrontieres, _PasDuRelief, _Fond, _Plafond, _Vigueur, _Grain;
         CBUFFER_END
         struct A { float3 p : POSITION; float2 uv : TEXCOORD0; };
         struct V { float4 clip : SV_POSITION; float2 uv : TEXCOORD0; };
@@ -69,7 +77,27 @@ Shader "Forge/CarteRelief"
             // dépasse le km, où elles se toucheraient.
             static const float3 EAUX_KM = float3(2.5, 5.5, 9.0), EAUX = float3(0.34, 0.22, 0.12);
 
+            // Le cadre : son filet épais a cette demi-largeur, en km et jamais moins qu'en pixels ; le filet fin est en dedans.
+            static const float FILET_KM = 7.0, FILET_PX = 2.0, FILET_FIN_PX = 0.8;
+            // La lumière des versants éclairés et celle de l'ombre.
+            static const float3 CHAUDE = float3(1.05, 1.0, 0.93), FROIDE = float3(0.9, 0.95, 1.05);
+
             float Altitude(float2 uv) { return SAMPLE_TEXTURE2D(_Relief, sampler_Relief, uv).r; }
+
+            // Un nombre de 0 à 1 par case d'une grille, toujours le même pour la même case ; puis un bruit lisse entre
+            // ces nombres, et le grain : deux bruits, l'un de 1,7 km, l'autre de 600 m.
+            float Hasard(float2 p)
+            {
+                uint2 q = (uint2)(int2)floor(p); uint h = q.x * 0x9E3779B1u ^ q.y * 0x85EBCA77u;
+                h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12;
+                return (h & 0xFFFFFFu) / 16777216.0;
+            }
+            float Bruit(float2 p)
+            {
+                float2 i = floor(p), f = frac(p); f = f * f * (3.0 - 2.0 * f);
+                return lerp(lerp(Hasard(i), Hasard(i + float2(1, 0)), f.x), lerp(Hasard(i + float2(0, 1)), Hasard(i + float2(1, 1)), f.x), f.y);
+            }
+            float Grain(float2 km) { return 0.6 * Bruit(km / 1.7) + 0.4 * Bruit(km / 0.6 + 17.3); }
 
             // Une distance signée lue entre quatre texels : telle que les texels la disent, puis rapportée à sa pente, en
             // km et en pixels, et ce que vaut un pixel le long de cette pente. Près du bord, la pente redresse ce que les
@@ -129,8 +157,17 @@ Shader "Forge/CarteRelief"
 
                 float h = Altitude(i.uv); float2 t = _Relief_TexelSize.xy;
                 float2 pente = float2(Altitude(i.uv + float2(t.x, 0)) - Altitude(i.uv - float2(t.x, 0)), Altitude(i.uv + float2(0, t.y)) - Altitude(i.uv - float2(0, t.y))) / (2.0 * _PasDuRelief);
+                // De près, le grain ajoute sa pente à celle du relief, à terre seulement, d'autant plus que le relief est pentu.
+                float pres = (1.0 - smoothstep(0.2, 0.8, kmParPixel)) * step(0.0, h) * _Grain;
+                if (pres > 0.0)
+                {
+                    const float E = 0.3;
+                    float2 grain = float2(Grain(km + float2(E, 0)) - Grain(km - float2(E, 0)), Grain(km + float2(0, E)) - Grain(km - float2(0, E))) / (2.0 * E);
+                    pente += grain * pres * (0.08 + 0.5 * saturate(length(pente)));
+                }
                 float3 normale = normalize(float3(-pente.x * _Vigueur, 1.0, -pente.y * _Vigueur));
-                float ombre = clamp(dot(normale, LUMIERE) / LUMIERE.y, 0.45, 1.3); // 1 à plat
+                float eclat = clamp(dot(normale, LUMIERE) / LUMIERE.y, 0.45, 1.3); // 1 à plat
+                float3 ombre = eclat * lerp(FROIDE, CHAUDE, saturate((eclat - 0.45) / 0.85));
                 float cime = smoothstep(0.5 * _Plafond, 0.9 * _Plafond, h);
                 float3 mer = lerp(_Rivage.rgb, _Mer.rgb, saturate(-h / _Fond));
 
@@ -164,6 +201,13 @@ Shader "Forge/CarteRelief"
                 float eaux = dot(EAUX, saturate(1.2 - auLarge)) * (1.0 - smoothstep(0.6, 1.1, kmParPixel));
                 couleur = lerp(couleur, _EncreDesEaux.rgb, eaux);
                 couleur = lerp(couleur, _EncreDesCotes.rgb, _EncreDesCotes.a * Trait(abs(aLaCote.px), max(COTE_PX, COTE_KM / kmParPixel)));
+
+                // Le bord de la carte : au-delà du cadre, la table ; sur lui, le filet épais ; un peu en dedans, le filet fin.
+                float2 auDela = max(_Cadre.xy - km, km - _Cadre.zw); float dehors = max(auDela.x, auDela.y) / kmParPixel; // en pixels, négatif en dedans
+                float epais = max(FILET_PX, FILET_KM / kmParPixel);
+                couleur = lerp(couleur, _Table.rgb, saturate(dehors + 0.5));
+                couleur = lerp(couleur, _Filet.rgb, _Filet.a * Trait(abs(dehors + epais), epais));
+                couleur = lerp(couleur, _Filet.rgb, _Filet.a * Trait(abs(dehors + 3.2 * epais), FILET_FIN_PX));
                 return half4(couleur, 1);
             }
             ENDHLSL

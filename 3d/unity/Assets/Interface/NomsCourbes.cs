@@ -53,6 +53,8 @@ namespace Forge.Interface
 
         readonly Transform racine; readonly Font police; readonly Material encre, halo; readonly Material[] matieres; readonly bool matieresCreees;
         readonly List<NomCourbe> noms = new List<NomCourbe>(); bool refait; readonly Color32 deSecours; readonly Func<Vector2, Vector3> sol;
+        // Les lettres à demander à la police pour chaque taille, et ce dont elles ont été tirées : refaites seulement quand les noms montrés à cette taille changent.
+        readonly string[] demandes = new string[TAILLES.Length]; readonly long[] signatures = new long[TAILLES.Length];
 
         public IReadOnlyList<NomCourbe> Noms => noms;
         public Font Police => police;
@@ -131,7 +133,7 @@ namespace Forge.Interface
         // Écrit un nom par pays tracé, à la place de ceux d'avant. Un pays dont le tracé ne laisse rien écrire n'a pas de nom.
         public void Ecrire(IEnumerable<(string pays, string nom, TraceDeNom trace)> pays)
         {
-            Vider();
+            Vider(); for (int t = 0; t < TAILLES.Length; t++) { demandes[t] = null; signatures[t] = 0; }
             foreach (var (id, texte, trace) in pays)
             {
                 if (trace == null || string.IsNullOrEmpty(texte)) continue;
@@ -166,11 +168,17 @@ namespace Forge.Interface
             for (int essai = 0; essai < ESSAIS; essai++)
             {
                 bool avant = refait; refait = false;
-                foreach (int taille in TAILLES)
+                for (int t = 0; t < TAILLES.Length; t++)
                 {
-                    var lettres = new StringBuilder();
-                    foreach (NomCourbe nom in noms) if (nom.Opacite > 0f && nom.Taille == taille) lettres.Append(nom.Ecrit);
-                    if (lettres.Length > 0) Demander(lettres.ToString(), taille);
+                    // Quels noms sont montrés à cette taille : leur rang, pesé, fait une signature.
+                    long signature = 0; for (int k = 0; k < noms.Count; k++) if (noms[k].Opacite > 0f && noms[k].Taille == TAILLES[t]) signature = signature * 31 + k + 1;
+                    if (signature != signatures[t] || (signature != 0 && demandes[t] == null))
+                    {
+                        signatures[t] = signature; var lettres = new StringBuilder();
+                        foreach (NomCourbe nom in noms) if (nom.Opacite > 0f && nom.Taille == TAILLES[t]) lettres.Append(nom.Ecrit);
+                        demandes[t] = lettres.Length > 0 ? lettres.Append(CAPITALE).ToString() : null;
+                    }
+                    if (demandes[t] != null) police.RequestCharactersInTexture(demandes[t], TAILLES[t]);
                 }
                 if (!refait) { refait = avant; break; }
             }

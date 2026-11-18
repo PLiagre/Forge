@@ -189,6 +189,27 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(carte.Retirer(autre) && carte.EclatDe(autre) == null && !carte.Eclairer(autre, or), "une cellule retirée reste éclairée"); carte.Pas(6);
             Assert.AreEqual(0, Versee(20).a, "l'éclat d'une cellule retirée se dessine encore");
         }
+        // Le bord de la carte : un cadre autour des cellules, que le terrain trace, et au-delà la table. Tant qu'on ne
+        // l'encadre pas, la table est la mer et le filet ne se voit pas : rien ne change à qui ne demande rien.
+        [Test] public void Le_cadre_borde_les_cellules_et_la_table_est_le_fond_de_la_camera() {
+            Servir(0, 200, Fixture); Lue(out PointCarte o); Poser(); Assert.AreEqual(new Rect(), carte.Cadre, "un cadre avant la pose");
+            Lire(1); TerrainDeCarte t = carte.Terrain; Bounds cellules = t.Boite; float marge = CarteDessinee.MARGE_DU_CADRE_KM; Rect cadre = carte.Cadre;
+            Assert.IsTrue(Mathf.Abs(cadre.xMin - (cellules.min.x - marge)) < 1e-3f && Mathf.Abs(cadre.yMin - (cellules.min.z - marge)) < 1e-3f && Mathf.Abs(cadre.xMax - (cellules.max.x + marge)) < 1e-3f && Mathf.Abs(cadre.yMax - (cellules.max.z + marge)) < 1e-3f, "le cadre n'est pas à sa marge des cellules : " + cadre);
+            // Le cadre tient dans le terrain levé : il laisse de la mer autour des cellules, et de la table autour de lui.
+            Assert.IsTrue(marge > 20f && marge < TerrainDeCarte.MARGE_DE_MER_KM - 20f, "la marge du cadre sort de la marge de mer du terrain");
+            // Le terrain le reçoit dans ses propres km, comptés depuis son coin du sud-ouest.
+            Vector4 verse = Matiere.GetVector("_Cadre"), attendu = new Vector4(cadre.xMin - t.Coin.x, cadre.yMin - t.Coin.y, cadre.xMax - t.Coin.x, cadre.yMax - t.Coin.y);
+            Assert.Less((verse - attendu).magnitude, 1e-2f, "le cadre versé au terrain : " + verse + ", attendu " + attendu);
+            Assert.IsTrue(verse.x > 0 && verse.y > 0 && verse.z < t.Largeur * t.Pas && verse.w < t.Hauteur * t.Pas, "le cadre sort du terrain : " + verse);
+            // Sans encadrement : la table est la mer, le filet est transparent.
+            var mer = new Color(0.2f, 0.3f, 0.4f, 1f); carte.Habiller(mer, mer, Color.white);
+            Assert.IsTrue(Proches(Matiere.GetColor("_Table"), mer) && Matiere.GetColor("_Filet").a == 0f, "sans encadrement, la table n'est pas la mer ou le filet se voit");
+            // Encadrée : la table et le filet donnés ; la table est aussi le fond de la caméra, au-delà du terrain ; et un nouvel habillage ne la reprend pas.
+            var table = new Color(0.13f, 0.12f, 0.1f, 0.2f); var filet = new Color(0.7f, 0.6f, 0.4f, 1f); carte.Encadrer(table, filet);
+            var tableOpaque = new Color(0.13f, 0.12f, 0.1f, 1f);
+            Assert.IsTrue(Proches(Matiere.GetColor("_Table"), tableOpaque) && Proches(Matiere.GetColor("_Filet"), filet) && Proches(carte.camera.backgroundColor, tableOpaque), "la table ou le filet donnés ne sont pas ceux du terrain et du fond");
+            carte.Habiller(mer, mer, Color.white); Assert.IsTrue(Proches(Matiere.GetColor("_Table"), tableOpaque), "un habillage remet la mer à la place de la table");
+        }
         // L'habillage donné avant la pose est celui du terrain qui naît ; donné après, il change le terrain posé.
         [Test] public void L_habillage_change_la_mer_le_rivage_et_les_cimes() {
             Servir(0, 200, Fixture); Attendue(out int servies); Poser();
@@ -405,6 +426,9 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(toile.renderMode == RenderMode.ScreenSpaceCamera && toile.worldCamera == cam, "la toile n'est pas sur la caméra de la carte");
             float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
             foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
+            // La vue cadre toute la planche : les cellules et le cadre que le terrain trace autour d'elles.
+            Rect cadre = carte.Cadre; Assert.IsTrue(cadre.xMin < minX && cadre.yMin < minZ && cadre.xMax > maxX && cadre.yMax > maxZ, "le cadre ne contient pas les cellules : " + cadre);
+            (minX, minZ, maxX, maxZ) = (cadre.xMin, cadre.yMin, cadre.xMax, cadre.yMax);
             var coins = new[] { new Vector3(minX, 0, minZ), new Vector3(maxX, 0, minZ), new Vector3(maxX, 0, maxZ), new Vector3(minX, 0, maxZ) }; // sud-ouest, sud-est, nord-est, nord-ouest
             foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f }) {
                 cam.aspect = aspect; carte.Pas(2); var vus = new Vector3[4];
@@ -445,6 +469,8 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(!cam.orthographic && Mathf.Abs(cam.fieldOfView - VueDeCarte.CHAMP) < 1e-3f, "la caméra de la carte n'est pas en perspective, au champ de la vue");
             float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
             foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
+            // La vue ne sort pas de la planche : les cellules et le cadre autour d'elles.
+            (minX, minZ, maxX, maxZ) = (carte.Cadre.xMin, carte.Cadre.yMin, carte.Cadre.xMax, carte.Cadre.yMax);
             // Le point du niveau de la mer que touche le rayon de la caméra par une ancre de l'écran, en local.
             Vector2 Sol(Vector2 ancre) {
                 Ray r = cam.ViewportPointToRay(new Vector3(ancre.x, ancre.y, 0)); Vector3 p = objet.transform.InverseTransformPoint(r.origin), d = objet.transform.InverseTransformDirection(r.direction);

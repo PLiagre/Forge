@@ -150,6 +150,8 @@ namespace Forge.Interface
                     // La mer du terrain est celle du fond ; elle s'éclaircit un peu vers le papier au rivage, et les cimes tirent sur le papier.
                     Color mer = SocleInterface.Couleur("mer"), papier = SocleInterface.Couleur("papier");
                     carte.camera.backgroundColor = mer; carte.Habiller(mer, Color.Lerp(mer, papier, .11f), papier);
+                    // Autour de la carte, la table du cabinet, et un cadre à l'or vieilli.
+                    carte.Encadrer(SocleInterface.Couleur("fond"), SocleInterface.Couleur("or-vieilli"));
                     // Les traits du terrain à l'encre ; les lignes d'eau, une mer tirée vers le papier.
                     Color encre = SocleInterface.Couleur("encre"); carte.Encrer(encre, encre, encre, Color.Lerp(mer, papier, .45f));
                     var police = SocleInterface.Police(titre: true);
@@ -206,7 +208,8 @@ namespace Forge.Interface
             if (noms == null) return;
             etiquettes.Clear();
             // Un texte retiré de la carte emporte son étiquette.
-            if (ecrites.Keys.Any(texte => texte == null))
+            bool parti = false; foreach (var paire in ecrites) if (paire.Key == null) { parti = true; break; }
+            if (parti)
             {
                 var gardees = ecrites.Where(p => p.Key != null).ToList(); foreach (var paire in ecrites) if (paire.Key == null && paire.Value != null) { largeurs.Remove(paire.Value); Detruire(paire.Value.gameObject); }
                 ecrites.Clear(); foreach (var paire in gardees) ecrites.Add(paire.Key, paire.Value);
@@ -235,6 +238,8 @@ namespace Forge.Interface
             var lisere = texte.gameObject.AddComponent<Outline>(); Color papier = SocleInterface.Couleur("papier"); papier.a = FORCE_DU_PAPIER; lisere.effectColor = papier; lisere.effectDistance = new Vector2(LISERE_PX, -LISERE_PX);
             ecrites[nom] = texte; return texte;
         }
+        // Aucune étiquette déjà montrée, ni aucune lettre d'un pays, n'est sous cette place.
+        bool Libre(Rect place) { for (int k = 0; k < etiquettes.Count; k++) if (etiquettes[k].Overlaps(place)) return false; return true; }
         float Largeur(Text texte)
         {
             if (largeurs.TryGetValue(texte, out var connue) && connue.texte == texte.text && connue.points == texte.fontSize) return connue.largeur;
@@ -252,7 +257,7 @@ namespace Forge.Interface
             Vector3 ecran = camera.WorldToScreenPoint(nom.transform.position); float largeur = Largeur(texte), hauteur = 1.3f * points;
             var rect = new Rect(ecran.x - largeur / 2f - 3f, ecran.y - hauteur / 2f - 2f, largeur + 6f, hauteur + 4f);
             // Derrière la caméra, rien ne se montre.
-            bool visible = ecran.z > camera.nearClipPlane && (toujours || camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect)));
+            bool visible = ecran.z > camera.nearClipPlane && (toujours || camera.pixelRect.Contains(rect.center) && Libre(rect));
             rendu.enabled = visible; texte.enabled = visible;
             if (!visible) return;
             etiquettes.Add(rect); texte.rectTransform.anchoredPosition = (Vector2)ecran - camera.pixelRect.min;
