@@ -260,6 +260,7 @@ namespace Forge.Pont.Tests {
         // tous les autres tests verts. Les passes de chaque shader de la carte sont donc compilées ici, et aucune ne rend d'erreur.
         [Test] public void Le_shader_du_terrain_se_compile_sans_erreur() => Compiler(CarteDessinee.SHADER_DU_TERRAIN, 2);
         [Test] public void Le_shader_des_noms_se_compile_sans_erreur() => Compiler("Forge/NomDeCarte", 1);
+        [Test] public void Le_shader_des_figurines_se_compile_sans_erreur() => Compiler(FormesDeCarte.SHADER, 2);
         // Le terrain se dessine d'abord ; les noms des pays s'impriment sur lui, sans épreuve de profondeur ; puis viennent
         // les objets posés sur la carte, qui passent devant eux. C'est l'ordre des files des deux shaders qui le dit.
         [Test] public void Les_noms_s_impriment_apres_le_terrain_et_avant_les_objets() {

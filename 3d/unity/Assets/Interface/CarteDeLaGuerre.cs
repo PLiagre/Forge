@@ -16,16 +16,16 @@ namespace Forge.Interface
     // dit dans la légende.
     public sealed class CarteDeLaGuerre : MonoBehaviour
     {
-        public const string NOMS = "Noms des pays", ARMEES = "Armées de la carte";
-        public const string ENTETE = "Traits sombres bordés de la couleur de chaque pays : les frontières entre pays, chacun nommé sur sa terre. Disques : les armées, avec leurs hommes et, en cuivre, leur route.";
+        public const string NOMS = "Noms des pays", ARMEES = "Armées de la carte", FIGURINE = "Figurine";
+        public const string ENTETE = "Traits sombres bordés de la couleur de chaque pays : les frontières entre pays, chacun nommé sur sa terre. Bannières : les armées, à la couleur de leur pays, avec leurs hommes et, en cuivre, leur route ; des piquiers en marche, des tentes au siège.";
         public const float PERIODE_S = 2f;
-        // Au-dessus du sol, là où chaque chose se pose : les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux
-        // (0,8) ; leurs nombres au-dessus des villes (1).
-        public const float HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
-        public const float LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
-        // La police tirée à 64 points puis réduite : nette à l'écran. Le nombre d'une armée un peu plus grand qu'un nom de
-        // ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
-        const float TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -15f; const int POLICE = 64;
+        // Au-dessus du sol, là où chaque chose se pose : les routes au-dessus des flèches (0,56) ; les armées sur le sol ; leurs
+        // nombres au-dessus des villes (1). Une armée ne descend jamais sous `MIN_PX` pixels de large à l'écran, et son nombre
+        // se range au sud d'elle, à `MARGE_DU_NOMBRE_PX` pixels de son socle.
+        public const float HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0f, HAUTEUR_NOM = 1.1f;
+        public const float LARGEUR_ROUTE_KM = 6f, MIN_PX = 34f, MARGE_DU_NOMBRE_PX = 14f;
+        // Le nombre d'une armée, un peu plus grand qu'un nom de ville, au sud de sa figurine.
+        const float TAILLE_NOMBRE = 3.5f; const int POLICE = 64;
         static readonly NomCourbe[] AUCUN_NOM = new NomCourbe[0];
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(10); static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
 
@@ -46,7 +46,7 @@ namespace Forge.Interface
 
         CarteDessinee carte; VoisinageDeCarte voisinage; string echecDuVoisinage; Task<VoisinageDeCarte> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
-        string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin, bord;
+        string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin; Mesh enMarche, auSiege;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
         readonly List<TextMesh> nombres = new List<TextMesh>();
         readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
@@ -56,7 +56,18 @@ namespace Forge.Interface
         void LateUpdate() => SuivreLaVue();
         void OnDestroy() { ecriture?.Dispose(); ecriture = null; foreach (var o in crees) Detruire(o); crees.Clear(); mats.Clear(); }
         // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image.
-        public void SuivreLaVue() { if (carte != null) ecriture?.Suivre(carte.camera); }
+        public void SuivreLaVue()
+        {
+            if (carte == null) return;
+            ecriture?.Suivre(carte.camera);
+            if (racineDesArmees == null || carte.camera == null) return;
+            foreach (Transform armee in racineDesArmees)
+            {
+                float echelle = FormesDeCarte.EchellePourLEcran(carte.camera, armee.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, MIN_PX);
+                armee.Find(FIGURINE).localScale = Vector3.one * echelle;
+                armee.Find("Nombre").localPosition = new Vector3(0f, HAUTEUR_NOM, -(FormesDeCarte.RAYON_DE_L_ARMEE_KM * echelle + MARGE_DU_NOMBRE_PX * FormesDeCarte.KmParPixel(carte.camera, armee.position)));
+            }
+        }
 
         // La teinte d'un pays ne dépend que de son identifiant, comme celle d'une puissance de 1400.
         public static Color CouleurDuPays(string id)
@@ -156,8 +167,8 @@ namespace Forge.Interface
             SuivreLaVue();
         }
 
-        // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au sud et sa route servie, drapée
-        // sur le sol d'étape en étape.
+        // Une armée par figurine, posée sur le sol à sa place : sa bannière à la couleur de son pays, un carré de piquiers quand
+        // elle marche ou des tentes quand elle assiège, son nombre au sud et sa route servie, drapée sur le sol d'étape en étape.
         void DessinerLesArmees()
         {
             var garder = new HashSet<string>();
@@ -169,7 +180,8 @@ namespace Forge.Interface
                     string nom = "Armée " + armee.Identifiant.ToString(CultureInfo.InvariantCulture); garder.Add(nom);
                     var objet = racineDesArmees.Find(nom) ?? Poser(nom);
                     objet.localPosition = ici;
-                    objet.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial = Mat(CouleurDuPays(PaysDeLaMaison(armee.Maison)));
+                    var figurine = objet.Find(FIGURINE); figurine.GetComponent<MeshFilter>().sharedMesh = Forme(armee.Siege != null);
+                    figurine.GetComponent<MeshRenderer>().sharedMaterial = Mat(CouleurDuPays(PaysDeLaMaison(armee.Maison)));
                     objet.Find("Nombre").GetComponent<TextMesh>().text = Nombre(armee);
                     var ligne = objet.Find("Route").GetComponent<LineRenderer>(); Vector3 depuis = carte.SurLeSol(ici.x, ici.z, HAUTEUR_ROUTE); var points = new List<Vector3> { depuis - ici };
                     foreach (var etape in armee.Etapes)
@@ -180,14 +192,16 @@ namespace Forge.Interface
             if (racineDesArmees == null) return;
             for (int i = racineDesArmees.childCount - 1; i >= 0; i--) { var e = racineDesArmees.GetChild(i); if (!garder.Contains(e.name)) Detruire(e.gameObject); }
             foreach (Transform e in racineDesArmees) if (garder.Contains(e.name)) nombres.Add(e.Find("Nombre").GetComponent<TextMesh>());
+            SuivreLaVue();
         }
 
         Transform Poser(string nom)
         {
             var objet = new GameObject(nom).transform; objet.SetParent(racineDesArmees, false);
-            Disque(objet, "Bord", Bord(), DIAMETRE_BORD_ARMEE_KM, -0.12f); Disque(objet, "Disque", Mat(Color.white), DIAMETRE_ARMEE_KM, 0f);
+            var figurine = new GameObject(FIGURINE, typeof(MeshFilter), typeof(MeshRenderer)); figurine.transform.SetParent(objet, false);
+            var rendu = figurine.GetComponent<MeshRenderer>(); rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
             var police = SocleInterface.Police(titre: true); var texte = new GameObject("Nombre").AddComponent<TextMesh>(); texte.transform.SetParent(objet, false);
-            texte.transform.SetLocalPositionAndRotation(new Vector3(0f, HAUTEUR_NOM - HAUTEUR_ARMEE, ECART_NOMBRE_KM), VERS_LE_BAS);
+            texte.transform.SetLocalPositionAndRotation(new Vector3(0f, HAUTEUR_NOM, -FormesDeCarte.RAYON_DE_L_ARMEE_KM), VERS_LE_BAS);
             texte.font = police; texte.GetComponent<MeshRenderer>().sharedMaterial = police.material; texte.fontSize = POLICE; texte.characterSize = TAILLE_NOMBRE;
             texte.anchor = TextAnchor.MiddleCenter; texte.color = SocleInterface.Couleur("encre");
             var route = new GameObject("Route").AddComponent<LineRenderer>(); route.transform.SetParent(objet, false);
@@ -196,13 +210,13 @@ namespace Forge.Interface
             route.sharedMaterial = chemin;
             return objet;
         }
-        void Disque(Transform parent, string nom, Material mat, float diametre, float haut)
+        Mesh Forme(bool siege)
         {
-            var o = GameObject.CreatePrimitive(PrimitiveType.Cylinder); o.name = nom; Detruire(o.GetComponent<Collider>()); o.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            o.transform.SetParent(parent, false); o.transform.localPosition = new Vector3(0f, haut, 0f); o.transform.localScale = new Vector3(diametre, EPAISSEUR_KM, diametre);
+            if (siege) { if (auSiege == null) { auSiege = FormesDeCarte.Armee(true, SocleInterface.Couleur("encre"), SocleInterface.Couleur("metal"), SocleInterface.Couleur("papier")); crees.Add(auSiege); } return auSiege; }
+            if (enMarche == null) { enMarche = FormesDeCarte.Armee(false, SocleInterface.Couleur("encre"), SocleInterface.Couleur("metal"), SocleInterface.Couleur("papier")); crees.Add(enMarche); }
+            return enMarche;
         }
-        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = new Material(MateriauDeBase.Prendre()) { color = couleur }; mats.Add(couleur, mat); crees.Add(mat); } return mat; }
-        Material Bord() { if (bord == null) { bord = new Material(MateriauDeBase.Prendre()) { color = SocleInterface.Couleur("encre") }; crees.Add(bord); } return bord; }
+        Material Mat(Color couleur) { if (!mats.TryGetValue(couleur, out var mat)) { mat = FormesDeCarte.Matiere(couleur); mats.Add(couleur, mat); crees.Add(mat); } return mat; }
 
         // Le détail de la légende : ce que montrent les traits et les disques, chaque armée nommée par son pays, et ce qui n'a pas été lu.
         void Ecrire()
