@@ -155,7 +155,7 @@ namespace ForgeLocal3D.Captures
         static void Cadrer(CarteDessinee carte, Vector3 ici, float demi)
         {
             carte.camera.rect = new Rect(0, 0, 1, 1);
-            carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), demi); carte.Vue.Poser(carte.camera, carte.transform, CarteDessinee.HAUTEUR_CAMERA);
+            carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), demi); carte.Vue.Poser(carte.camera, carte.transform);
         }
         static Task<Lecture<T>> Lire<T>(Func<Lecture<T>> lire) where T : class => Task.Run(lire);
         // `n` jours poussés au service, hors du fil de l'éditeur ; `tick` reçoit le tick que le service rend.

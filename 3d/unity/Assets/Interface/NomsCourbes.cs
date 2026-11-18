@@ -24,8 +24,9 @@ namespace Forge.Interface
     }
 
     // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire. Une lettre est un carré de
-    // l'atlas de la police, posé à sa place sur le tracé et tourné dans le sens de l'écriture ; un nom est un seul
-    // maillage, dessiné deux fois : le halo clair qui le détache du relief, puis l'encre. À chaque image, un nom se
+    // l'atlas de la police, posé à sa place sur le tracé et tourné dans le sens de l'écriture, puis drapé sur le
+    // sol : une grande lettre se découpe en carreaux qui suivent le relief. Un nom est un seul maillage, dessiné
+    // deux fois : le halo clair qui le détache du relief, puis l'encre. À chaque image, un nom se
     // règle sur sa taille à l'écran : trop petit pour se lire, il se cache ; quand la vue s'approche au point qu'il
     // la remplirait, il s'efface et laisse lire ce qu'il couvrait. Ses lettres sont tirées de la police à la taille la
     // plus proche de celle de l'écran, pour rester nettes de loin comme de près.
@@ -34,9 +35,9 @@ namespace Forge.Interface
     public sealed class NomsCourbes : IDisposable
     {
         public const string RACINE = "Noms des pays", SHADER = "Forge/NomDeCarte";
-        // Au-dessus des terres en surbrillance (0,65), qui sinon couvriraient des lettres ; sous les repères des lieux
-        // (0,8), les armées et les noms des villes.
-        public const float HAUTEUR = 0.7f;
+        // Au ras du sol : le nom est imprimé sur le terrain. Une lettre se découpe en carreaux de `CARREAU_KM` au plus,
+        // jamais plus de `CARREAUX_MAX` par côté.
+        public const float HAUTEUR = 0.1f, CARREAU_KM = 8f; public const int CARREAUX_MAX = 6;
         // Ce que l'encre d'un nom couvre du terrain, au plus : le relief et les teintes se lisent au travers.
         public const float FORCE = 0.85f;
         // Un nom se cache quand son corps passe sous LISIBLE_PX pixels, sur FONDU_PX pixels ; il s'efface quand son
@@ -51,7 +52,7 @@ namespace Forge.Interface
         const string CAPITALE = "H"; const float HAUTEUR_DE_CAPITALE = 0.7f, AVANCE_INCONNUE = 0.5f; const int ESSAIS = 4;
 
         readonly Transform racine; readonly Font police; readonly Material encre, halo; readonly Material[] matieres; readonly bool matieresCreees;
-        readonly List<NomCourbe> noms = new List<NomCourbe>(); bool refait; readonly Color32 deSecours;
+        readonly List<NomCourbe> noms = new List<NomCourbe>(); bool refait; readonly Color32 deSecours; readonly Func<Vector2, Vector3> sol;
 
         public IReadOnlyList<NomCourbe> Noms => noms;
         public Font Police => police;
@@ -60,9 +61,10 @@ namespace Forge.Interface
         public Material Encre => encre;
         public Material MatiereDuHalo => halo;
 
-        public NomsCourbes(Transform parent, Font police, Color teinteDeLEncre, Color teinteDuHalo)
+        // `sol` rend, pour un point (x, z) de la carte, sa place sur le sol, en local ; sans lui, les noms sont à plat.
+        public NomsCourbes(Transform parent, Font police, Color teinteDeLEncre, Color teinteDuHalo, Func<Vector2, Vector3> sol = null)
         {
-            this.police = police != null ? police : throw new ArgumentNullException(nameof(police));
+            this.police = police != null ? police : throw new ArgumentNullException(nameof(police)); this.sol = sol;
             racine = new GameObject(RACINE).transform; racine.SetParent(parent, false);
             Shader shader = Resources.Load<Shader>(SHADER); deSecours = teinteDeLEncre;
             if (shader != null)
@@ -70,7 +72,7 @@ namespace Forge.Interface
                 teinteDeLEncre.a = FORCE; teinteDuHalo.a = 1f;
                 halo = new Material(shader) { name = RACINE + " (halo)", mainTexture = police.material.mainTexture }; halo.SetColor("_Teinte", teinteDuHalo); halo.SetFloat("_Halo", 1f);
                 encre = new Material(shader) { name = RACINE + " (encre)", mainTexture = police.material.mainTexture }; encre.SetColor("_Teinte", teinteDeLEncre); encre.SetFloat("_Halo", 0f);
-                halo.renderQueue = encre.renderQueue - 1; matieres = new[] { halo, encre }; matieresCreees = true;
+                encre.renderQueue = shader.renderQueue; halo.renderQueue = encre.renderQueue - 1; matieres = new[] { halo, encre }; matieresCreees = true;
             }
             else { encre = police.material; matieres = new[] { encre }; } // faute du shader des noms, celui de la police : sans halo, et devant tout
             Font.textureRebuilt += AtlasRefait;
@@ -205,20 +207,27 @@ namespace Forge.Interface
                 // Dans l'atlas, ce que vaut un pixel de la lettre vers sa droite et vers son haut : une lettre peut y être couchée.
                 Vector2 bas = lettre.uvBottomLeft, versLaDroite = (lettre.uvBottomRight - bas) / (lettre.maxX - lettre.minX), versLeHaut = (lettre.uvTopLeft - bas) / (lettre.maxY - lettre.minY);
                 Vector2 coin = lettre.uvTopRight; var cadre = new Vector4(Mathf.Min(bas.x, coin.x), Mathf.Min(bas.y, coin.y), Mathf.Max(bas.x, coin.x), Mathf.Max(bas.y, coin.y));
-                for (int k = 0; k < 4; k++)
-                {
-                    bool aDroite = k == 1 || k == 2, enHaut = k >= 2;
-                    float x = aDroite ? lettre.maxX + marge : lettre.minX - marge, y = enHaut ? lettre.maxY + marge : lettre.minY - marge;
-                    sommets.Add(Poser(place.Point + sens * ((x - lettre.advance / 2f) * echelle) + haut * ((y - capitale / 2f) * echelle)));
-                    uv.Add(bas + versLaDroite * (x - lettre.minX) + versLeHaut * (y - lettre.minY)); cadres.Add(cadre); rayons.Add(new Vector2(rayon, 0f));
-                }
-                triangles.Add(premier); triangles.Add(premier + 2); triangles.Add(premier + 1); triangles.Add(premier); triangles.Add(premier + 3); triangles.Add(premier + 2);
+                float x0 = lettre.minX - marge, x1 = lettre.maxX + marge, y0 = lettre.minY - marge, y1 = lettre.maxY + marge;
+                int carreaux = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(x1 - x0, y1 - y0) * echelle / CARREAU_KM), 1, CARREAUX_MAX), cote = carreaux + 1;
+                for (int ligne = 0; ligne < cote; ligne++)
+                    for (int colonne = 0; colonne < cote; colonne++)
+                    {
+                        float x = Mathf.Lerp(x0, x1, colonne / (float)carreaux), y = Mathf.Lerp(y0, y1, ligne / (float)carreaux);
+                        sommets.Add(Poser(place.Point + sens * ((x - lettre.advance / 2f) * echelle) + haut * ((y - capitale / 2f) * echelle)));
+                        uv.Add(bas + versLaDroite * (x - lettre.minX) + versLeHaut * (y - lettre.minY)); cadres.Add(cadre); rayons.Add(new Vector2(rayon, 0f));
+                    }
+                for (int ligne = 0; ligne < carreaux; ligne++)
+                    for (int colonne = 0; colonne < carreaux; colonne++)
+                    {
+                        int a = premier + ligne * cote + colonne, b = a + 1, c = a + cote, d = c + 1;
+                        triangles.Add(a); triangles.Add(d); triangles.Add(b); triangles.Add(a); triangles.Add(c); triangles.Add(d);
+                    }
             }
             Mesh m = nom.Maillage; m.Clear(); m.SetVertices(sommets); m.SetUVs(0, uv); m.SetUVs(1, cadres); m.SetUVs(2, rayons);
             m.subMeshCount = matieres.Length; for (int s = 0; s < matieres.Length; s++) m.SetTriangles(triangles, s);
             m.RecalculateBounds(); nom.AMailler = !complet; Teinter(nom);
         }
-        static Vector3 Poser(Vector2 p) => new Vector3(p.x, HAUTEUR, p.y);
+        Vector3 Poser(Vector2 p) => sol != null ? sol(p) : new Vector3(p.x, HAUTEUR, p.y);
 
         // Par sommet : l'opacité du nom (alpha) et la force de son halo (rouge) ; sous le shader de la police, la teinte de l'encre.
         void Teinter(NomCourbe nom)

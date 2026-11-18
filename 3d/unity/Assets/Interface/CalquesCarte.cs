@@ -42,12 +42,19 @@ namespace Forge.Interface
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Calque indisponible : détail dans l'infobulle.";
         public const string PUISSANCES = "Puissances de la carte · Rouge : territoire conservé", FLUX = "Orange : prélevé de chaque lieu vers votre siège · Violet : dû de votre siège à son suzerain · Sur trente jours · Rouge : territoire conservé";
         public const int LIGNES_MAX = 3; public const float FORCE_DU_LISERE = .55f; const float X = 776, LARGEUR = 486, BAS = 1004, MARGE = 4;
+        // Le corps, en pixels sur un écran de 1080 de haut, d'un nom de ville et du nombre d'une armée : le même à toute
+        // distance, jamais sous `POINTS_MIN`. Autour de l'encre, un liseré au papier du socle, large de `LISERE_PX`.
+        public const float CORPS_DE_VILLE_PX = 17f, CORPS_DE_NOMBRE_PX = 19f, ECRAN_DE_REFERENCE_PX = 1080f, LISERE_PX = 1.2f, FORCE_DU_PAPIER = .85f;
+        public const int POINTS_MIN = 9; public const string ETIQUETTES = "Étiquettes de la carte";
         CarteDessinee carte;
         Func<MondeLu> monde;
         Func<CelluleDeCarte> selection;
         Dictionary<long, Color> maisons; // la couleur de la maison de chaque terre dessinée, relevée une fois à la pose, jamais relue sur le terrain reteint
         Dictionary<long, string> departs; // le rattachement de chaque terre à la pose, relevé avec sa couleur : celui qui revient quand les pays ne sont pas lus
         TextMesh[] noms;
+        // L'étiquette d'écran de chaque texte posé sur la carte, et la toile qui les porte, sur la caméra de la carte.
+        readonly Dictionary<TextMesh, Text> ecrites = new Dictionary<TextMesh, Text>(); readonly Dictionary<Text, (string texte, int points, float largeur)> largeurs = new Dictionary<Text, (string, int, float)>();
+        Canvas toileDesEtiquettes;
         readonly List<Rect> etiquettes = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
         LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
@@ -187,6 +194,10 @@ namespace Forge.Interface
         public static string LegendeDuCalque(RepartitionHabitants repartition) =>
             (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";
         public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
+        // Un nom de ville ou le nombre d'une armée est un texte posé sur la carte, qui dit où il est et ce qu'il dit ; il se
+        // lit sur une étiquette d'écran, au même corps quelle que soit la distance, nette et bordée d'un liseré clair, centrée
+        // sur le point de l'écran où le texte se trouve. Le texte posé lui-même ne se dessine plus : couché sur le sol à une
+        // taille en km, il devenait illisible sous une caméra inclinée. Son `enabled` dit toujours s'il est montré.
         // Les nombres des armées se montrent toujours ; puis les noms des villes, chacun seulement s'il ne recouvre rien de déjà montré.
         // Un nom de pays lisible réserve la place de chacune de ses lettres : un nom de ville ne s'écrit pas dessus, et revient
         // quand la vue s'approche et que le nom du pays s'efface.
@@ -194,21 +205,55 @@ namespace Forge.Interface
         {
             if (noms == null) return;
             etiquettes.Clear();
-            if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
-            foreach (var nom in noms) Espacer(nom, false);
+            // Un texte retiré de la carte emporte son étiquette.
+            if (ecrites.Keys.Any(texte => texte == null))
+            {
+                var gardees = ecrites.Where(p => p.Key != null).ToList(); foreach (var paire in ecrites) if (paire.Key == null && paire.Value != null) { largeurs.Remove(paire.Value); Detruire(paire.Value.gameObject); }
+                ecrites.Clear(); foreach (var paire in gardees) ecrites.Add(paire.Key, paire.Value);
+            }
+            if (toileDesEtiquettes != null && carte.camera != null) toileDesEtiquettes.planeDistance = carte.camera.nearClipPlane * 1.5f;
+            if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true, CORPS_DE_NOMBRE_PX); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
+            foreach (var nom in noms) Espacer(nom, false, CORPS_DE_VILLE_PX);
         }
-        void Espacer(TextMesh nom, bool toujours)
+        // L'étiquette d'écran d'un texte posé sur la carte ; null tant qu'il n'a pas été présenté.
+        public Text EtiquetteDe(TextMesh nom) => nom != null && ecrites.TryGetValue(nom, out Text texte) ? texte : null;
+        Text Etiqueter(TextMesh nom)
+        {
+            if (ecrites.TryGetValue(nom, out Text deja) && deja != null) return deja;
+            if (toileDesEtiquettes == null)
+            {
+                // Sur la caméra de la carte, juste derrière son plan proche : une capture de cette caméra voit les étiquettes.
+                // La toile n'est pas un enfant direct de la carte : le cabinet éteint toute toile qui l'est, hors la sienne.
+                Transform porte = new GameObject(ETIQUETTES).transform; porte.SetParent(carte.transform, false);
+                toileDesEtiquettes = new GameObject("Toile des étiquettes", typeof(RectTransform)).AddComponent<Canvas>(); toileDesEtiquettes.transform.SetParent(porte, false);
+                toileDesEtiquettes.renderMode = RenderMode.ScreenSpaceCamera; toileDesEtiquettes.worldCamera = carte.camera; toileDesEtiquettes.sortingOrder = -1;
+            }
+            var texte = new GameObject(nom.name, typeof(RectTransform)).AddComponent<Text>(); texte.transform.SetParent(toileDesEtiquettes.transform, false);
+            texte.font = SocleInterface.Police(titre: true); texte.color = SocleInterface.Couleur("encre"); texte.alignment = TextAnchor.MiddleCenter; texte.raycastTarget = false; texte.supportRichText = false;
+            texte.horizontalOverflow = HorizontalWrapMode.Overflow; texte.verticalOverflow = VerticalWrapMode.Overflow;
+            var cadre = texte.rectTransform; cadre.anchorMin = cadre.anchorMax = Vector2.zero; cadre.pivot = new Vector2(.5f, .5f); cadre.sizeDelta = Vector2.zero;
+            var lisere = texte.gameObject.AddComponent<Outline>(); Color papier = SocleInterface.Couleur("papier"); papier.a = FORCE_DU_PAPIER; lisere.effectColor = papier; lisere.effectDistance = new Vector2(LISERE_PX, -LISERE_PX);
+            ecrites[nom] = texte; return texte;
+        }
+        float Largeur(Text texte)
+        {
+            if (largeurs.TryGetValue(texte, out var connue) && connue.texte == texte.text && connue.points == texte.fontSize) return connue.largeur;
+            float largeur = texte.preferredWidth; largeurs[texte] = (texte.text, texte.fontSize, largeur); return largeur;
+        }
+        static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+        void Espacer(TextMesh nom, bool toujours, float corpsPx)
         {
             if (nom == null) return;
-            var rendu = nom.GetComponent<MeshRenderer>();
-            var bounds = rendu.bounds;
-            var a = carte.camera.WorldToScreenPoint(bounds.min);
-            var b = carte.camera.WorldToScreenPoint(bounds.max);
-            var rect = Rect.MinMaxRect(Mathf.Min(a.x, b.x) - 3, Mathf.Min(a.y, b.y) - 2,
-                Mathf.Max(a.x, b.x) + 3, Mathf.Max(a.y, b.y) + 2);
-            bool visible = toujours || carte.camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect));
-            rendu.enabled = visible;
-            if (visible) etiquettes.Add(rect);
+            Camera camera = carte.camera; var rendu = nom.GetComponent<MeshRenderer>(); rendu.forceRenderingOff = true; Text texte = Etiqueter(nom);
+            int points = Mathf.Max(POINTS_MIN, Mathf.RoundToInt(corpsPx * camera.pixelHeight / ECRAN_DE_REFERENCE_PX));
+            if (texte.text != nom.text) texte.text = nom.text; if (texte.fontSize != points) texte.fontSize = points;
+            Vector3 ecran = camera.WorldToScreenPoint(nom.transform.position); float largeur = Largeur(texte), hauteur = 1.3f * points;
+            var rect = new Rect(ecran.x - largeur / 2f - 3f, ecran.y - hauteur / 2f - 2f, largeur + 6f, hauteur + 4f);
+            // Derrière la caméra, rien ne se montre.
+            bool visible = ecran.z > camera.nearClipPlane && (toujours || camera.pixelRect.Contains(rect.center) && !etiquettes.Any(r => r.Overlaps(rect)));
+            rendu.enabled = visible; texte.enabled = visible;
+            if (!visible) return;
+            etiquettes.Add(rect); texte.rectTransform.anchoredPosition = (Vector2)ecran - camera.pixelRect.min;
         }
     }
 }

@@ -19,12 +19,10 @@ namespace Forge.Interface
         public const string ETAT = "État de la carte";
         // La ligne du prochain geste (à droite de la barre) et la surbrillance des terres de départ.
         public const string GUIDE = "Prochain geste";
-        public const string TERRES = "Terres conseillées";
         public const string CHOISIR = "Choisissez votre maison : cliquez une terre en surbrillance";
         public const string CHOIX_RECU = "Espace : lancer le temps ; le monde applique votre choix au jour suivant";
         public const string LANCER = "Espace : lancer le temps";
         public const string ENTRER = " · double-clic sur votre siège : entrer dans votre ville";
-        public const float HAUTEUR_TERRE = 0.65f; // au-dessus du terrain (0 au plus haut), sous les disques des lieux (0,8) et les noms (1)
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
@@ -34,9 +32,7 @@ namespace Forge.Interface
         GameObject toile;
         Text date, barre, guide, maison, territoire, apercu, etat;
         BarreDuPays jauges;
-        Transform terres;
-        readonly Dictionary<long, GameObject> terresEclairees = new Dictionary<long, GameObject>();
-        readonly List<Object> matieresDeTerre = new List<Object>(); // les maillages et le matériau des surbrillances
+        readonly HashSet<long> terresEclairees = new HashSet<long>(); // les terres de départ que la carte dessine
         string ensembleDesTerres;
         MonoBehaviour passage; System.Reflection.PropertyInfo siegeLu;
         Transform choix;
@@ -149,7 +145,6 @@ namespace Forge.Interface
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
-            terres = new GameObject(TERRES).transform; terres.SetParent(transform, false); // enfant direct de la carte, jamais sous son terrain
             Afficher();
         }
 
@@ -240,11 +235,8 @@ namespace Forge.Interface
 
         void ViderTerres()
         {
-            foreach (var objet in terresEclairees.Values) if (objet != null) Detruire(objet);
-            terresEclairees.Clear();
-            foreach (var matiere in matieresDeTerre) if (matiere != null) Detruire(matiere);
-            matieresDeTerre.Clear();
-            ensembleDesTerres = null;
+            foreach (long terre in terresEclairees) carte.Eteindre(terre);
+            terresEclairees.Clear(); ensembleDesTerres = null;
         }
 
         // Une surbrillance par terre de départ servie ; recréées seulement si l'ensemble servi (ou la carte posée) change.
@@ -257,33 +249,15 @@ namespace Forge.Interface
                 ViderTerres(); ensembleDesTerres = cle;
                 if (fiches != null) PoserTerres(fiches);
             }
-            foreach (var terre in terresEclairees) terre.Value.SetActive(retenue == null || retenue.CellId != terre.Key);
+            // La terre gardée garde son rouge : la marque passe devant l'éclat, qui revient quand elle est relâchée.
+            foreach (long terre in terresEclairees) carte.Eclairer(terre, SocleInterface.Couleur("or"));
         }
 
-        // La surbrillance d'une terre est son contour servi, triangulé à plat au-dessus du terrain ; une fiche dont la carte
-        // ne dessine pas la cellule n'en a pas.
+        // La surbrillance d'une terre de départ est une teinte du terrain lui-même, à l'or du socle : le relief, les bords
+        // et les frontières s'y lisent toujours. Une fiche dont la carte ne dessine pas la cellule n'en a pas.
         void PoserTerres(IReadOnlyList<FicheDeDepart> fiches)
         {
-            if (carte.Lue == null || !carte.Origine.HasValue) return;
-            var servies = new Dictionary<long, CelluleDeCarte>();
-            foreach (var cellule in carte.Lue.Cellules) servies[cellule.CellId] = cellule;
-            Material or = null;
-            foreach (var fiche in fiches)
-            {
-                if (terresEclairees.ContainsKey(fiche.CellId) || !servies.TryGetValue(fiche.CellId, out var cellule) || carte.TeinteDe(fiche.CellId) == null) continue;
-                var sommets = new List<Vector3>();
-                foreach (var polygone in cellule.Contour) sommets.AddRange(TriangulationDeCarte.Trianguler(polygone, carte.Origine.Value).Sommets);
-                if (sommets.Count == 0) continue;
-                if (or == null) { or = new Material(MateriauDeBase.Prendre()) { name = "Terre conseillée", color = SocleInterface.Couleur("or") }; matieresDeTerre.Add(or); }
-                var maillage = new Mesh { name = "Terre conseillée " + fiche.CellId, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-                maillage.SetVertices(sommets); maillage.SetTriangles(Enumerable.Range(0, sommets.Count).ToArray(), 0); maillage.RecalculateNormals(); maillage.RecalculateBounds(); matieresDeTerre.Add(maillage);
-                var objet = new GameObject(maillage.name, typeof(MeshFilter), typeof(MeshRenderer));
-                objet.transform.SetParent(terres, false); objet.transform.localPosition = Vector3.up * HAUTEUR_TERRE;
-                objet.GetComponent<MeshFilter>().sharedMesh = maillage;
-                var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterial = or;
-                rendu.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rendu.receiveShadows = false;
-                terresEclairees.Add(fiche.CellId, objet);
-            }
+            foreach (var fiche in fiches) if (carte.Eclairer(fiche.CellId, SocleInterface.Couleur("or"))) terresEclairees.Add(fiche.CellId);
         }
 
         public void Afficher()

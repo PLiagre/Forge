@@ -120,7 +120,7 @@ namespace Forge.Interface.Tests
             Assert.That((avalon.Maillage.vertexCount, brume.Maillage.vertexCount), Is.EqualTo((4 * 6, 4 * 5)), "un carré par lettre");
             Bounds boite = avalon.Maillage.bounds;
             Assert.That(boite.min.x >= -15f && boite.max.x <= 5f && boite.min.z >= -5f && boite.max.z <= 5f, Is.True, "le nom déborde de sa terre : " + boite);
-            Assert.That((boite.min.y, boite.max.y), Is.EqualTo((NomsCourbes.HAUTEUR, NomsCourbes.HAUTEUR)));
+            Assert.That(avalon.Maillage.vertices.All(p => Mathf.Abs(p.y - carte.SurLeSol(p.x, p.z, NomsCourbes.HAUTEUR).y) < 1e-4f), Is.True, "une lettre n'est pas posée sur le sol");
             Assert.That(avalon.Maillage.colors32.All(c => c.a == 255), Is.True, "un nom lisible n'est pas à pleine encre");
             // Le halo d'abord, l'encre ensuite, sur le même maillage ; deux noms partagent leurs matériaux.
             Assert.That(avalon.Rendu.sharedMaterials, Is.EqualTo(new[] { guerre.Ecriture.MatiereDuHalo, guerre.Ecriture.Encre })); Assert.That(brume.Rendu.sharedMaterials, Is.EqualTo(avalon.Rendu.sharedMaterials));
@@ -194,6 +194,37 @@ namespace Forge.Interface.Tests
             Assert.That((Milieu(0) - avant).magnitude, Is.GreaterThan(1e-4f), "échantillon vide : la première lettre n'a pas changé de place dans l'atlas");
         }
 
+        // Un nom de ville ou le nombre d'une armée ne se lit plus sur un texte couché sur la carte, à une taille en km : sous
+        // une caméra inclinée il se lit sur une étiquette d'écran, au même corps quelle que soit la distance.
+        [Test] public void Une_etiquette_se_lit_a_l_ecran_au_meme_corps_a_toute_distance()
+        {
+            Camera camera = carte.camera; ecran = new RenderTexture(1600, ECRAN_PX, 16); camera.targetTexture = ecran; camera.orthographic = false; camera.fieldOfView = 30f; camera.nearClipPlane = 1f; camera.farClipPlane = 5000f;
+            camera.transform.position = new Vector3(0, 100, -60); camera.transform.LookAt(Vector3.zero, Vector3.forward);
+            Servir(Terres(A, A, B), Armee(null, new PointCarte(25000, 5000))); Peindre(); Peindre();
+            TextMesh nombre = guerre.NombresDesArmees.Single(); MeshRenderer pose = nombre.GetComponent<MeshRenderer>(); UnityEngine.UI.Text lue = calques.EtiquetteDe(nombre);
+            Assert.That(lue, Is.Not.Null, "le nombre de l'armée n'a pas d'étiquette"); int points = Mathf.RoundToInt(CalquesCarte.CORPS_DE_NOMBRE_PX * ECRAN_PX / CalquesCarte.ECRAN_DE_REFERENCE_PX);
+            Assert.That((lue.text, lue.enabled, lue.fontSize, lue.font), Is.EqualTo((nombre.text, true, points, SocleInterface.Police(titre: true)))); Assert.That(nombre.text, Does.EndWith("hommes"));
+            Assert.That((Color32)lue.color, Is.EqualTo((Color32)SocleInterface.Couleur("encre"))); Color papier = SocleInterface.Couleur("papier"); papier.a = CalquesCarte.FORCE_DU_PAPIER;
+            Assert.That((Color32)lue.GetComponent<UnityEngine.UI.Outline>().effectColor, Is.EqualTo((Color32)papier), "l'étiquette n'a pas son liseré au papier du socle");
+            Assert.That((pose.forceRenderingOff, pose.enabled), Is.EqualTo((true, true)), "le texte posé se dessine encore, ou ne dit plus qu'il est montré");
+            Canvas toile = lue.GetComponentInParent<Canvas>(); Assert.That((toile.transform.parent.name, toile.renderMode, toile.worldCamera), Is.EqualTo((CalquesCarte.ETIQUETTES, RenderMode.ScreenSpaceCamera, camera)), "les étiquettes ne sont pas sur la caméra de la carte");
+            Assert.That(toile.transform.parent.parent, Is.SameAs(racine.transform)); Assert.That(toile.transform.parent.GetComponent<Canvas>(), Is.Null, "la toile des étiquettes est un enfant direct de la carte : le cabinet l'éteindrait");
+            // L'étiquette est centrée sur le point de l'écran où le texte posé se trouve, d'où que la caméra regarde, au même corps.
+            foreach (var (place, vise) in new[] { (new Vector3(0, 100, -60), Vector3.zero), (new Vector3(40, 400, -300), new Vector3(10, 0, 20)), (new Vector3(-5, 30, -25), new Vector3(3, 1, -2)) })
+            {
+                camera.transform.position = place; camera.transform.LookAt(vise, Vector3.forward); Peindre();
+                Vector2 attendu = camera.WorldToScreenPoint(nombre.transform.position);
+                Assert.That((lue.rectTransform.anchoredPosition - attendu).magnitude, Is.LessThan(0.5f), "l'étiquette n'est pas sur son texte, depuis " + place);
+                Assert.That((lue.fontSize, lue.enabled), Is.EqualTo((points, true)), "le corps de l'étiquette change avec la distance, depuis " + place);
+            }
+            // Derrière la caméra, rien ne se montre, même le nombre d'une armée.
+            camera.transform.position = new Vector3(0f, -50f, 0f); camera.transform.rotation = Quaternion.Euler(90, 0, 0); Peindre();
+            Assert.That((lue.enabled, pose.enabled), Is.EqualTo((false, false)), "une étiquette derrière la caméra se montre");
+            // L'armée qui n'est plus servie emporte son étiquette.
+            camera.transform.position = new Vector3(0, 100, -60); camera.transform.LookAt(Vector3.zero, Vector3.forward);
+            Servir(Terres(A, A, B)); Peindre(); Assert.That(toile.GetComponentsInChildren<UnityEngine.UI.Text>(true), Is.Empty, "l'étiquette d'une armée retirée reste à l'écran");
+        }
+
         // Un nom de pays ne passe plus par l'espacement des étiquettes : chacune de ses lettres y réserve sa place.
         [Test] public void Un_nom_de_ville_ne_s_ecrit_pas_sur_les_lettres_d_un_pays()
         {
@@ -219,11 +250,16 @@ namespace Forge.Interface.Tests
         {
             Servir(Terres(A, A, B), Armee(null, new PointCarte(25000, 5000)));
             var objet = racine.transform.Find(CarteDeLaGuerre.ARMEES + "/Armée 0"); Assert.That(objet, Is.Not.Null, "l'armée n'est pas dessinée");
-            Assert.That((objet.localPosition - new Vector3(0, CarteDeLaGuerre.HAUTEUR_ARMEE, 0)).magnitude, Is.LessThan(1e-3f));
+            Assert.That((objet.localPosition - carte.SurLeSol(0f, 0f, CarteDeLaGuerre.HAUTEUR_ARMEE)).magnitude, Is.LessThan(1e-3f), "l'armée n'est pas posée sur le sol");
             Assert.That(objet.Find("Nombre").GetComponent<TextMesh>().text, Is.EqualTo("1 200 hommes"));
             Assert.That((Color32)objet.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)CarteDeLaGuerre.CouleurDuPays(A)), "l'armée n'a pas la couleur de son pays");
-            var route = objet.Find("Route").GetComponent<LineRenderer>(); Assert.That(route.positionCount, Is.EqualTo(2));
-            Assert.That((objet.localPosition + route.GetPosition(1) - new Vector3(10, CarteDeLaGuerre.HAUTEUR_ROUTE, 0)).magnitude, Is.LessThan(1e-3f), "la route ne va pas à l'étape servie");
+            // La route est drapée sur le sol : de l'armée à l'étape, à 10 km, un point tous les 6 km au plus, chacun à sa hauteur au-dessus du sol.
+            var route = objet.Find("Route").GetComponent<LineRenderer>(); Assert.That(route.positionCount, Is.EqualTo(3));
+            for (int k = 0; k < route.positionCount; k++)
+            {
+                Vector3 p = objet.localPosition + route.GetPosition(k);
+                Assert.That((p - carte.SurLeSol(5f * k, 0f, CarteDeLaGuerre.HAUTEUR_ROUTE)).magnitude, Is.LessThan(1e-3f), "le point " + k + " de la route n'est pas sur le sol, de l'armée à l'étape servie");
+            }
             Assert.That(guerre.TexteLegende, Does.Contain("\nAvalon : 1 200 hommes, en marche"));
             Assert.That(TexteDuMonde.Interdit(guerre.TexteLegende, A, B, "m20") ?? TexteDuMonde.SansUnite(guerre.TexteLegende), Is.Null, guerre.TexteLegende);
             Assert.That(objet.GetComponentsInChildren<Collider>(true), Is.Empty);

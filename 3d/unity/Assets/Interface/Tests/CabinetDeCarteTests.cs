@@ -195,9 +195,17 @@ namespace Forge.Interface.Tests
         string[] Fleches() { var r = racine.transform.Find(FlechesDeCarte.RACINE); return r == null ? new string[0] : r.Cast<Transform>().Select(e => e.name).ToArray(); }
         void Fleche(string nom, PointCarte depart, double kg, PointCarte? arrivee = null)
         {
-            var f = racine.transform.Find(FlechesDeCarte.RACINE + "/Flèche " + nom); var v = f.GetComponent<MeshFilter>().sharedMesh.vertices; Vector3 a = carte.PositionSurLaCarte(depart, FlechesDeCarte.HAUTEUR).Value, b = carte.PositionSurLaCarte(arrivee ?? new PointCarte(1, 2), FlechesDeCarte.HAUTEUR).Value, pied = (v[0] + v[3]) / 2f;
-            Assert.That(Mathf.Abs(Vector3.Distance(pied, a) - R) < 1e-2f && Mathf.Abs(Vector3.Distance(v[5], b) - R) < 1e-2f && Vector3.Dot(v[5] - pied, b - a) > 0f && f.GetComponent<Collider>() == null, Is.True, nom + " pied " + pied + " pointe " + v[5]);
-            Assert.That(Vector3.Distance(v[0], v[3]), Is.EqualTo(FlechesDeCarte.Epaisseur(kg)).Within(1e-2f), nom); Assert.That((Color32)f.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)(nom == "du dû" ? FlechesDeCarte.VIOLET : FlechesDeCarte.ORANGE)));
+            var f = racine.transform.Find(FlechesDeCarte.RACINE + "/Flèche " + nom); var v = f.GetComponent<MeshFilter>().sharedMesh.vertices; Vector3 a = carte.PositionSurLaCarte(depart, FlechesDeCarte.HAUTEUR).Value, b = carte.PositionSurLaCarte(arrivee ?? new PointCarte(1, 2), FlechesDeCarte.HAUTEUR).Value, pied = (v[0] + v[1]) / 2f, pointe = v[v.Length - 1];
+            // La flèche est un ruban drapé : sa première tranche est son pied, sa dernière sa pointe, et chaque sommet est à sa hauteur au-dessus du sol.
+            float APlat(Vector3 p, Vector3 q) => new Vector2(p.x - q.x, p.z - q.z).magnitude;
+            Assert.That(Mathf.Abs(APlat(pied, a) - R) < 1e-2f && Mathf.Abs(APlat(pointe, b) - R) < 1e-2f && Vector3.Dot(pointe - pied, b - a) > 0f && f.GetComponent<Collider>() == null, Is.True, nom + " pied " + pied + " pointe " + pointe);
+            Assert.That(v.All(p => Mathf.Abs(p.y - carte.SurLeSol(p.x, p.z, FlechesDeCarte.HAUTEUR).y) < 1e-4f), Is.True, nom + " : un sommet de la flèche n'est pas posé sur le sol");
+            Assert.That(v.Length % 2 == 0 && v.Length >= 8, Is.True, nom + " : " + v.Length + " sommets, deux par tranche de la hampe et de la pointe");
+            // Deux tranches qui se suivent ne sont jamais à plus d'un pas de drapé l'une de l'autre : entre elles, le ruban ne peut pas couper le relief.
+            float plusLong = 0f; for (int k = 2; k < v.Length; k += 2) plusLong = Mathf.Max(plusLong, APlat((v[k] + v[k + 1]) / 2f, (v[k - 2] + v[k - 1]) / 2f));
+            Assert.That(plusLong, Is.LessThanOrEqualTo(CarteDessinee.PAS_DU_DRAPE_KM + 1e-3f), nom + " : deux tranches du ruban à " + plusLong + " km l'une de l'autre");
+            Assert.That(APlat(pied, pointe), Is.GreaterThan(CarteDessinee.PAS_DU_DRAPE_KM), "échantillon vide : la flèche " + nom + " tient dans un seul pas");
+            Assert.That(APlat(v[0], v[1]), Is.EqualTo(FlechesDeCarte.Epaisseur(kg)).Within(1e-2f), nom + " : la hampe n'a pas l'épaisseur de ce qui est envoyé"); Assert.That((Color32)f.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)(nom == "du dû" ? FlechesDeCarte.VIOLET : FlechesDeCarte.ORANGE)));
         }
         // La terre 10 est posée pour de bon ; l'origine et la vue sont ensuite celles que les lieux témoins attendent.
         void Preparer() { horloge = 0; lieux = racine.GetComponent<LieuxDeCarte>(); Dessiner(10); typeof(CarteDessinee).GetField("origine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(carte, (PointCarte?)new PointCarte(3000000, 1500000)); Poser(carte, "Vue", new VueDeCarte(new Bounds(Vector3.zero, new Vector3(8000f, 1f, 6000f)), 1.6f)); camera = new GameObject("caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.transform.position = new Vector3(3, 4, 5); carte.camera = camera; Assert.That(carte.Vue != null && carte.PositionSurLaCarte(new PointCarte(1, 1), 0f) != null, Is.True); }
@@ -353,27 +361,23 @@ namespace Forge.Interface.Tests
             Dessiner(10340, 77); Color teinte = carte.TeinteDe(10340).Value; Material terrain = racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial;
             partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Departs", DepartsDe(Fiche(42, 10340), Fiche(43, 9999)));
             cabinet.Afficher();
-            Transform terres = racine.transform.Find(CabinetDeCarte.TERRES); Assert.That(terres, Is.Not.Null, "la racine des terres conseillées manque"); Assert.That(terres.parent, Is.SameAs(racine.transform));
-            Transform[] Actives() => terres.Cast<Transform>().Where(t => t.gameObject.activeSelf).ToArray();
-            var allumees = Actives(); Assert.That(allumees.Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "une surbrillance par fiche dont la carte dessine la cellule");
-            var terre = allumees[0].gameObject; Mesh maillage = terre.GetComponent<MeshFilter>().sharedMesh;
-            // La surbrillance a la forme du contour servi, à plat, tournée vers le haut : sans normales, son matériau éclairé sort noir.
-            Vector3[] attendus = TriangulationDeCarte.Trianguler(carte.Lue.Cellules[0].Contour[0], carte.Origine.Value).Sommets.ToArray();
-            Assert.That(attendus, Has.Length.EqualTo(6), "un carré : deux triangles"); Assert.That(maillage.vertices, Is.EqualTo(attendus), "la surbrillance n'a pas la forme de la cellule servie");
-            Assert.That(maillage.normals.Length == attendus.Length && maillage.normals.All(n => n.y > 0.99f), Is.True, "la surbrillance n'a pas ses normales vers le haut");
-            Assert.That(terre.GetComponent<Collider>() == null, Is.True);
-            Assert.That((Color32)terre.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)SocleInterface.Couleur("or"))); Assert.That(terre.GetComponent<MeshRenderer>().sharedMaterial, Is.Not.SameAs(terrain));
-            Assert.That(Vector3.Distance(terre.transform.position, racine.transform.TransformPoint(Vector3.up * CabinetDeCarte.HAUTEUR_TERRE)), Is.LessThan(1e-3f));
-            Assert.That(carte.TeinteDe(10340), Is.EqualTo(teinte), "la surbrillance se pose au-dessus du terrain, elle ne reteint pas la terre"); Assert.That(carte.Marquee, Is.Null);
-            cabinet.Afficher(); Assert.That(Actives()[0].gameObject, Is.SameAs(terre), "un second Afficher recrée la surbrillance");
+            // La surbrillance n'est plus un maillage plat posé au-dessus du terrain, qui cachait le relief et que les montagnes
+            // auraient traversé sous une caméra inclinée : c'est le terrain lui-même qui s'éclaire, à l'or du socle.
+            long[] Eclairees() => new long[] { 10340, 77, 9999 }.Where(c => carte.EclatDe(c).HasValue).ToArray();
+            Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "une surbrillance par fiche dont la carte dessine la cellule");
+            Color or = SocleInterface.Couleur("or"); or.a = 1f; Assert.That((Color32)carte.EclatDe(10340).Value, Is.EqualTo((Color32)or));
+            Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name != CarteDessinee.TERRAIN), Is.Zero, "la surbrillance pose un maillage au-dessus du terrain");
+            Assert.That(racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(terrain));
+            Assert.That(carte.TeinteDe(10340), Is.EqualTo(teinte), "la surbrillance couvre la teinte de la terre, elle ne la change pas"); Assert.That(carte.Marquee, Is.Null);
+            cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "un second Afficher éteint ou déplace la surbrillance");
 
             Assert.That(Geste(Terre(10340, "Ville test"), O, O), Is.True); cabinet.Afficher();
-            Assert.That(Actives(), Is.Empty, "la terre gardée garde son rouge : sa surbrillance est inactive"); Assert.That(carte.Marquee, Is.EqualTo(10340));
+            Assert.That(carte.Marquee, Is.EqualTo(10340), "la terre gardée garde son rouge : la marque passe devant l'éclat");
             Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra")); Assert.That(racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Choisir cette maison").interactable, Is.True);
-            cabinet.Relacher(); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" })); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"));
+            cabinet.Relacher(); cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L })); Assert.That(carte.Marquee, Is.Null); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"));
             Assert.That(Geste(Terre(77, "Ville sans fiche"), O, O), Is.True); cabinet.Afficher(); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"), "une terre sans fiche ne change pas la maison consultée");
-            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(terres.childCount, Is.Zero, "une maison choisie : plus de terre éclairée");
-            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Actives().Select(t => t.name), Is.EqualTo(new[] { "Terre conseillée 10340" }), "sans maison, la surbrillance revient");
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Eclairees(), Is.Empty, "une maison choisie : plus de terre éclairée");
+            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "sans maison, la surbrillance revient");
         }
 
         // Chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.

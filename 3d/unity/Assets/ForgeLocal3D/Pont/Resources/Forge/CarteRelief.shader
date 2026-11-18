@@ -6,7 +6,8 @@
 // le bord des cellules, la frontière, les lignes d'eau au large du rivage, la côte.
 // Le relief ombre la terre d'une lumière fixe du nord-ouest et pâlit les cimes ; la mer s'éclaircit vers le rivage et
 // rend au large la couleur exacte de `_Mer`, celle du fond de la caméra. Rien n'est éclairé par la scène : la carte
-// est mate.
+// est mate. Le terrain se dessine avant tout le reste de la carte : les noms des pays s'impriment sur lui, puis
+// viennent les objets posés dessus.
 Shader "Forge/CarteRelief"
 {
     Properties
@@ -35,7 +36,7 @@ Shader "Forge/CarteRelief"
     }
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "Queue" = "Geometry" }
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "Queue" = "Geometry-10" }
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)

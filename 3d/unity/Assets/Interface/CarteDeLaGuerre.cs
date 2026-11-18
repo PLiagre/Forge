@@ -19,12 +19,13 @@ namespace Forge.Interface
         public const string NOMS = "Noms des pays", ARMEES = "Armées de la carte";
         public const string ENTETE = "Traits sombres bordés de la couleur de chaque pays : les frontières entre pays, chacun nommé sur sa terre. Disques : les armées, avec leurs hommes et, en cuivre, leur route.";
         public const float PERIODE_S = 2f;
-        // Les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux (0,8) ; leurs nombres au-dessus des villes (1).
+        // Au-dessus du sol, là où chaque chose se pose : les routes au-dessus des flèches (0,56) ; les armées au-dessus des lieux
+        // (0,8) ; leurs nombres au-dessus des villes (1).
         public const float HAUTEUR_ROUTE = 0.58f, HAUTEUR_ARMEE = 0.9f, HAUTEUR_NOM = 1.1f;
         public const float LARGEUR_ROUTE_KM = 6f, DIAMETRE_ARMEE_KM = 18f, DIAMETRE_BORD_ARMEE_KM = 24f, EPAISSEUR_KM = 0.05f;
         // La police tirée à 64 points puis réduite : nette à l'écran. Le nombre d'une armée un peu plus grand qu'un nom de
         // ville, au sud de son disque : le nom de la ville où elle se tient est au nord.
-        const float TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -22f; const int POLICE = 64;
+        const float TAILLE_NOMBRE = 3.5f, ECART_NOMBRE_KM = -15f; const int POLICE = 64;
         static readonly NomCourbe[] AUCUN_NOM = new NomCourbe[0];
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(10); static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
 
@@ -146,7 +147,7 @@ namespace Forge.Interface
         void NommerLesPays()
         {
             if (carte.Terrain == null || carte.Lue == null || Terres == null) { ecriture?.Ecrire(new (string, string, TraceDeNom)[0]); return; }
-            if (ecriture == null) ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"));
+            if (ecriture == null) ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), p => carte.SurLeSol(p.x, p.y, NomsCourbes.HAUTEUR));
             var rangs = new Dictionary<string, int>(); for (int k = 0; k < Terres.Pays.Count; k++) rangs[Terres.Pays[k].Id] = k;
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
@@ -155,7 +156,8 @@ namespace Forge.Interface
             SuivreLaVue();
         }
 
-        // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au sud et sa route servie.
+        // Une armée par repère : un disque à sa place, à la couleur de son pays, son nombre au sud et sa route servie, drapée
+        // sur le sol d'étape en étape.
         void DessinerLesArmees()
         {
             var garder = new HashSet<string>();
@@ -169,8 +171,9 @@ namespace Forge.Interface
                     objet.localPosition = ici;
                     objet.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial = Mat(CouleurDuPays(PaysDeLaMaison(armee.Maison)));
                     objet.Find("Nombre").GetComponent<TextMesh>().text = Nombre(armee);
-                    var ligne = objet.Find("Route").GetComponent<LineRenderer>(); var points = new List<Vector3> { new Vector3(0f, HAUTEUR_ROUTE - HAUTEUR_ARMEE, 0f) };
-                    foreach (var etape in armee.Etapes) if (carte.PositionSurLaCarte(etape, HAUTEUR_ROUTE) is Vector3 p) points.Add(p - new Vector3(ici.x, HAUTEUR_ARMEE, ici.z));
+                    var ligne = objet.Find("Route").GetComponent<LineRenderer>(); Vector3 depuis = carte.SurLeSol(ici.x, ici.z, HAUTEUR_ROUTE); var points = new List<Vector3> { depuis - ici };
+                    foreach (var etape in armee.Etapes)
+                        if (carte.PositionSurLaCarte(etape, HAUTEUR_ROUTE) is Vector3 p) { List<Vector3> troncon = carte.Draper(depuis, p, HAUTEUR_ROUTE); for (int k = 1; k < troncon.Count; k++) points.Add(troncon[k] - ici); depuis = p; }
                     ligne.positionCount = points.Count > 1 ? points.Count : 0; if (points.Count > 1) ligne.SetPositions(points.ToArray());
                 }
             nombres.Clear();

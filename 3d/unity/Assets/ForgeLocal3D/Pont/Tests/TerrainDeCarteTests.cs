@@ -43,6 +43,26 @@ namespace Forge.Pont.Tests {
             return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0], relief);
         }
         private static TerrainDeCarte LeveDe(params CelluleDeCarte[] cellules) => TerrainDeCarte.Lever(new CarteLue(cellules.Length, cellules));
+        // La hauteur que le dessin lit sous un point est celle du triangle du maillage qui le porte : à un sommet, la
+        // sienne ; au milieu de la diagonale d'une maille, la moyenne de ses deux bouts ; au centre d'un triangle, la
+        // moyenne de ses trois sommets. C'est ce sol-là que suivent les calques drapés et le rayon de la souris.
+        [Test] public void La_hauteur_du_maillage_se_lit_sur_ses_triangles() {
+            TerrainDeCarte t = _terrain; int nx = t.Largeur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, nz = t.Hauteur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, vus = 0;
+            Assert.AreEqual(nx * nz, t.Sommets.Count, "le maillage n'est pas une grille");
+            float plusHaut = float.MinValue, plusBas = float.MaxValue;
+            for (int j = 3; j + 4 < nz; j += 5)
+                for (int i = 3; i + 4 < nx; i += 5) {
+                    Vector3 a = t.Sommets[j * nx + i], b = t.Sommets[j * nx + i + 1], c = t.Sommets[(j + 1) * nx + i], d = t.Sommets[(j + 1) * nx + i + 1];
+                    Assert.AreEqual(a.y, t.SolDuMaillage(a.x, a.z), 2e-3f, "au sommet (" + i + ", " + j + ")");
+                    Assert.AreEqual((b.y + c.y) / 2f, t.SolDuMaillage((b.x + c.x) / 2f, (b.z + c.z) / 2f), 2e-3f, "au milieu de la diagonale de la maille (" + i + ", " + j + ")");
+                    Assert.AreEqual((a.y + b.y + c.y) / 3f, t.SolDuMaillage((a.x + b.x + c.x) / 3f, (a.z + b.z + c.z) / 3f), 2e-3f, "au centre du triangle du sud-ouest de la maille (" + i + ", " + j + ")");
+                    Assert.AreEqual((b.y + c.y + d.y) / 3f, t.SolDuMaillage((b.x + c.x + d.x) / 3f, (b.z + c.z + d.z) / 3f), 2e-3f, "au centre du triangle du nord-est de la maille (" + i + ", " + j + ")");
+                    plusHaut = Mathf.Max(plusHaut, a.y); plusBas = Mathf.Min(plusBas, a.y); vus++;
+                }
+            Assert.Greater(vus, 1000, "échantillon vide"); Assert.LessOrEqual(plusHaut, 0f); Assert.Greater(plusHaut - plusBas, 20f, "échantillon vide : aucune montagne ni aucun fond parmi les mailles lues");
+            // Hors du rectangle, la hauteur du bord.
+            Assert.AreEqual(t.Sommets[0].y, t.SolDuMaillage(t.Coin.x - 500f, t.Coin.y - 500f), 1e-4f); Assert.AreEqual(t.Sommets[nx * nz - 1].y, t.SolDuMaillage(t.Sommets[nx * nz - 1].x + 500f, t.Sommets[nx * nz - 1].z + 500f), 1e-4f);
+        }
         // Un texel de relief est à terre si la moitié de ses texels de cellules l'est.
         private static bool ATerre(TerrainDeCarte t, int i, int j) {
             int n = 0;

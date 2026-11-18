@@ -5,8 +5,9 @@
 // lue autour du point, pleine à mi-rayon, plus légère au rayon. Le carré d'une lettre déborde de son dessin pour
 // porter ce halo ; `cadre` borne ce qui est lu à la lettre elle-même, sans quoi ses voisines dans l'atlas
 // baveraient dans son halo. Par sommet : l'opacité du nom (alpha) et la force de son halo (rouge), et le rayon du
-// halo en texels de l'atlas. Le nom se pose sur le terrain sans rien écrire dans la profondeur : ce qui est plus
-// haut que lui (repères, armées) le couvre, et il se dessine avant les autres transparents, sous les noms des villes.
+// halo en texels de l'atlas. Le nom est imprimé sur le terrain : dessiné juste après lui et avant tout objet posé
+// sur la carte, sans lire ni écrire la profondeur. Aucun pli du relief ne le coupe, et une ville ou une armée passe
+// devant lui.
 Shader "Forge/NomDeCarte"
 {
     Properties
@@ -17,11 +18,11 @@ Shader "Forge/NomDeCarte"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "Queue" = "Transparent-10" "IgnoreProjector" = "True" }
+        Tags { "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "Queue" = "Geometry-5" "IgnoreProjector" = "True" }
         Pass
         {
             Name "Nom" Tags { "LightMode" = "UniversalForward" }
-            Cull Off ZWrite Off ZTest LEqual Blend SrcAlpha OneMinusSrcAlpha
+            Cull Off ZWrite Off ZTest Always Blend SrcAlpha OneMinusSrcAlpha
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
