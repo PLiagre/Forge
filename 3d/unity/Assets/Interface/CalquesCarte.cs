@@ -187,16 +187,14 @@ namespace Forge.Interface
         public static string LegendeDuCalque(RepartitionHabitants repartition) =>
             (repartition == null ? "Puissances de la carte · Relief non transmis" : repartition.Legende) + " · Rouge : territoire conservé";
         public static string Indisponible(string raison) => "Calque indisponible : " + TexteDuMonde.Absence(raison) + ". Couleurs des puissances conservées.";
-        // Les nombres des armées se montrent toujours ; puis les noms des pays, puis ceux des villes, chacun seulement s'il ne recouvre rien de déjà montré.
+        // Les nombres des armées se montrent toujours ; puis les noms des villes, chacun seulement s'il ne recouvre rien de déjà montré.
+        // Un nom de pays lisible réserve la place de chacune de ses lettres : un nom de ville ne s'écrit pas dessus, et revient
+        // quand la vue s'approche et que le nom du pays s'efface.
         void EspacerLesNoms()
         {
             if (noms == null) return;
             etiquettes.Clear();
-            if (guerre != null)
-            {
-                foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true);
-                foreach (var pays in guerre.NomsDesPays) Espacer(pays, false);
-            }
+            if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
             foreach (var nom in noms) Espacer(nom, false);
         }
         void Espacer(TextMesh nom, bool toujours)
