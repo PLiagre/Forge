@@ -55,6 +55,18 @@ namespace Forge.Interface
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void LateUpdate() => SuivreLaVue();
         void OnDestroy() { ecriture?.Dispose(); ecriture = null; foreach (var o in crees) Detruire(o); crees.Clear(); mats.Clear(); }
+        // Où chaque armée se dessine à l'écran : x et y en pixels, z le rayon de sa figurine en pixels, à la taille que la
+        // vue lui donne. Ce qui se cache sous une armée le lit ici.
+        public void PlacesDesArmees(Camera camera, List<Vector3> places)
+        {
+            if (racineDesArmees == null || camera == null) return;
+            foreach (Transform armee in racineDesArmees)
+            {
+                float kmParPixel = FormesDeCarte.KmParPixel(camera, armee.position); if (kmParPixel <= 0f) continue;
+                Vector3 ecran = camera.WorldToScreenPoint(armee.position);
+                places.Add(new Vector3(ecran.x, ecran.y, FormesDeCarte.RAYON_DE_L_ARMEE_KM * FormesDeCarte.EchellePourLEcran(camera, armee.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, MIN_PX) / kmParPixel));
+            }
+        }
         // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image.
         public void SuivreLaVue()
         {
