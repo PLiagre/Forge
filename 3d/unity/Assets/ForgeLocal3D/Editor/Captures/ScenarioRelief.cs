@@ -13,11 +13,11 @@ namespace ForgeLocal3D.Captures
     // proches, sur des montagnes, des côtes découpées, des frontières serrées et un rivage, où se jugent les traits
     // que le terrain dessine ; puis deux vues où se jugent les noms des pays, à mi-distance et d'assez près pour que
     // les plus grands s'effacent ; enfin deux vues au plus près, où la caméra est la plus inclinée, sur des montagnes
-    // et sur un rivage. Les vues se cadrent sur une ville servie, jamais sur un point écrit en dur ; une
+    // et sur un rivage, et une vue sur les figurines des villes de la plaine du Pô. Les vues se cadrent sur une ville servie, jamais sur un point écrit en dur ; une
     // ville que la carte ne sert pas fait échouer le scénario, et la première vue attend que les pays soient nommés.
     static class ScenarioRelief
     {
-        const float DEMI_ALPES_KM = 420f, DEMI_EGEE_KM = 380f, DEMI_FRONTIERES_KM = 110f, DEMI_RIVAGE_KM = 60f, DEMI_NOMS_KM = 700f, DEMI_NOMS_DE_PRES_KM = 280f, DEMI_INCLINEE_KM = 75f; const int IMAGES_DE_POSE = 12;
+        const float DEMI_ALPES_KM = 420f, DEMI_EGEE_KM = 380f, DEMI_FRONTIERES_KM = 110f, DEMI_RIVAGE_KM = 60f, DEMI_NOMS_KM = 700f, DEMI_NOMS_DE_PRES_KM = 280f, DEMI_INCLINEE_KM = 75f, DEMI_VILLES_KM = 150f; const int IMAGES_DE_POSE = 12;
 
         [ScenarioDeCapture("relief", "01-toute-la-carte")]
         static IEnumerator TouteLaCarte(Camera camera)
@@ -56,6 +56,9 @@ namespace ForgeLocal3D.Captures
 
         [ScenarioDeCapture("relief", "09-rivage-incline")]
         static IEnumerator RivageIncline(Camera camera) => Sur("Athènes", DEMI_INCLINEE_KM);
+
+        [ScenarioDeCapture("relief", "10-figurines-des-villes")]
+        static IEnumerator FigurinesDesVilles(Camera camera) => Sur("Ferrare", DEMI_VILLES_KM);
 
         static IEnumerator Sur(string ville, float demi)
         {

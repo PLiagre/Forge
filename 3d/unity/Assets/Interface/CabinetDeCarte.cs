@@ -141,6 +141,7 @@ namespace Forge.Interface
             // Le feuillet de la guerre, ouvert depuis le panneau « Votre maison » ; ses ordres visent la terre gardée sur la carte.
             gameObject.AddComponent<DossierGuerre>().Initialiser(toile.transform, dossier, () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null,
                 () => retenue, OrdreConfirme.Local(carte.port), NomsDesTerres.Local(carte.port), carte.port);
+            gameObject.AddComponent<VillesDeCarte>().Installer();
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); GetComponent<CalquesCarte>().Brancher(lieux, fleches, guerre);

@@ -245,6 +245,8 @@ namespace Forge.Interface
         {
             if (nom == null) return;
             Camera camera = carte.camera; var rendu = nom.GetComponent<MeshRenderer>(); rendu.forceRenderingOff = true; Text texte = Etiqueter(nom);
+            // Un texte posé qu'on a éteint (une ville cachée derrière une plus grande) n'a pas d'étiquette.
+            if (!nom.gameObject.activeInHierarchy) { rendu.enabled = false; texte.enabled = false; return; }
             int points = Mathf.Max(POINTS_MIN, Mathf.RoundToInt(corpsPx * camera.pixelHeight / ECRAN_DE_REFERENCE_PX));
             if (texte.text != nom.text) texte.text = nom.text; if (texte.fontSize != points) texte.fontSize = points;
             Vector3 ecran = camera.WorldToScreenPoint(nom.transform.position); float largeur = Largeur(texte), hauteur = 1.3f * points;

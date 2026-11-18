@@ -252,7 +252,16 @@ namespace Forge.Interface.Tests
             var objet = racine.transform.Find(CarteDeLaGuerre.ARMEES + "/Armée 0"); Assert.That(objet, Is.Not.Null, "l'armée n'est pas dessinée");
             Assert.That((objet.localPosition - carte.SurLeSol(0f, 0f, CarteDeLaGuerre.HAUTEUR_ARMEE)).magnitude, Is.LessThan(1e-3f), "l'armée n'est pas posée sur le sol");
             Assert.That(objet.Find("Nombre").GetComponent<TextMesh>().text, Is.EqualTo("1 200 hommes"));
-            Assert.That((Color32)objet.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)CarteDeLaGuerre.CouleurDuPays(A)), "l'armée n'a pas la couleur de son pays");
+            // L'armée n'est plus un disque : c'est une figurine sur le sol, sa bannière à la couleur de son pays, des piquiers tant qu'elle marche.
+            Transform figurine = objet.Find(CarteDeLaGuerre.FIGURINE); Assert.That(figurine, Is.Not.Null, "l'armée n'a pas de figurine"); Assert.That(objet.Find("Disque"), Is.Null);
+            Assert.That((Color32)figurine.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)CarteDeLaGuerre.CouleurDuPays(A)), "l'armée n'a pas la couleur de son pays");
+            Assert.That((figurine.GetComponent<MeshFilter>().sharedMesh.name, figurine.GetComponent<MeshRenderer>().sharedMaterial.shader.name), Is.EqualTo(("Armée en marche", FormesDeCarte.SHADER)));
+            // Elle ne descend jamais sous sa taille à l'écran, et son nombre se range au sud de son socle.
+            float echelle = FormesDeCarte.EchellePourLEcran(carte.camera, objet.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, CarteDeLaGuerre.MIN_PX);
+            Assert.That(figurine.localScale.x, Is.EqualTo(echelle).Within(1e-4f), "la figurine de l'armée n'est pas réglée sur la vue");
+            Assert.That(objet.Find("Nombre").localPosition.z, Is.EqualTo(-(FormesDeCarte.RAYON_DE_L_ARMEE_KM * echelle + CarteDeLaGuerre.MARGE_DU_NOMBRE_PX * FormesDeCarte.KmParPixel(carte.camera, objet.position))).Within(1e-3f), "le nombre n'est pas au sud du socle");
+            float orthographique = carte.camera.orthographicSize; carte.camera.orthographicSize = 2000f; guerre.SuivreLaVue();
+            Assert.That(figurine.localScale.x, Is.GreaterThan(5f * echelle), "de loin, l'armée n'est pas grossie"); carte.camera.orthographicSize = orthographique; guerre.SuivreLaVue();
             // La route est drapée sur le sol : de l'armée à l'étape, à 10 km, un point tous les 6 km au plus, chacun à sa hauteur au-dessus du sol.
             var route = objet.Find("Route").GetComponent<LineRenderer>(); Assert.That(route.positionCount, Is.EqualTo(3));
             for (int k = 0; k < route.positionCount; k++)
@@ -266,6 +275,7 @@ namespace Forge.Interface.Tests
             // L'espacement des noms ne cache jamais le nombre d'une armée.
             Peindre(); objet.Find("Nombre").GetComponent<MeshRenderer>().enabled = false; Peindre(); Assert.That(objet.Find("Nombre").GetComponent<MeshRenderer>().enabled, Is.True);
             Servir(Terres(A, A, B), Armee(30)); objet = racine.transform.Find(CarteDeLaGuerre.ARMEES + "/Armée 0");
+            Assert.That(objet.Find(CarteDeLaGuerre.FIGURINE).GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Armée au siège"), "au siège, l'armée garde ses piquiers");
             Assert.That(objet.Find("Nombre").GetComponent<TextMesh>().text, Is.EqualTo("1 200 hommes · siège")); Assert.That(objet.Find("Route").GetComponent<LineRenderer>().positionCount, Is.Zero);
             Assert.That(guerre.NombresDesArmees, Has.Count.EqualTo(1));
             Servir(Terres(A, A, B)); Assert.That(racine.transform.Find(CarteDeLaGuerre.ARMEES).childCount, Is.Zero, "l'armée qui n'est plus servie reste dessinée"); Assert.That(guerre.NombresDesArmees, Is.Empty);
