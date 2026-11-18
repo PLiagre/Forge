@@ -13,7 +13,7 @@ namespace Forge.Interface
     public sealed class FlechesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, plafond 8 km.";
-        public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du terrain (0 au plus haut), sous le bord des disques (0,63)
+        public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du sol, sous le bord des disques (0,63)
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
@@ -62,13 +62,27 @@ namespace Forge.Interface
         }
         static string Raison(MaisonLue m) => m.Absents.TryGetValue("siege", out var r) ? " : " + TexteDuMonde.Absence(r, m.Id) : "";
         // Une hampe large de l'épaisseur, une pointe de deux épaisseurs sur trois de long (au plus la moitié de la flèche), d'un bord de disque à l'autre.
+        // La flèche est un ruban drapé sur le sol : une tranche tous les `CarteDessinee.PAS_DU_DRAPE_KM` au plus, chaque bord à sa hauteur au-dessus de lui.
         string Fleche(string nom, Vector3 a, Vector3 b, double kg, Color couleur, HashSet<string> garder)
         {
-            float w = Epaisseur(kg), r = ReperesDeDepart.DIAMETRE_BORD_KM / 2f; if (Vector3.Distance(a, b) <= 2f * r) return " (les disques se touchent : pas de flèche)"; if (!(w > 0f)) return "";
+            a.y = b.y = 0f; float w = Epaisseur(kg), r = ReperesDeDepart.DIAMETRE_BORD_KM / 2f; if (Vector3.Distance(a, b) <= 2f * r) return " (les disques se touchent : pas de flèche)"; if (!(w > 0f)) return "";
             if (racine == null) { racine = new GameObject(RACINE).transform; racine.SetParent(transform, false); racine.gameObject.SetActive(Visibles); }
             garder.Add(nom); var o = racine.Find(nom); if (o == null) { o = new GameObject(nom, typeof(MeshFilter), typeof(MeshRenderer)).transform; o.SetParent(racine, false); o.GetComponent<MeshFilter>().sharedMesh = new Mesh { name = nom }; }
-            o.GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur); Vector3 u = (b - a).normalized, p = new Vector3(u.z, 0f, -u.x) * (w / 2f), s = a + u * r, t = b - u * r, e = t - u * Mathf.Min(3f * w, Vector3.Distance(s, t) / 2f);
-            var m = o.GetComponent<MeshFilter>().sharedMesh; m.Clear(); m.vertices = new[] { s - p, e - p, e + p, s + p, e - 2f * p, t, e + 2f * p }; m.triangles = new[] { 0, 1, 2, 0, 2, 3, 4, 5, 6 }; m.RecalculateNormals(); m.RecalculateBounds(); return "";
+            o.GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur); Vector3 u = (b - a).normalized, travers = new Vector3(u.z, 0f, -u.x), s = a + u * r, t = b - u * r, e = t - u * Mathf.Min(3f * w, Vector3.Distance(s, t) / 2f);
+            var sommets = new List<Vector3>(); var triangles = new List<int>();
+            Bande(s, e, w / 2f, w / 2f, travers, sommets, triangles); Bande(e, t, w, 0f, travers, sommets, triangles);
+            var m = o.GetComponent<MeshFilter>().sharedMesh; m.Clear(); m.SetVertices(sommets); m.SetTriangles(triangles, 0); m.RecalculateNormals(); m.RecalculateBounds(); return "";
+        }
+        // Une bande du ruban, de `de` à `vers`, sa demi-largeur allant de l'une à l'autre : deux sommets par tranche, à gauche puis à droite.
+        void Bande(Vector3 de, Vector3 vers, float demiDe, float demiVers, Vector3 travers, List<Vector3> sommets, List<int> triangles)
+        {
+            int pas = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(de, vers) / CarteDessinee.PAS_DU_DRAPE_KM)), premier = sommets.Count;
+            for (int k = 0; k <= pas; k++)
+            {
+                Vector3 centre = Vector3.Lerp(de, vers, k / (float)pas), demi = travers * Mathf.Lerp(demiDe, demiVers, k / (float)pas);
+                sommets.Add(carte.SurLeSol(centre.x - demi.x, centre.z - demi.z, HAUTEUR)); sommets.Add(carte.SurLeSol(centre.x + demi.x, centre.z + demi.z, HAUTEUR));
+            }
+            for (int k = 0; k < pas; k++) { int i = premier + 2 * k; triangles.Add(i); triangles.Add(i + 2); triangles.Add(i + 3); triangles.Add(i); triangles.Add(i + 3); triangles.Add(i + 1); }
         }
         void Retirer(Func<string, bool> quoi) { if (racine == null) return; for (int i = racine.childCount - 1; i >= 0; i--) { var e = racine.GetChild(i); if (quoi(e.name)) { Detruire(e.GetComponent<MeshFilter>().sharedMesh); Detruire(e.gameObject); } } }
         string Maison() { var p = cabinet != null ? cabinet.Partie : null; var m = p != null ? p.Monde : null; var h = p != null ? p.Maison : null; return m == null || !m.Presente || string.IsNullOrEmpty(m.Donnees.MaisonDuJoueur) || h == null || !h.Presente || h.Donnees.Id != m.Donnees.MaisonDuJoueur ? null : h.Donnees.Id; }

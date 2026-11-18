@@ -152,6 +152,18 @@ namespace Forge.Pont {
             return (float)(bas + fv * (haut - bas));
         }
 
+        // La hauteur du maillage sous un point en km locaux, telle qu'il se dessine : lue sur le triangle qui porte le
+        // point, entre ses trois sommets. Nulle à la plus haute cime possible, négative partout ailleurs ; hors du
+        // rectangle, celle du bord.
+        public float SolDuMaillage(float x, float z) {
+            int nx = Largeur / TEXELS_PAR_MAILLE + 1, nz = Hauteur / TEXELS_PAR_MAILLE + 1; double maille = pas * TEXELS_PAR_MAILLE;
+            double u = Math.Min(Math.Max((x - minX) / maille, 0), nx - 1), v = Math.Min(Math.Max((z - minZ) / maille, 0), nz - 1);
+            int i = Math.Min((int)u, nx - 2), j = Math.Min((int)v, nz - 2); double fu = u - i, fv = v - j;
+            float a = sommets[j * nx + i].y, b = sommets[j * nx + i + 1].y, c = sommets[(j + 1) * nx + i].y, d = sommets[(j + 1) * nx + i + 1].y;
+            // Chaque maille est coupée du sommet de l'est à celui du nord.
+            return fu + fv <= 1 ? (float)(a + fu * (b - a) + fv * (c - a)) : (float)(d + (1 - fu) * (c - d) + (1 - fv) * (b - d));
+        }
+
         public static TerrainDeCarte Lever(CarteLue carte) {
             if (carte == null) throw new ArgumentNullException(nameof(carte));
             int n = carte.Cellules.Count;

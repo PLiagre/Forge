@@ -12,23 +12,30 @@ namespace Forge.Pont {
     // Les traits sont dessinés par le terrain lui-même, aux côtés servis : le bord de chaque cellule, la côte et ses
     // lignes d'eau, et la frontière entre deux cellules que `Rattacher` donne à des pays différents, doublée d'un
     // liseré à la couleur de chaque pays. Au départ, chaque cellule est rattachée à sa puissance servie.
+    // Le terrain se dessine en relief : la mer est au niveau 0 de la carte, et les hauteurs du terrain levé y sont
+    // réduites de `ECHELLE_DU_RELIEF`, pour qu'une montagne se voie sous une caméra inclinée sans cacher ce qui est
+    // derrière elle. Tout ce qui se pose sur la carte se pose sur ce sol : `PositionSurLaCarte` rend un point à sa
+    // hauteur au-dessus de lui, `Draper` une ligne qui le suit, `SolSous` le point du sol sous un point de l'écran.
     // Le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
-    // Cette caméra montre la `Vue`, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
+    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
-        public const float HAUTEUR_NOM = 1f, HAUTEUR_CAMERA = 1000f;
+        public const float HAUTEUR_NOM = 1f;
+        // Ce que le dessin garde des hauteurs du terrain levé ; et le pas, en km, d'une ligne drapée ou d'un rayon qui cherche le sol.
+        public const float ECHELLE_DU_RELIEF = 0.3f, PAS_DU_DRAPE_KM = 6f, PAS_DU_RAYON_KM = 0.5f;
+        private const int PAS_MAX_DU_RAYON = 256, AFFINAGES = 12;
         public const string TERRAIN = "Terrain de la carte", SHADER_DU_TERRAIN = "Forge/CarteRelief";
         private const string SANS_SHADER = "carte non dessinée : shader " + SHADER_DU_TERRAIN + " absent";
         private const int LARGEUR_PALETTE = 256; // une teinte par cellule, rangée par lignes ; la case 0 est la mer
         private const string PUISSANCE = "puissance "; // la clé du pays de départ d'une cellule : sa puissance servie
-        private const float ECART_PLAN = 0.2f, PROCHE = 1f, LOINTAIN = 2000f; private const int TAILLE_POLICE = 24;
+        private const float ECART_PLAN = 0.2f; private const int TAILLE_POLICE = 24;
         private const int TAILLE_NOM = 16; private const float TAILLE_CARACTERE = 25f; // une ligne de nom : environ 40 km, dessinée près de sa taille à l'écran
         private static readonly Color MER = new Color(0.08f, 0.16f, 0.3f), RIVAGE = new Color(0.2f, 0.3f, 0.42f), ROCHE = new Color(0.85f, 0.83f, 0.78f), BORD = new Color(0.1f, 0.08f, 0.06f), EAUX = new Color(0.5f, 0.6f, 0.7f);
         private static readonly Quaternion VERS_LE_BAS = Quaternion.Euler(90, 0, 0);
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public new Camera camera;
-        private Text texte; private ClientCarte client;
+        private Text texte; private Canvas toile; private ClientCarte client;
         private Task<(CarteLue lue, TerrainDeCarte terrain, string absence)> enCours;
         private double prochaineLecture; private bool close; // carte posée, ou refusée faute de matériau : plus aucune lecture ne part
         private bool cameraCreee; private Bounds boite; // la boîte des cellules, en local : ce que la caméra créée cadre
@@ -43,6 +50,7 @@ namespace Forge.Pont {
         // Les distances aux frontières, un octet par texel ; la zone à mesurer de nouveau, et si la grille attend d'être versée.
         private Texture2D frontieres; private byte[] champ; private RectInt? sale; private bool frontieresAVerser;
         private long? marquee; private Color marque; // la cellule marquée et la couleur qui couvre sa teinte
+        private readonly Dictionary<long, Color> eclats = new Dictionary<long, Color>(); // les cellules éclairées et la couleur qui couvre leur teinte
 
         public string TexteAffiche => texte != null ? texte.text : null;
         public int CellulesServies { get; private set; } = -1;
@@ -57,9 +65,42 @@ namespace Forge.Pont {
         // La carte servie posée, et l'origine de ses km locaux : ce que les vues tirent des contours. Nulles avant la pose.
         public CarteLue Lue { get; private set; }
         public PointCarte? Origine => origine;
-        // Un point servi (EPSG:3035, en m), en local dans la carte, comme ses contours et ses noms ; null tant que la carte n'est pas posée.
-        public Vector3? PositionSurLaCarte(PointCarte point, float hauteur) => origine.HasValue ?Place(point, origine.Value, hauteur) : (Vector3?)null;
-        // La cellule servie sous un point du monde (projeté sur le plan de la carte) ; null dans la mer ou sans carte posée.
+        // Un point servi (EPSG:3035, en m), en local dans la carte, à cette hauteur au-dessus du sol (en mer, au-dessus
+        // de l'eau) ; null tant que la carte n'est pas posée.
+        public Vector3? PositionSurLaCarte(PointCarte point, float hauteur) {
+            if (!origine.HasValue) return null;
+            Vector3 p = Place(point, origine.Value, 0f); p.y = Mathf.Max(HauteurDuSol(p.x, p.z), 0f) + hauteur; return p;
+        }
+        // La hauteur du sol dessiné sous un point en km locaux : 0 au niveau de la mer, négative sur les fonds ; 0 sans carte posée.
+        public float HauteurDuSol(float x, float z) => Terrain != null ? (Terrain.SolDuMaillage(x, z) + TerrainDeCarte.PLAFOND) * ECHELLE_DU_RELIEF : 0f;
+        // Le même point en local, posé à cette hauteur au-dessus du sol (en mer, au-dessus de l'eau).
+        public Vector3 SurLeSol(float x, float z, float hauteur) => new Vector3(x, Mathf.Max(HauteurDuSol(x, z), 0f) + hauteur, z);
+        // La ligne de `a` à `b` (en local), drapée sur le sol à cette hauteur : un point tous les `PAS_DU_DRAPE_KM` au plus, bouts compris.
+        public List<Vector3> Draper(Vector3 a, Vector3 b, float hauteur) {
+            float longueur = new Vector2(b.x - a.x, b.z - a.z).magnitude; int pas = Mathf.Max(1, Mathf.CeilToInt(longueur / PAS_DU_DRAPE_KM));
+            var points = new List<Vector3>(pas + 1);
+            for (int k = 0; k <= pas; k++) points.Add(SurLeSol(Mathf.Lerp(a.x, b.x, k / (float)pas), Mathf.Lerp(a.z, b.z, k / (float)pas), hauteur));
+            return points;
+        }
+        // Le point du sol que touche un rayon du monde, en coordonnées du monde : le rayon descend du plus haut du
+        // relief par pas de `PAS_DU_RAYON_KM`, et le point où il passe sous le sol s'affine par moitiés. Null sans carte
+        // posée, ou si le rayon ne descend pas vers la carte.
+        public Vector3? SolSur(Ray rayon) {
+            if (Terrain == null) return null;
+            Vector3 o = transform.InverseTransformPoint(rayon.origin), d = transform.InverseTransformDirection(rayon.direction);
+            float haut = TerrainDeCarte.PLAFOND * ECHELLE_DU_RELIEF, bas = -TerrainDeCarte.FOND * ECHELLE_DU_RELIEF;
+            if (d.y >= -1e-6f || o.y <= bas) return null;
+            float t0 = Mathf.Max(0f, (haut - o.y) / d.y), t1 = (bas - o.y) / d.y;
+            float Ecart(float t) { Vector3 p = o + d * t; return p.y - HauteurDuSol(p.x, p.z); }
+            float horizontal = new Vector2(d.x, d.z).magnitude * (t1 - t0); int pas = Mathf.Clamp(Mathf.CeilToInt(horizontal / PAS_DU_RAYON_KM), 1, PAS_MAX_DU_RAYON);
+            float dessus = t0, dessous = t1;
+            for (int k = 1; k <= pas; k++) { float t = Mathf.Lerp(t0, t1, k / (float)pas); if (Ecart(t) <= 0f) { dessous = t; break; } dessus = t; }
+            for (int k = 0; k < AFFINAGES; k++) { float milieu = (dessus + dessous) / 2f; if (Ecart(milieu) <= 0f) dessous = milieu; else dessus = milieu; }
+            return transform.TransformPoint(o + d * ((dessus + dessous) / 2f));
+        }
+        // Le point du sol sous un point de l'écran, par la caméra de la carte ; null sans caméra, sans carte posée, ou hors du sol.
+        public Vector3? SolSous(Vector2 ecran) => camera != null ? SolSur(camera.ScreenPointToRay(ecran)) : null;
+        // La cellule servie sous un point du monde (à la verticale de la carte) ; null dans la mer ou sans carte posée.
         public CelluleDeCarte CelluleSous(Vector3 monde) {
             if (reperage == null) return null;
             Vector3 local = transform.InverseTransformPoint(monde); return reperage.Sous(local.x, local.z);
@@ -74,7 +115,7 @@ namespace Forge.Pont {
         // Retire une cellule du dessin : son sol rend la mer, elle perd sa marque et ne compte plus parmi les posées.
         public bool Retirer(long cellId) {
             if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
-            posees[rang] = false; nombrePosees--; teintes[rang + 1] = Color.clear; if (marquee == cellId) marquee = null; aVerser = true;
+            posees[rang] = false; nombrePosees--; teintes[rang + 1] = Color.clear; if (marquee == cellId) marquee = null; eclats.Remove(cellId); aVerser = true;
             Salir(Terrain.ZoneDe(rang)); return true; // ses voisines n'ont plus de frontière avec elle
         }
         // Rattache une cellule posée à un pays, nommé par sa clé, et donne au pays la couleur de son liseré ; sans clé,
@@ -116,6 +157,17 @@ namespace Forge.Pont {
             couleur.a = 1f; marquee = cellId; marque = couleur; aVerser = true; return true;
         }
         public void Demarquer() { if (marquee.HasValue) { marquee = null; aVerser = true; } }
+        // Éclaire une cellule posée : comme la marque, la couleur couvre sa teinte sans y toucher, et le relief, les
+        // bords et les frontières s'y dessinent toujours. Autant de cellules qu'on veut ; la marque passe devant.
+        // Faux si le terrain ne la dessine pas.
+        public bool Eclairer(long cellId, Color couleur) {
+            if (rangs == null || !rangs.TryGetValue(cellId, out int rang) || !posees[rang]) return false;
+            couleur.a = 1f; if (!eclats.TryGetValue(cellId, out Color deja) || deja != couleur) { eclats[cellId] = couleur; aVerser = true; }
+            return true;
+        }
+        public void Eteindre(long cellId) { if (eclats.Remove(cellId)) aVerser = true; }
+        // La couleur dont une cellule est éclairée ; null si elle ne l'est pas.
+        public Color? EclatDe(long cellId) => eclats.TryGetValue(cellId, out Color couleur) ? couleur : (Color?)null;
         // Les couleurs de l'habillage : la mer au large (celle du fond de la caméra), la mer au rivage, les cimes.
         public void Habiller(Color large, Color auRivage, Color cimes) {
             mer = large; rivage = auRivage; roche = cimes;
@@ -132,9 +184,9 @@ namespace Forge.Pont {
         public void Demarrer() {
             if (camera == null) { // la sienne, vue de la mer, cadrée une fois la carte posée
                 camera = new GameObject("Caméra de la carte").AddComponent<Camera>(); camera.transform.SetParent(transform, false); cameraCreee = true;
-                camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = MER; camera.nearClipPlane = PROCHE; camera.farClipPlane = LOINTAIN;
+                camera.orthographic = false; camera.fieldOfView = VueDeCarte.CHAMP; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = MER;
             }
-            var toile = new GameObject("Toile de la carte", typeof(RectTransform)).AddComponent<Canvas>();
+            toile = new GameObject("Toile de la carte", typeof(RectTransform)).AddComponent<Canvas>();
             toile.transform.SetParent(transform, false);
             toile.renderMode = camera != null ? RenderMode.ScreenSpaceCamera : RenderMode.ScreenSpaceOverlay; toile.worldCamera = camera;
             if (camera != null) toile.planeDistance = camera.nearClipPlane + ECART_PLAN;
@@ -204,11 +256,13 @@ namespace Forge.Pont {
             matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
             matiere.SetFloat("_Pas", terrain.Pas); matiere.SetFloat("_PorteeDesBords", TerrainDeCarte.PORTEE_DES_BORDS_KM); matiere.SetFloat("_PorteeDesFrontieres", TerrainDeCarte.PORTEE_DES_FRONTIERES_KM);
             Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); aVerser = true; paysAVerser = true; Verser();
+            // Le maillage levé a sa plus haute cime au plan 0 : il se pose de façon que la mer soit au niveau 0 de la carte, ses hauteurs réduites.
             var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
+            sol.transform.localPosition = new Vector3(0f, TerrainDeCarte.PLAFOND * ECHELLE_DU_RELIEF, 0f); sol.transform.localScale = new Vector3(1f, ECHELLE_DU_RELIEF, 1f);
             sol.GetComponent<MeshFilter>().sharedMesh = maillage;
             var rendu = sol.GetComponent<MeshRenderer>(); rendu.sharedMaterial = matiere; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
             boite = terrain.Boite;
-            Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); origine = terrain.Origine; Lue = lue;
+            origine = terrain.Origine; Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); Lue = lue;
             if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = servies; Dire(""); Cadrer();
         }
@@ -222,6 +276,7 @@ namespace Forge.Pont {
             if (palette == null) return;
             if (aVerser) {
                 aVerser = false; palette.SetPixels(teintes);
+                foreach (KeyValuePair<long, Color> eclat in eclats) { int r = rangs[eclat.Key] + 1; palette.SetPixel(r % LARGEUR_PALETTE, r / LARGEUR_PALETTE, eclat.Value); }
                 if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) palette.SetPixel((rang + 1) % LARGEUR_PALETTE, (rang + 1) / LARGEUR_PALETTE, marque);
                 palette.Apply(false);
             }
@@ -254,23 +309,24 @@ namespace Forge.Pont {
             cles = gardees; couleursDesPays = couleurs; indicesDesPays.Clear(); paysAVerser = true;
             for (int k = 1; k < cles.Count; k++) indicesDesPays[cles[k]] = k;
         }
-        // Un nom par ville servie, à sa place, lisible d'en haut, nord en haut.
+        // Un nom par ville servie, au-dessus du sol de sa place, lisible d'en haut, nord en haut.
         private void Nommer(CarteLue lue, PointCarte origine) {
             Transform villes = new GameObject("Villes de la carte").transform; villes.SetParent(transform, false);
             Font police = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             foreach (CelluleDeCarte cellule in lue.Cellules)
                 foreach (VilleDeCarte ville in cellule.Villes) {
                     var nom = new GameObject("Ville " + ville.Nom).AddComponent<TextMesh>();
-                    nom.transform.SetParent(villes, false); nom.transform.SetLocalPositionAndRotation(Place(ville.Position, origine, HAUTEUR_NOM), VERS_LE_BAS);
+                    nom.transform.SetParent(villes, false); nom.transform.SetLocalPositionAndRotation(PositionSurLaCarte(ville.Position, HAUTEUR_NOM).Value, VERS_LE_BAS);
                     nom.font = police; nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
                     nom.fontSize = TAILLE_NOM; nom.characterSize = TAILLE_CARACTERE; nom.anchor = TextAnchor.MiddleCenter; nom.color = Color.black; nom.text = ville.Nom;
                 }
         }
         private static Vector3 Place(PointCarte point, PointCarte origine, float hauteur) { Vector3 p = TriangulationDeCarte.Point(point.X, point.Y, origine); p.y = hauteur; return p; }
-        // Seule la caméra créée est cadrée, sur la vue : une caméra donnée n'est jamais touchée.
+        // Seule la caméra créée est cadrée, sur la vue : une caméra donnée n'est jamais touchée. La toile du texte suit son plan proche.
         private void Cadrer() {
             if (Vue == null || camera == null) return;
-            Vue.Changer(camera.aspect); Vue.Poser(camera, transform, HAUTEUR_CAMERA);
+            Vue.Changer(camera.aspect); Vue.Poser(camera, transform);
+            if (toile != null) toile.planeDistance = camera.nearClipPlane + ECART_PLAN * camera.nearClipPlane;
         }
         private void Dire(string message) { if (texte == null) return; texte.text = message; texte.gameObject.SetActive(message != ""); }
     }

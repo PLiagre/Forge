@@ -74,7 +74,7 @@ namespace Forge.Pont.Tests {
             foreach (FicheDeDepart f in fiches) {
                 int i = Array.FindIndex(SIEGES, x => x.id == f.Id); var s = SIEGES[i]; var suivant = SIEGES[(i + 1) % SIEGES.Length];
                 Transform r = objet.transform.Find(RACINE + "/Repère " + f.Nom); Assert.IsTrue(r != null && Nommes("Repère " + f.Nom) == 1, "pas un seul repère pour " + f.Nom);
-                Vector3 attendu = new Vector3((float)((s.x - o.X) / 1000), ReperesDeDepart.HAUTEUR_REPERE, (float)((s.y - o.Y) / 1000));
+                Vector3 attendu = new Vector3((float)((s.x - o.X) / 1000), 0f, (float)((s.y - o.Y) / 1000)); attendu.y = Mathf.Max(carte.HauteurDuSol(attendu.x, attendu.z), 0f) + ReperesDeDepart.HAUTEUR_REPERE; // au-dessus du sol dessiné
                 Assert.IsTrue(Egal(r.localPosition, attendu), f.Nom + " en " + r.localPosition.ToString("R") + ", attendu " + attendu.ToString("R"));
                 Assert.AreEqual(f.CellId, carte.CelluleSous(r.position)?.CellId, f.Nom + " hors de la cellule de sa terre");
                 Assert.AreEqual((Color32)ReperesDeDepart.COULEUR_REPERE, (Color32)r.Find("Disque").GetComponent<MeshRenderer>().sharedMaterial.color, f.Nom);
@@ -240,7 +240,7 @@ namespace Forge.Pont.Tests {
             Publier(MAISON_MOREE); Jusqua(apres + 1, () => fiche.MaisonDuJoueur == MAISON_MOREE && DisquesActifs() == 4 && DepartsActifs() == 0);
             Assert.AreEqual(1, Recues("/lieu?cell=" + CELLULE_MOREE), "la cellule"); Assert.AreEqual(2, Recues(DEMANDE_MOREE), "la maison publiée");
             Vector3 siege = carte.PositionSurLaCarte(new PointCarte(s.x, s.y), ReperesDeDepart.HAUTEUR_LIEU).Value; Vector3 cam = objet.transform.InverseTransformPoint(carte.camera.transform.position);
-            Assert.IsTrue(carte.Vue.Echelle < 1f && carte.Vue.Centre == new Vector2(siege.x, siege.z) && carte.Vue.Demi >= VueDeCarte.DEMI_MIN_KM && Mathf.Abs(cam.x - siege.x) < 0.01f && Mathf.Abs(cam.z - siege.z) < 0.01f && Mathf.Abs(carte.camera.orthographicSize - carte.Vue.Demi) < 0.01f, carte.Vue.Centre + " demi " + carte.Vue.Demi + " caméra " + cam);
+            Assert.IsTrue(carte.Vue.Echelle < 1f && carte.Vue.Centre == new Vector2(siege.x, siege.z) && carte.Vue.Demi >= VueDeCarte.DEMI_MIN_KM && (cam - carte.Vue.Position).magnitude < 0.05f && Vector3.Angle(carte.camera.transform.forward, objet.transform.TransformDirection(carte.Vue.Regard)) < 0.01f, carte.Vue.Centre + " demi " + carte.Vue.Demi + " caméra " + cam); // la caméra inclinée vise le siège
             foreach (var p in Quatre()) { Transform lieu = LieuPose(p.rang); Vector3 attendu = carte.PositionSurLaCarte(new PointCarte(p.x, p.y), ReperesDeDepart.HAUTEUR_LIEU).Value; Vector3 vue = lieu != null ? carte.camera.WorldToViewportPoint(lieu.position) : Vector3.zero; Assert.IsTrue(lieu != null && Egal(lieu.localPosition, attendu) && lieu.Find("Disque").gameObject.activeInHierarchy && vue.x >= 0f && vue.x <= 1f && vue.y >= 0f && vue.y <= 1f, "rang " + p.rang + " " + vue); }
             Assert.IsNull(LieuPose(4), "le voisin a un disque");
             StringAssert.Contains(s.maison, reperes.TexteAffiche); StringAssert.Contains(s.siege, reperes.TexteAffiche); StringAssert.Contains("\nLieux servis : 4", reperes.TexteAffiche);

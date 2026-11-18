@@ -58,12 +58,10 @@ namespace Forge.Pont {
             ClientMonde c = client; enCours = Task.Run(() => c.LireAvecMaison());
         }
 
-        // Le point de l'écran sous la souris : la cellule sous lui, sur le plan de la carte.
+        // Le point de l'écran sous la souris : la cellule du point du sol que son rayon touche, relief compris.
         public void Survoler(Vector2 ecran) {
             if (carte == null || carte.camera == null) return;
-            Ray rayon = carte.camera.ScreenPointToRay(ecran);
-            if (new Plane(transform.up, transform.position).Raycast(rayon, out float distance)) SurvolerPoint(rayon.GetPoint(distance));
-            else Quitter();
+            if (carte.SolSous(ecran) is Vector3 sol) SurvolerPoint(sol); else Quitter();
         }
 
         public void SurvolerPoint(Vector3 monde) { Survolee = carte != null ? carte.CelluleSous(monde) : null; Afficher(); }

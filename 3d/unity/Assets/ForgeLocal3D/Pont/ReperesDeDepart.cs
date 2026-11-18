@@ -77,11 +77,10 @@ namespace Forge.Pont {
             : recu.Presente ? "Choix refusé pour " + fiche.Nom + " :\n" + recu.Erreur
             : "Choix sans réponse pour " + fiche.Nom + " :\n" + recu.Absence;
         private void AfficherChoix() { if (panneauChoix == null) return; texteChoix.text = DireLeChoix(TerreDuChoix, RecuDuChoix); panneauChoix.SetActive(true); }
-        // Le point de l'écran sous la souris, posé sur le plan des repères.
+        // Le point de l'écran sous la souris : le point du sol que son rayon touche.
         public void Survoler(Vector2 ecran) {
             if (domainePose || carte == null || carte.camera == null) return;
-            Ray rayon = carte.camera.ScreenPointToRay(ecran);
-            if (new Plane(transform.up, transform.TransformPoint(0, HAUTEUR_REPERE, 0)).Raycast(rayon, out float distance)) SurvolerPoint(rayon.GetPoint(distance)); else Quitter();
+            if (carte.SolSous(ecran) is Vector3 sol) SurvolerPoint(sol); else Quitter();
         }
         // La terre dont le disque contient le point (distance horizontale au centre ≤ rayon), la plus proche s'il y en a plusieurs.
         public void SurvolerPoint(Vector3 monde) {
@@ -153,7 +152,7 @@ namespace Forge.Pont {
             float rayon = DIAMETRE_BORD_KM / 2f, etendue = 0f, aspect = Mathf.Max(carte.Vue != null ? carte.Vue.Aspect : 1f, 1e-4f);
             foreach (LieuTenu t in maison.Lieux) { LieuPlace p = Trouve(lu.cellules, t); PoserLieu(t, p.Position.Value); Vector3 v = carte.PositionSurLaCarte(p.Position.Value, HAUTEUR_LIEU).Value; etendue = Mathf.Max(etendue, Mathf.Abs(v.z - siege.z) + rayon, (Mathf.Abs(v.x - siege.x) + rayon) / aspect); }
             if (racine != null) racine.gameObject.SetActive(false); Survolee = null; if (panneau != null) panneau.SetActive(false); if (panneauChoix != null) panneauChoix.SetActive(false);
-            if (carte.Vue != null) { carte.Vue.Centrer(new Vector2(siege.x, siege.z), Mathf.Max(VueDeCarte.DEMI_MIN_KM, etendue * VueDeCarte.MARGE)); carte.Vue.Poser(carte.camera, transform, CarteDessinee.HAUTEUR_CAMERA); }
+            if (carte.Vue != null) { carte.Vue.Centrer(new Vector2(siege.x, siege.z), Mathf.Max(VueDeCarte.DEMI_MIN_KM, etendue * VueDeCarte.MARGE)); carte.Vue.Poser(carte.camera, transform); }
             domainePose = true; Dire(maison.Nom + "\nSiège : " + maison.Siege.Nom + "\nLieux servis : " + maison.Lieux.Count.ToString(CultureInfo.InvariantCulture));
         }
         private static string Cause((string id, Lecture<MaisonLue> fiche, List<(long cell, LectureLieu lieu)> cellules) lu) {
