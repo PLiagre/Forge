@@ -16,14 +16,19 @@ namespace Forge.Pont {
     // réduites de `ECHELLE_DU_RELIEF`, pour qu'une montagne se voie sous une caméra inclinée sans cacher ce qui est
     // derrière elle. Tout ce qui se pose sur la carte se pose sur ce sol : `PositionSurLaCarte` rend un point à sa
     // hauteur au-dessus de lui, `Draper` une ligne qui le suit, `SolSous` le point du sol sous un point de l'écran.
+    // Autour de la carte, le terrain trace un cadre, à `MARGE_DU_CADRE_KM` des cellules : au-delà, la table, d'une
+    // couleur que `Encadrer` donne avec celle du filet. Tant qu'on ne l'encadre pas, la table est la mer et le filet
+    // ne se voit pas.
     // Le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
-    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de la carte.
+    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir du cadre de la carte.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
         public const float HAUTEUR_NOM = 1f;
         // Ce que le dessin garde des hauteurs du terrain levé ; et le pas, en km, d'une ligne drapée ou d'un rayon qui cherche le sol.
         public const float ECHELLE_DU_RELIEF = 0.3f, PAS_DU_DRAPE_KM = 6f, PAS_DU_RAYON_KM = 0.5f;
+        // De combien le cadre s'écarte des cellules : assez pour laisser de la mer autour d'elles, moins que la marge de mer du terrain.
+        public const float MARGE_DU_CADRE_KM = 70f;
         private const int PAS_MAX_DU_RAYON = 256, AFFINAGES = 12;
         public const string TERRAIN = "Terrain de la carte", SHADER_DU_TERRAIN = "Forge/CarteRelief";
         private const string SANS_SHADER = "carte non dessinée : shader " + SHADER_DU_TERRAIN + " absent";
@@ -38,11 +43,12 @@ namespace Forge.Pont {
         private Text texte; private Canvas toile; private ClientCarte client;
         private Task<(CarteLue lue, TerrainDeCarte terrain, string absence)> enCours;
         private double prochaineLecture; private bool close; // carte posée, ou refusée faute de matériau : plus aucune lecture ne part
-        private bool cameraCreee; private Bounds boite; // la boîte des cellules, en local : ce que la caméra créée cadre
+        private bool cameraCreee; private Bounds boite; // la boîte du cadre de la carte, en local : ce que la caméra créée cadre
         private readonly List<Object> crees = new List<Object>();
         private Material matiere; private Texture2D palette; private Color[] teintes; private bool aVerser; // la palette, et si elle attend d'être versée au shader
         private Dictionary<long, int> rangs; private bool[] posees; private int nombrePosees; // le rang servi de chaque cellule, et celles que le terrain dessine
         private Color mer = MER, rivage = RIVAGE, roche = ROCHE, encreDesCotes = BORD, encreDesBords = BORD, encreDesFrontieres = BORD, encreDesEaux = EAUX;
+        private Color? table; private Color filet = Color.clear; // la table d'autour de la carte (la mer, tant qu'on ne l'a pas donnée) et le filet du cadre
         // Les pays : la clé de chacun par indice (0 : aucun pays), l'indice du pays de chaque case de la palette, et la
         // couleur du liseré de chaque pays. Les deux tables attendent d'être versées quand un rattachement les change.
         private List<string> cles; private Dictionary<string, int> indicesDesPays; private ushort[] indices; private Color[] couleursDesPays;
@@ -173,6 +179,16 @@ namespace Forge.Pont {
             mer = large; rivage = auRivage; roche = cimes;
             if (matiere == null) return;
             matiere.SetColor("_Mer", mer); matiere.SetColor("_Rivage", rivage); matiere.SetColor("_Roche", roche);
+            if (!table.HasValue) matiere.SetColor("_Table", mer); // sans table donnée, la mer continue au-delà du cadre
+        }
+        // Le cadre de la carte, en km locaux : la boîte des cellules, élargie de `MARGE_DU_CADRE_KM` ; vide avant la pose.
+        public Rect Cadre { get; private set; }
+        // Les couleurs du bord de la carte : la table au-delà du cadre, qui est aussi le fond de la caméra, et le filet du cadre.
+        public void Encadrer(Color laTable, Color leFilet) {
+            laTable.a = 1f; table = laTable; filet = leFilet;
+            if (camera != null) camera.backgroundColor = laTable;
+            if (matiere == null) return;
+            matiere.SetColor("_Table", laTable); matiere.SetColor("_Filet", leFilet);
         }
         // Pose une carte déjà lue, sans service : le terrain se lève sur place. Sans effet sur une carte déjà posée.
         public void Montrer(CarteLue lue) { if (!close) Poser(lue, TerrainDeCarte.Lever(lue)); }
@@ -255,13 +271,19 @@ namespace Forge.Pont {
             matiere.SetTexture("_Bords", bords); matiere.SetTexture("_Frontieres", frontieres); matiere.SetTexture("_Pays", paysDesCellules); matiere.SetTexture("_TeintesDesPays", teintesDesPays);
             matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
             matiere.SetFloat("_Pas", terrain.Pas); matiere.SetFloat("_PorteeDesBords", TerrainDeCarte.PORTEE_DES_BORDS_KM); matiere.SetFloat("_PorteeDesFrontieres", TerrainDeCarte.PORTEE_DES_FRONTIERES_KM);
+            // Le cadre, dans les km du terrain : depuis son coin du sud-ouest.
+            Vector2 coin = terrain.Coin; Bounds terres = terrain.Boite;
+            Cadre = Rect.MinMaxRect(terres.min.x - MARGE_DU_CADRE_KM, terres.min.z - MARGE_DU_CADRE_KM, terres.max.x + MARGE_DU_CADRE_KM, terres.max.z + MARGE_DU_CADRE_KM);
+            matiere.SetVector("_Cadre", new Vector4(Cadre.xMin - coin.x, Cadre.yMin - coin.y, Cadre.xMax - coin.x, Cadre.yMax - coin.y));
+            matiere.SetColor("_Table", table ?? mer); matiere.SetColor("_Filet", filet);
             Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); aVerser = true; paysAVerser = true; Verser();
             // Le maillage levé a sa plus haute cime au plan 0 : il se pose de façon que la mer soit au niveau 0 de la carte, ses hauteurs réduites.
             var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
             sol.transform.localPosition = new Vector3(0f, TerrainDeCarte.PLAFOND * ECHELLE_DU_RELIEF, 0f); sol.transform.localScale = new Vector3(1f, ECHELLE_DU_RELIEF, 1f);
             sol.GetComponent<MeshFilter>().sharedMesh = maillage;
             var rendu = sol.GetComponent<MeshRenderer>(); rendu.sharedMaterial = matiere; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
-            boite = terrain.Boite;
+            // La vue tient toute la planche : les cellules et le cadre autour d'elles.
+            boite = new Bounds(); boite.SetMinMax(new Vector3(Cadre.xMin, 0f, Cadre.yMin), new Vector3(Cadre.xMax, 0f, Cadre.yMax));
             origine = terrain.Origine; Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, terrain.Origine); Lue = lue;
             if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
             CellulesServies = servies; Dire(""); Cadrer();

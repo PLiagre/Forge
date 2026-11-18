@@ -1,7 +1,8 @@
 // Une figurine posée sur la carte : un bourg, une armée. Sa couleur est par sommet ; un sommet d'alpha 1 est une
 // part teintée, qui prend la teinte du matériau (les toits d'un bourg à la couleur de son maître, l'étoffe d'une
 // armée à celle de son pays). Comme le terrain, la figurine est mate : rien de la scène ne l'éclaire, ses faces sont
-// ombrées d'une lumière fixe du nord-ouest, la même que celle du relief, et jamais plus sombres que `_Ombre`.
+// ombrées d'une lumière fixe du nord-ouest, la même que celle du relief — un peu chaude au soleil, un peu froide à
+// l'ombre —, et jamais plus sombres que `_Ombre`.
 // Elle se dessine après le terrain et les noms des pays imprimés sur lui, et passe devant eux.
 Shader "Forge/FormeDeCarte"
 {
@@ -31,6 +32,7 @@ Shader "Forge/FormeDeCarte"
             #pragma vertex Vert
             #pragma fragment Frag
             static const float3 LUMIERE = float3(-0.5145, 0.686, 0.5145); // du nord-ouest, à mi-hauteur, comme sur le relief
+            static const float3 CHAUDE = float3(1.05, 1.0, 0.93), FROIDE = float3(0.9, 0.95, 1.05);
             half4 Frag(V i) : SV_Target
             {
                 // La couleur d'un sommet est écrite comme à l'écran ; celle du matériau arrive déjà dans l'espace du rendu.
@@ -39,8 +41,8 @@ Shader "Forge/FormeDeCarte"
                 propre = SRGBToLinear(propre);
                 #endif
                 float3 couleur = lerp(propre, _Teinte.rgb, step(0.5, i.c.a));
-                float lumiere = lerp(_Ombre, 1.0, saturate(dot(normalize(i.n), LUMIERE) * 0.9 + 0.35));
-                return half4(couleur * lumiere, 1.0);
+                float eclat = saturate(dot(normalize(i.n), LUMIERE) * 0.9 + 0.35);
+                return half4(couleur * lerp(_Ombre, 1.0, eclat) * lerp(FROIDE, CHAUDE, eclat), 1.0);
             }
             ENDHLSL
         }
