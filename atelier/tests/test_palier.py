@@ -306,6 +306,55 @@ def test_le_oui_d_un_autre_que_le_proprietaire_n_ouvre_rien(projet, gh, depot, t
     assert "creer_jalon" not in gh.noms_des_gestes() and gh.issues_[5]["state"] == "OPEN"
 
 
+def test_un_seul_tour_a_la_fois_fait_proposer_le_palier(projet, gh, depot, tmp_path):
+    """Le défaut : le CTO travaillait encore à sa proposition quand le tour suivant, deux minutes plus tard, relisait
+    la même note sans réponse et l'appelait de nouveau. Deux appels sont partis pour une seule note."""
+    from atelier.verrous import AucunVerrou
+
+    class UnAutreTourTientLePalier(AucunVerrou):
+        gestes: list = []
+
+        def prendre(self, nom):
+            self.gestes.append(("prendre", nom))
+            return nom != "palier"
+
+        def lacher(self, nom):
+            self.gestes.append(("lacher", nom))
+
+    gh.commentaire_humain(5, "Maintenant la paix.")
+    agents = Agents(_proposition())
+    occupe = UnAutreTourTientLePalier()
+    piloter(projet, gh, depot, agents, tmp_path, verrous=occupe).tour()
+    assert agents.appels == [] and ("prendre", "palier") in occupe.gestes
+    assert ("lacher", "palier") not in occupe.gestes, "on ne rend pas un verrou qu'on n'a pas pris"
+    libre = piloter(projet, gh, depot, agents, tmp_path)
+    libre.tour()
+    assert agents.modeles() == ["fable"] and _marques(gh)[-1]["etat"] == palier.PROPOSITION
+
+
+def test_le_verrou_du_palier_est_rendu_meme_si_le_samedi_casse(projet, gh, depot, tmp_path, monkeypatch):
+    from atelier.github import GitHubErreur
+    from atelier.verrous import AucunVerrou
+
+    class Compte(AucunVerrou):
+        tenus: list = []
+
+        def prendre(self, nom):
+            self.tenus.append(nom)
+            return True
+
+        def lacher(self, nom):
+            self.tenus.remove(nom)
+
+    def casse(*a, **k):
+        raise GitHubErreur("GitHub ne répond pas")
+
+    monkeypatch.setattr(palier, "samedi", casse)
+    verrous = Compte()
+    piloter(projet, gh, depot, Agents(), tmp_path, verrous=verrous).tour()
+    assert "palier" not in verrous.tenus
+
+
 # ------------------------------------------------- la suite, en semaine
 def _vide(gh):
     """Les deux lots du palier 1 sont fermés, et sa démo n'est pas posée."""

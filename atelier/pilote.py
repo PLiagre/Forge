@@ -230,9 +230,17 @@ class Pilote:
         return bool(parti) and not (appels and appels == self.attentes - attentes)
 
     def _palier(self, vue: "_Vue") -> bool:
+        """Le samedi, ou la suite d'un palier vidé. Un seul tour à la fois :
+        le CTO y travaille de longues minutes, et un tour parti entre-temps
+        relirait la même issue, sans sa réponse, et l'appellerait de nouveau."""
         from . import palier
-        return (palier.samedi(self, vue.palier, vue.ouvertes, vue.fermes)
-                or palier.suite(self, vue.palier, vue.ouvertes, vue.fermes))
+        if not self.verrous.prendre("palier"):
+            return False
+        try:
+            return (palier.samedi(self, vue.palier, vue.ouvertes, vue.fermes)
+                    or palier.suite(self, vue.palier, vue.ouvertes, vue.fermes))
+        finally:
+            self.verrous.lacher("palier")
 
     def _ranger_le_monde(self) -> "_Vue":
         """Ce que le tour sait du monde, rangé : les boucles de dépendances

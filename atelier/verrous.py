@@ -13,6 +13,8 @@ seul quand le processus meurt :
   poussées) ;
 - `captures` : une publication à la fois sur la branche `journal` ;
 - `meca` : un mécanicien de master à la fois ;
+- `palier` : un seul tour à la fois fait proposer un palier ou sa suite au
+  CTO, qui y travaille plus longtemps que l'écart entre deux tours ;
 - `outil-<outil>-<i>` : les places d'un outil, jusqu'à son plafond
   d'agents simultanés ;
 - `tour-<i>` : les places des tours eux-mêmes. Si GitHub ne répond plus,
