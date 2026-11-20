@@ -74,6 +74,11 @@ try:
         statut, lieu = r.status, json.loads(r.read())
 except urllib.error.HTTPError as exc:
     statut, lieu = exc.code, {}
+try:
+    with urllib.request.urlopen(f"{base}/ia") as r:
+        ia = r.status
+except urllib.error.HTTPError as exc:
+    ia = exc.code
 ticks = []
 for attente in (0, ECART):
     time.sleep(attente)
@@ -83,7 +88,7 @@ resultat = {"forgeCell": cellule, "statut": statut, "cell_id": lieu.get("cell_id
             "lu": lu, "maison_du_joueur": lieu.get("maison_du_joueur"),
             "ticks": ticks, "refuse_pendant": port_refuse(port),
             "jours_par_seconde": horloge["jours_par_seconde"],
-            "forgeCarte": "-forgeCarte" in sys.argv, "dossier": os.getcwd()}
+            "forgeCarte": "-forgeCarte" in sys.argv, "dossier": os.getcwd(), "ia": ia}
 if reprise is not None:
     # Comme Unity à la reprise : la vitesse de la vue part au service, puis l'horloge se relit.
     requete = urllib.request.Request(f"{base}/vitesse?jours_par_seconde={reprise}", method="POST")
@@ -135,6 +140,16 @@ def _jouer(port, commande, *options):
 def _commande_du_faux_jeu(faux_jeu, sortie, code, port, reprise=None):
     commande = [sys.executable, str(faux_jeu), str(sortie), str(code), str(port)]
     return commande if reprise is None else [*commande, str(reprise)]
+
+
+@pytest.mark.parametrize("options, statut", [((), HTTPStatus.OK), (("--sans-ia",), HTTPStatus.NOT_FOUND)])
+def test_l_ia_joue_dans_le_monde_du_jeu_sauf_si_on_la_coupe(faux_jeu, tmp_path, options, statut):
+    """Le service ne sert `/ia` que si l'IA joue : le jeu lancé la trouve, `--sans-ia` la coupe."""
+    port, sortie = _port_libre(), tmp_path / "recu.json"
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port), "--carte", *options)
+    assert code == 0, texte
+    assert json.loads(sortie.read_text(encoding="utf-8"))["ia"] == statut
+    assert (_charger("jouer", LANCEUR).SANS_IA in texte) == bool(options)
 
 
 @pytest.mark.parametrize("carte, ville", [(False, False), (True, False), (False, True), (True, True)])
