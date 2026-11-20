@@ -86,6 +86,19 @@ namespace Forge.Pont
                 .FirstOrDefault(n => !places.Contains((n.Index, n.Length)) && !Unite.Match(texte, n.Index + n.Length).Success)?.Value;
         }
 
+        // Une ligne dite au joueur : telle quelle si elle ne montre ni identifiant ni nombre nu. Sinon, un refus garde son
+        // début (« Le monde refuse la parcelle. ») pour ne jamais rester muet, et toute autre ligne se tait (`null`).
+        private static readonly Regex MotDeRefus = new Regex(@"refus", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        public static string Refus(string ligne)
+        {
+            if (ligne == null) throw new ArgumentNullException(nameof(ligne));
+            if (Interdit(ligne) == null && SansUnite(ligne) == null) return ligne;
+            int fin = ligne.IndexOf(" : ", StringComparison.Ordinal);
+            if (fin <= 0) return null;
+            string tete = ligne.Substring(0, fin);
+            return MotDeRefus.IsMatch(tete) && Interdit(tete) == null && SansUnite(tete) == null ? tete + "." : null;
+        }
+
         // Une raison d'absence qui montre un identifiant ou un nombre nu se tait devant le joueur ; le journal la garde.
         public static string Absence(string raison, params string[] identifiants)
         {

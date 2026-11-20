@@ -129,7 +129,8 @@ namespace ForgeLocal3D
         public void Restaurer()
         {
             if(!original)return;
-            terrain.terrainData=original;terrain.GetComponent<TerrainCollider>().terrainData=original;
+            // À la fermeture de la scène, le terrain peut être détruit avant ses routes : il n'y a alors plus rien à lui rendre.
+            if(terrain){terrain.terrainData=original;var collider=terrain.GetComponent<TerrainCollider>();if(collider)collider.terrainData=original;}
             if(Copie)Destroy(Copie);Copie=null;
         }
         void OnDestroy()=>Restaurer();

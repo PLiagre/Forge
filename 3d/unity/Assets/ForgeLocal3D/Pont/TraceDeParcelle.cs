@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Forge.Pont
@@ -88,9 +89,9 @@ namespace Forge.Pont
                     }
                 }
             }
-            if (rue == null) return ParcelleTracee.Absente("aucune rue au plan");
+            if (rue == null) return ParcelleTracee.Absente("aucune rue au plan : tracez d'abord une rue, la parcelle se découpe le long d'elle");
             if (meilleure > SaisieMaxM)
-                return ParcelleTracee.Absente("point trop loin d'une rue : " + Nombre(meilleure) + " m > " + Nombre(SaisieMaxM) + " m");
+                return ParcelleTracee.Absente("point trop loin d'une rue : le premier coin est à " + Metres(meilleure) + " de la rue la plus proche, pour " + Metres(SaisieMaxM) + " au plus");
 
             PointLocal debut = rue.Points[segment], fin = rue.Points[segment + 1];
             double sx = fin.X - debut.X, sy = fin.Y - debut.Y;
@@ -104,20 +105,45 @@ namespace Forge.Pont
             double facadeM = Math.Max(t1, t2) - Math.Min(t1, t2);
             // Le même calcul que le monde, sans tolérance.
             if (debutM < 0 || debutM + facadeM > longueur)
-                return ParcelleTracee.Absente("façade dépasse le segment : " + Nombre(debutM) + " + " + Nombre(facadeM) + " > " + Nombre(longueur));
-            if (facadeM == 0) return ParcelleTracee.Absente("façade nulle");
+                return ParcelleTracee.Absente("façade dépasse le segment : elle irait de " + Metres(debutM) + " à " + Metres(debutM + facadeM)
+                    + " du départ d'une rue longue de " + Metres(longueur) + " ; posez les deux coins entre les deux bouts de la rue");
+            if (facadeM == 0) return ParcelleTracee.Absente("façade nulle : les deux coins sont à la même hauteur de la rue ; écartez-les le long de la rue");
 
             double h = (second.X - debut.X) * nx + (second.Y - debut.Y) * ny;
             string cote = h > 0 ? "gauche" : "droite";
             double demiLargeur = rue.LargeurM * 0.5;
             double profondeurM = Math.Abs(h) - demiLargeur;
             if (profondeurM <= 0)
-                return ParcelleTracee.Absente("second point dans la chaussée : " + Nombre(Math.Abs(h)) + " m ≤ " + Nombre(demiLargeur) + " m");
+                return ParcelleTracee.Absente("second point dans la chaussée : posez le second coin en retrait de la rue, il donne le fond de la parcelle");
 
             return ParcelleTracee.De(plan.CellId, rue.Identifiant, segment, debutM, facadeM, profondeurM, cote);
         }
 
+        // Les quatre coins de la parcelle calculée, dans le repère du plan : la façade au bord de la chaussée, du début
+        // vers la fin, puis le fond en sens inverse. Le même rectangle que le monde dessinera ; vide pour une parcelle absente.
+        public static IReadOnlyList<PointLocal> Contour(PlanLu plan, ParcelleTracee parcelle)
+        {
+            if (plan == null) throw new ArgumentNullException(nameof(plan));
+            if (parcelle == null) throw new ArgumentNullException(nameof(parcelle));
+            if (!parcelle.Presente) return new PointLocal[0];
+            RueDuPlan rue = null;
+            foreach (var candidate in plan.Rues) if (candidate.Identifiant == parcelle.Rue) { rue = candidate; break; }
+            if (rue == null || parcelle.Segment < 0 || parcelle.Segment + 1 >= rue.Points.Count) return new PointLocal[0];
+            PointLocal debut = rue.Points[parcelle.Segment], fin = rue.Points[parcelle.Segment + 1];
+            double sx = fin.X - debut.X, sy = fin.Y - debut.Y, longueur = Math.Sqrt(sx * sx + sy * sy);
+            if (longueur == 0) return new PointLocal[0];
+            double ux = sx / longueur, uy = sy / longueur, sens = parcelle.Cote == "gauche" ? 1 : -1;
+            double nx = -uy * sens, ny = ux * sens, pres = rue.LargeurM * 0.5, loin = pres + parcelle.ProfondeurM;
+            double a = parcelle.DebutM, b = parcelle.DebutM + parcelle.FacadeM;
+            PointLocal Coin(double le_long, double ecart) => new PointLocal(debut.X + ux * le_long + nx * ecart, debut.Y + uy * le_long + ny * ecart);
+            return new[] { Coin(a, pres), Coin(b, pres), Coin(b, loin), Coin(a, loin) };
+        }
+
         internal static string Nombre(double valeur) => valeur.ToString("R", CultureInfo.InvariantCulture);
+
+        // Une longueur dite au joueur : au centimètre, virgule décimale, avec son unité.
+        private static readonly NumberFormatInfo Virgule = new NumberFormatInfo { NumberDecimalSeparator = ",", NegativeSign = "-" };
+        public static string Metres(double valeur) => Math.Round(valeur, 2, MidpointRounding.AwayFromZero).ToString("0.##", Virgule) + " m";
 
         private static bool Fini(PointLocal p) =>
             !double.IsNaN(p.X) && !double.IsInfinity(p.X) && !double.IsNaN(p.Y) && !double.IsInfinity(p.Y);

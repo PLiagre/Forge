@@ -107,6 +107,46 @@ namespace Forge.Pont.Tests
             Assert.That(parcelle.IntentionJson, Is.Null);
         }
 
+        // Le refus de l'outil va tel quel au panneau du joueur, qui tait toute ligne montrant un nombre sans unité ou un
+        // identifiant : chaque cause s'écrit donc avec ses mètres, et dit le geste qui la lève.
+        [TestCase("R0", 5, 10.01, 15, 22, "10 m", TestName = "Lisible09_TropLoin")]
+        [TestCase("vide", 5, 3, 15, 22, "rue", TestName = "Lisible10_SansRue")]
+        [TestCase("R0", 5, 3, 45, 22, "40 m", TestName = "Lisible12_FacadeAuDelaDuBout")]
+        [TestCase("R0", -3, 1, 15, 22, "bout", TestName = "Lisible13_DebutNegatif")]
+        [TestCase("R0", 5, 3, 5, 22, "façade", TestName = "Lisible14_FacadeNulle")]
+        [TestCase("R0", 5, 3, 15, 1.5, "en retrait", TestName = "Lisible15_SecondPointDansLaChaussee")]
+        public void LeRefusSeLitParLeJoueur(string plan, double x1, double y1, double x2, double y2, string dit)
+        {
+            string absence = TraceDeParcelle.Calculer(PlanNomme(plan), new PointLocal(x1, y1), new PointLocal(x2, y2)).Absence;
+            Assert.That(TexteDuMonde.Interdit(absence), Is.Null, absence);
+            Assert.That(TexteDuMonde.SansUnite(absence), Is.Null, absence);
+            StringAssert.Contains(dit, absence);
+        }
+
+        // Le contour dit où la parcelle se posera : à une demi-chaussée de l'axe (R0 fait 4 m de large), du côté calculé.
+        [TestCase(5, 3, 15, 22, new double[] { 5, 2, 15, 2, 15, 22, 5, 22 }, TestName = "Contour01_Gauche")]
+        [TestCase(5, -3, 15, -22, new double[] { 5, -2, 15, -2, 15, -22, 5, -22 }, TestName = "Contour03_Droite")]
+        [TestCase(39, 25, 28, 0, new double[] { 38, 0, 38, 25, 28, 25, 28, 0 }, TestName = "Contour04_SegmentUn")]
+        public void LeContourEstCeluiDeLaParcelle(double x1, double y1, double x2, double y2, double[] attendu)
+        {
+            var plan = PlanNomme("R0");
+            var contour = TraceDeParcelle.Contour(plan, TraceDeParcelle.Calculer(plan, new PointLocal(x1, y1), new PointLocal(x2, y2)));
+            Assert.That(contour.Count, Is.EqualTo(4));
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.That(contour[i].X, Is.EqualTo(attendu[2 * i]).Within(Tolerance), "coin " + i);
+                Assert.That(contour[i].Y, Is.EqualTo(attendu[2 * i + 1]).Within(Tolerance), "coin " + i);
+            }
+        }
+
+        [Test]
+        public void UneParcelleAbsenteNAPasDeContour()
+        {
+            var plan = PlanNomme("R0");
+            Assert.That(TraceDeParcelle.Contour(plan, TraceDeParcelle.Calculer(plan, new PointLocal(5, 3), new PointLocal(15, 1.5))), Is.Empty);
+            Assert.Throws<ArgumentNullException>(() => TraceDeParcelle.Contour(null, TraceDeParcelle.Calculer(plan, new PointLocal(5, 3), new PointLocal(15, 22))));
+        }
+
         [Test]
         public void UnPlanNulLeve()
         {

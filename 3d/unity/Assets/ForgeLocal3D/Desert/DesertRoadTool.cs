@@ -93,8 +93,10 @@ namespace ForgeLocal3D
         public string NatureBatiment{get;private set;}
         public bool ModeBatiment=>NatureBatiment!=null;
         public BatimentPose Pose{get;private set;}
-        // Le mode enceinte, et le tracé en cours (null sans matériau de base).
-        public bool ModeEnceinte{get;private set;}public LineRenderer TraceEnceinte{get;private set;}
+        // Le mode enceinte. Le tracé en cours (null sans matériau de base) montre les points posés dans tous les modes :
+        // la rue, le contour de l'enceinte, et la parcelle telle que l'outil la calcule (ses deux coins tant qu'il la refuse).
+        public bool ModeEnceinte{get;private set;}public LineRenderer Trace{get;private set;}
+        IReadOnlyList<PointLocal> contourParcelle=new PointLocal[0];
         // Le mode caserne, le dernier calcul de sa pose (null tant qu'aucun n'a été fait) et son devis lu au monde
         // (null tant qu'il n'est pas lu ; `AbsenceDuDevis` en nomme alors la cause).
         public bool ModeCaserne{get;private set;}
@@ -105,8 +107,8 @@ namespace ForgeLocal3D
         CommandesDeVille commandes;
         const string Aide="Clic : poser un point · Entrée : tracer la route · Échap : annuler · P : parcelle · 1, 2, 3 : bâtiment · 4 : caserne · E : enceinte";
         const string AideEnceinte="Clic : poser un coin du mur · Entrée : déposer l'enceinte · Échap : annuler";
-        const string SansTrace="Pas de matériau de base : le tracé de l'enceinte ne se voit pas.";
-        const string AideParcelle="Clic : poser deux coins le long d'une rue · Entrée : déposer la parcelle · Échap : annuler";
+        const string SansTrace="Pas de matériau de base : le tracé ne se voit pas.";
+        const string AideParcelle="Clic : un coin sur la rue, puis le coin opposé au fond de la parcelle · Entrée : déposer la parcelle · Échap : annuler";
         const string AideBatiment="Clic : poser sur une parcelle · 1 : maison · 2 : scierie · 3 : four · 4 : caserne · Échap : annuler";
         const string AideCaserne="Clic : poser la caserne sur une parcelle achevée · Échap : annuler";
         const string Gestes="C : carte · Espace : pause / reprendre";
@@ -134,8 +136,8 @@ namespace ForgeLocal3D
             panneau.GetComponent<MeshRenderer>().enabled=false;halo.GetComponent<MeshRenderer>().enabled=false;
             gameObject.AddComponent<Forge.Interface.CabinetDeVille>().Initialiser(view,FindFirstObjectByType<PanneauLieu>(),()=>TexteDesOutils);
             var defaut=Forge.Pont.MateriauDeBase.Prendre();
-            if(defaut){var go=new GameObject("Tracé de l'enceinte");go.transform.SetParent(transform,false);TraceEnceinte=go.AddComponent<LineRenderer>();TraceEnceinte.loop=true;
-                TraceEnceinte.widthMultiplier=1.5f;TraceEnceinte.material=new Material(defaut){name="Tracé de l'enceinte",color=new Color(.6f,.05f,.05f)};TraceEnceinte.positionCount=0;TraceEnceinte.enabled=false;}
+            if(defaut){var go=new GameObject("Tracé en cours");go.transform.SetParent(transform,false);Trace=go.AddComponent<LineRenderer>();Trace.loop=true;
+                Trace.widthMultiplier=1.5f;Trace.material=new Material(defaut){name="Tracé en cours",color=new Color(.6f,.05f,.05f)};Trace.positionCount=0;Trace.enabled=false;}
             Port=PanneauLieu.DEFAULT_SERVICE_PORT;commandes=new CommandesDeVille(Port);
             // Une ville ouverte depuis la carte prend la cellule que le passage a remise à sa scène.
             Lancer(Environment.GetCommandLineArgs(),Application.isEditor,FindFirstObjectByType<PanneauLieu>(),PassageALaCapitale.PrendreCelluleRemise(gameObject.scene.name));
@@ -190,7 +192,7 @@ namespace ForgeLocal3D
                 panneau.text=(texte==AideCaserne?"":texte+"\n")+PrixDeLaCaserne()+"\n"+AideCaserne;
             // De même en mode enceinte.
             else if(ModeEnceinte)
-                panneau.text=(texte==AideEnceinte?"":texte+"\n")+"Enceinte · "+points.Count+" coin(s)\n"+AideEnceinte+(TraceEnceinte?"":"\n"+SansTrace);
+                panneau.text=(texte==AideEnceinte?"":texte+"\n")+"Enceinte · "+points.Count+" coin(s)\n"+AideEnceinte+(Trace?"":"\n"+SansTrace);
             else
             {
                 string etat="Terre battue, "+largeur.ToString("0.#")+" m"+(points.Count>0?" · "+points.Count+" point(s)":"");
@@ -213,18 +215,33 @@ namespace ForgeLocal3D
             ligne=CoinsPoses.Replace(ligne,m=>m.Groups[1].Value+(m.Groups[1].Value=="1"||m.Groups[1].Value=="0"?" coin posé":" coins posés")+(m.Groups[2].Success?" sur deux":""));
             ligne=PointsPoses.Replace(ligne,m=>m.Groups[1].Value+(m.Groups[1].Value=="1"?" point":" points"));
             return TickDuRecu.Replace(ligne,"au jour suivant");
-        }).Where(ligne=>ligne.Length>0&&(Aides.Contains(ligne)||TexteDuMonde.Interdit(ligne)==null&&TexteDuMonde.SansUnite(ligne)==null)));
+        }).Select(ligne=>Aides.Contains(ligne)?ligne:TexteDuMonde.Refus(ligne)).Where(ligne=>!string.IsNullOrEmpty(ligne)));
         // Les aides des modes nomment des touches (« 1 : maison ») : ce ne sont pas des nombres du monde, elles se lisent telles quelles.
         static readonly string[] Aides={Aide,AideEnceinte,AideParcelle,AideBatiment,AideCaserne};
         public static bool EstUneAide(string ligne)=>Aides.Contains(ligne);
-        // Le contour des coins, fermeture comprise, un sommet tous les 2 m à 1 m au-dessus du sol (repère (-x, sol, -y)).
+        // Ce que le joueur a posé, dans le repère du plan : la rue point après point, le contour de l'enceinte (fermé dès
+        // trois coins), ou la parcelle calculée (ses deux coins seuls tant que l'outil la refuse). Un point seul se voit :
+        // il se trace en un trait de 2 m. Rien en mode bâtiment ou caserne, où le clic désigne une parcelle.
+        public IReadOnlyList<(double x,double y)> SommetsDuTrace(out bool ferme)
+        {
+            ferme=false;
+            if(ModeBatiment||ModeCaserne)return new (double x,double y)[0];
+            if(ModeParcelle&&contourParcelle.Count>0){ferme=true;return contourParcelle.Select(p=>(p.X,p.Y)).ToArray();}
+            if(points.Count==1)return new[]{(points[0].x-1,points[0].y),(points[0].x+1,points[0].y)};
+            ferme=ModeEnceinte&&points.Count>2;
+            return points.ToArray();
+        }
+        // Le tracé suit le sol : un sommet tous les 2 m, à 1 m au-dessus du terrain (repère (-x, sol, -y)).
         void Tracer()
         {
-            if(!TraceEnceinte)return;
+            if(!Trace)return;
             var t=roads.terrain;var s=new List<Vector3>();
-            if(ModeEnceinte)for(int i=0;i<points.Count;i++){var (ax,ay)=points[i];var (bx,by)=points[(i+1)%points.Count];int n=Math.Max(1,(int)Math.Ceiling(Math.Sqrt((bx-ax)*(bx-ax)+(by-ay)*(by-ay))/2));
-                for(int k=0;k<n;k++){var v=new Vector3((float)-(ax+(bx-ax)*k/n),0,(float)-(ay+(by-ay)*k/n));v.y=t.SampleHeight(v)+t.transform.position.y+1;s.Add(v);}}
-            TraceEnceinte.loop=true;TraceEnceinte.positionCount=s.Count;TraceEnceinte.SetPositions(s.ToArray());TraceEnceinte.enabled=s.Count>0;
+            var sommets=SommetsDuTrace(out bool ferme);
+            Vector3 Sol(double x,double y){var v=new Vector3((float)-x,0,(float)-y);v.y=t.SampleHeight(v)+t.transform.position.y+1;return v;}
+            for(int i=0;i<(ferme?sommets.Count:sommets.Count-1);i++){var (ax,ay)=sommets[i];var (bx,by)=sommets[(i+1)%sommets.Count];int n=Math.Max(1,(int)Math.Ceiling(Math.Sqrt((bx-ax)*(bx-ax)+(by-ay)*(by-ay))/2));
+                for(int k=0;k<n;k++)s.Add(Sol(ax+(bx-ax)*k/n,ay+(by-ay)*k/n));}
+            if(!ferme&&sommets.Count>0){var (fx,fy)=sommets[sommets.Count-1];s.Add(Sol(fx,fy));}
+            Trace.loop=ferme;Trace.positionCount=s.Count;Trace.SetPositions(s.ToArray());Trace.enabled=s.Count>0;
         }
         // Les TextMesh ne se dessinent plus et ne se placent plus : le cabinet de la ville écrit le texte. Gardée pour ses appelants.
         public void Placer(){}
@@ -259,13 +276,29 @@ namespace ForgeLocal3D
             // En mode bâtiment, le point désigne la parcelle ; il ne s'ajoute pas aux points.
             if(ModeBatiment){var (x,y)=roads.PointExact(hit.point);PoserBatiment(x,y);return true;}
             if(ModeCaserne){var (x,y)=roads.PointExact(hit.point);PoserCaserne(x,y);return true;}
-            if(ModeParcelle&&points.Count>=2){Afficher("Deux coins suffisent : Entrée pour déposer, Échap pour annuler.");return false;}
-            points.Add(roads.PointExact(hit.point));Afficher(ModeParcelle?AideParcelle:ModeEnceinte?AideEnceinte:Aide);return true;
+            // Une parcelle n'a que deux coins : un clic de plus reprend le second.
+            if(ModeParcelle&&points.Count>=2)points.RemoveAt(1);
+            points.Add(roads.PointExact(hit.point));Afficher(Avis()??(ModeParcelle?AideParcelle:ModeEnceinte?AideEnceinte:Aide));return true;
         }
-        public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;points.Clear();Recu=null;Afficher(Aide);}
+        // Ce que l'outil pense du tracé en cours, avant tout dépôt : l'essai de la rue sur le relief dès deux points, la
+        // parcelle des deux coins et son contour. Null quand il n'a rien à dire. Le monde reste le seul juge, à Entrée.
+        string Avis()
+        {
+            contourParcelle=new PointLocal[0];
+            if(ModeEnceinte||points.Count<2)return null;
+            if(!ModeParcelle)return roads.Poser(new DesertRoads.Geste{id="joueur",revetement=Revetement,largeur=largeur,x=points.Select(p=>p.x).ToArray(),y=points.Select(p=>p.y).ToArray()},essai:true).message;
+            if(erreurCellule!=null)return null;
+            var lu=plan.Lire(Cellule);
+            if(!lu.Presente)return null;
+            var tracee=TraceDeParcelle.Calculer(lu.Plan,new PointLocal(points[0].x,points[0].y),new PointLocal(points[1].x,points[1].y));
+            if(!tracee.Presente)return "Parcelle refusée par l'outil : "+tracee.Absence+". Un clic reprend le second coin, Échap les deux.";
+            contourParcelle=TraceDeParcelle.Contour(lu.Plan,tracee);
+            return "Parcelle possible : "+TraceDeParcelle.Metres(tracee.FacadeM)+" de façade, "+TraceDeParcelle.Metres(tracee.ProfondeurM)+" de fond. Entrée pour la déposer.";
+        }
+        public void Annuler(){ModeParcelle=false;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;points.Clear();contourParcelle=new PointLocal[0];Recu=null;Afficher(Aide);}
 
         // Le mode parcelle, coins effacés. Échap (Annuler) ramène au mode route.
-        public void EntrerParcelle(){points.Clear();Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;Afficher(AideParcelle);}
+        public void EntrerParcelle(){points.Clear();contourParcelle=new PointLocal[0];Recu=null;Tracee=null;ModeParcelle=true;NatureBatiment=null;ModeEnceinte=false;ModeCaserne=false;Afficher(AideParcelle);}
 
         // Le mode bâtiment, pour la nature choisie. Elle n'est pas jugée ici : Calculer le fait au clic.
         public void EntrerBatiment(string nature){points.Clear();Recu=null;Pose=null;ModeParcelle=false;ModeEnceinte=false;ModeCaserne=false;NatureBatiment=nature;Afficher(AideBatiment);}
@@ -357,7 +390,7 @@ namespace ForgeLocal3D
             if(!ModeParcelle)return null;
             if(points.Count<2){Afficher("Il faut deux coins.");return null;}
             Recu=null;
-            var (x1,y1)=points[0];var (x2,y2)=points[1];points.Clear();
+            var (x1,y1)=points[0];var (x2,y2)=points[1];points.Clear();contourParcelle=new PointLocal[0];
             if(erreurCellule!=null){Afficher(erreurCellule);return null;}
             var lu=plan.Lire(Cellule);
             if(!lu.Presente){Afficher("Pas de plan : "+lu.Absence);return null;}
