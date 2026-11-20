@@ -95,7 +95,7 @@ class Projet:
         return _sous(chemin, self.interdits)
 
     def touche_le_coeur(self, fichiers) -> bool:
-        """Un de ces fichiers est-il du cœur du moteur, que le CTO relit ?"""
+        """Un de ces fichiers est-il du cœur du moteur, que le CTO relit après le relecteur ?"""
         return any(_sous(f, self.coeur) for f in fichiers)
 
 

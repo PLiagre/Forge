@@ -14,8 +14,9 @@ GitHub : un tour interrompu ne perd rien.
 | | le CTO | en tire le palier suivant : un lot par piste au moins, chacun une fiche ; il les propose sur la même issue |
 | | le propriétaire | valide d'un mot (« oui »), ou corrige : le CTO repropose. Au « oui », les lots sont ouverts et la chaîne part |
 | **la semaine** | la chaîne | fait les lots |
-| **chaque matin** | le lecteur | écrit le journal : ce qui est livré, en cours, bloqué, ce que le CTO a décidé seul (« à revoir samedi »), et ce que les appels ont coûté |
-| **vendredi soir** | le PC, le CTO | un build figé du palier, et une note d'une page sur l'issue du palier : quoi essayer, ce qui marche, ce qui manque |
+| | le CTO | si tous les lots du palier sont fermés avant la démo, propose sa suite sur l'issue du palier : des lots de plus, dans le même palier, que le « oui » du propriétaire ouvre |
+| **chaque matin** | le lecteur | écrit le journal : ce qui est livré, en cours, bloqué, ce que le CTO a décidé seul (« à revoir samedi »), ce que les appels ont coûté, et, dans « Pour toi », un palier qui n'a plus de lot ouvert |
+| **vendredi soir** | le PC, le CTO | un build figé du palier, que le pilote attend, puis une note d'une page sur l'issue du palier : quoi essayer, ce qui marche, ce qui manque, et si le build a été construit |
 
 Pendant la semaine, aucune question n'attend le propriétaire. Le CTO prend le
 choix réversible, le note dans « à revoir samedi », et le lot continue. Seuls
@@ -30,10 +31,10 @@ agents` les affiche.
 
 | rôle | modèle | quand il est appelé | ce qu'il rend |
 |---|---|---|---|
-| **le CTO** | Fable, lecture seule | le samedi ; un lot bloqué ; un désaccord entre le chef et le relecteur ; un lot qui touche le cœur du moteur, à relire ; master rouge ; le vendredi soir | des fiches ; une décision avec ses raisons et ses bornes ; un verdict ; la note de démo |
+| **le CTO** | Fable, lecture seule | le samedi ; un palier vidé avant sa démo ; un lot bloqué ; un désaccord entre le chef et le relecteur ; un lot qui touche le cœur du moteur, à relire après le relecteur ; master rouge ; le vendredi soir | des fiches ; une décision avec ses raisons et ses bornes ; un verdict ; la note de démo |
 | **le chef de lot** | Opus | à la prise du lot, puis à chaque étape et à chaque correction, **dans la même session** | un plan en étapes, puis du code et un compte rendu par étape |
 | **le développeur** | Sonnet | par le chef, dans sa session, pour une tâche bornée ; ou à la place du chef pour un lot simple (données, écran courant) | des fichiers, et un compte rendu d'une ligne au chef |
-| **le relecteur** | Opus, autre session, lecture seule | quand la CI est verte | un verdict structuré : `ACCEPTE` ou `CORRIGER`, ses constats (fichier, ligne, gravité), la promesse au joueur tenue ou non, les tests changés justifiés ou non |
+| **le relecteur** | Opus, autre session, lecture seule | quand la CI est verte, sur tout lot ; le pilote range les captures du lot dans son dossier | un verdict structuré : `ACCEPTE` ou `CORRIGER`, ses constats (fichier, ligne, gravité), la promesse au joueur tenue ou non, les tests changés justifiés ou non |
 | **le lecteur** | Haiku, lecture seule | une CI rouge ; chaque matin | le résumé d'un journal de CI (quel test, quelle erreur, quelle ligne) ; le journal du matin |
 
 Le lecteur ne juge jamais. Le CTO ne code jamais. Le chef ne relit jamais son
@@ -58,6 +59,8 @@ demande au chef, qui la demande au CTO.
     ▼
  la relecture    une autre session, en lecture seule, rend son verdict
     │            CORRIGER : la session du chef reprend avec les constats
+    │            ACCEPTE d'un lot qui touche le cœur du moteur : le CTO le
+    │            relit à son tour, avec la relecture du relecteur
     ▼
  la fusion       ACCEPTE et CI verte : la PR entre seule, l'issue est livrée
 ```

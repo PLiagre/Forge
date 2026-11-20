@@ -103,7 +103,8 @@ class Pilote:
     def __init__(self, projet: Projet, gh: GitHub, depot: Depot, *, journal: Path,
                  executeur_agents: agents_mod.Executeur = agents_mod.executer, maintenant=None, verrous=None,
                  lfs_telechargeur: lfs.Telechargeur = lfs.telecharger, machine: str = "vps",
-                 garder_les_traces: bool = True, seul: int | None = None):
+                 garder_les_traces: bool = True, seul: int | None = None,
+                 lecteur_captures: captures.Lecteur | None = None):
         self.projet = projet
         self.gh = gh
         self.depot = depot
@@ -123,6 +124,8 @@ class Pilote:
         self.seul = seul
         self.lignes: list[str] = []
         self.lfs_telechargeur = lfs_telechargeur
+        # Ce qui rend les octets d'une image de la branche `journal`, pour le relecteur.
+        self.lire_capture = lecteur_captures or (lambda image: captures.lire_sur_le_journal(self.depot, image))
         # Le groupe de capture que le meneur a nommé pour le lot en cours de passage (PC).
         self.capture = ""
         self.invoques = 0  # les agents appelés par ce pilote, tous tours confondus
@@ -228,7 +231,8 @@ class Pilote:
 
     def _palier(self, vue: "_Vue") -> bool:
         from . import palier
-        return palier.samedi(self, vue.palier, vue.ouvertes, vue.fermes)
+        return (palier.samedi(self, vue.palier, vue.ouvertes, vue.fermes)
+                or palier.suite(self, vue.palier, vue.ouvertes, vue.fermes))
 
     def _ranger_le_monde(self) -> "_Vue":
         """Ce que le tour sait du monde, rangé : les boucles de dépendances
@@ -437,8 +441,8 @@ class Pilote:
             if lot.machine == "pc" and self.machine != "pc":
                 return self._passer_au_pc(lot, liste, action.nom, pr)
             return self.passage(lot, pr, action, liste)
-        if action.nom == "relire":
-            return self._relire(lot, pr, branche, liste)
+        if action.nom in ("relire", "relire_coeur"):
+            return self._relire(lot, pr, branche, liste, role=CTO if action.nom == "relire_coeur" else RELECTEUR)
         if action.nom == "arbitrer":
             return self._arbitrer(lot, pr, branche, liste)
         if action.nom == "planifier":
@@ -967,10 +971,11 @@ class Pilote:
         return True
 
     # ------------------------------------------------------------- relire
-    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict]) -> bool:
+    def _relire(self, lot: Lot, pr: dict, branche: str, liste: list[dict], *, role: str = RELECTEUR) -> bool:
         """Une autre session que celle du meneur, en lecture seule, rend un
-        verdict structuré : rien ne s'en perd. Le CTO relit à la place du
-        relecteur un lot qui touche le cœur du moteur."""
+        verdict structuré : rien ne s'en perd. Le relecteur relit tout lot ;
+        s'il accepte un lot qui touche le cœur du moteur, sa marque le dit
+        (`coeur`), et le CTO relit à son tour avant la fusion."""
         numero_pr, tete = pr["number"], pr["headRefOid"]
         echecs = [m for m in lots.depuis_reprise(liste)
                   if m.get("role") in (RELECTEUR, CTO) and m.get("etat") == lots.ECHEC and m.get("sha") == tete]
@@ -979,7 +984,10 @@ class Pilote:
             return False
         chemin = self.depot.preparer(lot.numero, branche)
         fichiers = self.depot.fichiers_du_lot(chemin)
-        role = CTO if self.projet.touche_le_coeur(fichiers) else RELECTEUR
+        du_coeur = tuple(f for f in fichiers if self.projet.touche_le_coeur([f]))
+        deja_relu = next((lots.sans_marque(c.get("body") or "") for c in reversed(pr.get("comments") or [])
+                          if any(m.get("role") == RELECTEUR and m.get("verdict") and m.get("sha") == tete
+                                 for m in lots.marques([c]))), "") if role == CTO else ""
         plan = lots.plan_du_lot(liste) or {}
         plan_ecrit = "\n".join(f"{i}. {e.get('titre', '')} — {e.get('quoi', '')}"
                                for i, e in enumerate(plan.get("detail") or [], start=1))
@@ -992,13 +1000,17 @@ class Pilote:
             if any(m.get("role") in ROLES_MENEURS and m.get("etat") in (lots.ETAPE, lots.CORRECTION, lots.REPONSE)
                    for m in lots.marques([c])))
         lisibles, illisibles = self._lfs_du_lot(chemin, fichiers)
+        images, sans_image = captures.rendre_lisibles(
+            chemin, captures.du_lot(pr.get("comments") or [], self.gh.depot), self.lire_capture)
         decisions = tuple(lots.decisions_du_lot(self.gh.issue(lot.numero).get("comments") or [],
                                                 self.projet.proprietaire))
         consigne = consignes.relecteur(
             self.projet, lot, url=pr.get("url", ""), sha=tete, plan_ecrit=plan_ecrit,
             tests_declares="\n".join(f"- `{f}` : {p}" for f, p in sorted(declares.items())),
             tests_non_declares=tuple(f for f in modifies if f not in declares), rapports=rapports,
-            lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles), decisions=decisions, cto=role == CTO)
+            lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles), decisions=decisions, cto=role == CTO,
+            captures_lisibles=tuple(images), captures_illisibles=tuple(sans_image), coeur=du_coeur,
+            deja_relu=deja_relu)
         appel = agents_mod.Appel(role=role, lecture_seule=True, consigne=consigne,
                                  schema=consignes.SCHEMA_RELECTURE, jours_max=self.projet.jours_max)
         res = self._invoquer(role, appel, chemin, lot=lot.numero)
@@ -1036,9 +1048,15 @@ class Pilote:
                  + (f"\n\n**Tests rejoués**{rejoues}" if rejoues else "")
                  + ("\n\n⚠️ Le verdict rendu était « ACCEPTE », mais il porte un constat bloquant, une promesse non "
                     "tenue ou un test changé sans raison : le pilote le lit « CORRIGER »." if incoherent else ""))
-        self.gh.commenter_pr(numero_pr, f"{texte}\n\n" + marque(**self._champs(role, res, verdict=verdict, sha=tete,
-                                                                               constats=len(bloquants))))
-        if verdict == "ACCEPTE":
+        # Le cœur du moteur attend aussi le CTO : la marque du relecteur le dit,
+        # et la fusion ne se demande qu'à son verdict.
+        au_cto = role == RELECTEUR and verdict == "ACCEPTE" and bool(du_coeur)
+        if au_cto:
+            texte += ("\n\nLe lot touche le cœur du moteur (" + ", ".join(f"`{f}`" for f in du_coeur)
+                      + ") : le CTO le relit à son tour avant la fusion.")
+        self.gh.commenter_pr(numero_pr, f"{texte}\n\n" + marque(**self._champs(
+            role, res, verdict=verdict, sha=tete, constats=len(bloquants), **({"coeur": True} if au_cto else {}))))
+        if verdict == "ACCEPTE" and not au_cto:
             self.gh.fusion_auto(numero_pr, tete)
         self.noter(lot.numero, f"relecture {verdict}", f"PR #{numero_pr}", str(res.agent))
         return True

@@ -297,6 +297,14 @@ def test_une_ci_verte_sans_verdict_sur_cette_revision_appelle_le_relecteur():
     assert ensuite([*FAIT, verdict("ACCEPTE", sha=AUTRE_SHA)]).nom == "relire", "le verdict d'une ancienne révision"
 
 
+def test_le_coeur_du_moteur_accepte_par_le_relecteur_attend_le_cto():
+    du_coeur = verdict("ACCEPTE") | {"coeur": True}
+    assert ensuite([*FAIT, du_coeur]) == Action("relire_coeur", "le lot touche le cœur du moteur")
+    assert ensuite([*FAIT, du_coeur, {"role": "cto", "verdict": "ACCEPTE", "sha": SHA}]).nom == "fusionner"
+    assert ensuite([*FAIT, du_coeur, {"role": "cto", "verdict": "CORRIGER", "sha": SHA}]).nom == "corriger_relecture"
+    assert ensuite([*FAIT, du_coeur | {"sha": AUTRE_SHA}]).nom == "relire", "une révision neuve repasse par le relecteur"
+
+
 def test_un_lot_accepte_fusionne_puis_attend_sa_fusion():
     assert ensuite([*FAIT, verdict("CORRIGER"), CORRECTION, verdict("ACCEPTE")]).nom == "fusionner"
     en_route = PR | {"autoMergeRequest": {"mergeMethod": "SQUASH"}}

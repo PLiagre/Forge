@@ -306,6 +306,150 @@ def test_le_oui_d_un_autre_que_le_proprietaire_n_ouvre_rien(projet, gh, depot, t
     assert "creer_jalon" not in gh.noms_des_gestes() and gh.issues_[5]["state"] == "OPEN"
 
 
+# ------------------------------------------------- la suite, en semaine
+def _vide(gh):
+    """Les deux lots du palier 1 sont fermés, et sa démo n'est pas posée."""
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "livre", "monde"), corps=FICHE, etat="CLOSED")
+    gh.ajouter_issue(11, "Les frontières", ("lot", "livre", "interface", "pc"), corps=FICHE, etat="CLOSED")
+
+
+def _suite(pilote):
+    gh = pilote.gh
+    courant = lots.palier_courant(lots.paliers(gh.jalons()))
+    return palier.suite(pilote, courant, [Lot.de(i) for i in gh.issues("open")], [Lot.de(i) for i in gh.issues("closed")])
+
+
+SUITE = {"sortie": {"palier_atteint": False, "titre": "La guerre pour toute maison", "but": "Chaque maison lève.",
+                    "note": "La paix attend samedi.",
+                    "fiches": [_fiche("La caserne depuis la carte", "interface", machine="pc")]}}
+RIEN_A_AJOUTER = {"sortie": {"palier_atteint": False, "titre": "", "but": "", "fiches": [],
+                             "note": "Tout ce qui manque change une règle : samedi."}}
+
+
+def test_un_palier_vide_avant_sa_demo_fait_proposer_sa_suite_par_le_cto(projet, gh, depot, tmp_path):
+    """Le défaut : les lots du palier fermés en un jour et demi, rien ne rouvrait de travail avant le samedi,
+    et la chaîne a tourné à vide quatre jours."""
+    _vide(gh)
+    agents = Agents(SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    assert _suite(pilote) is True and agents.modeles() == ["fable"]
+    consigne = agents.appels[0]["consigne"]
+    for attendu in ("Tous les lots du palier 1 sont fermés", "- #10 « Lever une armée » (monde) : livré",
+                    "Reste dans le palier 1", "rends une liste de fiches vide"):
+        assert attendu in consigne
+    pose = gh.issues_[5]["comments"][-1]["body"]
+    assert "propose la suite du palier" in pose and "## Palier 1, la suite — La guerre pour toute maison" in pose
+    assert "### 1. La caserne depuis la carte" in pose and "pour ouvrir ces lots dans le palier en cours" in pose
+    marque = _marques(gh)[-1]
+    assert (marque["etat"], marque["suite"], marque["lots"]) == (palier.PROPOSITION, True, 2)
+    assert pilote.lignes[-1] == "#5 suite proposée [claude/fable@high] — palier 1, 1 lot(s)"
+
+
+def test_la_suite_ne_se_propose_qu_une_fois_par_vidage(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    _suite(pilote)
+    assert _suite(pilote) is False and _samedi(pilote) is False and len(agents.appels) == 1
+
+
+@pytest.mark.parametrize("prepare", [
+    lambda gh: gh.ajouter_issue(12, "La caserne", ("lot", "en-cours", "ville", "pc"), corps=FICHE),
+    lambda gh: (gh.issues_.pop(10), gh.issues_.pop(11)),
+    lambda gh: gh.commenter_issue(5, "# La démo\n\n" + lots.marque(role="cto", etat=palier.DEMO, jour="2026-11-13")),
+    lambda gh: gh.commentaire_humain(5, "Je regarde ça ce soir."),
+], ids=["un lot reste ouvert", "le palier n'a jamais eu de lot", "la démo est posée", "le propriétaire a écrit"])
+def test_la_suite_ne_se_propose_pas_hors_d_un_palier_vide_avant_sa_demo(projet, gh, depot, tmp_path, prepare):
+    _vide(gh)
+    prepare(gh)
+    agents = Agents()
+    assert _suite(piloter(projet, gh, depot, agents, tmp_path)) is False and agents.appels == []
+
+
+def test_le_oui_ouvre_la_suite_dans_le_palier_en_cours_sans_le_fermer(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    _suite(pilote)
+    gh.commentaire_humain(5, "oui")
+    assert _samedi(pilote) is False and len(agents.appels) == 1, "aucun agent n'est appelé pour ouvrir"
+    ouvert = gh.issues_[101]
+    assert ouvert["title"] == "La caserne depuis la carte" and ouvert["milestone"]["title"] == PALIER
+    assert {e["name"] for e in ouvert["labels"]} == {"lot", "pret", "interface", "pc"}
+    assert gh.issues_[5]["state"] == "OPEN" and not [g for g in gh.gestes if g[0] in ("creer_jalon", "fermer_jalon")]
+    assert _marques(gh)[-1] == {"role": "pilote", "etat": palier.SUITE_OUVERTE, "suite": True, "lots": 2}
+    assert "la suite du palier est ouverte : #101." in gh.issues_[5]["comments"][-1]["body"]
+    avant = list(gh.gestes)
+    assert _samedi(pilote) is False and _suite(pilote) is False and gh.gestes == avant, "le oui n'ouvre qu'une fois"
+
+
+def test_la_suite_se_repropose_quand_ses_propres_lots_sont_fermes_a_leur_tour(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE, SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    _suite(pilote)
+    gh.commentaire_humain(5, "oui")
+    _samedi(pilote)
+    assert _suite(pilote) is False, "son lot est ouvert : le palier n'est plus vide"
+    gh.fermer_issue(101)
+    assert _suite(pilote) is True and _marques(gh)[-1]["lots"] == 3
+
+
+def test_si_le_proprietaire_corrige_la_suite_le_cto_la_refait_en_suite(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE, SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    _suite(pilote)
+    gh.commentaire_humain(5, "Ajoute la levée dans tous mes lieux.")
+    assert _samedi(pilote) is True
+    consigne = agents.appels[1]["consigne"]
+    for attendu in ("Tous les lots du palier 1 sont fermés", "Ta proposition précédente",
+                    "## Palier 1, la suite — La guerre pour toute maison", "Ajoute la levée dans tous mes lieux."):
+        assert attendu in consigne
+    assert _marques(gh)[-1]["suite"] is True and "creer_jalon" not in gh.noms_des_gestes()
+
+
+def test_un_cto_qui_n_ajoute_rien_avant_la_demo_le_dit_et_n_est_pas_rappele(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(RIEN_A_AJOUTER)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    assert _suite(pilote) is True
+    pose = gh.issues_[5]["comments"][-1]["body"]
+    assert "n'ajoute aucun lot au palier 1 avant sa démo" in pose and "Tout ce qui manque change une règle : samedi." in pose
+    assert _marques(gh)[-1]["etat"] == palier.SUITE_OUVERTE
+    assert _suite(pilote) is False and len(agents.appels) == 1
+
+
+def test_un_cto_qui_ne_rend_pas_la_suite_est_rappele_une_fois_puis_plus(projet, gh, depot, tmp_path):
+    _vide(gh)
+    panne = {"code": 1, "brut": "", "erreur": "panne"}
+    agents = Agents(panne, panne)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    assert _suite(pilote) is True and "Le pilote le rappelle au tour suivant." in gh.issues_[5]["comments"][-1]["body"]
+    assert _suite(pilote) is True and "Il ne sera pas rappelé seul" in gh.issues_[5]["comments"][-1]["body"]
+    assert _suite(pilote) is False and len(agents.appels) == 2
+
+
+def test_une_suite_restee_sans_reponse_ne_s_ouvre_pas_au_oui_d_apres_la_demo(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE, _proposition())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    _suite(pilote)
+    gh.commenter_issue(5, "# La démo\n\n" + lots.marque(role="cto", etat=palier.DEMO, jour="2026-11-13"))
+    gh.commentaire_humain(5, "oui")
+    assert _samedi(pilote) is True, "sans proposition qui attende, le oui d'après la démo fait proposer le palier suivant"
+    assert set(gh.issues_) == {5, 10, 11}, "la suite d'avant la démo est close : rien ne s'ouvre"
+    assert "## Palier 2 — La paix et les alliés" in gh.issues_[5]["comments"][-1]["body"]
+
+
+def test_le_tour_du_pilote_propose_la_suite_d_un_palier_vide(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(SUITE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    assert agents.modeles() == ["fable"] and _marques(gh)[-1]["suite"] is True
+
+
 # ------------------------------------------------------------ le vendredi
 def test_le_vendredi_pose_la_note_du_cto_sur_l_issue_du_palier(projet, gh, depot, tmp_path):
     _semaine(gh)
@@ -326,6 +470,61 @@ def test_le_vendredi_pose_la_note_du_cto_sur_l_issue_du_palier(projet, gh, depot
 def test_le_vendredi_lance_le_build_fige_du_palier(projet, gh, depot, tmp_path):
     palier.vendredi(piloter(projet, gh, depot, Agents(NOTE), tmp_path))
     assert [g for g in gh.gestes if g[0] == "lancer_workflow"] == [("lancer_workflow", "build-nuit.yml", {"nom": "palier-1"})]
+
+
+def test_la_note_du_vendredi_attend_que_le_build_soit_construit(projet, gh, depot, tmp_path, monkeypatch):
+    """Le défaut : la note partait dès le build lancé, et disait « je ne sais pas si le build de ce soir a abouti »."""
+    siestes = []
+    monkeypatch.setattr(palier, "dormir", siestes.append)
+    gh.builds_ = [None, {"status": "in_progress", "conclusion": None, "url": "https://x/run/9"},
+                  {"status": "completed", "conclusion": "success", "url": "https://x/run/9"}]
+    agents = Agents(NOTE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    corps = palier.vendredi(pilote)
+    assert siestes == [palier.PAS_DU_BUILD] * 2, "deux regards sans build fini, puis il l'est"
+    assert gh.regards_du_build[0] == ("build-nuit.yml", "2026-11-16T09:58:00Z"), "deux minutes avant le lancement"
+    assert ("LE BUILD FIGÉ : D:\\Forge\\builds\\palier-1 (lancer palier-1\\Jouer.cmd) — construit ce soir "
+            "(https://x/run/9)\n") in agents.appels[0]["consigne"]
+    assert "Le build figé : `D:\\Forge\\builds\\palier-1\\Jouer.cmd`\n" in corps
+    assert any(l.startswith("#5 build figé") and "construit" in l for l in pilote.lignes)
+
+
+@pytest.mark.parametrize("builds, fait, en_tete", [
+    ([{"status": "completed", "conclusion": "failure", "url": "https://x/run/9"}],
+     "⚠️ sa construction a échoué (https://x/run/9) : le dossier porte un build plus ancien, ou rien",
+     "`D:\\Forge\\builds\\palier-1\\Jouer.cmd` (⚠️ sa construction a échoué : https://x/run/9)\n"),
+    ([{"status": "queued", "conclusion": None, "url": "https://x/run/9"}] * 60,
+     "⚠️ pas encore construit après 50 minutes d'attente (https://x/run/9)",
+     "`D:\\Forge\\builds\\palier-1\\Jouer.cmd` (⚠️ pas encore construit quand cette note a été écrite)\n"),
+], ids=["le build échoue", "le build ne finit pas"])
+def test_un_build_rate_ou_inacheve_est_dit_au_cto_et_en_tete_de_la_note(projet, gh, depot, tmp_path, monkeypatch,
+                                                                         builds, fait, en_tete):
+    monkeypatch.setattr(palier, "dormir", lambda secondes: None)
+    gh.builds_ = list(builds)
+    agents = Agents(NOTE)
+    corps = palier.vendredi(piloter(projet, gh, depot, agents, tmp_path))
+    assert fait in agents.appels[0]["consigne"] and en_tete in corps
+    assert len(gh.regards_du_build) <= palier.ATTENTE_DU_BUILD // palier.PAS_DU_BUILD + 1, "l'attente a une fin"
+    assert _marques(gh)[-1]["etat"] == palier.DEMO, "une démo ne se tait jamais"
+
+
+def test_le_run_du_build_est_le_dernier_lance_a_la_main_depuis_le_lancement():
+    import json
+
+    from atelier.github import GitHub
+
+    runs = [{"status": "completed", "conclusion": "success", "url": "la-semaine-d-avant", "createdAt": "2026-11-13T17:15:00Z"},
+            {"status": "in_progress", "conclusion": None, "url": "ce-soir", "createdAt": "2026-11-20T17:15:41Z"}]
+    vus = []
+
+    def executeur(argv, entree):
+        vus.append(argv)
+        return 0, json.dumps(runs), ""
+
+    vrai = GitHub("moi/essai", executeur)
+    assert vrai.run_lance("build-nuit.yml", "2026-11-20T17:13:00Z")["url"] == "ce-soir"
+    assert vrai.run_lance("build-nuit.yml", "2026-11-20T18:00:00Z") is None, "GitHub ne montre pas encore le run"
+    assert vus[0][vus[0].index("--event") + 1] == "workflow_dispatch" and "--json" in vus[0]
 
 
 def test_la_consigne_du_vendredi_porte_l_etat_de_chaque_lot_les_choix_a_revoir_et_les_couts(projet, gh, depot, tmp_path):

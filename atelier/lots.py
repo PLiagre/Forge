@@ -337,7 +337,8 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *, correct
     """Ce que le pilote fait ensuite pour un lot en cours. Fonction pure.
 
     Le chemin : le plan, puis ses étapes une à une, puis la CI, puis la
-    relecture, puis la fusion. Une CI rouge ou une relecture « CORRIGER »
+    relecture (le relecteur, puis le CTO si le lot touche le cœur du
+    moteur), puis la fusion. Une CI rouge ou une relecture « CORRIGER »
     renvoie au meneur, `corrections_max` fois au plus ; au-delà, le lot est
     bloqué et le CTO le regarde. Les compteurs partent de la dernière
     reprise ; l'état du travail (plan, étapes, verdicts), de tout
@@ -400,6 +401,10 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *, correct
         return Action("relire")
     rang, dernier = verdicts[-1]
     if dernier["verdict"] == "ACCEPTE":
+        # Le relecteur a accepté un lot qui touche le cœur du moteur : le CTO
+        # le relit à son tour, et la fusion attend son verdict.
+        if dernier.get("role") == RELECTEUR and dernier.get("coeur"):
+            return Action("relire_coeur", "le lot touche le cœur du moteur")
         return Action("attendre_fusion" if pr.get("autoMergeRequest") else "fusionner")
     # Le meneur a contesté ce verdict sans changer de fichier : le CTO tranche.
     suite = liste[rang + 1:]

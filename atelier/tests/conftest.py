@@ -87,6 +87,8 @@ class FauxGitHub(GitHub):
     run_master: dict = field(default_factory=lambda: {"status": "completed", "conclusion": "success",
                                                       "databaseId": 1, "url": "https://x/run/1"})
     run_nuit: dict | None = None
+    builds_: list = field(default_factory=list)
+    regards_du_build: list = field(default_factory=list)
     table_ci: str = ""
     suivant: int = 100
 
@@ -232,6 +234,13 @@ class FauxGitHub(GitHub):
 
     def dernier_run(self, workflow, branche):
         return self.run_nuit if workflow == "nuit.yml" else self.run_master
+
+    def run_lance(self, workflow, depuis):
+        """Ce que GitHub montre du build lancé, regard après regard ; sans
+        `builds_`, il est déjà construit."""
+        self.regards_du_build.append((workflow, depuis))
+        return self.builds_.pop(0) if self.builds_ else {"status": "completed", "conclusion": "success",
+                                                        "url": "https://x/run/9"}
 
     def base_de_fusion(self, base, tete):
         return "c" * 40
