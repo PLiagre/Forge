@@ -95,6 +95,26 @@ namespace Forge.Interface.Tests
             Cliquer(DossierGuerre.DECLARER); Cliquer(DossierGuerre.CONFIRMER); Assert.That(dossier.MessageAffiche, Does.EndWith("raison illisible, gardée au journal"));
         }
 
+        // Les textes les plus longs que le monde sert (chaque ordre refusé d'avance, avec sa raison) tiennent au-dessus du
+        // curseur ou du bouton qui les suit : aucun ne s'écrit dessous.
+        [Test] public void Aucun_texte_des_ordres_ne_passe_sous_la_commande_qui_le_suit()
+        {
+            Servir(new OrdresDeGuerre(M, 5, new DateDuMonde(1400, 6),
+                new LeveeLue(FERMEE, new[] { new LieuDeLevee(10465, 0, 320) }, 500, 17084.9, 2.5), new CibleLue(10461, CIBLE, "vous êtes déjà en guerre avec cette maison"),
+                new[] { new OrdresDUneArmee(0, 10465, 0, 1200, 5000, null, null, new MarcheLue("l'armée est déjà à ce lieu", new long[0], 0, 0), "l'armée marche encore : elle assiège une fois arrivée", null, 1200, 5000) }));
+            dossier.Afficher(horloge);
+            var commandes = dossier.Panneau.GetComponentsInChildren<Selectable>(true).Select(s => s.GetComponent<RectTransform>()).Where(r => r.parent == dossier.Panneau).ToArray();
+            Assert.That(commandes.Length, Is.GreaterThanOrEqualTo(10), "curseurs et boutons du panneau");
+            foreach (string nom in new[] { DossierGuerre.LEVER, DossierGuerre.DECLARER, "Armée choisie", "Ordres de l'armée", "Message des ordres" })
+            {
+                var texte = dossier.Panneau.GetComponentsInChildren<Text>(true).Single(t => t.name == nom && t.transform.parent == dossier.Panneau);
+                float haut = -texte.rectTransform.anchoredPosition.y, bas = haut + texte.preferredHeight;
+                Assert.That(texte.preferredHeight, Is.GreaterThan(0), nom + " : hauteur non mesurée");
+                foreach (var commande in commandes.Where(c => -c.anchoredPosition.y > haut))
+                    Assert.That(bas, Is.LessThanOrEqualTo(-commande.anchoredPosition.y), "« " + nom + " » passe sous « " + commande.name + " » : " + texte.text);
+            }
+        }
+
         [Test] public void Un_ordre_refuse_d_avance_a_sa_commande_inactive_et_dit_pourquoi()
         {
             Servir(Devis(FERMEE, "l'armée marche encore : elle assiège une fois arrivée")); dossier.CurseurHommes.value = 10; dossier.Afficher(horloge);

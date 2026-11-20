@@ -103,6 +103,18 @@ namespace Forge.Pont.Tests {
             Assert.Throws<ArgumentException>(() => TexteDuMonde.Absence(""));
         }
 
+        [Test] public void UnRefusNeResteJamaisMuet() {
+            const string lisible = "Parcelle refusée par l'outil : posez le second coin en retrait de la rue";
+            Assert.AreEqual(lisible, TexteDuMonde.Refus(lisible));
+            Assert.AreEqual("Le monde refuse la parcelle.", TexteDuMonde.Refus("Le monde refuse la parcelle : façade dépasse le segment : 2.0 + 14.3 > 15.4"));
+            Assert.AreEqual("Le monde refuse la caserne.", TexteDuMonde.Refus("Le monde refuse la caserne : une seule caserne par province : la cellule 10103 en a déjà une"));
+            // Une ligne de mise au point n'est pas un refus : elle se tait toujours.
+            Assert.IsNull(TexteDuMonde.Refus("Bilan : 12 rues, 3 au tick 30"));
+            Assert.IsNull(TexteDuMonde.Refus("Route refusée au tick 12"));
+            Assert.IsNull(TexteDuMonde.Refus("Refus du rang 3 : parcelle 7"));
+            Assert.Throws<ArgumentNullException>(() => TexteDuMonde.Refus(null));
+        }
+
         // Les points des jauges et des réserves s'écrivent avec leur unité, au dixième.
         [Test] public void Points_s_ecrivent_avec_leur_unite() {
             foreach (var (valeur, attendu) in new[] { (0d, "0 point"), (1d, "1 point"), (1.5, "1,5 point"), (2d, "2 points"), (31.5, "31,5 points"), (-1d, "-1 point"), (-3d, "-3 points"), (999d, "999 points"),

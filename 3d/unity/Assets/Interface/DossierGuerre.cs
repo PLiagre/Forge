@@ -50,7 +50,7 @@ namespace Forge.Interface
     {
         public const string TITRE = "La guerre", ORDRES = "Ordres de guerre", COMMANDE = "La guerre";
         public const string LEVER = "Lever l'ost", DECLARER = "Déclarer la guerre", MARCHER = "Marcher", ASSIEGER = "Assiéger", RENVOYER = "Renvoyer", SUIVANTE = "Armée suivante";
-        public const string CONFIRMER = "Confirmer l’ordre de guerre", RETOUR = "Retour aux ordres";
+        public const string CONFIRMER = "Confirmer cet ordre", RETOUR = "Retour aux ordres";
         public const double PERIODE_S = 2;
         const float LARGEUR = 452;
         static readonly TimeSpan DELAI = TimeSpan.FromSeconds(10);
@@ -88,23 +88,25 @@ namespace Forge.Interface
             var ouvrir = SocleInterface.Commande(dossier, COMMANDE, 400, 20, () => { if (Feuillet.Ouvert) Feuillet.Fermer(); else { Feuillet.Ouvrir(); prochaine = 0; } },
                 phrase: "La guerre : ouvre ou ferme vos guerres, vos armées et les ordres de guerre, avec leur prix.");
             Taille(ouvrir, 160);
-            Panneau = SocleInterface.Panneau(Feuillet.Cadre, ORDRES, 764, 0, 500, 732);
+            // Chaque texte garde sous lui la place de son écriture la plus longue (son refus compris) : aucun ne passe sous
+            // le curseur ou le bouton qui le suit. Le panneau descend donc plus bas que le feuillet des guerres.
+            Panneau = SocleInterface.Panneau(Feuillet.Cadre, ORDRES, 764, 0, 500, 892);
             etat = Texte("État des ordres", "Lecture des ordres…", 88, 28, SocleInterface.Corps);
-            Texte(LEVER, "", 120, 52, 16);
-            CurseurHommes = Curseur("Hommes à lever", 176, n => legendeHommes.text = Hommes((long)n)); legendeHommes = Legende("Hommes levés", 176);
-            CurseurVivres = Curseur("Vivres emportés", 206, n => legendeVivres.text = TexteDuMonde.Masse(n) + " de vivres"); legendeVivres = Legende("Vivres levés", 206);
-            Bouton(LEVER, 24, 236, LARGEUR, Lever, "Lever l'ost : prépare la levée des hommes et des vivres choisis, sans l'envoyer ; « " + CONFIRMER + " » l'envoie.");
-            Texte(DECLARER, "", 288, 52, 16);
-            Bouton(DECLARER, 24, 342, LARGEUR, Declarer, "Déclarer la guerre : prépare la déclaration au maître de la terre gardée sur la carte, sans l'envoyer.");
-            Texte("Armée choisie", "", 394, 52, 16).rectTransform.sizeDelta = new Vector2(296, 52);
-            Bouton(SUIVANTE, 328, 394, 148, () => Suivante(), "Armée suivante : montre les ordres d'une autre de vos armées.");
-            Texte("Ordres de l'armée", "", 450, 76, 16);
-            Bouton(MARCHER, 24, 530, 144, () => OrdreDArmee(MARCHER), "Marcher : prépare la marche de l'armée vers le bourg de la terre gardée sur la carte, sans l'envoyer.");
-            Bouton(ASSIEGER, 176, 530, 144, () => OrdreDArmee(ASSIEGER), "Assiéger : prépare le siège de la place où se tient l'armée, sans l'envoyer.");
-            Bouton(RENVOYER, 328, 530, 148, () => OrdreDArmee(RENVOYER), "Renvoyer : prépare le retour des hommes dans leurs lieux et des vivres au grenier, sans l'envoyer.");
-            message = Texte("Message des ordres", "", 582, 72, 16);
-            Bouton(RETOUR, 24, 668, 220, () => { Ordre.Recommencer(); preparePour = null; nomPrepare = null; }, "Abandonne l'ordre préparé, ou referme son reçu ; rien n'est envoyé.");
-            Bouton(CONFIRMER, 256, 668, 220, () => { if (!Ordre.EnCours && Ordre.Brouillon != null && Ordre.Recu == null && preparePour == maison()) _ = Ordre.Confirmer(); },
+            Texte(LEVER, "", 120, 112, 16);
+            CurseurHommes = Curseur("Hommes à lever", 236, n => legendeHommes.text = Hommes((long)n)); legendeHommes = Legende("Hommes levés", 236);
+            CurseurVivres = Curseur("Vivres emportés", 266, n => legendeVivres.text = TexteDuMonde.Masse(n) + " de vivres"); legendeVivres = Legende("Vivres levés", 266);
+            Bouton(LEVER, 24, 296, LARGEUR, Lever, "Lever l'ost : prépare la levée des hommes et des vivres choisis, sans l'envoyer ; « " + CONFIRMER + " » l'envoie.");
+            Texte(DECLARER, "", 350, 92, 16);
+            Bouton(DECLARER, 24, 444, LARGEUR, Declarer, "Déclarer la guerre : prépare la déclaration au maître de la terre gardée sur la carte, sans l'envoyer.");
+            Texte("Armée choisie", "", 498, 52, 16).rectTransform.sizeDelta = new Vector2(296, 52);
+            Bouton(SUIVANTE, 328, 498, 148, () => Suivante(), "Armée suivante : montre les ordres d'une autre de vos armées.");
+            Texte("Ordres de l'armée", "", 556, 136, 16);
+            Bouton(MARCHER, 24, 696, 144, () => OrdreDArmee(MARCHER), "Marcher : prépare la marche de l'armée vers le bourg de la terre gardée sur la carte, sans l'envoyer.");
+            Bouton(ASSIEGER, 176, 696, 144, () => OrdreDArmee(ASSIEGER), "Assiéger : prépare le siège de la place où se tient l'armée, sans l'envoyer.");
+            Bouton(RENVOYER, 328, 696, 148, () => OrdreDArmee(RENVOYER), "Renvoyer : prépare le retour des hommes dans leurs lieux et des vivres au grenier, sans l'envoyer.");
+            message = Texte("Message des ordres", "", 748, 72, 16);
+            Bouton(RETOUR, 24, 824, 200, () => { Ordre.Recommencer(); preparePour = null; nomPrepare = null; }, "Abandonne l'ordre préparé, ou referme son reçu ; rien n'est envoyé.");
+            Bouton(CONFIRMER, 236, 824, 240, () => { if (!Ordre.EnCours && Ordre.Brouillon != null && Ordre.Recu == null && preparePour == maison()) _ = Ordre.Confirmer(); },
                 "Envoie l'ordre de guerre préparé au monde ; il l'applique au jour suivant.");
             MatieresCabinet.Engagement(boutons[CONFIRMER]);
             foreach (var t in Feuillet.Cadre.GetComponentsInChildren<Text>(true)) t.supportRichText = false;
