@@ -1,11 +1,12 @@
 """Le lanceur du jeu : démarre le service de sim/, puis le jeu.
 
-    py pc\\jouer.py [--port P] [--cellule C] [--carte] -- <commande du jeu…>
+    py pc\\jouer.py [--port P] [--cellule C] [--carte] [--sans-ia] -- <commande du jeu…>
 
 Sans `--cellule`, aucune cellule n'est imposée : le jeu lit la maison du joueur,
 ouvre sa capitale ou la carte, ou dit l'absence.
 Avec `--carte`, le jeu s'ouvre sur la carte
-de 1400 (`-forgeCarte`) au lieu de la ville. Le service s'arrête
+de 1400 (`-forgeCarte`) au lieu de la ville. Les autres maisons jouent : le
+service démarre avec `--ia`, sauf si `--sans-ia` est donné. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
 Le monde s'ouvre en pause : le service démarre à 0 jour par seconde,
 et le jeu lance le temps quand le joueur le décide. La vitesse lue dans le
@@ -47,6 +48,7 @@ AUCUNE_CELLULE = "aucune cellule imposée : le jeu lit la maison du joueur"
 ARGUMENT_CARTE = "-forgeCarte"  # celui d'OuvertureDeLaCarte.cs
 PAUSE = 0  # jours par seconde à l'ouverture : seul le lanceur arrive avant le premier tick
 OUVERTURE = "le monde s'ouvre en pause : Espace lance le temps"
+SANS_IA = "les autres maisons ne jouent pas (--sans-ia)"
 DELAI_SERVICE_PRET_S = 60
 DELAI_ARRET_S = 5
 DELAI_CONNEXION_S = 1
@@ -166,6 +168,7 @@ def analyseur() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=DEFAULT_SERVICE_PORT)
     parser.add_argument("--cellule", type=_cellule)
     parser.add_argument("--carte", action="store_true", help="ouvre le jeu sur la carte de 1400")
+    parser.add_argument("--sans-ia", action="store_true", help="les autres maisons ne jouent pas")
     return parser
 
 
@@ -202,12 +205,14 @@ def main(argv: list[str]) -> int:
         return 1
     print(f"vitesse de la {vue} : {vitesse} jours par seconde", flush=True)
     print(OUVERTURE, flush=True)
+    if args.sans_ia:
+        print(SANS_IA, flush=True)
 
     attendue = f"service prêt sur {SERVICE_HOST}:{args.port}"
     stderr: collections.deque = collections.deque(maxlen=LIGNES_STDERR_GARDEES)
     service = subprocess.Popen(
         [sys.executable, "-m", "sim.service", "--port", str(args.port),
-         "--jours-par-seconde", repr(PAUSE)],
+         "--jours-par-seconde", repr(PAUSE), *([] if args.sans_ia else ["--ia"])],
         cwd=JEU_PY,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
