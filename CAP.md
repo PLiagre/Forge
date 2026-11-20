@@ -73,7 +73,7 @@ PR et le réalise ([docs/WORKFLOW.md](docs/WORKFLOW.md)).
 Les lots du palier en cours sont les issues de son jalon GitHub ; ils y font
 foi. Les paliers suivants sont écrits ici pour que le CTO en tire les lots le
 samedi, d'après ce que le propriétaire aura dit en jouant. Chacun est une
-seule grosse feature, en sept à neuf lots.
+seule grosse feature, en sept à neuf lots ; le palier 2 en compte neuf.
 
 ### Palier 1 — la première guerre (livré, à jouer)
 
@@ -98,7 +98,8 @@ bout.
 | le monde | **les alliés et la pyramide** | s'allier en dépensant du Sceau, appeler ses alliés, répondre à l'appel de son suzerain ou le refuser | suzerain, vassaux et alliés entrent dans la guerre ; refuser coûte du Renom ; l'IA s'allie contre un voisin qui grossit et déclare la guerre avec des raisons qu'on peut lire ; Constantinople ne tombe plus la première année |
 | le monde | **le jour tient la vitesse la plus rapide** | jouer la guerre à la cinquième vitesse | dix jours par seconde, armées et batailles comprises ; le budget du jour est gardé avant la fusion, pas après |
 | la ville | **la ville fortifiée et assiégée** | fermer sa capitale de murs, de portes et de tours tracés à la main, et y poster sa garnison | l'enceinte du kit du désert dans Biskra et son prix ; pendant le siège, l'armée ennemie campée devant les murs, les portes closes, les étals qui se vident ; les murs comptent dans la tenue de la place |
-| l'interface | **la guerre pour toute maison** | bâtir la caserne depuis la carte, lever dans tous ses lieux, suivre une bataille et un siège | toute maison de départ fait la guerre ; la carte se colore par pays ou par maison ; la bataille et le siège se lisent sur la carte, avec leurs pertes jour par jour ; le journal de la guerre |
+| l'interface | **la guerre pour toute maison** | bâtir la caserne depuis la carte, lever dans tous ses lieux | toute maison de départ fait la guerre, sans passer par une ville en 3D ; la carte se colore par pays ou par maison |
+| l'interface | **la bataille et le siège sur la carte** | suivre une bataille, ordonner l'assaut, poster une garnison | la bataille et le siège se lisent sur la carte, avec leurs pertes jour par jour ; la terre occupée se distingue de la terre acquise ; le journal de la guerre |
 | l'interface | **la diplomatie et les nouvelles** | composer un traité et voir ce que l'autre en pense avant de l'envoyer, s'allier, appeler, régler le temps | l'écran des relations (qui est en guerre, allié, vassal, et pourquoi) ; le traité qui se compose ; le fil des nouvelles, dont chaque ligne mène au lieu ; la pause et les cinq vitesses ; **le scénario du palier joué d'un trait dans le build** |
 
 ### Palier 3 — l'argent et le commerce
