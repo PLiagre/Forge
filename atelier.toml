@@ -16,7 +16,8 @@ proprietaire = "PLiagre"
 # Ce qu'un lot ne touche jamais : un changement d'un lot sur ces chemins est
 # retiré avant l'enregistrement, et le commentaire de la PR le dit.
 interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "CAP.md"]
-# Le cœur du moteur : un lot qui touche un de ces chemins est relu par le CTO.
+# Le cœur du moteur : un lot qui touche un de ces chemins est relu par le
+# relecteur, puis par le CTO.
 coeur = ["jeu/sim/engine.py", "jeu/sim/world.py", "jeu/sim/intentions.py"]
 # Les pistes d'un palier : l'étiquette que porte chaque lot.
 pistes = ["monde", "ville", "interface"]

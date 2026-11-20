@@ -14,7 +14,7 @@ construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 | rôle | modèle | il fait | il ne fait jamais |
 |---|---|---|---|
-| **le CTO** | Fable | le samedi, tire les lots du palier de ce que le propriétaire a dit ; en semaine, tranche les questions, débloque ou redécoupe un lot, relit ce qui touche le cœur du moteur, répond de la démo du vendredi. Appelé à ces moments, il ne surveille pas. | coder |
+| **le CTO** | Fable | le samedi, tire les lots du palier de ce que le propriétaire a dit ; en semaine, tranche les questions, débloque ou redécoupe un lot, relit après le relecteur ce qui touche le cœur du moteur, répond de la démo du vendredi. Appelé à ces moments, il ne surveille pas. | coder |
 | **le chef de lot** | Opus | conçoit, écrit le plan dans la PR, code le difficile, confie le reste, tient la PR jusqu'à la fusion ; mène aussi les lots de la ville 3D | relire son propre lot |
 | **le développeur** | Sonnet | les tâches bornées que le chef lui confie, dans la session du chef ; mène seul les lots simples (données, écran courant) | décider d'une règle du monde |
 | **le relecteur** | Opus, autre session, lecture seule | lit la fiche et le diff, rejoue des tests, rend un verdict | écrire |

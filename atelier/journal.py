@@ -201,12 +201,31 @@ def ou_en_est(liste: list[dict], etat_ci: str = "") -> str:
     total, faites = int(plan.get("etapes") or 0), len(lots.etapes_faites(liste))
     if faites < total:
         return f"étape {faites + 1} sur {total}"
-    verdicts = [m.get("verdict") for m in liste if m.get("verdict")]
+    rendus = [m for m in liste if m.get("verdict")]
+    verdicts = [m["verdict"] for m in rendus]
     if verdicts and verdicts[-1] == "ACCEPTE":
-        return "accepté, il attend sa fusion"
+        # La marque `coeur` : le relecteur a accepté, et le CTO relit à son tour.
+        return ("accepté par le relecteur, le CTO relit le cœur du moteur" if rendus[-1].get("coeur")
+                else "accepté, il attend sa fusion")
     if verdicts and verdicts[-1] == "CORRIGER":
         return "en correction après la relecture"
     return {"rouge": "en correction, la CI est rouge", "attente": "ses tests tournent"}.get(etat_ci, "en relecture")
+
+
+def palier_vide(palier, ouverts: list[Lot], fermees: list[dict]) -> str:
+    """Ce que le journal dit au propriétaire quand le palier en cours a eu
+    des lots et n'en a plus aucun d'ouvert : la chaîne tourne à vide jusqu'à
+    ce qu'il réponde. Vide tant qu'un lot du palier est ouvert, ou qu'il n'en
+    a jamais eu."""
+    if palier is None or any(l.palier == palier.numero for l in ouverts):
+        return ""
+    siens = [i for i in fermees if Lot.de(i).est_un_lot and Lot.de(i).palier == palier.numero]
+    if not siens:
+        return ""
+    dernier = max((d for d in (_date(i.get("closedAt")) for i in siens) if d is not None), default=None)
+    depuis = f" depuis le {dernier:%d/%m}" if dernier else ""
+    return (f"le palier « {palier.titre} » n'a plus aucun lot ouvert{depuis} : la chaîne n'a plus rien à faire. "
+            "Sur l'issue du palier, réponds à la suite que le CTO propose, ou écris ce que tu veux")
 
 
 def fusionnees_depuis(gh: GitHub, depuis: datetime) -> list[dict]:
@@ -273,6 +292,9 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                               f"({decisions[-1].get('pourquoi') or raison})")
         r.a_revoir += a_revoir_samedi(lot.numero, lot.titre, commentaires)
     lignes += [f"- {l}" for l in r.arretes] or ["- (aucun)"]
+    vide = palier_vide(palier, des_lots, gh.issues("closed"))
+    if vide:
+        r.pour_toi.append(vide)
     if not gh.pc_actif():
         r.pour_toi.append(f"le PC est en pause ({VARIABLE_PC} = non) : les lots de la ville et de l'interface attendent")
     lignes += ["", "À REVOIR SAMEDI (les choix que le CTO a pris seul) :"] + ([f"- {l}" for l in r.a_revoir] or ["- (rien)"])

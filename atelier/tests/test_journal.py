@@ -259,6 +259,27 @@ def test_le_pc_en_pause_est_dit_au_proprietaire(projet, gh):
     assert "POUR LE PROPRIÉTAIRE :\n- le PC est en pause" in r.texte
 
 
+def test_un_palier_sans_lot_ouvert_est_dit_au_proprietaire(projet, gh):
+    """Le défaut : les lots du palier fermés dès le dimanche, la chaîne a tourné à vide jusqu'au vendredi, et
+    chaque journal du matin disait « Pour toi : rien »."""
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "livre", "monde"), corps=FICHE, etat="CLOSED")
+    gh.ajouter_issue(11, "Les frontières", ("lot", "livre", "interface"), corps=FICHE, etat="CLOSED")
+    gh.issues_[10]["closedAt"], gh.issues_[11]["closedAt"] = "2026-11-15T12:58:00Z", "2026-11-16T10:02:00Z"
+    r = journal.releve(gh, projet, MATIN)
+    assert r.pour_toi == ["le palier « Palier 1 — La première guerre » n'a plus aucun lot ouvert depuis le 16/11 : "
+                          "la chaîne n'a plus rien à faire. Sur l'issue du palier, réponds à la suite que le CTO "
+                          "propose, ou écris ce que tu veux"]
+    assert "POUR LE PROPRIÉTAIRE :\n- le palier « Palier 1 — La première guerre » n'a plus aucun lot ouvert" in r.texte
+
+
+def test_un_palier_qui_garde_un_lot_ouvert_ou_n_en_a_jamais_eu_n_est_pas_vide(projet, gh):
+    assert journal.releve(gh, projet, MATIN).pour_toi == [], "un palier sans aucun lot n'est pas un palier vidé"
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "livre", "monde"), corps=FICHE, etat="CLOSED")
+    gh.ajouter_issue(11, "Les frontières", ("lot", "pret", "interface"), corps=FICHE)
+    gh.ajouter_issue(20, "Le trésor", ("lot", "livre", "monde"), jalon="Palier 3 — L'argent", corps=FICHE, etat="CLOSED")
+    assert journal.releve(gh, projet, MATIN).pour_toi == []
+
+
 def test_le_releve_rassemble_les_choix_du_cto_a_revoir_samedi(projet, gh):
     _livre(gh)
     gh.commenter_issue(10, lots.marque(role="cto", etat="decision", decision="trancher", a_revoir="un homme pour dix foyers"))
@@ -339,7 +360,9 @@ def test_le_texte_fidele_du_lecteur_est_garde(projet, gh, tmp_path):
 def test_sans_texte_fidele_du_lecteur_le_pilote_ecrit_seul_et_le_dit(projet, gh, tmp_path, reponse, pourquoi):
     _livre(gh)
     corps = journal.ecrire(gh, projet, maintenant=MATIN, executeur=Agents(reponse), dossier=tmp_path)
-    assert corps.startswith("> **Avancé** : Lever une armée.\n> **Arrêté** : rien.\n> **Pour toi** : rien.")
+    # Le seul lot du palier est livré : le journal dit maintenant que la chaîne n'a plus rien à faire.
+    assert corps.startswith("> **Avancé** : Lever une armée.\n> **Arrêté** : rien.\n> **Pour toi** : le palier "
+                            "« Palier 1 — La première guerre » n'a plus aucun lot ouvert : la chaîne n'a plus rien à faire.")
     assert pourquoi in corps and "Écrit par le pilote, à partir des faits." in corps
     assert "Tout va bien" not in corps and "paraît sur la carte" not in corps, "rien du texte écarté ne reste"
     assert gh.noms_des_gestes() == ["creer_issue", "epingler"], "un journal ne se tait jamais"

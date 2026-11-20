@@ -361,12 +361,80 @@ def test_le_meneur_conteste_et_le_cto_tranche(projet, gh, depot, tmp_path):
     assert _marques(gh, numero_pr, pr=True)[-1]["verdict"] == "ACCEPTE"
 
 
-def test_le_cto_relit_le_coeur_du_moteur(projet, gh, depot, tmp_path):
+def test_le_coeur_du_moteur_est_relu_par_le_relecteur_puis_par_le_cto(projet, gh, depot, tmp_path):
+    """Le défaut : le CTO relisait seul, à la place du relecteur, tout lot qui touchait le cœur du moteur,
+    donc les lots dont il avait écrit la fiche et tranché les questions."""
     depot.fichiers_ = ["jeu/sim/engine.py", "jeu/sim/tests/test_armees.py"]
+    accepte_aussi = {"sortie": ACCEPTE["sortie"] | {"resume": "Le tick garde son ordre."}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, ACCEPTE, accepte_aussi)
+    pilote.tour()
+    premiere = _marques(gh, numero_pr, pr=True)[-1]
+    assert agents.modeles()[-1] == "opus" and "Tu es le relecteur de Forge" in agents.appels[-1]["consigne"]
+    assert (premiere["role"], premiere["verdict"], premiere["coeur"]) == ("relecteur", "ACCEPTE", True)
+    assert "le CTO le relit à son tour avant la fusion" in gh.dits(numero_pr, pr=True)
+    assert ("fusion_auto", numero_pr) not in gh.gestes, "le verdict du relecteur ne suffit pas pour le cœur"
+    pilote.tour()
+    consigne = agents.appels[-1]["consigne"]
+    assert agents.modeles()[-1] == "fable" and "il touche le cœur du moteur" in consigne
+    assert "`jeu/sim/engine.py`" in consigne and "Tout tient." in consigne, "le CTO reçoit la relecture du relecteur"
+    seconde = _marques(gh, numero_pr, pr=True)[-1]
+    assert (seconde["role"], seconde["verdict"]) == ("cto", "ACCEPTE") and "coeur" not in seconde
+    assert ("fusion_auto", numero_pr) in gh.gestes
+
+
+def test_hors_du_coeur_le_relecteur_suffit(projet, gh, depot, tmp_path):
+    depot.fichiers_ = ["jeu/sim/armees.py"]
     pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, ACCEPTE)
     pilote.tour()
-    assert agents.modeles()[-1] == "fable" and "le cœur du moteur" in agents.appels[-1]["consigne"]
-    assert _marques(gh, numero_pr, pr=True)[-1]["role"] == "cto"
+    assert agents.modeles()[-1] == "opus" and "coeur" not in _marques(gh, numero_pr, pr=True)[-1]
+    assert ("fusion_auto", numero_pr) in gh.gestes
+
+
+def test_le_cto_qui_refuse_le_coeur_renvoie_au_meneur_puis_au_relecteur(projet, gh, depot, tmp_path):
+    depot.fichiers_ = ["jeu/sim/engine.py"]
+    refuse = {"sortie": {"verdict": "CORRIGER", "resume": "Le jour se sérialise à chaque tick.",
+                         "constats": [{"fichier": "jeu/sim/engine.py", "gravite": "bloquant", "quoi": "un calcul par tick"}],
+                         "promesse_joueur_tenue": True, "tests_changes_justifies": True}}
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, ACCEPTE, refuse, faite(), ACCEPTE)
+    for _ in range(3):
+        pilote.tour()
+    assert ("fusion_auto", numero_pr) not in gh.gestes
+    assert agents.modeles()[-2:] == ["fable", "opus"] and "un calcul par tick" in agents.appels[-1]["consigne"]
+    gh.ci(numero_pr, "vert")
+    pilote.tour()
+    assert agents.modeles()[-1] == "opus" and "Tu es le relecteur de Forge" in agents.appels[-1]["consigne"], \
+        "la révision corrigée repasse par le relecteur"
+
+
+def test_le_relecteur_recoit_les_captures_du_lot_rangees_dans_son_dossier(projet, gh, depot, tmp_path):
+    """Le défaut : celui qui relisait, en lecture seule, ne savait pas sortir les images de la branche `journal`,
+    et acceptait des écrans qu'il disait ne pas avoir vus."""
+    lues = []
+
+    def lire(image):
+        lues.append(image)
+        if "perdue" in image:
+            raise OSError("introuvable sur la branche")
+        return b"PNG"
+
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, faite(), faite(), ACCEPTE)
+    pilote = piloter(projet, gh, depot, agents, tmp_path, lecteur_captures=lire)
+    for _ in range(3):
+        pilote.tour()
+    numero_pr = _pr_du_lot(gh, 10)
+    racine = "https://raw.githubusercontent.com/moi/essai/journal/captures/2026-11-16"
+    gh.commenter_pr(numero_pr, f"étape 2\n\n📷 ![capture du lot #10]({racine}/lot-10-guerre.png)\n\n"
+                               f"📷 ![capture du lot #10]({racine}/lot-10-perdue.png)\n\n"
+                               "![ailleurs](https://raw.githubusercontent.com/autre/depot/journal/captures/x.png)")
+    gh.ci(numero_pr, "vert")
+    pilote.tour()
+    assert lues == ["captures/2026-11-16/lot-10-guerre.png", "captures/2026-11-16/lot-10-perdue.png"]
+    chantier = depot.preparer(10, "lot/10-lever-une-armee")
+    assert (chantier / ".atelier" / "captures" / "lot-10-guerre.png").read_bytes() == b"PNG"
+    consigne = agents.appels[-1]["consigne"]
+    assert "- `.atelier/captures/lot-10-guerre.png`" in consigne and "Ouvre chacune avec l'outil de lecture" in consigne
+    assert "lot-10-perdue.png (introuvable sur la branche)" in consigne and "tu ne les as pas vues" in consigne
 
 
 def test_une_ci_rouge_est_resumee_par_le_lecteur_puis_corrigee_dans_la_session(projet, gh, depot, tmp_path):

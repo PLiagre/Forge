@@ -14,10 +14,12 @@ travail Unity dépose ses images avant de les publier par la même fonction.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from typing import Callable
 
 from .depot import Depot
 
@@ -66,6 +68,63 @@ def _publier(depot: Depot, depot_github: str, fichiers: list[Path], dossier: str
     depot.enregistrer(chemin, f"Captures : {dossier}")
     depot.git("push", "--quiet", "origin", f"HEAD:refs/heads/{BRANCHE}", cwd=chemin)
     return [adresse(depot_github, r) for r in rangees]
+
+
+# Où les images d'un lot sont rangées dans son chantier, pour celui qui le
+# relit : il est en lecture seule et ne sait pas les sortir de la branche.
+DOSSIER = Path(".atelier") / "captures"
+# Au plus tant d'images par relecture, les plus récentes : chacune pèse dans
+# ce que le relecteur lit.
+IMAGES_MAX = 12
+_CHEMIN_D_IMAGE = r"/(captures/[\w./-]+\.(?:png|jpe?g))"
+
+Lecteur = Callable[[str], bytes]
+
+
+def du_lot(commentaires: list[dict], depot_github: str) -> list[str]:
+    """Les images du lot sur la branche `journal`, telles que les
+    commentaires de sa PR les citent : leurs chemins dans la branche, de la
+    plus ancienne à la plus récente, chacune une fois, `IMAGES_MAX` au plus.
+    Une image republiée sous le même nom ne compte qu'à sa dernière citation."""
+    motif = re.compile(re.escape(adresse(depot_github, "")).rstrip("/") + _CHEMIN_D_IMAGE)
+    vues: dict[str, str] = {}
+    for c in commentaires:
+        for chemin in motif.findall(c.get("body") or ""):
+            if ".." in chemin:
+                continue
+            nom = chemin.rsplit("/", 1)[-1]
+            vues.pop(nom, None)
+            vues[nom] = chemin
+    return list(vues.values())[-IMAGES_MAX:]
+
+
+def lire_sur_le_journal(depot: Depot, chemin: str) -> bytes:
+    """Les octets d'une image de la branche `journal`, telle que le dernier
+    `fetch` l'a reçue."""
+    fini = subprocess.run(["git", "cat-file", "blob", f"origin/{BRANCHE}:{chemin}"], cwd=depot.racine,
+                          capture_output=True, timeout=120)
+    if fini.returncode != 0:
+        raise OSError(fini.stderr.decode("utf-8", "replace").strip()[:200] or f"git cat-file : code {fini.returncode}")
+    return fini.stdout
+
+
+def rendre_lisibles(chantier: Path, chemins: list[str], lire: Lecteur) -> tuple[list[str], list[str]]:
+    """Range dans `chantier/.atelier/captures/` les images dont on donne le
+    chemin sur la branche `journal`. Rend (les fichiers rangés, relatifs au
+    chantier ; les images qui n'ont pas pu l'être, avec leur raison)."""
+    lisibles, illisibles = [], []
+    for chemin in chemins:
+        nom = chemin.rsplit("/", 1)[-1]
+        try:
+            contenu = lire(chemin)
+            cible = Path(chantier) / DOSSIER / nom
+            cible.parent.mkdir(parents=True, exist_ok=True)
+            cible.write_bytes(contenu)
+        except Exception as e:  # noqa: BLE001 — une image manquée se dit, elle ne casse pas la relecture
+            illisibles.append(f"{nom} ({str(e)[:120]})")
+            continue
+        lisibles.append((DOSSIER / nom).as_posix())
+    return lisibles, illisibles
 
 
 def touche_ce_qu_on_voit(fichiers: list[str]) -> bool:

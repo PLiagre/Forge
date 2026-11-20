@@ -295,9 +295,25 @@ def suite_neuve(projet: Projet, lot: Lot, etapes: list[dict], tache: str, decisi
 
 def relecteur(projet: Projet, lot: Lot, *, url: str, sha: str, plan_ecrit: str, tests_declares: str,
               tests_non_declares: tuple[str, ...] = (), rapports: str = "", lfs_lisibles: tuple[str, ...] = (),
-              lfs_illisibles: tuple[str, ...] = (), decisions: tuple[str, ...] = (), cto: bool = False) -> str:
-    qui = ("le CTO de Forge, et tu relis ce lot parce qu'il touche le cœur du moteur" if cto
+              lfs_illisibles: tuple[str, ...] = (), decisions: tuple[str, ...] = (), cto: bool = False,
+              captures_lisibles: tuple[str, ...] = (), captures_illisibles: tuple[str, ...] = (),
+              coeur: tuple[str, ...] = (), deja_relu: str = "") -> str:
+    qui = ("le CTO de Forge, et tu relis ce lot après le relecteur parce qu'il touche le cœur du moteur" if cto
            else "le relecteur de Forge")
+    du_coeur = ", ".join(f"`{f}`" for f in coeur) or "ses fichiers du cœur"
+    second_regard = (f"\nLe relecteur, un autre que toi, a relu ce lot en entier et l'a accepté. Sa relecture :\n-----\n"
+                     f"{deja_relu.strip()[:6000] or '(non retrouvée)'}\n-----\nNe refais pas son travail : vérifie ce "
+                     f"qu'il a pu manquer, et juge d'abord ce que le lot change dans le cœur du moteur ({du_coeur}) : "
+                     "l'ordre du tick, le déterminisme, le chemin des intentions (le joueur et l'IA par le même), et ce "
+                     "que chaque jour du monde coûte de plus (ce qui peut se calculer à la demande ne se recalcule pas "
+                     "à chaque tick).\n" if cto else "")
+    images = ""
+    if captures_lisibles:
+        images += ("\nLes captures du lot sont rangées dans ce dossier. Ouvre chacune avec l'outil de lecture et dis "
+                   "dans ton résumé ce que tu y vois :\n" + "".join(f"- `{f}`\n" for f in captures_lisibles))
+    if captures_illisibles:
+        images += ("\nCes captures du lot n'ont pas pu être rangées ici : " + ", ".join(captures_illisibles)
+                   + ". Dis dans ton résumé que tu ne les as pas vues.\n")
     non_declares = (f"\nCes fichiers de test sont modifiés sans qu'une raison soit donnée : "
                     + ", ".join(f"`{f}`" for f in tests_non_declares)
                     + ". Juge chacun dans le diff : sans règle du monde qui le justifie, c'est un constat bloquant.\n"
@@ -327,7 +343,7 @@ Les tests changés, et la raison donnée pour chacun :
 -----
 {tests_declares.strip() or "(aucun test existant n'est déclaré changé)"}
 -----
-{non_declares}{comptes}{lfs}
+{non_declares}{comptes}{lfs}{images}{second_regard}
 La CI est verte : elle a joué la suite. Tu peux rejouer un fichier de test (`{_py()} -m pytest <fichier> -q -k <nom>`) pour vérifier une affirmation, jamais la suite entière.
 
 Vérifie, du plus grave au plus léger :
@@ -336,7 +352,7 @@ Vérifie, du plus grave au plus léger :
 3. Chaque preuve de la fiche est mesurée par un test ou une commande qui peut échouer.
 4. Les tests changés : chacun l'est parce qu'une règle du monde a changé, il reste aussi strict, et il juge le monde livré. Un test basculé sur un « monde d'avant » (un drapeau, une fixture, un paramètre qui rejoue l'ancienne règle) est un constat bloquant. Un test retiré sans remplaçant aussi strict l'est aussi.
 5. Ce que le lot prétend est vrai : lis le code, pas seulement le compte rendu.
-6. La promesse au joueur : ce que la fiche dit que je joue de plus et que je vois samedi, le diff le donne. Pour un lot `pc`, le compte rendu du PC dit si Unity compile et joint les captures : regarde-les.
+6. La promesse au joueur : ce que la fiche dit que je joue de plus et que je vois samedi, le diff le donne. Pour un lot `pc`, le compte rendu du PC dit si Unity compile. Une capture que la fiche demande et qui manque, ou qui ne montre pas ce que la fiche promet, est un constat bloquant. Ce que tu n'as pas pu vérifier, dis-le dans ton résumé.
 
 Rends ton verdict. `CORRIGER` seulement pour un constat bloquant : chacun avec son fichier, sa ligne et ce qu'il faut à la place. Un constat mineur n'empêche pas `ACCEPTE`. Ne demande au meneur que ce qu'il peut faire dans son lot. Écris en français. {_FRONTIERE}""" + _decisions(decisions)
 
@@ -442,18 +458,47 @@ Ce que tu avais décidé seul pendant la semaine, « à revoir samedi » :
 -----
 {reprise}
 La règle d'un palier et d'un lot est dans `CAP.md`. Regarde le code avant d'écrire : une fiche promet ce que le jeu peut vraiment recevoir en une semaine.
-- Un lot par piste au moins ({", ".join(projet.pistes)}), et pas plus de lots que la semaine n'en porte. Un lot est l'avancée d'une piste pour le palier, sans plafond de taille : ne le coupe pas en morceaux invisibles.
+- Un palier est une seule grande avancée du jeu, sur une semaine entière. Un lot par piste au moins ({", ".join(projet.pistes)}), et autant de lots que la semaine en porte : un palier de trois lots s'est fait en un jour et demi, et la chaîne est restée sans travail le reste de la semaine. Plusieurs lots par piste, enchaînés par `apres`, remplissent la semaine ; la piste du monde (le VPS, deux lots à la fois) en porte plus que les deux pistes du PC (un seul Unity, allumé le jour). Un lot est l'avancée d'une piste pour le palier, sans plafond de taille : ne le coupe pas en morceaux invisibles.
+- Les lots s'emboîtent : si un geste du palier exige ce qu'un autre lot bâtit, une fiche dit comment chaque maison de départ y arrive. La dernière fiche porte la preuve du palier : son scénario joué d'un trait dans le build, depuis une maison de départ que tu nommes.
 - Chaque fiche dit ce que je joue de plus, ce que je vois samedi, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste, la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant).
 - `apres` : les rangs, dans ta liste, des fiches qu'une fiche attend vraiment (l'écran attend la règle). Jamais de boucle.
 - Ce qui reste du palier {numero} et que le propriétaire veut encore, reprends-le dans une fiche ; ce qu'il écarte, laisse-le.
 - `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, et ce que tu reportes. {_FRONTIERE}"""
 
 
+def suite_du_palier(projet: Projet, *, numero: int, etat_du_palier: str, a_revoir: str, proposition: str = "",
+                    remarques: str = "") -> str:
+    """Le CTO, en semaine : le palier n'a plus de lot ouvert avant sa démo, il en propose la suite."""
+    reprise = (f"\nTa proposition précédente :\n-----\n{proposition.strip()[:8000]}\n-----\n"
+               f"Ce que le propriétaire en a dit :\n-----\n{remarques.strip()[:4000]}\n-----\nRefais-la en en tenant "
+               "compte. S'il dit d'attendre la démo, ne rends aucune fiche.\n" if proposition.strip() else "")
+    return f"""{_contexte_cto(projet)}
+
+Tous les lots du palier {numero} sont fermés et sa démo n'a pas encore eu lieu : la chaîne n'a plus rien à faire. Propose la suite du palier {numero} : les lots qui le rendent plus jouable d'ici la démo. Le propriétaire les ouvrira d'un « oui ».
+
+Où en est le palier {numero} :
+-----
+{etat_du_palier.strip()[:8000] or "(rien)"}
+-----
+Ce que tu avais décidé seul, « à revoir samedi » :
+-----
+{a_revoir.strip()[:4000] or "(rien)"}
+-----
+{reprise}
+La règle d'un palier et d'un lot est dans `CAP.md`. Regarde le code livré avant d'écrire : cherche ce qui manque pour que le palier se joue d'un trait.
+- Reste dans le palier {numero} : ce que ses lots ont laissé (un geste que seule une maison peut faire, un écran qui ne propose pas ce que le monde accepte, une règle mal calibrée, le scénario du palier jamais joué d'un trait dans le build). Le palier suivant se décide le samedi, pas ici : n'en ouvre pas le thème.
+- Ne prends que des choix réversibles. Ce qui change une règle que le propriétaire a demandée attend samedi : dis-le dans `note`.
+- Chaque fiche dit ce que je joue de plus, ce que je vois samedi, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste, la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant).
+- `apres` : les rangs, dans ta liste, des fiches qu'une fiche attend vraiment. Jamais de boucle.
+- Si rien ne mérite un lot avant la démo, rends une liste de fiches vide et dis pourquoi dans `note`.
+- `titre` : ce que la suite apporte, en trois à cinq mots. `but` : ce que le joueur saura faire de plus à la démo. `palier_atteint` : faux, le propriétaire n'a pas joué. `note` : ce que tu laisses pour samedi, et pourquoi. {_FRONTIERE}"""
+
+
 def note_de_demo(projet: Projet, *, numero: int, titre: str, faits: str) -> str:
     """Le CTO, le vendredi soir : la note d'une page qui accompagne le build figé."""
     return f"""{_contexte_cto(projet)}
 
-C'est vendredi soir. Le build du palier {numero} « {titre} » est figé. Écris la note d'une page que le propriétaire lira avant de jouer samedi. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes.
+C'est vendredi soir. Le build du palier {numero} « {titre} » est figé. Écris la note d'une page que le propriétaire lira avant de jouer samedi. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes. Les faits disent si le build a été construit ce soir : s'il ne l'a pas été, dis-le en tête de « Ce qui manque ».
 
 Les faits, relevés par le pilote sur GitHub :
 -----
@@ -502,7 +547,7 @@ Les faits, relevés par le pilote sur GitHub :
 
 > **Avancé** : une phrase, la nouveauté la plus forte depuis hier.
 > **Arrêté** : une phrase, ce qui est arrêté et ce que le joueur en attend ; « rien » sinon.
-> **Pour toi** : seulement ce que le propriétaire doit faire lui-même (l'irréversible, l'argent, les droits) ; « rien » sinon.
+> **Pour toi** : ce que les faits rangent sous « POUR LE PROPRIÉTAIRE », et rien d'autre : ce qu'il doit faire lui-même (l'irréversible, l'argent, les droits, un palier qui n'a plus de lot) ; « rien » sinon.
 
 ### Ce qui a changé dans le jeu
 Pour chaque lot livré : son titre en gras avec le lien de sa PR, puis deux phrases sur ce que le joueur peut faire ou voir de neuf.

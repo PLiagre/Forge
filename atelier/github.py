@@ -209,6 +209,15 @@ class GitHub:
                          "--limit", "1", "--json", "status,conclusion,headSha,databaseId,url,event") or []
         return runs[0] if runs else None
 
+    def run_lance(self, workflow: str, depuis: str) -> dict | None:
+        """Le run le plus récent de `workflow` lancé à la main
+        (`workflow_dispatch`) depuis l'instant `depuis` (ISO, UTC) ; None tant
+        que GitHub ne le montre pas."""
+        runs = self.json("run", "list", "-R", self.depot, "--workflow", workflow, "--event", "workflow_dispatch",
+                         "--limit", "5", "--json", "status,conclusion,databaseId,url,createdAt") or []
+        recents = [r for r in runs if (r.get("createdAt") or "") >= depuis]
+        return max(recents, key=lambda r: r["createdAt"]) if recents else None
+
     def rejouer_les_echecs(self, run: int) -> None:
         """Rejoue les travaux en échec d'un run fini, et ceux qui les attendent."""
         self.gh("run", "rerun", str(run), "-R", self.depot, "--failed")
