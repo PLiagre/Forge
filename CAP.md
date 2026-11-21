@@ -23,8 +23,8 @@ but.
   (six heures de travail d'agent, un cinquième au plus de la limite
   hebdomadaire de l'abonnement), et la chaîne est restée sans travail le
   reste de la semaine. Un palier pèse donc trois à quatre fois le palier 1 :
-  sept à neuf lots, et ce qui le borne est la limite hebdomadaire, pas le
-  temps. La piste du monde en porte le plus : le VPS mène deux lots à la
+  une dizaine de lots ou plus selon leur taille, et ce qui le borne est la
+  limite hebdomadaire, pas le temps. La piste du monde en porte le plus : le VPS mène deux lots à la
   fois, le PC un seul Unity, et seulement allumé.
 - **Il avance sur les trois pistes**, d'une avancée que le joueur voit sur
   chacune. Un palier sans rien de neuf à l'écran n'en est pas un.
@@ -73,7 +73,7 @@ PR et le réalise ([docs/WORKFLOW.md](docs/WORKFLOW.md)).
 Les lots du palier en cours sont les issues de son jalon GitHub ; ils y font
 foi. Les paliers suivants sont écrits ici pour que le CTO en tire les lots le
 samedi, d'après ce que le propriétaire aura dit en jouant. Chacun est une
-seule grosse feature, en sept à neuf lots ; le palier 2 en compte neuf.
+seule grosse feature, en une dizaine de lots ou plus selon leur taille.
 
 ### Palier 1 — la première guerre (livré, à jouer)
 
@@ -86,21 +86,30 @@ guerre ne finit jamais.
 
 ### Palier 2 — la guerre complète
 
-Une guerre se gagne en bataille, se tient par les sièges, se finit par un
-traité, et ne se fait plus seul. Toute maison de départ la joue de bout en
-bout.
+Une guerre se finit par un traité, ne se fait plus seul, se tient derrière
+des murs et se gagne en bataille. Le palier se joue d'un trait depuis
+l'émirat du Zab, et toute maison de départ lève depuis la carte. Seize lots,
+proposés sur l'issue du palier 1 : huit du monde, enchaînés sur le VPS, et
+huit sur le PC. Une fois ouverts, ce sont les issues du jalon qui font foi.
 
-| piste | le lot | ce que je joue de plus | ce que je vois samedi |
+| # | piste | le lot | ce que je joue et vois de plus |
 |---|---|---|---|
-| le monde | **la bataille** | chercher ou refuser le combat, choisir son terrain, mener en personne ou confier l'armée à un chef de guerre | deux armées ennemies au même lieu se battent plusieurs jours ; le nombre, les vivres, le terrain et le chef décident ; les morts manquent aux champs, les fuyards rentrent ; une armée de secours lève un siège ; le chef d'une maison peut y mourir |
-| le monde | **le siège et l'occupation** | donner l'assaut ou attendre la faim, tenir une place prise avec une garnison, ravager une terre | les murs et le grenier décident de combien de temps une place tient ; l'assaut coûte des hommes ; une terre prise est occupée, pas encore à moi : c'est le traité qui la donne |
-| le monde | **la paix** | dire pourquoi je fais la guerre (la terre que je réclame), proposer un traité et ses conditions (céder une terre, rendre une place, un tribut de grain, la paix blanche) | un score de guerre né des places, des batailles et de la durée ; la maison d'en face pèse l'offre et répond avec ses raisons ; la lassitude entame la Concorde ; une trêve suit le traité ; une guerre que personne ne gagne finit d'épuisement |
-| le monde | **les alliés et la pyramide** | s'allier en dépensant du Sceau, appeler ses alliés, répondre à l'appel de son suzerain ou le refuser | suzerain, vassaux et alliés entrent dans la guerre ; refuser coûte du Renom ; l'IA s'allie contre un voisin qui grossit et déclare la guerre avec des raisons qu'on peut lire ; Constantinople ne tombe plus la première année |
-| le monde | **le jour tient la vitesse la plus rapide** | jouer la guerre à la cinquième vitesse | dix jours par seconde, armées et batailles comprises ; le budget du jour est gardé avant la fusion, pas après |
-| la ville | **la ville fortifiée et assiégée** | fermer sa capitale de murs, de portes et de tours tracés à la main, et y poster sa garnison | l'enceinte du kit du désert dans Biskra et son prix ; pendant le siège, l'armée ennemie campée devant les murs, les portes closes, les étals qui se vident ; les murs comptent dans la tenue de la place |
-| l'interface | **la guerre pour toute maison** | bâtir la caserne depuis la carte, lever dans tous ses lieux | toute maison de départ fait la guerre, sans passer par une ville en 3D ; la carte se colore par pays ou par maison |
-| l'interface | **la bataille et le siège sur la carte** | suivre une bataille, ordonner l'assaut, poster une garnison | la bataille et le siège se lisent sur la carte, avec leurs pertes jour par jour ; la terre occupée se distingue de la terre acquise ; le journal de la guerre |
-| l'interface | **la diplomatie et les nouvelles** | composer un traité et voir ce que l'autre en pense avant de l'envoyer, s'allier, appeler, régler le temps | l'écran des relations (qui est en guerre, allié, vassal, et pourquoi) ; le traité qui se compose ; le fil des nouvelles, dont chaque ligne mène au lieu ; la pause et les cinq vitesses ; **le scénario du palier joué d'un trait dans le build** |
+| 1 | le monde | **faire la paix** | proposer un traité et ses conditions ; l'autre maison pèse l'offre et répond avec sa raison ; une trêve suit, et la guerre qui dure entame la Concorde |
+| 2 | le monde | **les murs et le pain tiennent le siège** | une place sans murs se rend en deux semaines, ses habitants vivants ; une ville close tient tant qu'elle a du pain ; il faut assez d'hommes pour assiéger |
+| 3 | le monde | **les alliés entrent en guerre** | s'allier au prix du Sceau, appeler alliés, suzerain et vassaux, répondre à un appel ; attaquer un petit seigneur fait entrer son suzerain |
+| 4 | le monde | **les autres maisons traitent et s'allient** | l'IA propose la paix, s'allie, vient assiéger ma capitale, ne mène qu'une guerre à la fois, et chaque décision a sa raison en clair |
+| 5 | le monde | **le monde dit ce qui arrive** | un fil de nouvelles datées, en phrases de joueur, avec le lieu et le geste attendu |
+| 13 | le monde | **la bataille** | tenir, attaquer ou se retirer ; deux armées se battent plusieurs jours ; le nombre, les vivres, le terrain et le chef décident ; une armée de secours lève un siège |
+| 14 | le monde | **l'assaut, la garnison et l'occupation** | donner l'assaut et payer en hommes ; tenir une place prise avec une garnison jusqu'au traité, ou la ravager ; tenter une sortie |
+| 15 | le monde | **le jour tient la vitesse la plus rapide** | dix jours par seconde, guerre, bataille et nouvelles comprises |
+| 6 | l'interface | **la carte obéit à la main** | la carte se centre sur ma maison, la molette zoome sous la souris, la barre reste lisible à toute vitesse |
+| 7 | l'interface | **traiter et assiéger depuis le cabinet** | composer une offre de paix en cliquant les terres, lire d'avance la réponse ; l'ordre de siège dit la garnison, les murs et le jour de la reddition |
+| 8 | l'interface | **l'écran des relations** | suzerain, vassaux, alliés, ennemis et trêves, avec leur raison ; un mode de carte « Relations » |
+| 9 | l'interface | **le fil des nouvelles** | un clic sur une nouvelle mène au lieu et ouvre le panneau où répondre |
+| 16 | l'interface | **la bataille et l'assaut sur la carte, pour toute maison** | la bataille jour par jour, le prix d'un assaut, la terre occupée hachurée ; la caserne et la levée depuis la carte pour toute maison |
+| 10 | la ville | **fermer sa capitale de murs** | tracer l'enceinte de Biskra, choisir les bras du chantier, voir le mur monter avec ses tours et ses portes |
+| 11 | la ville | **ma capitale assiégée** | le camp ennemi devant les murs, les portes closes, ce qu'il reste de pain |
+| 12 | l'interface | **la guerre du Zab finit par un traité** | le scénario du palier, joué d'un trait dans le build : murs, caserne, alliance, guerre, bataille devant Biskra, traité |
 
 ### Palier 3 — l'argent et le commerce
 
