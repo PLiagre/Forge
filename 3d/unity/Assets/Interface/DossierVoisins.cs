@@ -14,11 +14,11 @@ namespace Forge.Interface
         NomsDesTerres noms;
         double prochaine;
         public string TexteAffiche { get; private set; }
-        public void Initialiser(Transform toile, Transform barre, int port)
+        public void Initialiser(Transform toile, Transform barre, int port, float x)
         {
             gestes = LectureDossier.Locale(port); maisons = LectureDossier.Locale(port); noms = NomsDesTerres.Local(port);
             feuillet = gameObject.AddComponent<Feuillet>(); feuillet.Initialiser(toile, "Les autres maisons");
-            EmblemeCommande.Icone(barre, "Autres maisons", 80, () =>
+            EmblemeCommande.Icone(barre, "Autres maisons", x, () =>
             {
                 if (feuillet.Ouvert) feuillet.Fermer(); else feuillet.Ouvrir();
             }, "Les autres maisons : ouvre ou ferme le journal de leurs ordres.");

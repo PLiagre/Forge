@@ -134,6 +134,43 @@ namespace Forge.Interface.Tests
             Assert.That(juges, Is.EqualTo(97 * 55 + 65 * 37), "points jugés");
         }
 
+        // La croix d'un panneau, telle que le socle la pose : enfant direct « Fermer » de 44 × 44 dans le coin haut droit, son repère « croix », aucun texte actif,
+        // une phrase au survol. Nul si l'un manque : un panneau sans croix, ou avec un ancien bouton texte, ne passe pas.
+        public static Button CroixDe(RectTransform panneau)
+        {
+            var croix = panneau.Find("Fermer"); if (croix == null) return null;
+            var rect = (RectTransform)croix; var bouton = croix.GetComponent<Button>(); var bulle = croix.GetComponent<Infobulle>();
+            bool place = rect.sizeDelta == new Vector2(SocleInterface.HauteurCommande, SocleInterface.HauteurCommande)
+                && Mathf.Approximately(rect.anchoredPosition.x + rect.sizeDelta.x, panneau.sizeDelta.x - SocleInterface.Espacement) && Mathf.Approximately(-rect.anchoredPosition.y, 20);
+            bool nu = croix.Find("Repère croix") != null && croix.GetComponentsInChildren<Text>().Length == 0;
+            bool dit = bulle != null && !string.IsNullOrWhiteSpace(bulle.Phrase) && bulle.Phrase != croix.name;
+            return bouton != null && place && nu && dit ? bouton : null;
+        }
+
+        [Test] public void LaCroixFermeLePanneauDansSonCoinHautDroit()
+        {
+            var panneau = SocleInterface.Panneau(Toile.transform, "Panneau témoin", 100, 100, 740, 300);
+            Assert.That(CroixDe(panneau), Is.Null, "une croix trouvée sur un panneau qui n'en a pas");
+            var ancien = SocleInterface.Commande(panneau, "Fermer", 588, 20, null, phrase: "Ferme le panneau témoin.");
+            Assert.That(CroixDe(panneau), Is.Null, "l'ancien bouton texte de 340 × 44 passe pour la croix"); UnityEngine.Object.DestroyImmediate(ancien.gameObject);
+
+            var croix = SocleInterface.Croix(panneau, () => panneau.gameObject.SetActive(false), "Ferme le panneau témoin.");
+            Assert.That(CroixDe(panneau), Is.SameAs(croix));
+            Assert.That(croix.name, Is.EqualTo("Fermer")); Assert.That(croix.transform.parent, Is.SameAs(panneau));
+            Assert.That(((RectTransform)croix.transform).sizeDelta, Is.EqualTo(new Vector2(44, 44)));
+            var coins = new Vector3[4]; ((RectTransform)croix.transform).GetWorldCorners(coins); // jugé dans le repère du panneau : indépendant de l'échelle de la toile
+            Vector3 haut = panneau.InverseTransformPoint(coins[2]);
+            Assert.That(panneau.rect.xMax - haut.x, Is.EqualTo(24).Within(ARRONDI), "le bord droit n'est pas à 24 du bord droit du panneau");
+            Assert.That(panneau.rect.yMax - haut.y, Is.EqualTo(20).Within(ARRONDI), "le haut n'est pas à 20 du haut du panneau");
+            var repere = (RectTransform)croix.transform.Find("Repère croix");
+            Assert.That(repere.anchorMin == new Vector2(.5f, .5f) && repere.anchorMax == new Vector2(.5f, .5f) && repere.pivot == new Vector2(.5f, .5f), Is.True, "le repère n'est pas centré");
+            Assert.That(repere.anchoredPosition, Is.EqualTo(Vector2.zero)); Assert.That(repere.localScale, Is.EqualTo(Vector3.one * 1.5f));
+            Assert.That(croix.GetComponentsInChildren<Text>(true).Where(t => t.gameObject.activeInHierarchy), Is.Empty, "un texte actif sur la croix");
+            Assert.That(croix.GetComponent<Infobulle>().Phrase, Is.EqualTo("Ferme le panneau témoin."));
+            Assert.That(panneau.gameObject.activeSelf, Is.True); croix.onClick.Invoke(); Assert.That(panneau.gameObject.activeSelf, Is.False, "la croix ne ferme pas le panneau");
+            Assert.Throws<ArgumentException>(() => SocleInterface.Croix(panneau, null, " "));
+        }
+
         [Test] public void UneCommandeRefuseUnePhraseVide()
         {
             Transform domaine = galerie.GetComponentsInChildren<Image>().Single(i => i.name == "Le domaine").transform;

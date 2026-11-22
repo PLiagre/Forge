@@ -15,8 +15,10 @@ signes de livre, bannière et bourg sont dessinés pour les commandes, avec leur
 libellés ; ce ne sont pas des armoiries historiques.
 
 Le menu montre toute l’aide. Les feuillets laissent un espace au-dessus du
-guide. Maison, territoire et dossier restent visibles ensemble ; la caméra
-conserve 67 % de la largeur au repos. Le sceau distingue l’engagement à
+guide. La carte prend tout l’écran, vue d’en haut, nord en haut, sous la barre
+du haut ; « Votre maison » s’ouvre de son icône, la fiche d’une terre d’un clic
+sur elle, et chaque panneau se ferme de sa croix ; « Ma capitale » ramène la
+vue sur le siège. Le sceau distingue l’engagement à
 confirmer, les boutons grisés signalent l’indisponibilité.
 
 ## Le socle

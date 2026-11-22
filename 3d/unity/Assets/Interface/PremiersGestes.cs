@@ -14,7 +14,7 @@ namespace Forge.Interface
     // ville détruit et refait la carte). Une classe simple : le cabinet l'appelle à chaque image.
     public sealed class PremiersGestes
     {
-        public const string TITRE = "Vos premiers gestes", FERMER = "Fermer";
+        public const string TITRE = "Vos premiers gestes";
         public const string TEMPS = "Lancer le temps", VILLE = "Entrer dans votre ville", ARMEE = "Lever une armée", FAIT = " : fait";
         public const string LANCER = "Lancer", ENTRER = "Entrer", LEVER = "Lever";
         public const string HORLOGE_ATTENDUE = "Le monde n'a pas encore servi son horloge : le temps ne peut pas se lancer.";
@@ -51,9 +51,7 @@ namespace Forge.Interface
         {
             this.partie = partie; this.horloge = horloge; this.boutonDeLaVille = ville; this.guerres = guerres;
             panneau = SocleInterface.Panneau(toile, TITRE, X, Y, LARGEUR, HAUTEUR);
-            fermer = SocleInterface.Commande(panneau, FERMER, 588, 20, Fermer, phrase: "Ferme cet encart pour votre maison ; il ne revient pas.");
-            fermer.GetComponent<RectTransform>().sizeDelta = new Vector2(128, SocleInterface.HauteurCommande);
-            fermer.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(128, SocleInterface.HauteurCommande);
+            fermer = SocleInterface.Croix(panneau, Fermer, "Ferme cet encart pour votre maison ; il ne revient pas.");
             temps = Ligne(0, TEMPS, LANCER, lancerLeTemps, "Lance le temps du monde, ou l'arrête s'il court déjà.");
             entrer = Ligne(1, VILLE, ENTRER, ville.Entrer, "Ouvre votre capitale.");
             armee = Ligne(2, ARMEE, LEVER, leverUneArmee, "Ouvre le feuillet de la guerre : on y lève l'ost, avec le prix de chaque ordre.");
