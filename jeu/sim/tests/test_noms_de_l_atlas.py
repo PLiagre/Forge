@@ -229,6 +229,14 @@ def test_le_point_de_chaque_mer_est_hors_de_toute_terre(carte, boites, document)
         assert not cellules_du_point(carte, boites, mer["x_m"], mer["y_m"]), f"{mer['nom']} est sur la terre"
 
 
+def test_le_point_de_chaque_mer_est_dans_le_cadre_de_la_carte(boites, document):
+    x0, y0 = min(b[0] for b in boites.values()), min(b[1] for b in boites.values())
+    x1, y1 = max(b[2] for b in boites.values()), max(b[3] for b in boites.values())
+    assert document["mers"]
+    for mer in document["mers"]:
+        assert x0 <= mer["x_m"] <= x1 and y0 <= mer["y_m"] <= y1, f"{mer['nom']} est hors du cadre de la carte"
+
+
 def test_le_point_de_chaque_region_est_dans_une_cellule(carte, boites, document):
     assert document["regions"]
     for region in document["regions"]:
@@ -299,6 +307,10 @@ def _mer_sur_la_terre(brut):
     trouver(brut["mers"], "Méditerranée").update(lat=41.9, lon=12.5)
 
 
+def _mer_hors_du_cadre(brut):
+    trouver(brut["mers"], "Atlantique").update(lat=0.0, lon=-25.0)
+
+
 def _region_en_mer(brut):
     trouver(brut["regions"], "Aquitaine").update(lat=45.5, lon=-4.4)
 
@@ -307,6 +319,7 @@ def _region_en_mer(brut):
     (_fleuve_finit_dans_les_terres, "Loire"),
     (_fleuve_ne_part_pas_de_la_terre, "Loire"),
     (_mer_sur_la_terre, "Méditerranée"),
+    (_mer_hors_du_cadre, "Atlantique"),
     (_region_en_mer, "Aquitaine"),
 ])
 def test_une_place_fausse_est_refusee_et_nommee(tmp_path, carte, modifier, attendu):
@@ -485,3 +498,23 @@ def test_une_erreur_de_calcul_rend_500_sans_arreter_le_service(monkeypatch, mond
         statut, _, octets = requete_service(port, "/atlas")
         assert statut == HTTPStatus.OK
         assert octets == _serialiser(document_de_l_atlas(monde))
+
+
+# --- La règle écrite ---
+
+def test_documentation_des_noms_de_l_atlas(document):
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    section = texte.split("## Les noms de l'atlas, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
+    for attendu in ("GET /atlas", "atlas-1400.json", "nil-cours-1400.json", "`trace_dans`", "Niveau 1",
+                    "Niveau 2", "Niveau 3", "AtlasInvalide", "verrou propre", "Le tick ne lit jamais cette vue",
+                    "charger_registre_maisons", "villes-1400.json", "`POINTS_MIN_FLEUVE`", "`DIRECTIONS_DE_SONDE`",
+                    "`ANNEAUX_DE_SONDE`"):
+        assert attendu in section, f"{attendu!r} absent de « Les noms de l'atlas »"
+    # Les nombres que la section annonce sont ceux du document servi.
+    assert f"{len(document['mers'])} mers" in section
+    assert f"{len(document['regions'])} régions" in section
+    assert f"{len(document['sieges'])} sièges" in section
+    assert f"nomme onze" in section and len(document["fleuves"]) == 12
+    for renvoi in ("La carte et les terres servies, vue dérivée", "La forme des lieux, vue dérivée"):
+        autre = texte.split(f"## {renvoi}\n", 1)[1].split("\n## ", 1)[0]
+        assert "« Les noms de l'atlas, vue dérivée »" in autre.replace("\n", " "), f"{renvoi} ne renvoie pas à l'atlas"

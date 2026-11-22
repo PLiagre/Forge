@@ -192,6 +192,13 @@ class _Terre:
             points = [p for polygone in polygones for anneau in polygone for p in anneau]
             xs, ys = [p[0] for p in points], [p[1] for p in points]
             self.boites[cid] = (min(xs), min(ys), max(xs), max(ys))
+        x0s, y0s, x1s, y1s = zip(*self.boites.values())
+        self.cadre = (min(x0s), min(y0s), max(x1s), max(y1s))
+
+    def dans_le_cadre(self, x, y) -> bool:
+        """Le point est-il dans la boîte de la carte entière, terre ou mer ?"""
+        x0, y0, x1, y1 = self.cadre
+        return x0 <= x <= x1 and y0 <= y <= y1
 
     def contient(self, x, y) -> bool:
         return any(x0 <= x <= x1 and y0 <= y <= y1 and point_dans_geometrie(x, y, self.carte[cid]["geometry"])
@@ -219,8 +226,8 @@ def verifier_la_place(atlas, carte) -> None:
     """Refuse, en le nommant, tout nom qui n'a pas sa place sur la carte figée.
 
     Un fleuve part de la terre et finit à moins d'un pas de la côte, une mer est hors de toute
-    cellule, une région dans une cellule. Un atlas ou une carte vide est refusé : un échantillon
-    vide ne prouve rien.
+    cellule mais dans le cadre de la carte, une région dans une cellule. Un atlas ou une carte
+    vide est refusé : un échantillon vide ne prouve rien.
     """
     if not (atlas.fleuves and atlas.mers and atlas.regions):
         raise AtlasInvalide("atlas vide : fleuves, mers et régions sont tous attendus")
@@ -236,6 +243,8 @@ def verifier_la_place(atlas, carte) -> None:
     for mer in atlas.mers:
         if terre.contient(*_en_metres(mer)):
             raise AtlasInvalide(f"{_MER} {mer.nom!r} : son point est sur la terre")
+        if not terre.dans_le_cadre(*_en_metres(mer)):
+            raise AtlasInvalide(f"{_MER} {mer.nom!r} : son point est hors du cadre de la carte")
     for region in atlas.regions:
         if not terre.contient(*_en_metres(region)):
             raise AtlasInvalide(f"{_REGION} {region.nom!r} : son point est en mer")

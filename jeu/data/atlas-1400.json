@@ -168,7 +168,7 @@
   ],
   "mers": [
     {"nom": "Méditerranée", "lat": 35, "lon": 18, "source": "Wikipédia (en), article Mediterranean Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Mediterranean_Sea"},
-    {"nom": "Atlantique", "lat": 0, "lon": -25, "source": "Wikipédia (en), article Atlantic Ocean, coordonnées de l'article : https://en.wikipedia.org/wiki/Atlantic_Ocean"},
+    {"nom": "Atlantique", "lat": 42.58, "lon": -11.58, "source": "Wikipédia (en), article Galicia Bank, coordonnées de l'article : https://en.wikipedia.org/wiki/Galicia_Bank ; un banc en plein océan, pris comme point de lecture du nom parce que le centre de l'océan (0° N, 25° O) est hors du cadre de la carte"},
     {"nom": "Mer du Nord", "lat": 56, "lon": 3, "source": "Wikipédia (en), article North Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/North_Sea"},
     {"nom": "Baltique", "lat": 58, "lon": 20, "source": "Wikipédia (en), article Baltic Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Baltic_Sea"},
     {"nom": "Mer Noire", "lat": 44, "lon": 35, "source": "Wikipédia (en), article Black Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Black_Sea"},
@@ -182,12 +182,9 @@
     {"nom": "Mer Ligure", "lat": 43.5, "lon": 9, "source": "Wikipédia (en), article Ligurian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Ligurian_Sea"},
     {"nom": "Mer d'Azov", "lat": 46, "lon": 37, "source": "Wikipédia (en), article Sea of Azov, coordonnées de l'article : https://en.wikipedia.org/wiki/Sea_of_Azov"},
     {"nom": "Mer de Marmara", "lat": 40.66667, "lon": 28, "source": "Wikipédia (en), article Sea of Marmara, coordonnées de l'article : https://en.wikipedia.org/wiki/Sea_of_Marmara"},
-    {"nom": "Mer de Norvège", "lat": 69, "lon": 2, "source": "Wikipédia (en), article Norwegian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Norwegian_Sea"},
     {"nom": "Golfe de Botnie", "lat": 63, "lon": 20, "source": "Wikipédia (en), article Gulf of Bothnia, coordonnées de l'article : https://en.wikipedia.org/wiki/Gulf_of_Bothnia"},
     {"nom": "Golfe de Finlande", "lat": 59.83333, "lon": 26, "source": "Wikipédia (en), article Gulf of Finland, coordonnées de l'article : https://en.wikipedia.org/wiki/Gulf_of_Finland"},
     {"nom": "Mer d'Alboran", "lat": 36, "lon": -3, "source": "Wikipédia (en), article Alboran Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Alboran_Sea"},
-    {"nom": "Mer Caspienne", "lat": 42, "lon": 50.5, "source": "Wikipédia (en), article Caspian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Caspian_Sea"},
-    {"nom": "Mer Rouge", "lat": 22, "lon": 38, "source": "Wikipédia (en), article Red Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Red_Sea"},
     {"nom": "Mer Levantine", "lat": 34, "lon": 34, "source": "Wikipédia (en), article Levantine Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Levantine_Sea"}
   ],
   "regions": [
