@@ -2,14 +2,17 @@ name: sonde-pc
 
 # Les agents du PC répondent-ils, dans le contexte du service ?
 #
-# Le runner `pc-forge` tourne en service sous le compte du propriétaire : il
-# ne voit ni le PATH ni l'environnement de sa session. Une sonde lancée à la
-# main dans un terminal ne prouve donc rien pour la chaîne ; celle-ci tourne
-# là où tourne un lot « pc », avec le même PATH et le même code (master,
-# dans le worktree .atelier\pilote-pc). Elle appelle chaque agent du rôle
-# comme la chaîne l'appelle, avec son modèle exact.
+# Les runners `pc-forge` et `pc-forge-2` tournent en service sous le compte
+# du propriétaire : ils ne voient ni le PATH ni l'environnement de sa
+# session. Une sonde lancée à la main dans un terminal ne prouve donc rien
+# pour la chaîne ; celle-ci tourne là où tourne un lot « pc », avec le même
+# PATH et le même code (master, dans un worktree qui n'est qu'à elle,
+# .atelier\pilote-sonde : elle ne récrit pas le code sous un lot qui
+# travaille). Elle appelle chaque agent du rôle comme la chaîne l'appelle,
+# avec son modèle exact.
 #
 # Lancer : gh workflow run sonde-pc.yml -R PLiagre/Forge
+# Lancée deux fois de suite, elle sonde les deux runners : chacun en prend une.
 
 on:
   workflow_dispatch:
@@ -36,7 +39,7 @@ jobs:
           # Le même PATH que lot-pc.yml : c'est lui qu'on éprouve.
           $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
           git -C D:\Forge fetch --quiet --prune origin
-          $atelier = 'D:\Forge\.atelier\pilote-pc'
+          $atelier = 'D:\Forge\.atelier\pilote-sonde'
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
           git -C $atelier checkout --quiet --force --detach origin/master
           $env:PYTHONPATH = $atelier

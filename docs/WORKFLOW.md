@@ -125,8 +125,9 @@ VPS. Le journal du matin les additionne par rôle et par lot.
   (`.atelier/chantiers/pc` et `pc-2`), que le pilote nomme à l'envoi et que
   le lot garde. Chaque passage est envoyé par `workflow_dispatch`
   (`lot-pc.yml`) et répond toujours sur la PR. Un runner passe un travail à
-  la fois : avec un seul runner, les passages de deux lots se suivent ; avec
-  deux, ils avancent ensemble. `PC_ACTIF = non` met le PC en pause.
+  la fois : le PC en a deux (`pc-forge`, `pc-forge-2`), et les deux lots
+  avancent ensemble. Le build de la nuit a son propre chantier : il peut
+  tourner pendant qu'un lot travaille. `PC_ACTIF = non` met le PC en pause.
 - **L'abonnement** borne le tout : un lot prend 35 à 50 % d'une fenêtre de
   cinq heures. Quand elle est pleine, les lots attendent sa remise à zéro ;
   rien n'échoue.

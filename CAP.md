@@ -86,7 +86,7 @@ Lords, rien de neuf hors de l'interface (décisions 51 à 54).
 | la borne | sa mesure | ce qui la lève |
 |---|---|---|
 | **l'abonnement** | un lot prend 35 à 50 % d'une fenêtre de cinq heures et 3 à 6 % de la limite de la semaine : deux lots menés sans arrêt remplissent une fenêtre, et la semaine porte une vingtaine de lots, une quinzaine avec des sessions directes à côté | un abonnement plus large : au propriétaire |
-| **le PC** | il ne travaille qu'allumé ; un seul runner y passe un travail à la fois, deux lots Unity s'y suivent donc au lieu d'avancer ensemble | le laisser allumé pendant une étape ; y installer un second runner : au propriétaire, dix minutes, gratuit |
+| **le PC** | il ne travaille qu'allumé ; ses deux runners mènent deux lots Unity ensemble, pas plus | le laisser allumé pendant une étape : au propriétaire |
 | **le jeu du propriétaire** | une étape attend qu'il ait joué ; un refus coûte un tour de correction d'un à deux jours | rien, et c'est voulu |
 | **l'art de la ville** | la chaîne écrit du code, pas des maisons : la ville ne vaudra pas Manor Lords avec le seul kit du désert | un kit de village d'Occident, acheté : au propriétaire, à la fin de l'étape 2 |
 | le VPS | deux processeurs : deux lots au plus | une machine plus grosse ; inutile tant que l'abonnement borne avant lui |
@@ -229,7 +229,6 @@ choix, la bataille.
 | décision | ce qu'elle coûte | ce qu'elle fait gagner | ce que je recommande |
 |---|---|---|---|
 | laisser le PC allumé tant qu'une étape tourne | l'électricité d'une nuit | douze heures sur vingt-quatre : la nuit du palier 1 a coûté 11 h 50 à elle seule | oui, dès l'étape 0 |
-| installer un second runner GitHub sur le PC | dix minutes, rien d'autre | deux lots Unity qui avancent vraiment ensemble : les étapes 1, 2 et 4 presque deux fois plus vite | oui, avant l'étape 1 |
 | un abonnement plus large | le prix du palier au-dessus de l'abonnement Max en place, ou d'un second abonnement | la seule borne qui reste une fois le PC réglé : plus de deux lots menés sans arrêt, plus de vingt par semaine | attendre la mesure de l'étape 1 : si le journal du matin montre la limite de la semaine au-dessus de 70 % avant le cinquième jour, oui |
 | le décor de la ville : rester au désert, ou passer à un village d'Occident | un kit de l'Asset Store | la ville jugée contre Manor Lords, que le désert ne donnera pas | décider à la fin de l'étape 2, comme prévu (décision 54) |
 | donner une forme aux lieux, ou refaire la maille | — | — | les lieux d'abord : le moteur ne bouge pas ; la preuve du lot 4 de l'étape 1 tranche |

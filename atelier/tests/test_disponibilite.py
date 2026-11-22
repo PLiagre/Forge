@@ -64,14 +64,51 @@ def test_seule_une_priorite_normale_ou_plus_haute_se_rabaisse():
     "        TYPE               : 10  WIN32_OWN_PROCESS\n        ÉTAT               : 4  RUNNING\n",
 ])
 def test_le_service_du_runner_se_lit_dans_n_importe_quelle_langue(sortie):
-    assert disponibilite.nom_du_service(sortie) == "actions.runner.PLiagre-Forge.pc-forge"
+    assert disponibilite.noms_des_services(sortie) == ["actions.runner.PLiagre-Forge.pc-forge"]
     assert disponibilite.etat_du_service(sortie) == "RUNNING"
 
 
 def test_un_service_absent_ou_sans_etat_n_invente_rien():
-    assert disponibilite.nom_du_service("SERVICE_NAME: Spooler\n") is None
+    assert disponibilite.noms_des_services("SERVICE_NAME: Spooler\n") == []
     assert disponibilite.etat_du_service("rien ici") is None
     assert disponibilite.etat_du_service("STATE : 1  STOPPED") == "STOPPED"
+
+
+PREMIER, SECOND = "actions.runner.PLiagre-Forge.pc-forge", "actions.runner.PLiagre-Forge.pc-forge-2"
+
+
+def test_les_deux_runners_du_pc_se_lisent_chacun_une_fois():
+    """Le PC a deux services : n'en lire qu'un laisserait l'autre prendre les
+    travaux quand on croit avoir tout arrêté."""
+    sortie = (f"SERVICE_NAME: {SECOND}\nDISPLAY_NAME: GitHub Actions Runner (PLiagre-Forge.pc-forge-2)\n"
+              "        STATE              : 4  RUNNING\n\n"
+              "SERVICE_NAME: Spooler\n        STATE              : 4  RUNNING\n\n"
+              f"SERVICE_NAME: {PREMIER}\nDISPLAY_NAME: GitHub Actions Runner (PLiagre-Forge.pc-forge)\n"
+              "        STATE              : 1  STOPPED\n")
+    assert disponibilite.noms_des_services(sortie) == [PREMIER, SECOND]
+    assert [disponibilite.nom_court(nom) for nom in (PREMIER, SECOND)] == ["pc-forge", "pc-forge-2"]
+
+
+@pytest.mark.parametrize("services, attendu", [
+    ({PREMIER: "RUNNING", SECOND: "RUNNING"}, ("stop", [PREMIER, SECOND])),
+    # Un seul encore en marche : c'est lui qu'on arrête, on ne relance pas l'autre.
+    ({PREMIER: "STOPPED", SECOND: "RUNNING"}, ("stop", [SECOND])),
+    ({PREMIER: "STOPPED", SECOND: "STOPPED"}, ("start", [PREMIER, SECOND])),
+    # Un service qui change d'état ou qu'on ne sait pas lire ne se commande pas.
+    ({PREMIER: "STOPPED", SECOND: "STOP_PENDING"}, ("start", [PREMIER])),
+    ({PREMIER: None, SECOND: "START_PENDING"}, ("start", [])),
+    ({}, ("start", [])),
+])
+def test_le_bouton_arrete_tout_ce_qui_tourne_puis_demarre_ce_qui_est_arrete(services, attendu):
+    assert disponibilite.a_commander(services) == attendu
+
+
+def test_une_seule_elevation_commande_tous_les_services_et_rien_d_autre():
+    d = disponibilite
+    assert d.arguments_de_cmd("stop", [PREMIER, SECOND]) == f"/c sc stop {PREMIER} & sc stop {SECOND}"
+    assert d.arguments_de_cmd("start", [PREMIER]) == f"/c sc start {PREMIER}"
+    # Ce qui part élevé ne porte que des noms de runner.
+    assert d.arguments_de_cmd("stop", [PREMIER, "Spooler", f"{SECOND} & del x"]) == f"/c sc stop {PREMIER}"
 
 
 @pytest.mark.parametrize("code, sortie, erreur, attendu", [

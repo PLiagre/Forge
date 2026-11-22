@@ -2,15 +2,21 @@ name: build-nuit
 
 # Le build Windows du jeu, chaque nuit, sur le PC du propriétaire.
 #
-# Il part de master, dans le worktree de D:\Forge que partagent les lots PC
-# (sa Library Unity est chaude), et dépose le joueur dans D:\Forge\builds :
-# un dossier par nuit, et `dernier`, que lance pc\Jouer.cmd. Le build embarque
-# les packs de l'Asset Store : il ne quitte jamais le PC.
+# Il part de master, dans un worktree de D:\Forge qui n'est qu'à lui
+# (.atelier\chantiers\build, dont la Library Unity reste chaude d'une nuit à
+# l'autre), et dépose le joueur dans D:\Forge\builds : un dossier par nuit,
+# et `dernier`, que lance pc\Jouer.cmd. Le build embarque les packs de
+# l'Asset Store : il ne quitte jamais le PC.
+#
+# Le PC a deux runners : un build peut tourner pendant qu'un lot travaille
+# sur l'autre. Il ne touche donc jamais au chantier d'un lot : remettre ce
+# chantier sur master déferait le travail en cours, et Unity n'ouvre pas
+# deux fois le même projet.
 #
 # Un PC éteint à l'heure dite garde le travail en file : il part au réveil.
-# Pas de groupe de concurrence : il n'admet qu'un travail en attente, et ce
-# build en file annulait l'envoi d'un lot au PC (ou l'inverse). Le runner
-# unique enchaîne déjà les travaux un par un.
+# Le groupe de concurrence n'est qu'aux builds, jamais partagé avec les
+# lots : deux builds se suivent au lieu d'ouvrir le même projet ensemble, et
+# un build en file n'annule l'envoi d'aucun lot.
 
 on:
   schedule:
@@ -24,6 +30,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: build-nuit
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -41,7 +51,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           git -C D:\Forge fetch --quiet --prune origin
-          $w = 'D:\Forge\.atelier\chantiers\pc'
+          $w = 'D:\Forge\.atelier\chantiers\build'
           if (-not (Test-Path "$w\.git")) { git -C D:\Forge worktree add --force --detach $w origin/master }
           git -C $w checkout --quiet --force --detach origin/master
           $vendor = "$w\3d\unity\Assets\Vendor"

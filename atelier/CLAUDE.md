@@ -70,8 +70,13 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
   (`.atelier/chantiers/pc`, `pc-2`…). Le pilote nomme le chantier à l'envoi
   (la marque `envoye` le porte) et le lot le garde. Un chantier ne porte
   qu'un passage à la fois (verrou `chantier-<nom>`), et les passages se
-  partagent les verrous `git` et `captures`. Deux lots n'avancent vraiment
-  ensemble que si le PC a deux runners.
+  partagent les verrous `git` et `captures`. Le PC a deux runners
+  (`pc-forge`, `pc-forge-2`), un par lot ; chaque chantier a sa copie du
+  code de la chaîne (`.atelier/pilote-<chantier>`), et le build de la nuit
+  son propre chantier (`.atelier/chantiers/build`) : aucun travail ne
+  remet sur master un dossier où un autre travaille.
+- **`sonde-pc.yml` lancée deux fois de suite sonde les deux runners** :
+  chacun en prend une, et le nom du runner se lit sur le travail.
 - **Une session d'agent ne se reprend que sur sa machine, dans le dossier
   du lot** : un lot ne change ni de machine ni de chantier en cours de route.
 - **La démo ne suit pas la semaine** : le cron regarde toutes les dix
