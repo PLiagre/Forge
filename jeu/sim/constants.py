@@ -37,6 +37,28 @@ BALAYAGES_INTERIEURS = 16
 DECIMALES_POINT_METRES = 3
 DECIMALES_POINT_DEGRES = 7
 
+# --- La forme des lieux (sim/formes.py) : un dessin de niveau 2, jamais une grandeur du monde ---
+# Arrondie au mètre, la carte figée laisse des sommets à moins de cette distance d'un côté
+# qui passe par eux ; le dessin les pose sur ce côté. Un mètre et demi couvre l'arrondi
+# des deux bouts du côté et du sommet.
+ACCROCHE_SOMMET_M = 1.5
+# Le bord entre deux cellules se brise dans un losange dont ce segment est la grande
+# diagonale ; sa demi-largeur vaut cette fraction de la longueur du segment.
+RAPPORT_LOSANGE = 0.2
+# Le premier écart du milieu, en fraction de la longueur du segment ; chaque niveau de
+# subdivision le multiplie par AMORTI_BRISURE. Au-dessus de 0,5, le trait se heurte plus
+# finement qu'il ne se courbe, comme une frontière qui suit vallées et crêtes.
+ECART_BRISURE = 0.35
+AMORTI_BRISURE = 0.6
+# La subdivision s'arrête quand un morceau du bord est plus court que ce pas, en mètres.
+PAS_BRISURE_M = 1500.0
+# Un losange qui touche un autre côté, une place ou un autre losange se rétrécit de moitié,
+# au plus ce nombre de fois ; au-delà, le segment reste droit.
+ESSAIS_LOSANGE = 6
+# Un bord dont aucun sommet ne s'écarte de son segment de plus de cette distance, en
+# mètres, compte pour droit.
+ECART_MIN_BRISE_M = 100.0
+
 # --- Marchandises ---
 
 # Première marchandise du panier ; seule entrée réellement simulée pour l'instant.
