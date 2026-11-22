@@ -50,6 +50,10 @@ namespace Forge.Pont {
             Longueur = arcs[PAS_DE_L_ARC];
         }
 
+        // Le même arc, descendu de `ecart` km sous le pied des lettres (à l'opposé de `Travers`), sur une largeur donnée :
+        // la ligne d'un second nom, plus petit, écrit sous le premier.
+        public TraceDeNom Dessous(float ecart, float largeur) => new TraceDeNom(Centre, Axe, Debut, Fin, a - ecart, b, c, largeur, Echantillons);
+
         // Le point du tracé à cette abscisse le long du grand axe, et le sens de l'écriture en ce point.
         public Vector2 Point(float s) => Centre + Axe * s + Travers * (a + b * s + c * s * s);
         public Vector2 Sens(float s) => (Axe + Travers * (b + 2 * c * s)).normalized;

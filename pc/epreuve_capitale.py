@@ -28,13 +28,14 @@ CARTE = _charger("epreuve_carte", RACINE / "pc" / "epreuve_carte.py")
 JOUER, JALON1 = CARTE.JOUER, CARTE.JALON1
 _lancer_service, _arreter, _requete = CARTE._lancer_service, CARTE._arreter, CARTE._requete
 from sim.service import DEFAULT_SERVICE_PORT, SERVICE_HOST  # noqa: E402
+from sim.villes_3d import charger_villes_3d, raison_sans_ville  # noqa: E402
 
 PROJET = RACINE / "3d" / "unity"
 METHODE = "ForgeLocal3D.EpreuveCapitale.Jouer"
 EGALITE, ECART, IMPOSSIBLE = 0, 1, 2
 ZAB, BAR = "Émirat du Zab", "Duché de Bar"
 SCENE_VILLE, SCENE_CARTE = "Forge_Desert_Ville_ksar_des_sept_puits", "Forge_Carte"
-MESSAGE, ACCEPTE = "Pas encore de kit pour cette terre", 200
+ACCEPTE = 200
 ESSAIS = (("zab", ZAB, True), ("bar", BAR, False))
 ENTIERS = ("terre", "tick_avant", "tick_apres", "cellule", "tick_ouverture")
 TEXTES = ("scene_active", "panneau_lieu", "message_passage", "defaut")
@@ -48,6 +49,14 @@ def _fiche(departs: dict, nom: str) -> tuple[dict, int]:
     if len(trouvees) != 1 or type(trouvees[0].get("id")) is not int:
         raise ValueError(f"fiche {nom!r} : {len(trouvees)} trouvée(s)")
     return trouvees[0], departs["tick"]
+
+
+def _message_sans_ville(departs: dict, fiche: dict) -> str:
+    """La raison que le bouton « Entrer dans la ville » grisé dit au joueur : celle des villes en 3D, avec le siège de la
+    terre et celui de la seule ville bâtie, le Zab, en phrase."""
+    zab, _ = _fiche(departs, ZAB)
+    raison = raison_sans_ville(charger_villes_3d(), fiche["siege"]["nom"], zab["siege"]["nom"])
+    return raison[0].upper() + raison[1:] + ("" if raison.endswith(".") else ".")
 
 
 def _valider(rapport: dict) -> None:
@@ -103,7 +112,7 @@ def juger(rapport, departs, maison, avant, apres, avec_kit: bool) -> tuple[int, 
         ("cellule", rapport["cellule"], cellule if avec_kit else -1),
         ("ouverture", rapport["tick_ouverture"], suiv if avec_kit else -1),
         ("panneau", rapport["panneau_lieu"], panneau),
-        ("message", rapport["message_passage"], "" if avec_kit else MESSAGE),
+        ("message", rapport["message_passage"], "" if avec_kit else _message_sans_ville(departs, fiche)),
     )
     lignes = [f"{e} : {v!r} · attendu {a!r} · {'égal' if v == a else 'ÉCART'}" for e, v, a in attendus]
     return (EGALITE if all(v == a for _, v, a in attendus) else ECART), lignes

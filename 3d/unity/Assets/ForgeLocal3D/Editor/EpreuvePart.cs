@@ -117,13 +117,13 @@ namespace ForgeLocal3D
             CabinetDeCarte cabinet = carte.GetComponent<CabinetDeCarte>(); CommandesMaison commandes = carte.GetComponent<CommandesMaison>();
             for (var e = AttentesDeCapture.Jusqua(() => AttentesDeCapture.LecturePrete(cabinet.Partie), () => "cabinet : " + AttentesDeCapture.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
             LecturePartie partie = cabinet.Partie; r.tick_avant = partie.Monde.Donnees.Monde.Tick;
-            FicheDeDepart fiche = partie.Departs.Donnees.Fiches.FirstOrDefault(f => f.Id == r.terre) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente des fiches servies");
-            for (var e = AttentesDeCapture.Jusqua(() => Actif(toile, fiche.Maison), () => "bouton « " + fiche.Maison + " » inactif"); e.MoveNext();) yield return null;
-            Bouton(toile, fiche.Maison).onClick.Invoke(); yield return null;
-            Button choisir = Bouton(toile, "Choisir cette maison");
-            if (!choisir.interactable) throw new InvalidOperationException("« Choisir cette maison » inactif pour " + fiche.Nom);
-            choisir.onClick.Invoke();
-            for (var e = AttentesDeCapture.Jusqua(() => partie.Recu != null, () => "reçu du choix absent"); e.MoveNext();) yield return null;
+            FicheJouable fiche = partie.Jouables.Donnees.Fiches.FirstOrDefault(f => f.Id == "seigneurie-" + N(r.terre)) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente des fiches servies");
+            for (var e = AttentesDeCapture.Jusqua(() => Actif(toile, fiche.Pays.Nom), () => "bouton « " + fiche.Pays.Nom + " » inactif"); e.MoveNext();) yield return null;
+            Bouton(toile, fiche.Pays.Nom).onClick.Invoke(); yield return null;
+            if (cabinet.Accueil.Montree?.Id != fiche.Id || !Actif(toile, AccueilDuPays.COMMENCER)) throw new InvalidOperationException("« " + AccueilDuPays.COMMENCER + " » inactif pour " + fiche.Pays.Nom);
+            // Le choix part sans « Commencer », qui lancerait le temps : la séance pousse elle-même chaque jour.
+            for (var e = AttentesDeCapture.Attendre(partie.Choisir(fiche.Id), "choix de " + fiche.Pays.Nom); e.MoveNext();) yield return null;
+            if (partie.Recu == null) throw new InvalidOperationException("reçu du choix absent");
             r.choix = EpreuveChoix.Relever(partie.Recu);
             if (!partie.Recu.Acceptee) throw new InvalidOperationException("choix de " + fiche.Nom + " refusé : " + r.choix.raison);
             Task<(int statut, string corps)> un = AttentesDeCapture.PousserTick(port);

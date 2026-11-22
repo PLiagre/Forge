@@ -18,9 +18,9 @@ namespace ForgeLocal3D
     // La session Unity de l'épreuve de la capitale.
     //   Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCapitale.Jouer
     //         -forgeEpreuve <rapport.json> -forgeTerre N [-logFile <journal>]
-    // ouvre la scène de la carte en Play, choisit la terre N dans le cabinet, pousse un seul tick, puis relève ce que le
-    // passage fait : une ville chargée par lui-même (`SceneManager.LoadScene`, comme dans le jeu) et son panneau du lieu, ou
-    // son message. La session ne juge rien : ni la cellule, ni le message ; le verdict est celui de `pc/epreuve_capitale.py`.
+    // ouvre la scène de la carte en Play, choisit la terre N dans le cabinet, pousse un seul tick, puis joue le bouton
+    // « Entrer dans la ville » : actif, son clic charge la ville (comme dans le jeu) et la session relève son panneau du lieu ;
+    // grisé, elle relève sa raison. La session ne juge rien : ni la cellule, ni le message ; le verdict est celui de `pc/epreuve_capitale.py`.
     // Codes : 0 une ville ou un message relevé, quel qu'il soit ; 1 session impossible (`defaut` le dit) ; 2 arguments fautifs.
     [InitializeOnLoad]
     public static class EpreuveCapitale
@@ -111,7 +111,7 @@ namespace ForgeLocal3D
             for (var e = AttentesDeCapture.Jusqua(() => AttentesDeCapture.LecturePrete(cabinet.Partie), () => "cabinet : " + AttentesDeCapture.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
             LecturePartie partie = cabinet.Partie;
             r.tick_avant = partie.Monde.Donnees.Monde.Tick;
-            FicheDeDepart fiche = partie.Departs.Donnees.Fiches.FirstOrDefault(f => f.Id == r.terre) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente de /departs");
+            FicheJouable fiche = partie.Jouables.Donnees.Fiches.FirstOrDefault(f => f.Id == "seigneurie-" + N(r.terre)) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente de /jouables");
 
             // Le choix, puis le temps que le passage voie le départ avant le tick.
             for (var e = AttentesDeCapture.Attendre(partie.Choisir(fiche.Id), "choix de " + fiche.Nom); e.MoveNext();) yield return null;
@@ -119,8 +119,8 @@ namespace ForgeLocal3D
             if (partie.Recu == null || !partie.Recu.Acceptee) throw new InvalidOperationException("choix de " + fiche.Nom + " refusé : " + r.choix.raison);
             for (double fin = Time.realtimeSinceStartupAsDouble + 2 * PassageALaCapitale.PERIODE_LECTURE_S + 0.25; Time.realtimeSinceStartupAsDouble < fin;)
             {
-                if (passage.Absence != null || passage.TexteAffiche != null || passage.SceneDemandee != null)
-                    throw new InvalidOperationException("passage avant le tick : absence « " + passage.Absence + " », message « " + passage.TexteAffiche + " », scène « " + passage.SceneDemandee + " »");
+                if (passage.Absence != null || passage.SceneDemandee != null || cabinet.Ville.Bouton.gameObject.activeSelf)
+                    throw new InvalidOperationException("passage avant le tick : absence « " + passage.Absence + " », scène « " + passage.SceneDemandee + " », bouton de la ville visible " + cabinet.Ville.Bouton.gameObject.activeSelf);
                 yield return null;
             }
 
@@ -129,14 +129,16 @@ namespace ForgeLocal3D
             for (var e = AttentesDeCapture.Attendre(pousse, "POST /tick?n=1"); e.MoveNext();) yield return null;
             if (pousse.Result.statut != 200) throw new InvalidOperationException("POST /tick?n=1 a rendu " + pousse.Result.statut + " : " + pousse.Result.corps);
 
-            // Ville ou message, tel que le passage le décide.
-            for (double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S; passage.TexteAffiche == null && passage.SceneDemandee == null;)
+            // Le bouton de la ville, une fois la fiche de la maison servie : actif, il se clique ; grisé, sa raison se relève.
+            for (double fin = Time.realtimeSinceStartupAsDouble + ATTENTE_S; !(cabinet.Ville.Bouton.gameObject.activeSelf && partie.Jouable != null);)
             {
                 if (Time.realtimeSinceStartupAsDouble > fin)
-                    throw new InvalidOperationException("après le tick, ni ville ni message en " + ATTENTE_S + " s : passage « " + passage.Absence + " », cabinet « " + AttentesDeCapture.Dire(cabinet.Partie) + " »");
+                    throw new InvalidOperationException("après le tick, pas de bouton de la ville en " + ATTENTE_S + " s : passage « " + passage.Absence + " », cabinet « " + AttentesDeCapture.Dire(cabinet.Partie) + " »");
                 yield return null;
             }
-            if (passage.SceneDemandee == null) r.message_passage = passage.TexteAffiche;
+            yield return null; // le bouton se règle sur la fiche à l'image suivante
+            if (cabinet.Ville.Bouton.interactable) cabinet.Ville.Bouton.onClick.Invoke();
+            if (passage.SceneDemandee == null) r.message_passage = cabinet.Ville.Phrase;
             else
             {
                 // La carte disparaît au chargement : le nom de la scène se retient tout de suite.

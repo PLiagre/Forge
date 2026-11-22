@@ -63,5 +63,28 @@ namespace Forge.Interface.Tests
             noms.Dispose(); NomCourbe plat = Ecrire(16f, 10f, null); Voir(plat.Corps * ECRAN_PX / (2f * 60f));
             Assert.That(plat.Maillage.vertices.All(p => p.y == NomsCourbes.HAUTEUR), Is.True, "sans sol donné, le nom n'est pas à plat à sa hauteur");
         }
+
+        // La maison du pays s'écrit en petit sous son nom, sur le même arc descendu d'environ un corps ; un pays qui porte
+        // le nom de sa maison n'a qu'une ligne. Le tracé témoin est la droite d'ouest en est : le haut des lettres est au nord.
+        [Test] public void La_maison_s_ecrit_en_petit_au_sud_du_nom_et_suit_son_opacite()
+        {
+            noms = new NomsCourbes(racine.transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), null);
+            var trace = new TraceDeNom(Vector2.zero, Vector2.right, -300f, 300f, 0f, 0f, 0f, 300f, 100);
+            noms.Ecrire(new[] { ("puissance-10", "Bohême", "Luxembourg", trace), ("seigneurie-1", "Bar", "BAR", trace), ("puissance-2", "France", (string)null, trace) });
+            Assert.That(noms.Noms.Select(n => n.Texte), Is.EqualTo(new[] { "Bohême", "Bar", "France" }), "les noms des pays ne restent pas ceux servis");
+            NomCourbe boheme = noms.Noms[0], maison = boheme.Maison;
+            Assert.That(maison, Is.Not.Null, "la Bohême n'écrit pas sa maison"); Assert.That((maison.Texte, maison.Ecrit, maison.Pays, maison.NomDuPays), Is.EqualTo(("Luxembourg", "LUXEMBOURG", "puissance-10", boheme)));
+            Assert.That(noms.Noms[1].Maison, Is.Null, "un pays qui porte le nom de sa maison a deux lignes"); Assert.That(noms.Noms[2].Maison, Is.Null, "un pays sans maison servie a deux lignes");
+            Assert.That(maison.Corps, Is.LessThanOrEqualTo(NomsCourbes.PART_DE_LA_MAISON * boheme.Corps + 1e-4f)); Assert.That(maison.Corps, Is.GreaterThan(0.2f * boheme.Corps), "la maison est illisible à côté du nom");
+            float nord = maison.Compose.Lettres.Max(l => l.Point.y), sud = boheme.Compose.Lettres.Min(l => l.Point.y);
+            Assert.That(nord, Is.LessThan(sud), "la maison n'est pas au sud du nom");
+            Assert.That(sud - nord, Is.EqualTo(NomsCourbes.ECART_DE_LA_MAISON * boheme.Corps).Within(1e-3f), "les deux lignes ne sont pas à un corps l'une de l'autre");
+            Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name.StartsWith("Maison du pays ")), Is.EqualTo(1));
+            // Lisible, le nom montre sa maison ; de plus loin, la maison se cache la première ; de trop près, elle s'efface avec lui.
+            Voir(boheme.Corps * ECRAN_PX / (2f * 60f)); Assert.That((boheme.Opacite, maison.Opacite), Is.EqualTo((1f, 1f))); Assert.That(maison.Rendu.enabled && maison.Maillage.vertexCount > 0, Is.True, "la maison lisible n'est pas dessinée");
+            Voir(boheme.Corps * ECRAN_PX / (2f * 14f)); Assert.That(boheme.Opacite, Is.EqualTo(1f)); Assert.That(maison.Opacite, Is.Zero, "une maison trop petite pour se lire se montre"); Assert.That(maison.Rendu.enabled, Is.False);
+            Voir(boheme.Corps * ECRAN_PX / (2f * NomsCourbes.DISPARU * ECRAN_PX)); Assert.That(boheme.Opacite, Is.Zero); Assert.That(maison.Opacite, Is.Zero, "la maison reste quand le nom s'efface");
+            noms.Ecrire(new[] { ("puissance-2", "France", (string)null, trace) }); Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name.StartsWith("Maison du pays ")), Is.Zero, "la maison d'avant reste dessinée");
+        }
     }
 }

@@ -185,7 +185,7 @@ celui de [l'épreuve du choix](#lépreuve-du-choix), qui compare au monde.
 ## La session de l'épreuve de la capitale
 
 Le joueur choisit sa terre dans le cabinet de la carte et, au tick suivant,
-passe à sa ville ou lit « Pas encore de kit pour cette terre »
+clique « Entrer dans la ville » et passe à sa ville, ou lit pourquoi le bouton est grisé
 (moitié Unity de l'épreuve de la capitale). Depuis la racine du dépôt :
 
 ```bash
@@ -196,9 +196,10 @@ Unity -batchmode -projectPath 3d/unity -executeMethod ForgeLocal3D.EpreuveCapita
 Le service se lance à la main comme pour la session du choix (`py -m
 sim.service --seed 0 --jours-par-seconde 0` depuis `jeu/`), neuf pour chaque
 essai. Unity ouvre `Forge_Carte` en Play, attend que le cabinet ait lu le monde
-et les départs, choisit la terre N, laisse le passage voir le départ, pousse un
-seul `POST /tick?n=1` (jamais `/vitesse`), puis relève ce que le passage fait :
-la ville qu'il charge lui-même, comme dans le jeu, ou son message. Rien n'est
+et les pays jouables, choisit la terre N, pousse un seul `POST /tick?n=1`
+(jamais `/vitesse`), puis joue le bouton « Entrer dans la ville » : actif, son
+clic charge la ville, comme dans le jeu ; grisé, la session relève sa raison
+(`message_passage`), que le juge compare à celle des villes en 3D. Rien n'est
 remplacé dans le chargement.
 
 Le rapport porte `terre`, `tick_avant` et `tick_apres` (le tick du monde avant

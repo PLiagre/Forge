@@ -15,18 +15,18 @@ using UnityEngine.TestTools;
 using UnityEngine.UI;
 namespace Forge.Pont.Tests
 {
-    // La carte mène le joueur à sa capitale quand il confirme une terre qui a un kit, ou lui dit qu'elle n'en a
-    // pas encore. Le faux service sert /monde avec la maison du moment, et la fiche figée sur /maison?id=.
+    // La carte mène le joueur à sa capitale quand il le demande (`Entrer`, ou un double-clic sur le siège lu), jamais
+    // d'elle-même. Le faux service sert /monde avec la maison du moment, et la fiche figée sur /maison?id=.
     public sealed class PassageALaCapitaleTests
     {
         const int ATTENTE_MS = 10000;
         int port; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
         string maisonServie; int delaiMs; bool enPanne; // l'état du faux service, remis à chaque cas : NUnit garde l'instance
-        GameObject objet; Camera cam; PassageALaCapitale passage; readonly List<string> chargees = new List<string>(); bool vuVisible;
+        GameObject objet; Camera cam; PassageALaCapitale passage; readonly List<string> chargees = new List<string>();
         [SetUp] public void PortLibre()
         {
             var s = new TcpListener(IPAddress.Loopback, 0); s.Start(); port = ((IPEndPoint)s.LocalEndpoint).Port; s.Stop();
-            lock (recues) { recues.Clear(); maisonServie = null; delaiMs = 0; enPanne = false; } chargees.Clear(); vuVisible = false;
+            lock (recues) { recues.Clear(); maisonServie = null; delaiMs = 0; enPanne = false; } chargees.Clear();
         }
         [TearDown] public void Fermer()
         {
@@ -62,97 +62,68 @@ namespace Forge.Pont.Tests
         {
             for (int tour = 0; tour < tours; tour++)
             {
-                passage.Pas(instant); vuVisible |= passage.PanneauVisible; instant += PassageALaCapitale.PERIODE_LECTURE_S; Attendre();
+                passage.Pas(instant); instant += PassageALaCapitale.PERIODE_LECTURE_S; Attendre();
             }
-            passage.Pas(instant - PassageALaCapitale.PERIODE_LECTURE_S / 2); vuVisible |= passage.PanneauVisible;
+            passage.Pas(instant - PassageALaCapitale.PERIODE_LECTURE_S / 2);
         }
         void Attendre()
         {
             var montre = Stopwatch.StartNew(); while (passage.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5);
             Assert.IsFalse(passage.RequeteEnVol, "la lecture n'a pas fini");
         }
-        [Test] public void LeZabConfirmeOuvreLeKsarUneSeuleFois()
+        // La confirmation d'une terre qui a sa ville ne descend plus : le siège se lit, la ville attend le geste du joueur.
+        [Test] public void LaConfirmationDuZabNOuvreRienEtLitSonSiege()
+        {
+            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Assert.IsNull(passage.SiegeLu, "un siège est lu avant le choix");
+            Servir(Zab); Pas(ref t, 4);
+            CollectionAssert.IsEmpty(chargees, "la confirmation a ouvert la ville"); Assert.IsNull(passage.SceneDemandee);
+            Assert.AreEqual(SiegeDuZab, passage.SiegeLu, "le siège servi n'est pas lu");
+            Assert.GreaterOrEqual(Mondes(), 3, "le monde n'est plus relu");
+        }
+        [Test] public void EntrerOuvreLeKsarUneSeuleFoisEtNeLitPlusRien()
         {
             string scene = TerresAvecKit.Scenes[Zab];
-            Servir(); Poser(); double t = 1; Pas(ref t, 2);
-            CollectionAssert.IsEmpty(chargees, "la ville s'est ouverte avant la confirmation");
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 2);
             // Le compte est relevé dans la demande même : une lecture lancée pendant ce pas arriverait après lui.
             int lus = -1; bool enVol = true;
             passage.ChargerScene = nom => { chargees.Add(nom); lus = Mondes(); enVol = passage.RequeteEnVol; };
-            Servir(Zab); Pas(ref t, 4);
+            Assert.IsTrue(passage.Entrer(scene, SiegeDuZab), "Entrer ne descend pas");
             CollectionAssert.AreEqual(new[] { scene }, chargees); Assert.AreEqual(scene, passage.SceneDemandee);
-            Assert.IsFalse(enVol, "une lecture était en vol à la demande");
+            Assert.IsFalse(enVol, "une lecture était suivie à la demande");
+            Assert.IsFalse(passage.Entrer(scene, SiegeDuZab), "un second Entrer descend"); Assert.IsFalse(passage.Cliquer(SiegeDuZab, t) | passage.Cliquer(SiegeDuZab, t + 0.2), "un double-clic descend après Entrer");
             Pas(ref t, 4); Thread.Sleep(200); // le temps qu'une lecture lâchée sans suivi atteigne le service
             CollectionAssert.AreEqual(new[] { scene }, chargees, "la scène est rechargée");
             Assert.AreEqual(lus, Mondes(), "une lecture est partie après la demande : " + string.Join(", ", Recues()));
-            Assert.IsFalse(vuVisible, "le panneau s'est montré pour une terre qui a un kit");
         }
-        [Test] public void BarAfficheLePanneauQuiSurvitAuCabinet()
+        [TestCase(null)] [TestCase("")]
+        public void EntrerSansSceneNeDescendPas(string scene)
         {
-            var temoin = new GameObject("Toile témoin", typeof(RectTransform)); temoin.AddComponent<Canvas>();
-            Servir(); Poser(temoin); double t = 1; Pas(ref t, 2);
-            Assert.IsFalse(passage.PanneauVisible);
-            Servir(Bar); Pas(ref t, 3);
-            Assert.IsTrue(passage.PanneauVisible); Assert.AreEqual(PassageALaCapitale.MESSAGE_SANS_KIT, passage.TexteAffiche);
-            CollectionAssert.IsEmpty(chargees); Assert.IsNull(passage.SceneDemandee);
-            // Le geste de CabinetDeCarte.Construire : il cache toutes les toiles de l'objet de la carte.
-            foreach (var ancienne in objet.GetComponentsInChildren<Canvas>()) ancienne.gameObject.SetActive(false);
-            Assert.IsFalse(temoin.activeInHierarchy, "le geste du cabinet n'a pas porté");
-            var toiles = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None).Where(c => c.worldCamera == cam).ToArray();
-            Assert.AreEqual(1, toiles.Length, "la toile du panneau a disparu avec celles du cabinet");
-            Canvas toile = toiles[0];
-            Assert.IsTrue(toile.gameObject.activeInHierarchy && toile.transform.parent == null && toile.renderMode == RenderMode.ScreenSpaceCamera, toile.renderMode.ToString());
-            Assert.IsTrue(passage.PanneauVisible);
-            var echelle = toile.GetComponent<CanvasScaler>();
-            Assert.IsTrue(echelle.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize && echelle.referenceResolution == new Vector2(1920, 1080) && echelle.matchWidthOrHeight == 0, echelle.uiScaleMode + " " + echelle.referenceResolution);
-            var cadre = toile.GetComponentInChildren<Image>().rectTransform;
-            Assert.IsTrue(cadre.anchorMin == Vector2.one && cadre.anchorMax == Vector2.one && cadre.pivot == Vector2.one, cadre.anchorMin + " " + cadre.pivot);
-            const float CAMERA = 0.67f * 1920; // CabinetDeCarte.cs : carte.camera.rect = new Rect(0, 0, .67f, 1)
-            const float FIN_DES_FEUILLETS = 24 + 740; // Feuillet.cs : SocleInterface.Panneau(parent, titre, 24, 124, 740, 760)
-            const float BANDEAU = 100; // CabinetDeCarte.cs : Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 100)
-            const float GUIDE = 872; // CabinetDeCarte.cs : Panneau(toile.transform, "Parcourir le monde", 24, 872, 1238, 184)
-            Assert.GreaterOrEqual(CAMERA + cadre.anchoredPosition.x - cadre.sizeDelta.x, FIN_DES_FEUILLETS, "le panneau couvre les feuillets");
-            Assert.GreaterOrEqual(-cadre.anchoredPosition.y, BANDEAU, "le panneau couvre le bandeau");
-            Assert.LessOrEqual(-cadre.anchoredPosition.y + cadre.sizeDelta.y, GUIDE, "le panneau couvre le guide");
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Assert.IsFalse(passage.Entrer(scene, SiegeDuZab)); CollectionAssert.IsEmpty(chargees); Assert.IsNull(passage.SceneDemandee);
         }
-        [Test] public void UnZabDejaConfirmeNeRenvoiePasEnVille()
+        [Test] public void UnBarConfirmeNeLitAucunSiegeEtNOuvreRien()
         {
-            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 5);
-            CollectionAssert.IsEmpty(chargees, "un Zab déjà confirmé renvoie en ville"); Assert.IsNull(passage.SceneDemandee);
-            Assert.IsFalse(vuVisible); Assert.GreaterOrEqual(Mondes(), 1, "le monde n'a pas été lu");
-        }
-        [Test] public void UnBarDejaConfirmeMontreLePanneauPuisUnDepartLeCache()
-        {
-            Servir(Bar); Servir(); Poser(); double t = 1; Pas(ref t, 2);
-            Assert.IsTrue(passage.PanneauVisible); Assert.AreEqual(PassageALaCapitale.MESSAGE_SANS_KIT, passage.TexteAffiche);
-            Servir(null); Pas(ref t, 2);
-            Assert.IsFalse(passage.PanneauVisible); CollectionAssert.IsEmpty(chargees);
+            Servir(Bar); Servir(); Poser(); double t = 1; Pas(ref t, 3);
+            Assert.IsNull(passage.SiegeLu, "Bar n'a pas de ville : aucun siège ne descend"); CollectionAssert.IsEmpty(chargees); Assert.IsNull(passage.SceneDemandee);
+            Assert.IsFalse(passage.Cliquer(SiegeDe("bar"), t) | passage.Cliquer(SiegeDe("bar"), t + 0.2), "le double-clic sur le siège de Bar descend");
         }
         [Test] public void UneAbsenceNArmeRien()
         {
             Poser(); double t = 1; Pas(ref t, 3);
-            Assert.IsNotNull(passage.Absence); StringAssert.StartsWith("monde : ", passage.Absence); Assert.IsFalse(passage.PanneauVisible);
+            Assert.IsNotNull(passage.Absence); StringAssert.StartsWith("monde : ", passage.Absence); Assert.IsNull(passage.SiegeLu);
             Servir(Zab); Servir(); Pas(ref t, 4);
-            CollectionAssert.IsEmpty(chargees, "une absence a été prise pour un départ"); Assert.IsNull(passage.Absence);
+            CollectionAssert.IsEmpty(chargees, "une absence a ouvert la ville"); Assert.IsNull(passage.Absence);
             Assert.GreaterOrEqual(Mondes(), 1, "le service revenu n'a pas été lu");
         }
-        [Test] public void UneAbsenceGardeLeDepartVu()
+        [Test] public void UneAbsenceGardeLeSiegeLu()
         {
-            string scene = TerresAvecKit.Scenes[Zab];
-            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Assert.AreEqual(SiegeDuZab, passage.SiegeLu);
             lock (recues) enPanne = true; Pas(ref t, 2);
             StringAssert.StartsWith("monde : ", passage.Absence); StringAssert.Contains("statut 500", passage.Absence); CollectionAssert.IsEmpty(chargees);
-            lock (recues) { maisonServie = Zab; enPanne = false; } Pas(ref t, 4); // sans lecture Depart entre la panne et le Zab
-            CollectionAssert.AreEqual(new[] { scene }, chargees, "l'absence a désarmé le départ vu"); Assert.AreEqual(scene, passage.SceneDemandee);
-        }
-        [Test] public void UneAbsenceLaisseLePanneauMontre()
-        {
-            Servir(Bar); Servir(); Poser(); double t = 1; Pas(ref t, 2);
-            Assert.IsTrue(passage.PanneauVisible);
-            lock (recues) enPanne = true; Pas(ref t, 3);
-            StringAssert.StartsWith("monde : ", passage.Absence); StringAssert.Contains("statut 500", passage.Absence);
-            Assert.IsTrue(passage.PanneauVisible, "une absence a caché le panneau"); Assert.AreEqual(PassageALaCapitale.MESSAGE_SANS_KIT, passage.TexteAffiche);
-            CollectionAssert.IsEmpty(chargees);
+            Assert.AreEqual(SiegeDuZab, passage.SiegeLu, "l'absence a effacé le siège lu");
+            Assert.IsTrue(passage.Cliquer(SiegeDuZab, t) | passage.Cliquer(SiegeDuZab, t + 0.2), "le double-clic ne descend plus pendant la panne");
         }
         [Test] public void UneLectureLenteNeBloquePasLesPas()
         {
@@ -184,33 +155,34 @@ namespace Forge.Pont.Tests
             passage.Demarrer(null);
             for (int i = 0; i < 5; i++) { passage.Pas(1 + i * PassageALaCapitale.PERIODE_LECTURE_S); Assert.IsFalse(passage.RequeteEnVol); }
             Thread.Sleep(100);
-            CollectionAssert.IsEmpty(Recues()); CollectionAssert.IsEmpty(chargees); Assert.IsFalse(passage.PanneauVisible);
+            CollectionAssert.IsEmpty(Recues()); CollectionAssert.IsEmpty(chargees); Assert.IsNull(passage.SiegeLu);
         }
         // La remise : le siège lu dans /maison, retenu pour la scène demandée, pris une seule fois.
         static long SiegeDuZab => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige("zab"))["siege"])["cell_id"];
-        [Test] public void LeZabConfirmeRemetSonSiegeUneSeuleFois()
+        [Test] public void EntrerRemetLeSiegeUneSeuleFois()
         {
             PassageALaCapitale.PrendreCelluleRemise(string.Empty); long? remise = null, seconde = -1;
-            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 2);
             passage.ChargerScene = nom => { chargees.Add(nom); remise = PassageALaCapitale.PrendreCelluleRemise(nom); seconde = PassageALaCapitale.PrendreCelluleRemise(nom); };
-            Servir(Zab); Pas(ref t, 4);
+            Assert.IsTrue(passage.Entrer(TerresAvecKit.Scenes[Zab], SiegeDuZab));
             CollectionAssert.AreEqual(new[] { TerresAvecKit.Scenes[Zab] }, chargees);
-            Assert.AreEqual(SiegeDuZab, remise, "la remise ne porte pas le siège servi"); Assert.IsNull(seconde, "la remise sert deux fois");
+            Assert.AreEqual(SiegeDuZab, remise, "la remise ne porte pas le siège donné"); Assert.IsNull(seconde, "la remise sert deux fois");
         }
         [Test] public void UneAutreSceneNePrendRienEtEfface()
         {
             PassageALaCapitale.PrendreCelluleRemise(string.Empty); long? autre = -1, apres = -1;
-            Servir(); Poser(); double t = 1; Pas(ref t, 2);
+            Servir(Zab); Servir(); Poser(); double t = 1; Pas(ref t, 2);
             passage.ChargerScene = nom => { chargees.Add(nom); autre = PassageALaCapitale.PrendreCelluleRemise("AutreTerre"); apres = PassageALaCapitale.PrendreCelluleRemise(nom); };
-            Servir(Zab); Pas(ref t, 4);
+            Assert.IsTrue(passage.Entrer(TerresAvecKit.Scenes[Zab], SiegeDuZab));
             Assert.AreEqual(1, chargees.Count); Assert.IsNull(autre, "une autre scène a pris la remise"); Assert.IsNull(apres, "la prise d'une autre scène n'a pas effacé la remise");
         }
-        [TestCase("bar")] [TestCase("zab-deja")] [TestCase("absence")]
-        public void SansConfirmationVueRienNEstRemis(string cas)
+        [TestCase("bar")] [TestCase("zab-deja")] [TestCase("zab-confirme")] [TestCase("absence")]
+        public void SansGesteRienNEstRemis(string cas)
         {
             PassageALaCapitale.PrendreCelluleRemise(string.Empty); double t = 1;
             if (cas == "bar") { Servir(); Poser(); Pas(ref t, 2); Servir(Bar); Pas(ref t, 3); }
             else if (cas == "zab-deja") { Servir(Zab); Servir(); Poser(); Pas(ref t, 5); }
+            else if (cas == "zab-confirme") { Servir(); Poser(); Pas(ref t, 2); Servir(Zab); Pas(ref t, 4); }
             else { Poser(); Pas(ref t, 3); }
             CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas);
         }
@@ -271,7 +243,7 @@ namespace Forge.Pont.Tests
             SceneManager.MoveGameObjectToScene(objet, scene); if (avecCarte) objet.AddComponent<CarteDessinee>(); SceneManager.SetActiveScene(scene);
             return (scene, objet);
         }
-        // Un double-clic sur le siège lu descend comme la confirmation, une seule fois ; rien d'autre ne descend.
+        // Un double-clic sur le siège lu descend comme « Entrer », une seule fois ; rien d'autre ne descend.
         static long SiegeDe(string terre) => (long)(double)((Dictionary<string, object>)LecteurJson.LireObjet(Fige(terre))["siege"])["cell_id"];
         [Test] public void UnDoubleClicSurLeSiegeDescendUneSeuleFois()
         {
@@ -301,12 +273,12 @@ namespace Forge.Pont.Tests
             Assert.IsFalse(descendu, cas + " : un clic a rendu true"); CollectionAssert.IsEmpty(chargees, cas); Assert.IsNull(passage.SceneDemandee, cas);
             Assert.IsNull(PassageALaCapitale.PrendreCelluleRemise(TerresAvecKit.Scenes[Zab]), cas + " : une remise est faite");
         }
-        [TestCase("confirmation")] [TestCase("double-clic")]
+        [TestCase("entrer")] [TestCase("double-clic")]
         public void ParDefautLePassagePrendLaTransition(string cas)
         {
             string scene = TerresAvecKit.Scenes[Zab]; double t = 1;
-            if (cas == "double-clic") Servir(Zab); Servir(); Poser(); passage.ChargerScene = null;
-            if (cas == "confirmation") { Pas(ref t, 2); Servir(Zab); Pas(ref t, 4); }
+            Servir(Zab); Servir(); Poser(); passage.ChargerScene = null;
+            if (cas == "entrer") { Pas(ref t, 2); Assert.IsTrue(passage.Entrer(scene, SiegeDuZab), "Entrer ne descend pas"); }
             else { Pas(ref t, 3); passage.Cliquer(SiegeDuZab, t); Assert.IsTrue(passage.Cliquer(SiegeDuZab, t + 0.2), "le double-clic ne descend pas"); }
             TransitionDeVue[] transitions = UnityEngine.Object.FindObjectsByType<TransitionDeVue>(FindObjectsSortMode.None);
             try {

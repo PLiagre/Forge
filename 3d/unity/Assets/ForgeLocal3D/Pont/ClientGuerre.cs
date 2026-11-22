@@ -5,17 +5,23 @@ using System.Globalization;
 using System.Net.Http;
 namespace Forge.Pont
 {
-    // Un pays de la carte : son identifiant et son nom (nul quand le monde n'en dit pas).
-    public sealed class PaysDeLaCarte
+    // Une maison telle que `/terres` la sert : son identifiant et son nom (nul quand le monde n'en dit pas).
+    public sealed class IdentiteDeMaison
     {
         public string Id { get; } public string Nom { get; }
-        public PaysDeLaCarte(string id, string nom) { Id = id; Nom = nom; }
+        public IdentiteDeMaison(string id, string nom) { Id = id; Nom = nom; }
     }
-    // Une terre, son maître (nul : terre sans maître) et son pays (nul : terre sans pays).
+    // Un pays de la carte : son identifiant, son nom (nul quand le monde n'en dit pas) et sa maison (nulle : le monde n'en nomme pas).
+    public sealed class PaysDeLaCarte
+    {
+        public string Id { get; } public string Nom { get; } public IdentiteDeMaison Maison { get; }
+        public PaysDeLaCarte(string id, string nom, IdentiteDeMaison maison = null) { Id = id; Nom = nom; Maison = maison; }
+    }
+    // Une terre, son maître (nul : terre sans maître), sa maison (la tête de la suzeraineté du maître ; nulle : terre sans maître) et son pays (nul : terre sans pays).
     public sealed class TerreLue
     {
-        public long CellId { get; } public string Maitre { get; } public string Pays { get; }
-        public TerreLue(long cellId, string maitre, string pays) { CellId = cellId; Maitre = maitre; Pays = pays; }
+        public long CellId { get; } public string Maitre { get; } public string Maison { get; } public string Pays { get; }
+        public TerreLue(long cellId, string maitre, string pays, string maison = null) { CellId = cellId; Maitre = maitre; Pays = pays; Maison = maison; }
     }
     // Les terres de la carte telles que `/terres` les sert : à qui est chaque terre et de quel pays elle est, dans l'ordre servi.
     public sealed class TerresDeLaCarte
@@ -37,6 +43,8 @@ namespace Forge.Pont
         public string MaitreDe(long cellId) => parCellule.TryGetValue(cellId, out TerreLue t) ? t.Maitre : null;
         // Le nom du pays, ou null : nom non dit, ou pays que `/terres` ne sert pas.
         public string NomDuPays(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Nom : null;
+        // La maison du pays, ou null : maison non nommée, ou pays que `/terres` ne sert pas.
+        public IdentiteDeMaison MaisonDuPays(string pays) => pays != null && parPays.TryGetValue(pays, out PaysDeLaCarte p) ? p.Maison : null;
     }
     // Une guerre déclarée : qui attaque, qui défend, et le tick de la déclaration.
     public sealed class GuerreLue
@@ -177,17 +185,24 @@ namespace Forge.Pont
             {
                 string id = Texte(p, chemin + ".id");
                 if (!ids.Add(id)) throw new ServiceLocal.Refusee("clé " + chemin + ".id : \"" + id + "\" servi deux fois");
-                pays.Add(new PaysDeLaCarte(id, TexteOuNul(p, chemin + ".nom")));
+                pays.Add(new PaysDeLaCarte(id, TexteOuNul(p, chemin + ".nom"), MaisonDuPays(p, chemin + ".maison")));
             }
             var terres = new List<TerreLue>(); var vues = new HashSet<long>();
             foreach (var (chemin, t) in Objets(racine, "terres"))
             {
-                long cell = ServiceLocal.Entier(t, chemin + ".cell_id", 0); string maitre = TexteOuNul(t, chemin + ".maitre"), paysDeLaTerre = TexteOuNul(t, chemin + ".pays");
+                long cell = ServiceLocal.Entier(t, chemin + ".cell_id", 0); string maitre = TexteOuNul(t, chemin + ".maitre"), maison = TexteOuNul(t, chemin + ".maison"), paysDeLaTerre = TexteOuNul(t, chemin + ".pays");
                 if (!vues.Add(cell)) throw new ServiceLocal.Refusee("clé " + chemin + ".cell_id : la terre " + cell + " est servie deux fois");
                 if (paysDeLaTerre != null && !ids.Contains(paysDeLaTerre)) throw new ServiceLocal.Refusee("clé " + chemin + ".pays : \"" + paysDeLaTerre + "\" absent de la liste pays");
-                terres.Add(new TerreLue(cell, maitre, paysDeLaTerre));
+                terres.Add(new TerreLue(cell, maitre, paysDeLaTerre, maison));
             }
             return new TerresDeLaCarte(tick, date, pays, terres);
+        }
+        // La maison d'un pays : null, ou un objet dont l'identifiant est un texte et le nom un texte ou null.
+        static IdentiteDeMaison MaisonDuPays(Dictionary<string, object> pays, string chemin)
+        {
+            object brut = ServiceLocal.Valeur(pays, chemin); if (brut == null) return null;
+            var maison = brut as Dictionary<string, object> ?? throw ServiceLocal.Refus(chemin, "un objet ou null", brut);
+            return new IdentiteDeMaison(Texte(maison, chemin + ".id"), TexteOuNul(maison, chemin + ".nom"));
         }
         static GuerresLues Guerres(Dictionary<string, object> racine)
         {
