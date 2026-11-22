@@ -111,7 +111,7 @@ namespace ForgeLocal3D
             for (var e = AttentesDeCapture.Jusqua(() => AttentesDeCapture.LecturePrete(cabinet.Partie), () => "cabinet : " + AttentesDeCapture.Dire(cabinet.Partie)); e.MoveNext();) yield return null;
             LecturePartie partie = cabinet.Partie;
             r.tick_avant = partie.Monde.Donnees.Monde.Tick;
-            FicheDeDepart fiche = partie.Departs.Donnees.Fiches.FirstOrDefault(f => f.Id == r.terre) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente de /departs");
+            FicheJouable fiche = partie.Jouables.Donnees.Fiches.FirstOrDefault(f => f.Id == "seigneurie-" + N(r.terre)) ?? throw new InvalidOperationException("terre " + N(r.terre) + " absente de /jouables");
 
             // Le choix, puis le temps que le passage voie le départ avant le tick.
             for (var e = AttentesDeCapture.Attendre(partie.Choisir(fiche.Id), "choix de " + fiche.Nom); e.MoveNext();) yield return null;

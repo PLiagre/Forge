@@ -43,8 +43,10 @@ namespace Forge.Interface.Tests
             }
         }
 
+        // Une fois la maison servie, l'accueil se ferme et laisse les deux dossiers, qui arrêtent les clics.
         [Test] public void LesDeuxDossiersRestentOuvertsEtLesPanneauxArretentLesClics()
         {
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher();
             foreach (var nom in new[] { "Votre maison", "Territoire conservé" })
             {
                 var panneau = racine.GetComponentsInChildren<Image>().Single(p => p.name == nom);
@@ -65,6 +67,7 @@ namespace Forge.Interface.Tests
 
         [Test] public void UnTerritoireConserveSurvitALaFinDuSurvol()
         {
+            Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Poser(partie, "Monde", null); // le territoire se lit une fois l'accueil fermé, qui ne revient pas
             cabinet.Garder(new CelluleDeCarte(7, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"),
                 null, new[] { new VilleDeCarte("Ville test", 12, new PointCarte(0, 0)) }));
             racine.GetComponent<FicheDeCellule>().Quitter();
@@ -363,57 +366,49 @@ namespace Forge.Interface.Tests
             var survol = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("ForgeLocal3D.SurvolDeCarte")).First(t => t != null);
             Assert.That(CabinetDeCarte.SEUIL_CLIC_PX, Is.EqualTo((float)survol.GetField("SEUIL_CLIC_PX").GetValue(null)));
         }
-        // « Votre maison » parle en noms et en dates ; le tick ne va qu'au journal.
-        const string APERCU = "Consultez une maison avant de vous engager."; Text Nomme(string nom) => racine.GetComponentsInChildren<Text>(true).Single(t => t.name == nom);
+        // « Votre maison » parle en noms et en dates.
+        Text Nomme(string nom) => racine.GetComponentsInChildren<Text>(true).Single(t => t.name == nom);
         string Propre(string nom) { string t = Nomme(nom).text; Assert.That(TexteDuMonde.Interdit(t, "10340") ?? TexteDuMonde.SansUnite(t), Is.Null, t); return t; }
         [Test] public void LaMaisonDuJoueurDitSonNomSonSiegeSesLieuxEtLaDate()
         {
             Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Is.EqualTo("Maison\nSiège : Siège\n3 lieux tenus · relevé au jour 1 de 1400"));
             Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Propre("Lecture de la partie…"), Does.EndWith("\n1 lieu tenu · relevé au jour 1 de 1400"));
         }
+        // Une fiche servie par `/jouables`, de pays « Despotat témoin » ; sa ville est bâtie ou non.
+        static FicheJouable Jouable(string id, long cell, bool batie = false) => new FicheJouable(id, "Maison témoin", "seigneurie", 3, new IdentiteDePays(id, "Despotat témoin"),
+            new[] { new IdentiteDePays(id, "Despotat témoin") }, new SiegeJouable("Mistra", "Mistra", cell), null,
+            batie ? new VilleJouable(true, "3d/unity/Assets/Ville témoin.unity", null) : new VilleJouable(false, null, "la ville de Mistra n'est pas encore bâtie en 3D ; seule Biskra l'est"));
+        static Lecture<JouablesLus> JouablesDe(params FicheJouable[] fiches) => Lecture<JouablesLus>.De(new JouablesLus(1, new DateDuMonde(1400, 1), fiches));
+        static Lecture<MondeAvecMaisonLu> MondeDe(string maison) => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), maison));
+        // L'accueil ouvert sur un départ conseillé, puis ce départ pris dans la liste.
         void Proposer()
         {
-            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), null)));
-            Poser(partie, "Departs", Lecture<DepartsLus>.De(new DepartsLus(1, new DateDuMonde(1400, 1), new[] { new FicheDeDepart(42, "Despotat témoin", "Maison témoin", new SiegeDeDepart("Mistra", 0, 0), 10340, 12345, null, new VoisinDeDepart[0]) })));
-            cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Maison témoin").onClick.Invoke(); cabinet.Afficher();
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null));
+            Poser(partie, "Jouables", JouablesDe(Jouable("seigneurie-42", 10340)));
+            cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Despotat témoin").onClick.Invoke(); cabinet.Afficher();
         }
-        [Test] public void LApercuDuChoixDitLesHabitantsAutourDuSiege()
-        {
-            Proposer(); Assert.That(Propre(APERCU), Is.EqualTo("Despotat témoin · Mistra\n12 345 habitants autour de Mistra\nSuzerain : aucun")); Assert.That(TexteDuMonde.Interdit(Nomme(APERCU).text, "10340", "42"), Is.Null);
-        }
-        [Test] public void LeRecuNEstDateQuAuTickDeLHorloge()
-        {
-            Proposer(); Poser(partie, "Recu", RecuIntention.AccepteeAu(7)); LogAssert.Expect(LogType.Log, "CabinetDeCarte : choix reçu au tick 7");
-            string Lu(HorlogeLue lue) { Poser(racine.GetComponent<HorlogeDeCarte>(), "Lue", lue); cabinet.Afficher(); Assert.That(Nomme(APERCU).text, Does.Not.Contain("tick 7")); return Propre(APERCU); }
-            Assert.That(Lu(null), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant."));
-            Assert.That(Lu(new HorlogeLue(7, new DateDuMonde(1400, 8), 0)), Is.EqualTo("Choix reçu le jour 8 de 1400.\nReprenez le temps : le monde l'appliquera au jour suivant."));
-            Assert.That(Lu(new HorlogeLue(8, new DateDuMonde(1400, 9), 0)), Is.EqualTo("Choix reçu ; le monde l'applique au jour suivant.").And.Not.Contain("jour 9").And.Not.Contain("jour 8"));
-            Poser(partie, "Recu", RecuIntention.Refusee(409, "maison 10340 déjà prise")); Assert.That(Lu(null), Is.EqualTo("Demande refusée : déclaré absent par le monde"));
-            Poser(partie, "Recu", RecuIntention.Absente("service coupé")); Assert.That(Lu(null), Is.EqualTo("Envoi non confirmé : service coupé"));
-        }
-        // La ligne du prochain geste, et la surbrillance des terres de départ.
-        static Lecture<MondeAvecMaisonLu> MondeDe(string maison) => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), maison));
-        static Lecture<DepartsLus> DepartsDe(params FicheDeDepart[] fiches) => Lecture<DepartsLus>.De(new DepartsLus(1, new DateDuMonde(1400, 1), fiches));
-        static FicheDeDepart Fiche(long id, long cell) => new FicheDeDepart(id, "Despotat témoin", "Maison témoin", new SiegeDeDepart("Mistra", 0, 0), cell, 12345, null, new VoisinDeDepart[0]);
         static HorlogeLue Horloge(double joursParSeconde) => new HorlogeLue(7, new DateDuMonde(1400, 8), joursParSeconde);
         [Test] public void La_ligne_du_prochain_geste_suit_la_partie()
         {
-            Assert.That(CabinetDeCarte.CHOISIR, Is.EqualTo("Choisissez votre maison : cliquez une terre en surbrillance"));
-            Assert.That(CabinetDeCarte.CHOIX_RECU, Is.EqualTo("Espace : lancer le temps ; le monde applique votre choix au jour suivant"));
-            Assert.That(CabinetDeCarte.LANCER, Is.EqualTo("Espace : lancer le temps"));
-            string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<DepartsLus> departs, RecuIntention recu, HorlogeLue h, bool ville = false) => CabinetDeCarte.Guide(monde, departs, recu, h, ville);
-            var departs = DepartsDe(Fiche(42, 10340)); var sans = MondeDe(null); var avec = MondeDe(JOUEUR); var recu = RecuIntention.AccepteeAu(7);
-            Assert.That(Guide(null, departs, null, Horloge(0)), Is.Null); Assert.That(Guide(Lecture<MondeAvecMaisonLu>.Absent("panne"), departs, null, Horloge(0)), Is.Null);
-            Assert.That(Guide(sans, departs, null, null), Is.EqualTo(CabinetDeCarte.CHOISIR)); Assert.That(Guide(sans, departs, null, Horloge(6)), Is.EqualTo(CabinetDeCarte.CHOISIR), "même si le temps file");
-            Assert.That(Guide(sans, null, null, Horloge(0)), Is.Null); Assert.That(Guide(sans, Lecture<DepartsLus>.Absent("panne"), null, Horloge(0)), Is.Null);
-            Assert.That(Guide(sans, departs, recu, Horloge(0)), Is.EqualTo(CabinetDeCarte.CHOIX_RECU));
-            Assert.That(Guide(sans, departs, recu, null), Is.Null); Assert.That(Guide(sans, departs, recu, Horloge(6)), Is.Null);
-            Assert.That(Guide(sans, departs, RecuIntention.Refusee(409, "refus"), Horloge(0)), Is.EqualTo(CabinetDeCarte.CHOISIR));
-            Assert.That(Guide(avec, null, null, Horloge(0)), Is.EqualTo("Espace : lancer le temps"));
-            Assert.That(Guide(avec, null, null, Horloge(0), true), Is.EqualTo("Espace : lancer le temps · double-clic sur votre siège : entrer dans votre ville"));
+            Assert.That(CabinetDeCarte.CHOISIR, Is.EqualTo("Choisissez votre pays, puis « Commencer »"));
+            Assert.That(CabinetDeCarte.CHOIX_RECU, Is.EqualTo("Choix reçu : « Reprendre » lance le temps, le monde l'applique au jour suivant"));
+            Assert.That(CabinetDeCarte.LANCER, Is.EqualTo("« Reprendre » lance le temps du monde"));
+            string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<JouablesLus> jouables, RecuIntention recu, HorlogeLue h, bool ville = false) => CabinetDeCarte.Guide(monde, jouables, recu, h, ville);
+            var jouables = JouablesDe(Jouable("seigneurie-42", 10340)); var sans = MondeDe(null); var avec = MondeDe(JOUEUR); var recu = RecuIntention.AccepteeAu(7);
+            Assert.That(Guide(null, jouables, null, Horloge(0)), Is.Null); Assert.That(Guide(Lecture<MondeAvecMaisonLu>.Absent("panne"), jouables, null, Horloge(0)), Is.Null);
+            Assert.That(Guide(sans, jouables, null, null), Is.EqualTo(CabinetDeCarte.CHOISIR)); Assert.That(Guide(sans, jouables, null, Horloge(6)), Is.EqualTo(CabinetDeCarte.CHOISIR), "même si le temps file");
+            Assert.That(Guide(sans, null, null, Horloge(0)), Is.Null); Assert.That(Guide(sans, Lecture<JouablesLus>.Absent("panne"), null, Horloge(0)), Is.Null);
+            Assert.That(Guide(sans, jouables, recu, Horloge(0)), Is.EqualTo(CabinetDeCarte.CHOIX_RECU));
+            Assert.That(Guide(sans, jouables, recu, null), Is.Null); Assert.That(Guide(sans, jouables, recu, Horloge(6)), Is.Null);
+            Assert.That(Guide(sans, jouables, RecuIntention.Refusee(409, "refus"), Horloge(0)), Is.EqualTo(CabinetDeCarte.CHOISIR));
+            Assert.That(Guide(avec, null, null, Horloge(0)), Is.EqualTo(CabinetDeCarte.LANCER));
+            Assert.That(Guide(avec, null, null, Horloge(0), true), Is.EqualTo(CabinetDeCarte.LANCER + CabinetDeCarte.ENTRER));
             Assert.That(Guide(avec, null, null, null), Is.Null); Assert.That(Guide(avec, null, null, Horloge(6), true), Is.Null);
             foreach (var phrase in new[] { CabinetDeCarte.CHOISIR, CabinetDeCarte.CHOIX_RECU, CabinetDeCarte.LANCER, CabinetDeCarte.LANCER + CabinetDeCarte.ENTRER })
+            {
                 Assert.That(TexteDuMonde.Interdit(phrase, "10340", "42") ?? TexteDuMonde.SansUnite(phrase), Is.Null, phrase);
+                Assert.That(phrase, Does.Not.Contain("Espace").And.Not.Contain("double-clic").And.Not.Contain("Échap"), "la ligne nomme une touche : " + phrase);
+            }
 
             var texte = Nomme(CabinetDeCarte.GUIDE); var rect = texte.rectTransform;
             Assert.That(texte.transform.parent.name, Is.EqualTo("FORGE · Le cabinet")); Assert.That(rect.anchoredPosition, Is.EqualTo(new Vector2(1104, -72))); Assert.That(rect.sizeDelta, Is.EqualTo(new Vector2(792, 26)));
@@ -421,46 +416,63 @@ namespace Forge.Interface.Tests
             texte.text = CabinetDeCarte.LANCER + CabinetDeCarte.ENTRER; Assert.That(texte.preferredWidth, Is.LessThanOrEqualTo(792f), "la plus longue phrase déborde de sa ligne");
             var horloge = racine.GetComponent<HorlogeDeCarte>();
             Proposer(); Assert.That(texte.gameObject.activeSelf, Is.True); Assert.That(texte.text, Is.EqualTo(CabinetDeCarte.CHOISIR));
-            Poser(partie, "Recu", RecuIntention.AccepteeAu(7)); LogAssert.Expect(LogType.Log, "CabinetDeCarte : choix reçu au tick 7");
+            Poser(partie, "Recu", RecuIntention.AccepteeAu(7));
             Poser(horloge, "Lue", new HorlogeLue(7, new DateDuMonde(1400, 8), 0)); cabinet.Afficher(); Assert.That(texte.gameObject.activeSelf && texte.text == CabinetDeCarte.CHOIX_RECU, Is.True, texte.text);
+            // La maison servie : la ligne dit d'entrer dans la ville seulement si sa fiche jouable la dit bâtie.
             Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(texte.gameObject.activeSelf && texte.text == CabinetDeCarte.LANCER, Is.True, texte.text);
-            var passage = racine.AddComponent<PassageALaCapitale>(); Poser(passage, "SiegeLu", (long?)10L); cabinet.Afficher(); Assert.That(texte.text, Is.EqualTo(CabinetDeCarte.LANCER + CabinetDeCarte.ENTRER), "le Zab a sa ville");
-            Poser(passage, "SiegeLu", null); cabinet.Afficher(); Assert.That(texte.text, Is.EqualTo(CabinetDeCarte.LANCER));
+            Poser(partie, "Jouables", JouablesDe(Jouable(JOUEUR, 10, true))); cabinet.Afficher(); Assert.That(texte.text, Is.EqualTo(CabinetDeCarte.LANCER + CabinetDeCarte.ENTRER), "la capitale servie est bâtie");
+            Poser(partie, "Jouables", JouablesDe(Jouable(JOUEUR, 10))); cabinet.Afficher(); Assert.That(texte.text, Is.EqualTo(CabinetDeCarte.LANCER));
             Poser(horloge, "Lue", new HorlogeLue(7, new DateDuMonde(1400, 8), 6)); cabinet.Afficher(); Assert.That(texte.gameObject.activeSelf, Is.False, "le temps file : la ligne se tait");
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(texte.gameObject.activeSelf, Is.False, "sans monde, la ligne se tait");
             foreach (var enfant in racine.GetComponentsInChildren<Button>().Where(b => b.transform.parent.name == "FORGE · Le cabinet")) Assert.That(enfant.name, Is.Not.EqualTo(CabinetDeCarte.GUIDE));
         }
 
-        [Test] public void Les_terres_conseillees_s_eclairent_et_un_clic_propose_la_maison()
+        [Test] public void Les_terres_conseillees_s_eclairent_et_un_clic_montre_leur_pays()
         {
             // La carte dessine les terres 10340 et 77 ; la fiche 43 conseille une terre (9999) qu'elle ne dessine pas.
             Dessiner(10340, 77); Color teinte = carte.TeinteDe(10340).Value; Material terrain = racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial;
-            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Departs", DepartsDe(Fiche(42, 10340), Fiche(43, 9999)));
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Jouables", JouablesDe(Jouable("seigneurie-42", 10340), Jouable("seigneurie-43", 9999)));
             cabinet.Afficher();
             // La surbrillance n'est plus un maillage plat posé au-dessus du terrain, qui cachait le relief et que les montagnes
             // auraient traversé sous une caméra inclinée : c'est le terrain lui-même qui s'éclaire, à l'or du socle.
             long[] Eclairees() => new long[] { 10340, 77, 9999 }.Where(c => carte.EclatDe(c).HasValue).ToArray();
-            Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "une surbrillance par fiche dont la carte dessine la cellule");
+            Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "une surbrillance par départ conseillé dont la carte dessine le siège");
             Color or = SocleInterface.Couleur("or"); or.a = 1f; Assert.That((Color32)carte.EclatDe(10340).Value, Is.EqualTo((Color32)or));
             Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name != CarteDessinee.TERRAIN), Is.Zero, "la surbrillance pose un maillage au-dessus du terrain");
             Assert.That(racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(terrain));
             Assert.That(carte.TeinteDe(10340), Is.EqualTo(teinte), "la surbrillance couvre la teinte de la terre, elle ne la change pas"); Assert.That(carte.Marquee, Is.Null);
             cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "un second Afficher éteint ou déplace la surbrillance");
 
+            Button commencer = racine.GetComponentsInChildren<Button>(true).Single(b => b.name == AccueilDuPays.COMMENCER);
+            Assert.That(commencer.interactable, Is.False, "sans pays choisi, « Commencer » est inactif");
             Assert.That(Geste(Terre(10340, "Ville test"), O, O), Is.True); cabinet.Afficher();
             Assert.That(carte.Marquee, Is.EqualTo(10340), "la terre gardée garde son rouge : la marque passe devant l'éclat");
-            Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra")); Assert.That(racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Choisir cette maison").interactable, Is.True);
-            cabinet.Relacher(); cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L })); Assert.That(carte.Marquee, Is.Null); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"));
-            Assert.That(Geste(Terre(77, "Ville sans fiche"), O, O), Is.True); cabinet.Afficher(); Assert.That(Nomme("Consultez une maison avant de vous engager.").text, Does.StartWith("Despotat témoin · Mistra"), "une terre sans fiche ne change pas la maison consultée");
+            Assert.That(cabinet.Accueil.Montree.Id, Is.EqualTo("seigneurie-42"), "le siège cliqué montre son pays"); Assert.That(cabinet.Accueil.TexteDuNom, Is.EqualTo("Despotat témoin"));
+            Assert.That(commencer.interactable, Is.True);
+            cabinet.Relacher(); cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L })); Assert.That(carte.Marquee, Is.Null); Assert.That(cabinet.Accueil.Montree.Id, Is.EqualTo("seigneurie-42"));
+            Assert.That(Geste(Terre(77, "Ville sans fiche"), O, O), Is.True); cabinet.Afficher(); Assert.That(cabinet.Accueil.Montree.Id, Is.EqualTo("seigneurie-42"), "une terre sans pays ne change pas le pays montré");
             Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(Eclairees(), Is.Empty, "une maison choisie : plus de terre éclairée");
-            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "sans maison, la surbrillance revient");
+            Assert.That(cabinet.Accueil.Ouvert, Is.False); Assert.That(cabinet.Accueil.Panneau.gameObject.activeSelf, Is.False, "l'accueil se ferme quand la maison est servie");
+            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(cabinet.Accueil.Ouvert, Is.False, "l'accueil ne revient pas"); Assert.That(Eclairees(), Is.Empty);
+        }
+
+        // Tant que l'accueil est ouvert, il prend la colonne de « Votre maison » et du « Territoire conservé », sans laisser l'ancien choix.
+        [Test] public void L_accueil_remplace_les_deux_dossiers_et_l_ancien_choix()
+        {
+            Proposer(); Transform toile = racine.transform.Find("Cabinet");
+            var accueil = (RectTransform)toile.Find(AccueilDuPays.TITRE); Assert.That(accueil, Is.Not.Null); Assert.That(accueil.gameObject.activeSelf, Is.True);
+            Assert.That(accueil.anchoredPosition, Is.EqualTo(new Vector2(1312, -124))); Assert.That(accueil.sizeDelta, Is.EqualTo(new Vector2(584, 932)));
+            foreach (var nom in new[] { "Votre maison", "Territoire conservé" }) Assert.That(toile.Find(nom).gameObject.activeSelf, Is.False, nom + " reste visible sous l'accueil");
+            foreach (var ancien in new[] { "Choisir cette maison", "Maison témoin", "Maisons proposées", "Consultez une maison avant de vous engager." })
+                Assert.That(toile.GetComponentsInChildren<Transform>(true).Where(t => t.name == ancien), Is.Empty, "l'ancien choix reste : " + ancien);
+            Assert.That(System.IO.File.ReadAllText("Assets/Interface/CabinetDeCarte.cs"), Does.Not.Contain("PassageALaCapitale").And.Not.Contain("SiegeLu"));
         }
 
         // Chaque commande du cabinet déclare sa phrase, et le cabinet la montre au survol.
         [Test] public void ChaqueCommandeDuCabinetDitCeQuElleFait()
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet"); Button[] boutons = toile.GetComponentsInChildren<Button>(true);
-            var attendues = new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Choisir cette maison", "Maison témoin", "Prélèvement", "Ouvrir le grenier", "Préparer", "Confirmer l’ordre",
+            var attendues = new[] { "Ralentir", "Pause / Reprendre", "Accélérer", AccueilDuPays.COMMENCER, "Despotat témoin", "Prélèvement", "Ouvrir le grenier", "Préparer", "Confirmer l’ordre",
                 "Annuler / Retour", "Annuler / Retour", "Menu", "Revenir au jeu", "Puissances", "Habitants", "Autres maisons", "Plan du bourg", "Revenir à la carte", "Chantiers",
                 "Tracer une rue", "Relire le tracé", "Confirmer la rue", "Terres et comptes", "Fermer", "Fermer", "Fermer" };
             Assert.That(attendues.Length == 26 && attendues.Distinct().Count() == 23, Is.True);
@@ -476,7 +488,7 @@ namespace Forge.Interface.Tests
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet"); Canvas canvas = toile.GetComponent<Canvas>(); Canvas.ForceUpdateCanvases(); // la toile prend l'écran, comme dans SocleInterfaceTests
             Button[] actifs = toile.GetComponentsInChildren<Button>().Where(b => b.gameObject.activeInHierarchy).ToArray(); var coins = new Vector3[4];
-            foreach (var nom in new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Menu", "Terres et comptes", "Maison témoin", "Choisir cette maison", "Plan du bourg", "Puissances", "Habitants", "Autres maisons" })
+            foreach (var nom in new[] { "Ralentir", "Pause / Reprendre", "Accélérer", "Menu", "Terres et comptes", "Despotat témoin", AccueilDuPays.COMMENCER, "Puissances", "Habitants", "Autres maisons" })
                 Assert.That(actifs.Any(b => b.name == nom), Is.True, "commande active absente : " + nom);
             RectTransform[] Feuillets() => toile.GetComponentsInChildren<RectTransform>().Where(t => t.name == "Infobulle").ToArray();
             Vector2 Centre(Button b) { ((RectTransform)b.transform).GetWorldCorners(coins); return RectTransformUtility.WorldToScreenPoint(null, (coins[0] + coins[2]) / 2); }
@@ -645,13 +657,15 @@ namespace Forge.Interface.Tests
         }
         [Test] public void Changer_de_mode_ne_touche_ni_l_horloge_ni_les_lectures()
         {
-            int appels = 0; partie = new LecturePartie(() => { appels++; return Lecture<MondeAvecMaisonLu>.Absent("lecture témoin"); }, _ => { appels++; return null; }, () => { appels++; return null; }, _ => { appels++; return null; }); cabinet.Partie = partie;
+            // La lecture du monde attend la porte : la contre-épreuve voit la partie occupée, quel que soit le fil qui reprend la tâche.
+            using var porte = new System.Threading.ManualResetEventSlim(false);
+            int appels = 0; partie = new LecturePartie(() => { appels++; porte.Wait(5000); return Lecture<MondeAvecMaisonLu>.Absent("lecture témoin"); }, _ => { appels++; return null; }, () => { appels++; return null; }, _ => { appels++; return null; }); cabinet.Partie = partie;
             var monde = Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), null)); Poser(partie, "Monde", monde);
             var horlogeDeCarte = racine.GetComponent<HorlogeDeCarte>(); var lue = new HorlogeLue(7, new DateDuMonde(1400, 8), 2); Poser(horlogeDeCarte, "Lue", lue);
             var calques = racine.GetComponent<CalquesCarte>(); Transform bande = racine.transform.Find("Cabinet/" + CalquesCarte.BANDE);
             foreach (var mode in new[] { ModeDeCarte.Flux, ModeDeCarte.Habitants, ModeDeCarte.Puissances }) { bande.Find(mode.ToString()).GetComponent<Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); }
             Assert.That(appels == 0 && !partie.Occupee && ReferenceEquals(partie.Monde, monde) && !horlogeDeCarte.RequeteEnVol && ReferenceEquals(horlogeDeCarte.Lue, lue), Is.True, appels + " lecture(s), occupée " + partie.Occupee);
-            _ = partie.Actualiser(); Assert.That(partie.Occupee, Is.True, "contre-épreuve : une lecture lancée occupe la partie");
+            _ = partie.Actualiser(); Assert.That(partie.Occupee, Is.True, "contre-épreuve : une lecture lancée occupe la partie"); porte.Set();
         }
         // La barre du haut dit la maison, sa part et son grenier, lus aux comptes servis au tick du monde lu.
         const string BARRE = "Lecture de la maison…", ATTENTE = "Comptes en attente du monde", LIGNE_DE_LA_BARRE = "Maison témoin · Prélèvement : 25 % · Grenier : bois : 0 kg · nourriture : 1,23 t";
@@ -796,7 +810,7 @@ namespace Forge.Interface.Tests
             LesJauges(Lecture<PaysLu>.Absent("refus témoin")); Assert.That(EtatDesJauges(), Is.EqualTo("Jauges indisponibles : refus témoin")); SansCellule();
             Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Pays indisponible : service coupé"));
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Lecture du pays…"));
-            Proposer(); Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => t.gameObject.activeInHierarchy), Is.False);
+            Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => t.gameObject.activeInHierarchy), Is.False);
             Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
         }
         [Test] public void Une_jauge_que_le_service_ne_sert_pas_est_nommee()
