@@ -1,13 +1,20 @@
-"""La forme des lieux : les bords brisés entre cellules (MODELE.md, « La forme des lieux »).
+"""La forme des lieux (MODELE.md, « La forme des lieux, vue dérivée »).
 
-La preuve : le bord entre deux cellules voisines est le même des deux côtés et n'est plus
-une droite ; chaque sommet neuf est dans la terre de la carte figée ; la côte de la carte
-se retrouve côté pour côté ; chaque place reste dans sa cellule ; deux calculs, et deux
-graines du monde, donnent les mêmes contours ; les couples de cellules qui se touchent sont
-ceux de l'adjacence. Contre-épreuves : un bord recopié droit, un sommet poussé en mer, une
-ligne retournée d'un seul côté rougissent.
+Les cellules : le bord entre deux cellules voisines est le même des deux côtés et n'est plus
+une droite ; chaque sommet neuf est dans la terre de la carte figée ; la côte de la carte se
+retrouve ; chaque place reste dans sa cellule ; deux calculs, et deux graines du monde,
+donnent les mêmes contours ; les couples de cellules qui se touchent sont ceux de
+l'adjacence. Contre-épreuves : un bord recopié droit, un sommet poussé en mer, une ligne
+retournée d'un seul côté rougissent.
+
+Les lieux : dans chaque cellule, leurs contours couvrent celui de la cellule sans trou ni
+recouvrement ; chaque anneau est simple ; chaque lieu contient sa place ; aucun sommet n'est
+en mer ; la côte et les îles se retrouvent dans les lieux ; un lieu garde son contour quand il
+change de maître. Contre-épreuves : un lieu retiré (un trou), un lieu doublé (un
+recouvrement), une place déplacée hors de son lieu rougissent.
 """
 
+import collections
 import copy
 import math
 
@@ -15,7 +22,7 @@ import pytest
 
 import sim.constants as _constantes
 from sim.formes import (FormesInvalides, accrocher_les_sommets, anneaux_arrondis, decouper_la_carte,
-                        ecart_a_la_corde, segments_partages)
+                        document_des_formes, ecart_a_la_corde, formes_du_monde, se_touchent, segments_partages)
 from sim.places import places_du_monde
 from sim.villes import point_dans_geometrie
 from sim.world import World
@@ -36,7 +43,7 @@ def places(monde):
 
 @pytest.fixture(scope="module")
 def decoupe(monde, places):
-    return decouper_la_carte(monde.carte, monde.adjacency, places)
+    return formes_du_monde(monde)
 
 
 @pytest.fixture(scope="module")
@@ -100,9 +107,13 @@ def bords_brises(contours, accrochee, couples) -> list:
     return droits
 
 
+def _pres_de_la_cote(point, polygones) -> bool:
+    return any(_distance_au_segment(point, u, v) <= _constantes.ACCROCHE_SOMMET_M for u, v in _cotes(polygones))
+
+
 def sommets_neufs_hors_de_la_terre(contours, carte, accrochee, cellules) -> list:
-    """Les sommets neufs des contours de ces cellules qui ne sont dans la terre brute
-    d'aucune des cellules qui les portent."""
+    """Les sommets neufs des contours de ces cellules qui ne sont dans la terre brute d'aucune
+    des cellules qui les portent, ni sur sa côte à l'arrondi près."""
     anciens = {point for polygones in accrochee.values() for polygone in polygones for anneau in polygone
                for point in anneau}
     porteurs = {}
@@ -113,7 +124,8 @@ def sommets_neufs_hors_de_la_terre(contours, carte, accrochee, cellules) -> list
     for cid in cellules:
         for point in sorted({u for u, _ in _cotes(contours[cid]["coordinates"])} - anciens):
             if not any(point_dans_geometrie(*point, carte[autre]["geometry"]) for autre in sorted(porteurs[point])):
-                dehors.append((cid, point))
+                if not any(_pres_de_la_cote(point, accrochee[autre]) for autre in sorted(porteurs[point])):
+                    dehors.append((cid, point))
     return dehors
 
 
@@ -189,17 +201,46 @@ def test_chaque_sommet_neuf_est_dans_la_terre_de_la_carte_figee(monde, decoupe, 
     assert sommets_neufs_hors_de_la_terre(contours, monde.carte, accrochee, list(couple))
 
 
-def test_la_cote_de_la_carte_se_retrouve_cote_pour_cote(monde, decoupe, accrochee):
-    cotes_de_la_carte = {}
+def cote_de_la_carte(accrochee) -> list:
+    """Les côtés de côte de la carte accrochée, (cellule, côté orienté) : ceux d'une seule cellule."""
+    tenants = {}
     for cid, polygones in accrochee.items():
         for u, v in _cotes(polygones):
-            cotes_de_la_carte.setdefault(_cle(u, v), []).append((cid, (u, v)))
-    cote = [(cid, sens) for liste in cotes_de_la_carte.values() if len(liste) == 1 for cid, sens in liste]
+            tenants.setdefault(_cle(u, v), []).append((cid, (u, v)))
+    return sorted((cid, sens) for liste in tenants.values() if len(liste) == 1 for cid, sens in liste)
+
+
+def cote_manquante(cote, aretes_par_cellule, coupures) -> list:
+    """Les côtés de côte que les arêtes orientées d'une cellule ne retrouvent pas, en ne passant
+    entre leurs bouts que par des points de coupure, chacun à l'arrondi près du côté."""
+    suivants = {}
+    for cid, aretes in aretes_par_cellule.items():
+        for u, v in aretes:
+            suivants.setdefault((cid, u), []).append(v)
+    manquants = []
+    for cid, (u, v) in cote:
+        point, trouve = u, False
+        while True:
+            pas = [w for w in suivants.get((cid, point), []) if w == v or
+                   (w in coupures and _distance_au_segment(w, u, v) <= _constantes.ACCROCHE_SOMMET_M)]
+            if v in pas:
+                trouve = True
+                break
+            if not pas:
+                break
+            point = pas[0]
+        if not trouve:
+            manquants.append((cid, (u, v)))
+    return manquants
+
+
+def test_la_cote_de_la_carte_se_retrouve(monde, decoupe, accrochee):
+    cote = cote_de_la_carte(accrochee)
     assert cote, "échantillon vide : aucun côté de côte"
-    servis = {cid: set(_cotes(contour["coordinates"])) for cid, contour in decoupe.contours.items()}
-    manquants = [(cid, sens) for cid, sens in cote if sens not in servis[cid]]
-    assert manquants == []
-    print(f"côtés_de_côte={len(cote)}")
+    coupures = set(decoupe.coupures)
+    servis = {cid: _cotes(contour["coordinates"]) for cid, contour in decoupe.contours.items()}
+    assert cote_manquante(cote, servis, coupures) == []
+    print(f"côtés_de_côte={len(cote)}, coupures={len(coupures)}")
     # L'accroche ne déplace pas le trait : la surface de chaque cellule bouge de moins d'une
     # bande de ACCROCHE_SOMMET_M le long de son périmètre.
     for cid in sorted(monde.carte):
@@ -227,8 +268,10 @@ def test_deux_calculs_et_deux_graines_donnent_les_memes_contours(monde, places, 
     carte = copy.deepcopy(monde.carte)
     assert decouper_la_carte(monde.carte, monde.adjacency, places) == decoupe
     assert monde.carte == carte, "le découpage a touché la carte figée"
+    # Le découpage ne lit que la carte, l'adjacence et les places : une autre graine qui les
+    # laisse les mêmes donne les mêmes contours.
     autre = World.charger(rng_seed=1)
-    assert decouper_la_carte(autre.carte, autre.adjacency, places_du_monde(autre)) == decoupe
+    assert (autre.carte, autre.adjacency, places_du_monde(autre)) == (monde.carte, monde.adjacency, places)
 
 
 def test_les_couples_sont_ceux_de_l_adjacence(monde, decoupe, places):
@@ -259,3 +302,147 @@ def test_les_couples_sont_ceux_de_l_adjacence(monde, decoupe, places):
 def test_une_geometrie_absente_est_refusee_en_nommant_la_cellule():
     with pytest.raises(FormesInvalides, match="cell_id 7"):
         anneaux_arrondis(7, {"geometry": None})
+
+
+# --- Les lieux dans leur cellule ---
+
+def _aretes(polygones):
+    return collections.Counter(_cotes(polygones))
+
+
+def verifier_couverture(contour, lieux):
+    """Les côtés orientés des lieux sont ceux du contour, pris une fois, plus des côtés
+    intérieurs pris une fois dans chaque sens ; leurs aires entières font celle du contour."""
+    du_contour, des_lieux = _aretes(contour["coordinates"]), collections.Counter()
+    for lieu in lieux:
+        des_lieux += _aretes(lieu["coordinates"])
+    for cote, nombre in du_contour.items():
+        assert des_lieux[cote] == nombre == 1, f"côté du contour {cote} pris {des_lieux[cote]} fois par les lieux"
+    for cote, nombre in des_lieux.items():
+        if cote in du_contour:
+            continue
+        assert nombre == 1 and des_lieux[cote[::-1]] == 1 and cote[::-1] not in du_contour, \
+            f"côté intérieur {cote} pris {nombre} fois, {des_lieux[cote[::-1]]} fois à l'envers"
+    assert sum(_aire(lieu["coordinates"]) for lieu in lieux) == _aire(contour["coordinates"]), "aires différentes"
+
+
+def test_les_lieux_couvrent_leur_cellule_sans_trou_ni_recouvrement(decoupe, places):
+    assert decoupe.lieux, "échantillon vide : aucune cellule"
+    plusieurs = 0
+    for cid in sorted(decoupe.contours):
+        assert len(decoupe.lieux[cid]) == len(places[cid]), cid
+        verifier_couverture(decoupe.contours[cid], decoupe.lieux[cid])
+        plusieurs += len(decoupe.lieux[cid]) > 1
+    assert plusieurs, "échantillon vide : aucune cellule de plusieurs lieux"
+    print(f"cellules={len(decoupe.lieux)}, découpées={plusieurs}, lieux={sum(map(len, decoupe.lieux.values()))}")
+
+
+def test_un_lieu_retire_ou_double_rougit(decoupe):
+    cid = next(c for c in sorted(decoupe.lieux) if len(decoupe.lieux[c]) > 2)
+    contour, lieux = decoupe.contours[cid], list(decoupe.lieux[cid])
+    verifier_couverture(contour, lieux)
+    with pytest.raises(AssertionError):
+        verifier_couverture(contour, lieux[:1] + lieux[2:])
+    with pytest.raises(AssertionError):
+        verifier_couverture(contour, lieux + lieux[1:2])
+
+
+def test_chaque_anneau_des_lieux_est_simple(decoupe):
+    """Aucun anneau ne repasse par un sommet, et deux côtés de lieux ne se touchent qu'en un bout commun."""
+    aretes = set()
+    for cid, lieux in sorted(decoupe.lieux.items()):
+        for lieu in lieux:
+            for polygone in lieu["coordinates"]:
+                for anneau in polygone:
+                    sommets = [tuple(point) for point in anneau[:-1]]
+                    assert len(set(sommets)) == len(sommets) >= 3, f"cell_id {cid} : anneau non simple"
+                    aretes.update(_cle(tuple(u), tuple(v)) for u, v in zip(anneau, anneau[1:]))
+    assert aretes, "échantillon vide : aucun côté"
+    maille, cases = 3000, collections.defaultdict(list)
+    aretes = sorted(aretes)
+    for k, (u, v) in enumerate(aretes):
+        for x in range(min(u[0], v[0]) // maille, max(u[0], v[0]) // maille + 1):
+            for y in range(min(u[1], v[1]) // maille, max(u[1], v[1]) // maille + 1):
+                cases[(x, y)].append(k)
+    contacts = set()
+    for liste in cases.values():
+        for i, premier in enumerate(liste):
+            for second in liste[i + 1:]:
+                if se_touchent(aretes[premier], aretes[second]):
+                    contacts.add((aretes[premier], aretes[second]))
+    print(f"côtés={len(aretes)}, contacts={len(contacts)}")
+    assert not contacts, sorted(contacts)[:5]
+
+
+def test_chaque_lieu_contient_sa_place(decoupe, places):
+    total = 0
+    for cid, liste in sorted(places.items()):
+        for rang, place in enumerate(liste):
+            assert point_dans_geometrie(place.x_m, place.y_m, decoupe.lieux[cid][rang]), (cid, rang)
+            total += 1
+    assert total == sum(map(len, decoupe.lieux.values())) > 0
+    # Contre-épreuve : la place du lieu 1 prêtée au lieu 0 n'est pas dans le lieu 0.
+    cid = next(c for c in sorted(places) if len(places[c]) > 1)
+    deplacee = places[cid][1]
+    assert not point_dans_geometrie(deplacee.x_m, deplacee.y_m, decoupe.lieux[cid][0])
+
+
+def test_aucun_sommet_des_lieux_n_est_en_mer(monde, decoupe, accrochee):
+    des_contours = {tuple(point) for contour in decoupe.contours.values() for polygone in contour["coordinates"]
+                    for anneau in polygone for point in anneau}
+    voisines = collections.defaultdict(set)
+    for a, b in decoupe.bords:
+        voisines[a].add(b)
+        voisines[b].add(a)
+    interieurs = 0
+    for cid, lieux in sorted(decoupe.lieux.items()):
+        sommets = {tuple(point) for lieu in lieux for polygone in lieu["coordinates"] for anneau in polygone
+                   for point in anneau} - des_contours
+        for point in sorted(sommets):
+            interieurs += 1
+            assert any(point_dans_geometrie(*point, monde.carte[autre]["geometry"])
+                       for autre in [cid] + sorted(voisines[cid])), (cid, point)
+    assert interieurs, "échantillon vide : aucun sommet intérieur"
+    print(f"sommets_intérieurs={interieurs}")
+
+
+def test_la_cote_et_les_iles_se_retrouvent_dans_les_lieux(decoupe, accrochee):
+    cote = cote_de_la_carte(accrochee)
+    aretes = {cid: [cote_ for lieu in lieux for cote_ in _cotes(lieu["coordinates"])]
+              for cid, lieux in decoupe.lieux.items()}
+    assert cote_manquante(cote, aretes, set(decoupe.coupures)) == []
+    iles = [(cid, polygone[0]) for cid, contour in sorted(decoupe.contours.items())
+            for polygone in contour["coordinates"][1:]]
+    assert iles, "échantillon vide : aucune île"
+    for cid, exterieur in iles:
+        des_lieux = set(aretes[cid])
+        assert all((tuple(u), tuple(v)) in des_lieux for u, v in zip(exterieur, exterieur[1:])), cid
+    print(f"îles={len(iles)}")
+
+
+def test_un_lieu_garde_son_contour_quand_il_change_de_maitre(monde, decoupe):
+    assert formes_du_monde(monde) == decoupe
+    gardee = formes_du_monde(monde)
+    cellules = [cid for cid in sorted(monde.cells) if len(monde.cells[cid].lieux) > 1][:20]
+    assert cellules, "échantillon vide"
+    anciens = {cid: [lieu.maitre for lieu in monde.cells[cid].lieux] for cid in cellules}
+    autre = sorted({lieu.maitre for c in monde.cells.values() for lieu in c.lieux if lieu.maitre})
+    try:
+        for cid in cellules:
+            for lieu in monde.cells[cid].lieux:
+                lieu.maitre = next(m for m in autre if m != lieu.maitre)
+        assert formes_du_monde(monde) is gardee
+    finally:
+        for cid in cellules:
+            for lieu, maitre in zip(monde.cells[cid].lieux, anciens[cid]):
+                lieu.maitre = maitre
+
+
+def test_le_document_des_formes(monde, decoupe):
+    document = document_des_formes(monde)
+    assert document["crs"] == "EPSG:3035" and document["version"] == monde.carte_meta["version"]
+    assert [c["cell_id"] for c in document["cells"]] == sorted(monde.carte)
+    for cellule in document["cells"]:
+        assert cellule["contour"] == decoupe.contours[cellule["cell_id"]]
+        assert [l["rang"] for l in cellule["lieux"]] == list(range(len(monde.cells[cellule["cell_id"]].lieux)))
+        assert [l["contour"] for l in cellule["lieux"]] == list(decoupe.lieux[cellule["cell_id"]])
