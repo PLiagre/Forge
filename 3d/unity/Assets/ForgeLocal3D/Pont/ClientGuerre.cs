@@ -90,11 +90,13 @@ namespace Forge.Pont
     // comptés par le monde comme au dépôt, et le refus de son dépôt aujourd'hui (nul : il serait accepté).
     public sealed class BatimentDeLevee
     {
-        public string Nature { get; } public string Nom { get; } public long CellId { get; } public long Journees { get; } public long BrasParJour { get; } public double CoutKg { get; } public string Refus { get; }
-        public BatimentDeLevee(string nature, string nom, long cellId, long journees, long brasParJour, double coutKg, string refus)
+        public string Nature { get; } public string Nom { get; } public long CellId { get; } public long Journees { get; } public long BrasParJour { get; } public double CoutKg { get; }
+        // Le grain qui manque au grenier pour ce dépôt, servi par le monde : 0 s'il n'en manque pas.
+        public double ManqueKg { get; } public string Refus { get; }
+        public BatimentDeLevee(string nature, string nom, long cellId, long journees, long brasParJour, double coutKg, double manqueKg, string refus)
         {
             Nature = nature ?? throw new ArgumentNullException(nameof(nature)); Nom = nom ?? throw new ArgumentNullException(nameof(nom));
-            CellId = cellId; Journees = journees; BrasParJour = brasParJour; CoutKg = coutKg; Refus = refus;
+            CellId = cellId; Journees = journees; BrasParJour = brasParJour; CoutKg = coutKg; ManqueKg = manqueKg; Refus = refus;
         }
     }
     // Ce que la maison peut lever. Refus nul : la levée est permise. Batiment nul : la capitale est hors de la carte.
@@ -246,7 +248,7 @@ namespace Forge.Pont
             {
                 var b = brut as Dictionary<string, object> ?? throw ServiceLocal.Refus("levee.batiment", "un objet ou null", brut);
                 batiment = new BatimentDeLevee(Texte(b, "levee.batiment.nature"), Texte(b, "levee.batiment.nom"), ServiceLocal.Entier(b, "levee.batiment.cell_id", 0),
-                    ServiceLocal.Entier(b, "levee.batiment.journees", 1), ServiceLocal.Entier(b, "levee.batiment.bras_par_jour", 1), Masse(b, "levee.batiment.cout_kg"), TexteOuNul(b, "levee.batiment.refus"));
+                    ServiceLocal.Entier(b, "levee.batiment.journees", 1), ServiceLocal.Entier(b, "levee.batiment.bras_par_jour", 1), Masse(b, "levee.batiment.cout_kg"), Masse(b, "levee.batiment.manque_kg"), TexteOuNul(b, "levee.batiment.refus"));
             }
             return new LeveeLue(TexteOuNul(levee, "levee.refus"), lieux, ServiceLocal.Entier(levee, "levee.paysans", 0), Masse(levee, "levee.grain_libre_kg"), Masse(levee, "levee.ration_kg_par_homme_par_jour"), batiment);
         }

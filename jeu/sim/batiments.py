@@ -137,6 +137,12 @@ def _grenier(monde, maison):
     return (monde.greniers.get(maison) or {}).get(_constantes.MARCHANDISE_NOURRITURE, 0.0)
 
 
+def grain_disponible_kg(monde, maison, types, engages=()) -> float:
+    """Le grain du grenier de la maison, moins le coût des bâtiments qu'elle a déjà déposés (`engages`)."""
+    deja = sum(cout_kg(monde, types[n], c) for c, n in engages if n in types)
+    return _grenier(monde, maison) - deja
+
+
 def verifier(monde, maison, cell_id, nature, types, engages=()) -> str | None:
     """La raison du refus, ou None. `engages` : les (cellule, nature) déjà déposés par cette maison."""
     type_ = types.get(nature)
@@ -156,8 +162,7 @@ def verifier(monde, maison, cell_id, nature, types, engages=()) -> str | None:
         seul, un = ("une seule", "une") if type_.genre == "f" else ("un seul", "un")
         return f"{seul} {type_.nom.lower()} par province : la cellule {cell_id} en a déjà {un}"
     cout = cout_kg(monde, type_, cell_id)
-    deja = sum(cout_kg(monde, types[n], c) for c, n in engages if n in types)
-    disponible = _grenier(monde, maison) - deja
+    disponible = grain_disponible_kg(monde, maison, types, engages)
     if disponible < cout:
         return f"grenier insuffisant : {cout:g} kg de grain demandés, {disponible:g} kg disponibles"
     metiers = lire_habitants_par_metier(cellule)
@@ -171,14 +176,18 @@ def devis(monde, maison, cell_id, nature, types=None) -> dict:
     """Ce que coûterait ce bâtiment dans cette cellule aujourd'hui, et pourquoi le dépôt le refuserait (ou None).
 
     Les journées et le grain sont ceux que `poser` et `verifier` comptent (durée et coût modifiés compris) ; le
-    refus est celui de `verifier` avec les bâtiments déjà déposés par la maison, sans parcelle. Rien n'est écrit.
+    refus est celui de `verifier` avec les bâtiments déjà déposés par la maison, sans parcelle ; `manque_kg` est le
+    grain qui manque au grenier pour ce dépôt (0 s'il n'en manque pas). Rien n'est écrit.
     """
     from sim.intentions import batiments_engages
     types = charger_types() if types is None else types
     type_ = types[nature]
+    engages = batiments_engages(monde, maison)
+    cout = cout_kg(monde, type_, cell_id)
     return {"nature": nature, "nom": type_.nom, "cell_id": cell_id, "journees": journees(monde, type_, cell_id),
-            "bras_par_jour": type_.bras_par_jour, "cout_kg": cout_kg(monde, type_, cell_id),
-            "refus": verifier(monde, maison, cell_id, nature, types, batiments_engages(monde, maison))}
+            "bras_par_jour": type_.bras_par_jour, "cout_kg": cout,
+            "manque_kg": max(0.0, cout - grain_disponible_kg(monde, maison, types, engages)),
+            "refus": verifier(monde, maison, cell_id, nature, types, engages)}
 
 
 def poser(monde, maison, cell_id, nature, types=None, parcelle=None) -> BatimentDeProvince:

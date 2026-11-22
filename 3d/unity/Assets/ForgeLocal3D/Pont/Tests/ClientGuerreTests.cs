@@ -15,8 +15,8 @@ namespace Forge.Pont.Tests
         const string EnMarche = "{\"armees\":[{\"avance_km\":40.0,\"cell_id\":10465,\"debut\":2,\"destination\":[10461,0],\"dette_kg\":0.0,\"effectifs\":[[10465,0,300],[10465,1,300],[10465,2,300],[10465,3,300]],\"etapes\":[{\"latitude\":48.1669088,\"longitude\":9.2924595,\"x_m\":4268345.375,\"y_m\":2783959.138}],\"hommes\":1200,\"identifiant\":0,\"maison\":\"seigneurie-2\",\"point\":{\"latitude\":48.776,\"longitude\":9.183,\"x_m\":4260932.34,\"y_m\":2851742.83},\"rang\":0,\"reste_mortalite\":0.0,\"route\":[10461],\"siege\":null,\"vivres_kg\":0.0}],\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"guerres\":[{\"agresseur\":\"seigneurie-2\",\"debut\":2,\"defenseur\":\"plausible-10461-0\",\"identifiant\":0}],\"morts_des_armees\":0,\"prises\":[],\"tick\":5}";
         const string Prise = "{\"armees\":[{\"avance_km\":40.0,\"cell_id\":10461,\"debut\":2,\"destination\":null,\"dette_kg\":0.0,\"effectifs\":[[10465,0,300],[10465,1,300],[10465,2,300],[10465,3,300]],\"etapes\":[],\"hommes\":1200,\"identifiant\":0,\"maison\":\"seigneurie-2\",\"point\":{\"latitude\":48.1669088,\"longitude\":9.2924595,\"x_m\":4268345.375,\"y_m\":2783959.138},\"rang\":0,\"reste_mortalite\":0.0,\"route\":[],\"siege\":null,\"vivres_kg\":0.0}],\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"guerres\":[{\"agresseur\":\"seigneurie-2\",\"debut\":2,\"defenseur\":\"plausible-10461-0\",\"identifiant\":0}],\"morts_des_armees\":0,\"prises\":[{\"a\":\"seigneurie-2\",\"armee\":0,\"cell_id\":10461,\"de\":\"plausible-10461-0\",\"rangs\":[0,1,2],\"tick\":5}],\"tick\":6}";
         // Les ordres de la maison seigneurie-2 avec la terre 10461 visée et son armée en marche, puis sans terre ni armée.
-        const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
-        const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
+        const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
+        const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
         // Trois terres, deux pays.
         const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"grande-29\",\"nom\":\"Wittelsbach\"},{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"}],\"terres\":[{\"cell_id\":10452,\"maitre\":\"grande-29\",\"pays\":\"grande-29\"},{\"cell_id\":10461,\"maitre\":\"seigneurie-2\",\"pays\":\"grande-9\"},{\"cell_id\":10465,\"maitre\":\"seigneurie-2\",\"pays\":\"grande-9\"}],\"tick\":6}";
         const string Maison = "seigneurie-2";
@@ -124,7 +124,7 @@ namespace Forge.Pont.Tests
                 Assert.IsTrue(o.MaisonId == Maison && o.Tick == 5 && o.Date.Annee == 1400 && o.Date.JourDeLAnnee == 6);
                 Assert.IsTrue(o.Levee.Refus == null && o.Levee.Paysans == 78799 && o.Levee.GrainLibreKg == 17084.919665919155 && o.Levee.RationKgParHommeParJour == 2.5);
                 CollectionAssert.AreEqual(new[] { (10465L, 0L, 320L), (10465L, 1L, 315L), (10465L, 2L, 315L), (10465L, 3L, 314L) }, o.Levee.Lieux.Select(x => (x.CellId, x.Rang, x.HommesMax)).ToArray());
-                var b = o.Levee.Batiment; Assert.IsTrue(b != null && b.Nature == "caserne" && b.Nom == "Caserne" && b.CellId == 10465 && b.Journees == 800 && b.BrasParJour == 25 && b.CoutKg == 2400.0);
+                var b = o.Levee.Batiment; Assert.IsTrue(b != null && b.Nature == "caserne" && b.Nom == "Caserne" && b.CellId == 10465 && b.Journees == 800 && b.BrasParJour == 25 && b.CoutKg == 2400.0 && b.ManqueKg == 0.0);
                 Assert.AreEqual("une seule caserne par province : la cellule 10465 en a déjà une", b.Refus);
                 Assert.IsTrue(o.Cible != null && o.Cible.CellId == 10461 && o.Cible.Maitre == "plausible-10461-0" && o.Cible.RefusDeDeclaration == "vous êtes déjà en guerre avec cette maison");
                 Assert.AreEqual(1, o.Armees.Count); var a = o.Armees[0];
@@ -144,13 +144,26 @@ namespace Forge.Pont.Tests
         [Test] public void Le_devis_de_la_caserne_nul_ou_sans_refus_est_lu_tel_quel()
         {
             string sansRefus = Muter(OrdresSansArmee, "\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"", "\"refus\":null");
-            string nul = Muter(OrdresSansArmee, "\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"}", "\"batiment\":null");
+            string nul = Muter(OrdresSansArmee, "\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"}", "\"batiment\":null");
             Servir(sansRefus, nul);
             using (var c = Client())
             {
                 var l = c.LireOrdres(Maison, null); Assert.IsTrue(l.Presente, l.Absence);
                 Assert.IsTrue(l.Donnees.Levee.Batiment != null && l.Donnees.Levee.Batiment.Refus == null && l.Donnees.Levee.Batiment.Journees == 800);
                 l = c.LireOrdres(Maison, null); Assert.IsTrue(l.Presente, l.Absence); Assert.IsNull(l.Donnees.Levee.Batiment);
+            }
+        }
+
+        // Le grain qui manque est lu tel que le monde le sert, jamais recalculé du coût et du grain libre.
+        [Test] public void Le_grain_qui_manque_a_la_caserne_est_lu_tel_quel()
+        {
+            string manque = Muter(Muter(OrdresSansArmee, "\"manque_kg\":0.0", "\"manque_kg\":615.5"),
+                "\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"", "\"refus\":\"grenier insuffisant : 2400 kg de grain demandés, 1784.5 kg disponibles\"");
+            Servir(manque);
+            using (var c = Client())
+            {
+                var l = c.LireOrdres(Maison, null); Assert.IsTrue(l.Presente, l.Absence);
+                var b = l.Donnees.Levee.Batiment; Assert.AreEqual(615.5, b.ManqueKg); Assert.AreEqual(2400.0, b.CoutKg); StringAssert.StartsWith("grenier insuffisant", b.Refus);
             }
         }
 
@@ -240,6 +253,7 @@ namespace Forge.Pont.Tests
                 (Muter(OrdresEnMarche, "\"refus\":null},\"maison\"", "\"refuss\":null},\"maison\""), "levee.refus"),
                 (Muter(OrdresEnMarche, "\"batiment\":{", "\"batiments\":{"), "levee.batiment"), (Muter(OrdresEnMarche, "\"journees\":800", "\"jours\":800"), "levee.batiment.journees"),
                 (Muter(OrdresEnMarche, "\"cout_kg\":2400.0", "\"cout\":2400.0"), "levee.batiment.cout_kg"), (Muter(OrdresEnMarche, "\"bras_par_jour\":25", "\"bras\":25"), "levee.batiment.bras_par_jour"),
+                (Muter(OrdresEnMarche, "\"manque_kg\":0.0", "\"manque\":0.0"), "levee.batiment.manque_kg"),
                 (Muter(OrdresEnMarche, "\"nom\":\"Caserne\"", "\"noms\":\"Caserne\""), "levee.batiment.nom"),
                 (Muter(OrdresEnMarche, "\"refus\":\"une seule caserne", "\"refuss\":\"une seule caserne"), "levee.batiment.refus"),
                 (Muter(OrdresEnMarche, "\"hommes_max\":320", "\"max\":320"), "levee.lieux[0].hommes_max"), (Muter(OrdresEnMarche, "\"lieux\":[", "\"lieuxs\":["), "levee.lieux"),

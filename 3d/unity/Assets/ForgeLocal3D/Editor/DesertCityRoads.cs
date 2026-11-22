@@ -421,7 +421,7 @@ namespace ForgeLocal3D
                 var centre=World(terrain,steep.x.Average(),steep.y.Average());
                 var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 camera.transform.position=centre+new Vector3(28,70,28);camera.transform.LookAt(centre);camera.fieldOfView=45;
-                tool.largeur=steep.largeur;tool.Annuler();
+                tool.largeur=steep.largeur;tool.EntrerRue();
                 sv.raide.rues_avant=Rues(plan,sv.cell,faults);bool clique=steep.x.Length>=2;
                 for(int i=0;i<steep.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(World(terrain,steep.x[i],steep.y[i])));
                 var res=tool.Valider();camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);
@@ -458,7 +458,7 @@ namespace ForgeLocal3D
                 var centre=World(terrain,plainGeste.x.Average(),plainGeste.y.Average());
                 var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 camera.transform.position=centre+new Vector3(0,120,-.5f);camera.transform.LookAt(centre);camera.fieldOfView=60;
-                tool.largeur=plainGeste.largeur;tool.Annuler();
+                tool.largeur=plainGeste.largeur;tool.EntrerRue();
                 for(int i=0;i<plainGeste.x.Length;i++)tool.Clic(camera.WorldToScreenPoint(World(terrain,plainGeste.x[i],plainGeste.y[i])));
                 var res=tool.Valider();camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);
                 var c=report.clic;c.voulus_x=plainGeste.x;c.voulus_y=plainGeste.y;

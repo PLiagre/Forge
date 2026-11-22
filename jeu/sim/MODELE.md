@@ -4088,7 +4088,9 @@ mêmes fonctions et les mêmes intentions déjà déposées. `levee` : son refus
 `paysans`, `grain_libre_kg`, `ration_kg_par_homme_par_jour`, et `batiment` :
 le devis du bâtiment de levée dans la capitale (`batiments.devis` : `nature`,
 `nom`, `cell_id`, `journees` et `cout_kg` comptés comme au dépôt, durée et coût
-modifiés compris, `bras_par_jour`, et `refus`, celui de
+modifiés compris, `bras_par_jour`, `manque_kg`, le grain qui manque au
+grenier pour ce dépôt (le coût moins le grain disponible, le grenier moins les
+bâtiments déjà déposés ; 0 s'il n'en manque pas), et `refus`, celui de
 `batir_dans_une_province` sans parcelle, bâtiments déjà déposés compris), ou
 `null` pour une capitale hors de la carte. La ville y lit le prix de la
 caserne avant de la poser. `cible` (avec
