@@ -769,39 +769,62 @@ def test_le_pays_d_une_terre_change_a_la_chute_et_pas_sans_elle(campagne, depart
     from types import SimpleNamespace
     from sim.carte_servie import terres_et_pays
     from sim.noms import noms_depuis_monde
+    from sim.pays_servis import pays_des_terres, sources_des_pays
     noms = SimpleNamespace(noms=noms_depuis_monde(depart))
+    sources = sources_des_pays(depart)
     par_id = {m.id: m for m in depart.maisons}
 
     def pays(monde):
-        document = terres_et_pays(monde, noms)
+        document = terres_et_pays(monde, noms, sources)
         assert [t["cell_id"] for t in document["terres"]] == sorted(monde.cells)
-        assert {p["id"] for p in document["pays"]} == {t["pays"] for t in document["terres"]} - {None}
+        fiches = {p["id"] for p in document["pays"]}
+        assert {t["pays"] for t in document["terres"]} - {None} <= fiches
+        assert {p["suzerain"] for p in document["pays"]} - {None} <= fiches
         return {t["cell_id"]: t["pays"] for t in document["terres"]}, document
 
     avant, document = pays(depart)
-    # Le pays est la racine de la suzeraineté du maître du bourg, nommé comme sa fiche.
+    # La maison d'une terre est la racine de la suzeraineté du maître du bourg ; son pays est celui de la vue des pays.
+    attendus = pays_des_terres(depart, sources.vue, sources.maisons)
     for terre in document["terres"]:
         maitre = depart.cells[terre["cell_id"]].lieux[0].maitre
-        assert terre["maitre"] == maitre and terre["pays"] == (None if maitre is None else G.racine(par_id, maitre))
-    assert any(t["maitre"] != t["pays"] for t in document["terres"] if t["maitre"]), "aucun vassal : échantillon vide"
+        assert terre["maitre"] == maitre and terre["maison"] == (None if maitre is None else G.racine(par_id, maitre))
+        assert terre["pays"] == attendus[terre["cell_id"]]
+    assert any(t["maitre"] != t["maison"] for t in document["terres"] if t["maitre"]), "aucun vassal : échantillon vide"
+    # Une maison qui règne sur plusieurs puissances sert plusieurs pays : le pays n'est plus la maison.
+    servis = {}
+    for terre in document["terres"]:
+        servis.setdefault(terre["maison"], set()).add(terre["pays"])
+    assert any(len(p) > 1 for m, p in servis.items() if m is not None), "aucune maison à plusieurs pays : échantillon vide"
     assert all(p["nom"] for p in document["pays"])
-    # Une place prise à une maison d'un autre pays passe au pays du preneur, et elle seule.
+    # Une place prise à une maison d'un autre pays passe au pays du preneur, et elle seule : prise par Bar,
+    # terre de départ, elle entre dans le duché de Bar.
     monde = copy.deepcopy(depart)
-    racine_de_bar = G.racine(par_id, BAR)
     place = next(cid for cid, cel in sorted(monde.cells.items())
-                 if cel.lieux[0].maitre is not None and G.racine(par_id, cel.lieux[0].maitre) != racine_de_bar)
+                 if cel.lieux[0].maitre is not None and G.racine(par_id, cel.lieux[0].maitre) != G.racine(par_id, BAR))
     armee = G.Armee(0, BAR, place, 0, ((_capitale(monde), 0, 10),), 0.0, 0, siege=place)
     monde.armees = [armee]
     assert pays(monde)[0] == avant, "une armée devant la place ne change aucun pays"
     G.tomber(monde, armee)
     apres, _ = pays(monde)
-    assert {cid for cid in avant if avant[cid] != apres[cid]} == {place} and apres[place] == racine_de_bar
-    # Une place prise dans le même pays change de maître, pas de pays : sa couleur reste.
+    assert {cid for cid in avant if avant[cid] != apres[cid]} == {place} and apres[place] == BAR
+    # Une place prise dans le même pays par la maison qui y règne change de maître, pas de pays : sa couleur reste.
+    roi = G.racine(par_id, BAR)
+    monde = copy.deepcopy(depart)
+    vassale = next(cid for cid, cel in sorted(monde.cells.items())
+                   if cel.lieux[0].maitre not in (None, roi) and G.racine(par_id, cel.lieux[0].maitre) == roi
+                   and avant[cid] != BAR)
+    armee = G.Armee(0, roi, vassale, 0, ((_capitale(monde, roi), 0, 10),), 0.0, 0, siege=vassale)
+    G.tomber(monde, armee)
+    apres, _ = pays(monde)
+    assert monde.cells[vassale].lieux[0].maitre == roi != depart.cells[vassale].lieux[0].maitre
+    assert apres == avant
+    # Prise par Bar à un seigneur du même royaume, la voisine passe au duché de Bar ; sa maison reste celle du roi.
     voisine, cible = campagne["voisine"], campagne["cible"]
-    assert G.racine(par_id, cible) == racine_de_bar, "la voisine de Bar a changé de pays : échantillon à revoir"
-    document = terres_et_pays(campagne["monde"], noms)
+    assert G.racine(par_id, cible) == roi, "la voisine de Bar a changé de royaume : échantillon à revoir"
+    document = terres_et_pays(campagne["monde"], noms, sources)
     terre = next(t for t in document["terres"] if t["cell_id"] == voisine)
-    assert (terre["maitre"], terre["pays"]) == (BAR, racine_de_bar) and depart.cells[voisine].lieux[0].maitre == cible
+    assert (terre["maitre"], terre["maison"], terre["pays"]) == (BAR, roi, BAR)
+    assert avant[voisine] != BAR and depart.cells[voisine].lieux[0].maitre == cible
 
 
 def test_le_service_sert_les_terres_les_armees_dessinees_et_le_devis():

@@ -93,23 +93,29 @@ def contour_servi(cellule_carte):
     return contour
 
 
-def terres_et_pays(monde, matiere) -> dict:
-    """`terres` et `pays` de `GET /terres` : le maître du bourg de chaque cellule et son pays.
+def terres_et_pays(monde, matiere, sources=None) -> dict:
+    """`terres` et `pays` de `GET /terres` : le maître du bourg de chaque cellule, sa maison et son pays.
 
-    Le pays d'une terre est la maison au sommet de la suzeraineté du maître de son bourg
-    (`guerre.racine`) ; une terre sans maître n'a pas de pays. `pays` nomme chaque pays présent,
-    trié par identifiant, du nom servi par les fiches des maisons (`null` s'il est absent).
+    La maison d'une terre est celle au sommet de la suzeraineté du maître de son bourg
+    (`guerre.racine`) ; son pays vient de `pays_servis.pays_des_terres` (une puissance de 1400,
+    une terre de départ ou un seigneur libre). Une terre sans maître n'a ni maison ni pays.
+    `pays` porte la fiche de chaque pays présent et de chaque suzerain cité, triée par
+    identifiant (`pays_servis.fiches_des_pays`). `sources` : celles de `sources_des_pays`,
+    déjà lues.
     """
     from sim.guerre import racine
-    from sim.maisons_servies import _nom_de_maison
+    from sim.pays_servis import fiches_des_pays, pays_des_terres, sources_des_pays
+    sources = sources_des_pays(monde) if sources is None else sources
     par_id = {m.id: m for m in monde.maisons}
+    pays = pays_des_terres(monde, sources.vue, sources.maisons)
     terres = []
     for cid, cellule in sorted(monde.cells.items()):
         maitre = next((l.maitre for l in cellule.lieux if l.rang == 0), None)
-        terres.append({"cell_id": cid, "maitre": maitre, "pays": None if maitre is None else racine(par_id, maitre)})
-    presents = sorted({t["pays"] for t in terres if t["pays"] is not None})
-    pays = [{"id": p, "nom": _nom_de_maison(matiere, par_id[p]) if p in par_id else None} for p in presents]
-    return {"terres": terres, "pays": pays}
+        terres.append({"cell_id": cid, "maitre": maitre,
+                       "maison": None if maitre is None else racine(par_id, maitre), "pays": pays[cid]})
+    fiches = fiches_des_pays({p for p in pays.values() if p is not None}, monde, sources.table,
+                             sources.maisons, sources.seigneuries, matiere)
+    return {"terres": terres, "pays": fiches}
 
 
 def document_carte(world, table=None, maisons=None):

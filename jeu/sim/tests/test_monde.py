@@ -6486,7 +6486,12 @@ def test_service_jouables():
         assert "grande-3" in identifiants
         assert any(i.startswith("plausible-") for i in identifiants)
         assert "grande-21" not in identifiants and not [i for i in identifiants if i.startswith("institution-")]
-        assert all(set(m) == {"id", "nom", "sorte", "lieux"} and m["lieux"] > 0 for m in jouables)
+        cles = {"id", "nom", "sorte", "lieux", "pays", "regne", "siege", "suzerain", "ville"}
+        assert all(set(m) == cles and m["lieux"] > 0 for m in jouables)
+        # Chacune dit ce que le joueur prend : un nom, son pays, son siège, et si sa capitale est bâtie en 3D.
+        assert all(m["nom"] and m["pays"]["nom"] and m["siege"]["nom"] for m in jouables)
+        assert all(isinstance(m["ville"]["batie"], bool) and (m["ville"]["batie"] or m["ville"]["raison"])
+                   for m in jouables)
         # Contre-épreuve : une grande maison avant les six fait échouer l'assertion d'ordre.
         faux = [next(m for m in jouables if m["id"] == "grande-3")] + [m for m in jouables if m["id"] != "grande-3"]
         with pytest.raises(AssertionError):
