@@ -172,12 +172,12 @@ def _lignes_ajustees(lignes, dessin, police, largeur):
     return resultat
 
 
-def carte_de_1400(document, *, lecture, largeur):
-    """Une seule géométrie ; les compteurs décrivent les données et le dessin."""
+def carte_de_1400(document, *, lecture, largeur, formes):
+    """Une seule géométrie, les contours servis par sim/ ; les compteurs décrivent les données et le dessin."""
     _verifier(document)
-    carte = carte_de_statistique(document, lecture=lecture, largeur=largeur)
+    carte = carte_de_statistique(document, lecture=lecture, largeur=largeur, formes=formes)
     image = plan_avec_legende(carte)
-    index, _, cellules = index_des_cellules(document, largeur=largeur)
+    index, _, cellules = index_des_cellules(document, largeur=largeur, formes=formes)
     hauteur, _ = index.shape
     decalage = len(image) - hauteur
     cles = np.array([-1] + [c["puissance"]["id"] if c["puissance"] else -1 for c in cellules])

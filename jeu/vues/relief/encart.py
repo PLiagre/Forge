@@ -109,11 +109,11 @@ COULEUR_SANS_MAITRE = '#b0b0b0'
 COULEUR_FLUX = (110, 194, 225)
 
 
-def dessiner_encart(document, *, largeur):
+def dessiner_encart(document, *, largeur, formes):
     """Dessine la photographie vérifiée ; les fractions portent leur couverture."""
     import numpy as np
     from PIL import Image, ImageDraw, ImageFont
-    from vues.relief.raster import index_des_cellules, _vers_pixel
+    from vues.relief.raster import index_des_lieux, _vers_pixel
     from vues.relief.carte1400 import _lignes_ajustees, MARGE_FICHE, HAUTEUR_LIGNE, COULEUR_FOND, COULEUR_TEXTE
 
     try:
@@ -122,7 +122,8 @@ def dessiner_encart(document, *, largeur):
         legende = list(e['legende']); hauteur = dessinees = coupees = cercles = 0
         plan = np.empty((0, largeur, 4), dtype=np.uint8)
         if e['cellules']:
-            index, bornes, _ = index_des_cellules({'cells': e['cellules']}, largeur=largeur)
+            # Les bords se tracent entre lieux, le long des contours servis ; le cadre reste celui des cellules de la zone.
+            index, bornes, _ = index_des_lieux({'cells': e['cellules']}, formes, largeur=largeur)
             hauteur = len(index); plan = np.full((hauteur, largeur, 4), (24, 30, 34, 255), dtype=np.uint8)
             bord = np.zeros(index.shape, bool)
             for a, b in ((np.s_[:, :-1], np.s_[:, 1:]), (np.s_[:-1, :], np.s_[1:, :])): bord[a] |= index[a] != index[b]

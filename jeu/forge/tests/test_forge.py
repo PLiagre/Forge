@@ -47,7 +47,7 @@ def test_une_commande_simule_et_affiche(tmp_path):
     code, sortie = _jouer(tmp_path)
     assert code == 0
 
-    for nom in ("monde.json", "carte.png", "tableau.svg", "planche.html", "resume.json"):
+    for nom in ("monde.json", "formes.json", "carte.png", "tableau.svg", "planche.html", "resume.json"):
         chemin = sortie / nom
         assert chemin.is_file(), f"{nom} n'a pas été écrit"
         assert chemin.stat().st_size > 0, f"{nom} est vide"
@@ -258,7 +258,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     blocs, octets = [], []
     for n, ticks in enumerate((31, 31, 0)):
         code, sortie = _jouer(tmp_path / str(n), '--ticks', str(ticks), '--ia', '--sans-chronique')
-        assert code == 0 and all((sortie / f).stat().st_size > 0 for f in ('monde.json', 'resume.json', 'carte.png', 'tableau.svg'))
+        assert code == 0 and all((sortie / f).stat().st_size > 0 for f in ('monde.json', 'formes.json', 'resume.json', 'carte.png', 'tableau.svg'))
         photo = json.loads((sortie / 'monde.json').read_bytes())
         resume = json.loads((sortie / 'resume.json').read_bytes())
         affiche = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
@@ -371,7 +371,8 @@ def test_encart_assemblage(tmp_path, depart):
     largeur = 900 if depart else 64
     bar, _ = _terres_depart(); code, sortie = _jouer(tmp_path, *(['--depart',str(bar)] if depart else []), '--sans-chronique', '--largeur', str(largeur))
     assert code == 0; d = json.loads((sortie/'monde.json').read_text()); r = json.loads((sortie/'resume.json').read_text())
-    haut, c = carte_de_1400(d, lecture='densite', largeur=largeur); bas, e = dessiner_encart(d, largeur=largeur); image = np.array(Image.open(sortie/'carte.png'))
+    formes = json.loads((sortie/'formes.json').read_text(encoding='utf-8'))
+    haut, c = carte_de_1400(d, lecture='densite', largeur=largeur, formes=formes); bas, e = dessiner_encart(d, largeur=largeur, formes=formes); image = np.array(Image.open(sortie/'carte.png'))
     if depart: assert np.any(np.all(haut[..., :3] == COULEUR_CHOIX[:3],axis=2))
     def controle(i, resume):
         assert np.array_equal(i, np.concatenate((haut,bas))) and resume['carte'] == c and resume['encart'] == e

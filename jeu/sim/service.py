@@ -42,6 +42,7 @@ from sim.maisons_servies import (
 )
 from sim.noms import noms_depuis_monde, sources_des_noms
 from sim.flux import flux_des_lieux
+from sim.formes import FormesInvalides, document_des_formes
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
 from sim.lieux import partager, surfaces_des_lieux
 from sim.puissances import PuissanceInvalide, charger_table
@@ -380,12 +381,14 @@ class ServeurMonde(ThreadingHTTPServer):
         self._pays_du_tick = (None, {})
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
+        self.verrou_formes = threading.Lock()
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
         self._rues_de_base = {}
         self._occupations_base = {}
         self._carte_figee = None
+        self._formes_figees = None  # les octets de `/formes`, calculés à la première lecture
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self._terres = None  # (maîtres et suzerains, noms, document différé des terres et pays) : refait quand l'un change
         self.condition_vitesse = threading.Condition()
@@ -413,6 +416,20 @@ class ServeurMonde(ThreadingHTTPServer):
                     document, vue = document_carte(self.world, table=table, maisons=maisons)
                     self._carte_figee = (_serialiser(document), vue, seigneuries, table, maisons)
         return self._carte_figee
+
+    def formes_figees(self) -> bytes:
+        """Publie une seule fois les contours des cellules et des lieux, à la première lecture.
+
+        Les places se lisent sous le verrou du tick, qui reste court ; le calcul, long, se fait
+        hors de lui : le tick ne lit jamais les contours.
+        """
+        if self._formes_figees is None:
+            with self.verrou_formes:
+                if self._formes_figees is None:
+                    with self.verrou_tick:
+                        places = places_du_monde(self.world)
+                    self._formes_figees = _serialiser(document_des_formes(self.world, places))
+        return self._formes_figees
 
     def octets_plan(self, etat, cell_id):
         """Assemble les octets figés de la base et ceux du plan publié."""
@@ -836,6 +853,15 @@ class RequetesMonde(BaseHTTPRequestHandler):
                 corps = (self.server.carte_figee()[0] if cible.path == "/carte"
                          else _serialiser(self.server.document_departs()))
             except (ValueError, SnapshotExportError, PuissanceInvalide, SeigneurieInconnue) as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/formes":
+            # Les contours des cellules et des lieux, figés : calculés à la première lecture seulement.
+            try:
+                corps = self.server.formes_figees()
+            except (FormesInvalides, ValueError) as exc:
                 self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                 return
             self._repondre_octets(HTTPStatus.OK, corps)
