@@ -9,6 +9,7 @@ rend 0, le moteur tourne et les trois vues montrent le même monde.
 L'option --depart ID dépose le choix de départ avant le premier tick.
 
         monde.json      la photographie — la seule source des trois vues
+        formes.json     les contours servis par sim/ : ceux des cellules et de leurs lieux
         carte.png : la carte de 1400 — densités, frontières, villes, terre choisie et sa fiche
         planche.html    la chronique : la suite des instants
         tableau.svg     le tableau de bord, en preuve dessinée
@@ -42,6 +43,7 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -
     from sim.snapshot_export import export_snapshot
     from sim.ia import jouer_ia
     from sim.capitales import toutes_les_maisons_de_l_ia
+    from sim.formes import document_des_formes
     from sim.jauges import avant_le_tick
     from sim.world import World
 
@@ -71,6 +73,11 @@ def _simuler(ticks: int, seed: int, destination: Path, departs=None, ia=False) -
 
     population_arrivee = sum(cell.population for cell in monde.cells.values())
     export_snapshot(monde, seed, ticks, destination, releve_ia=releve)
+    # Les contours servis, pris sur le même monde que la photographie : la carte les suit.
+    (destination.parent / "formes.json").write_text(
+        json.dumps(document_des_formes(monde), sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
 
     mesures = {
         "ticks": ticks,
@@ -97,8 +104,9 @@ def _carte(snapshot: Path, sortie: Path, lecture: str, largeur: int) -> tuple[di
     from vues.relief.encart import dessiner_encart
 
     document = json.loads(snapshot.read_text(encoding="utf-8"))
-    image, compte_rendu = carte_de_1400(document, lecture=lecture, largeur=largeur)
-    encart, compte_encart = dessiner_encart(document, largeur=largeur)
+    formes = json.loads((snapshot.parent / "formes.json").read_text(encoding="utf-8"))
+    image, compte_rendu = carte_de_1400(document, lecture=lecture, largeur=largeur, formes=formes)
+    encart, compte_encart = dessiner_encart(document, largeur=largeur, formes=formes)
     sortie.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(np.concatenate((image, encart)), mode="RGBA").save(sortie)
     return compte_rendu, compte_encart

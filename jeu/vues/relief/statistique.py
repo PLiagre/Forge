@@ -77,16 +77,18 @@ class CarteStatistique:
 
 
 def carte_de_statistique(
-    document: dict, *, lecture: str | Lecture = "population", largeur: int = 512
+    document: dict, *, lecture: str | Lecture = "population", largeur: int = 512,
+    formes: dict | None = None,
 ) -> CarteStatistique:
     """
     Lit une grandeur sur chaque cellule et la pose sur la grille.
 
     Refuse — plutôt que de deviner — une lecture inconnue, une photographie
-    sans cellule, ou une grandeur qu'aucune cellule ne porte.
+    sans cellule, ou une grandeur qu'aucune cellule ne porte. Avec `formes`, les
+    cellules se posent par leurs contours servis (voir `index_des_cellules`).
     """
     lec = lecture if isinstance(lecture, Lecture) else lecture_de(lecture)
-    ids, _bounds, cells = index_des_cellules(document, largeur=largeur)
+    ids, _bounds, cells = index_des_cellules(document, largeur=largeur, formes=formes)
 
     valeurs = valeurs_de(cells, lec)
     t_par_cellule, mesuree_par_cellule, bornes = normaliser(valeurs, lec)

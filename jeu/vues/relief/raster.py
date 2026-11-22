@@ -86,8 +86,39 @@ class Mnt:
     cellules: int
 
 
+def _contours_servis(formes: dict) -> dict:
+    """Range le document des formes par cell_id ; un document sans cellule est refusé."""
+    cellules = formes.get("cells") if isinstance(formes, dict) else None
+    if not isinstance(cellules, list) or not cellules:
+        raise RasterErreur("formes sans cellule : échantillon vide")
+    return {c["cell_id"]: c for c in cellules}
+
+
+def _cadre(cells: Sequence[dict], largeur: int) -> Tuple[Tuple[float, float, float, float], int]:
+    """Le cadre de la carte : l'emprise brute des cellules et la hauteur qui en découle."""
+    if largeur < 8:
+        raise RasterErreur("largeur de raster trop petite")
+    bounds = _bbox(cells)
+    minx, miny, maxx, maxy = bounds
+    span_x = max(maxx - minx, 1.0)
+    span_y = max(maxy - miny, 1.0)
+    return bounds, max(8, int(round(largeur * span_y / span_x)))
+
+
+def _remplir(dessin, geometry: dict, bounds, largeur: int, hauteur: int, numero: int) -> None:
+    """Pose une géométrie sur la grille : son extérieur au numéro donné, ses trous à 0."""
+    for exterieur, trous in _anneaux(geometry):
+        pts = [_vers_pixel(x, y, bounds, largeur, hauteur) for x, y in exterieur]
+        if len(pts) >= 3:
+            dessin.polygon(pts, fill=numero)
+        for trou in trous:
+            pts_trou = [_vers_pixel(x, y, bounds, largeur, hauteur) for x, y in trou]
+            if len(pts_trou) >= 3:
+                dessin.polygon(pts_trou, fill=0)
+
+
 def index_des_cellules(
-    document: dict, *, largeur: int = 512
+    document: dict, *, largeur: int = 512, formes: dict | None = None
 ) -> Tuple[np.ndarray, Tuple[float, float, float, float], List[dict]]:
     """
     Pose chaque cellule sur une grille et rend l'index des cellules par pixel.
@@ -96,38 +127,71 @@ def index_des_cellules(
     seul endroit du visualisateur qui dessine des polygones : la carte de
     relief et la carte de statistique lisent toutes deux ce même index, donc
     elles ne peuvent pas diverger de géométrie.
+
+    Avec `formes` (le document servi par sim/), la cellule se dessine par son
+    contour servi, côtés brisés compris, au lieu de sa géométrie brute. Le cadre
+    reste celui de la géométrie brute : un point tombe au même pixel dans les
+    deux cas. Une cellule que `formes` ne porte pas est refusée.
     """
     cells = document.get("cells")
     if not isinstance(cells, list) or not cells:
         raise RasterErreur("snapshot sans cellule : échantillon vide")
-    if largeur < 8:
-        raise RasterErreur("largeur de raster trop petite")
-
-    bounds = _bbox(cells)
-    minx, miny, maxx, maxy = bounds
-    span_x = max(maxx - minx, 1.0)
-    span_y = max(maxy - miny, 1.0)
-    hauteur = max(8, int(round(largeur * span_y / span_x)))
+    bounds, hauteur = _cadre(cells, largeur)
+    contours = None if formes is None else _contours_servis(formes)
 
     index = Image.new("I", (largeur, hauteur), 0)
     dessin = ImageDraw.Draw(index)
 
     for i, cell in enumerate(cells, start=1):
-        if "geometry" not in cell:
-            raise RasterErreur(f"geometrie absente pour cell_id={cell.get('cell_id')}")
-        for exterieur, trous in _anneaux(cell["geometry"]):
-            pts = [_vers_pixel(x, y, bounds, largeur, hauteur) for x, y in exterieur]
-            if len(pts) >= 3:
-                dessin.polygon(pts, fill=i)
-            for trou in trous:
-                pts_trou = [_vers_pixel(x, y, bounds, largeur, hauteur) for x, y in trou]
-                if len(pts_trou) >= 3:
-                    dessin.polygon(pts_trou, fill=0)
+        if contours is None:
+            if "geometry" not in cell:
+                raise RasterErreur(f"geometrie absente pour cell_id={cell.get('cell_id')}")
+            geometry = cell["geometry"]
+        else:
+            servie = contours.get(cell.get("cell_id"))
+            if servie is None or "contour" not in servie:
+                raise RasterErreur(f"contour absent pour cell_id={cell.get('cell_id')}")
+            geometry = servie["contour"]
+        _remplir(dessin, geometry, bounds, largeur, hauteur, i)
 
     ids = np.array(index, dtype=np.int32)
     if not bool((ids > 0).any()):
         raise RasterErreur("raster vide : aucune cellule n'a touché un pixel")
     return ids, bounds, cells
+
+
+def index_des_lieux(
+    document: dict, formes: dict, *, largeur: int = 512
+) -> Tuple[np.ndarray, Tuple[float, float, float, float], List[Tuple[int, int]]]:
+    """
+    Pose chaque lieu sur la grille de `index_des_cellules` (même cadre) et rend
+    l'index des lieux par pixel : 0 pour la mer, sinon le numéro propre du lieu
+    (1..N, cellule après cellule puis par rang).
+
+    Rend aussi la liste des couples (cell_id, rang), dans l'ordre des numéros.
+    Une cellule que `formes` ne porte pas est refusée.
+    """
+    cells = document.get("cells")
+    if not isinstance(cells, list) or not cells:
+        raise RasterErreur("snapshot sans cellule : échantillon vide")
+    bounds, hauteur = _cadre(cells, largeur)
+    contours = _contours_servis(formes)
+
+    index = Image.new("I", (largeur, hauteur), 0)
+    dessin = ImageDraw.Draw(index)
+    lieux: List[Tuple[int, int]] = []
+    for cell in cells:
+        servie = contours.get(cell.get("cell_id"))
+        if servie is None or "lieux" not in servie:
+            raise RasterErreur(f"lieux absents pour cell_id={cell.get('cell_id')}")
+        for lieu in sorted(servie["lieux"], key=lambda l: l["rang"]):
+            lieux.append((cell["cell_id"], lieu["rang"]))
+            _remplir(dessin, lieu["contour"], bounds, largeur, hauteur, len(lieux))
+
+    ids = np.array(index, dtype=np.int32)
+    if not bool((ids > 0).any()):
+        raise RasterErreur("raster vide : aucun lieu n'a touché un pixel")
+    return ids, bounds, lieux
 
 
 def rasteriser(document: dict, *, largeur: int = 512) -> Mnt:
