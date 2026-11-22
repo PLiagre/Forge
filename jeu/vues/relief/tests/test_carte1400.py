@@ -330,8 +330,9 @@ def _voisines_ia(document):
 def test_capitales_ia_sans(photographies):
     import hashlib
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
-    empreintes = ["d1f5a5ba48404264fac7532450fbfe665f17cf9404bec144e51536478b4bfae6",
-                  "fc542ae2f53b5361dfc03e9133f82f83950abf34595d0b03e35c731c300e7e90"]
+    # Les frontières de 1400 redessinent les frontières et les noms des pays de l'Ouest.
+    empreintes = ["8750541c3aea0a95e1e27a2e0b99f6b4bea7c1d0806c8daa6d3da68170f4159a",
+                  "8b39caa18fb5e4874a916269d2a684b0cb89b7a784679bc632102ddda55fbbaa"]
     cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
     for document, empreinte in zip(photographies, empreintes):
         image, compte = _rendre(document)
@@ -345,7 +346,9 @@ def test_capitales_ia_voisines(photographie_ia):
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
     from vues.relief.raster import _vers_pixel
     document, reference = photographie_ia, _voisines_ia(photographie_ia)
-    assert [m["nom"] for m in reference] == ["Valois", "Valois-Bourgogne", "Wittelsbach"]
+    # Les voisines de Bar sont celles de ses vrais voisins de 1400 : la Champagne (Valois) et les terres
+    # d'Empire de Lorraine, Metz et Luxembourg (Luxembourg, tête du Saint-Empire), plus Dijon ni Heidelberg.
+    assert [m["nom"] for m in reference] == ["Valois", "Luxembourg"]
     def verifier(d):
         image, compte = _rendre(d)
         voisines = _voisines_ia(d)
