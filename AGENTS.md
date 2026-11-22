@@ -3,9 +3,9 @@
 Forge est un jeu de grande stratégie sur l'Europe de 1400 : une carte à la
 manière d'Europa Universalis, une ville bâtie à la main à la manière de Manor
 Lords, et plus tard la bataille à la manière de Total War, dans **une seule
-simulation** ([docs/VISION.md](docs/VISION.md)). On avance par **paliers
-jouables d'une semaine** ([CAP.md](CAP.md)). Tout s'écrit en **français
-clair**.
+simulation** ([docs/VISION.md](docs/VISION.md)). On avance par **étapes
+jugées à l'œil contre leur modèle**, la carte et son interface d'abord, la
+ville ensuite ([CAP.md](CAP.md)). Tout s'écrit en **français clair**.
 
 ## 1. La chaîne — elle fait le travail de la semaine
 

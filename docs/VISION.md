@@ -119,8 +119,8 @@ simulé**, et qui tourne sans le joueur :
 
 ## La carte, la ville et la bataille
 
-Trois façons de jouer le même monde, et trois pistes sur lesquelles le jeu
-avance chaque semaine ([CAP.md](../CAP.md)) : la carte à la manière d'Europa
+Trois façons de jouer le même monde, que le jeu met au niveau l'une après
+l'autre ([CAP.md](../CAP.md), décision 51) : la carte à la manière d'Europa
 Universalis, la ville bâtie à la main à la manière de Manor Lords, et, plus
 tard, la bataille à la manière de Total War (décision 42).
 
@@ -507,7 +507,7 @@ et sur tout autre fichier du dépôt.
 | # | décision | ce qu'elle a écarté |
 |---|---|---|
 | 42 | la vision à long terme reste : la carte à la manière d'Europa Universalis, la ville bâtie à la main à la manière de Manor Lords, la bataille à la manière de Total War plus tard (révise la décision 27 ; précise les décisions 24 et 29) | une ville qui ne serait qu'une vue ; un jeu de carte seul |
-| 43 | on avance par paliers jouables d'une semaine ; chaque palier fait une avancée majeure sur trois pistes : le monde (carte et simulation), la ville 3D, l'interface ; chaque samedi le propriétaire joue la démo et réoriente ; un palier est atteint quand il l'a joué et qu'il dit oui (remplace les jalons : décisions 23 et 33) | neuf jalons longs ; un jalon atteint par une preuve seule |
+| 43 | on avance par paliers jouables d'une semaine ; chaque palier fait une avancée majeure sur trois pistes : le monde (carte et simulation), la ville 3D, l'interface ; chaque samedi le propriétaire joue la démo et réoriente ; un palier est atteint quand il l'a joué et qu'il dit oui (remplace les jalons : décisions 23 et 33 ; **révisée** par les décisions 51 et 52) | neuf jalons longs ; un jalon atteint par une preuve seule |
 | 44 | la chaîne d'agents reste : c'est elle qui fait le travail pendant la semaine ; le mode direct ne sert qu'à la refonte, puis aux réparations quand le propriétaire est là | tout faire en mode direct ; une chaîne que le mode direct double |
 | 45 | la chaîne se répartit par niveau de jugement, pas par étape, et celui qui conçoit un lot le construit : le CTO (Fable) tire les lots, tranche, débloque et répond de la démo ; le chef de lot (Opus) conçoit, code le difficile et tient la PR ; le développeur (Sonnet) fait les tâches bornées ; le relecteur (Opus, autre session) rend un verdict ; le lecteur (Haiku) résume et ne juge jamais ; changer un rôle de modèle reste une ligne de `atelier.toml` | un rôle par étape ; un brief écrit à froid par un agent pour un autre |
 | 46 | plus de plafond de taille : un lot est l'avancée d'une piste pour un palier | les petits lots ; un lot qui code et un lot qui prouve |
@@ -515,3 +515,18 @@ et sur tout autre fichier du dépôt.
 | 48 | la ville avance d'abord sur le kit du désert ; le décor d'Occident se décidera un samedi (révise les décisions 32 et 40) | attendre un kit d'Occident pour faire avancer la ville |
 | 49 | plus aucun reliquat des anciens lots dans le dépôt : ni brief, ni rapport, ni commentaire qui raconte un lot ; les tests sont gardés comme filet | un dépôt qui porte son histoire dans ses fichiers |
 | 50 | le quota de l'abonnement n'est plus le premier frein, mais il se mesure : chaque appel relève ce qu'il coûte, par rôle et par lot | une organisation dont on ne sait pas ce qu'elle consomme |
+
+## Les décisions du 22 novembre 2026
+
+Prises par le propriétaire après avoir joué le palier 1 : « c'est
+incompréhensible, tout est brouillon ; on est très loin d'un Europa sur la
+carte, visuellement, en interface et en cohérence historique, et très loin
+d'un Manor Lords dans la ville ». Elles priment sur toutes les précédentes
+qu'elles contredisent.
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 51 | la qualité avant l'étendue, un front à la fois : la carte et son interface d'abord, puis une guerre crédible, puis la ville, entière ; aucune règle neuve (paix, argent, dynastie) tant que la carte et son interface ne sont pas au niveau (révise la décision 43) | une avancée sur trois pistes chaque semaine ; un geste de plus sur un écran qui n'est pas au niveau |
+| 52 | une étape dure le temps qu'il faut et se juge à l'œil, une image du jeu à côté de la même vue d'Europa Universalis IV ou de Manor Lords ; elle n'est finie que si le propriétaire a joué seul, sans guide ni touche à connaître, et qu'il dit oui ; le samedi reste le jour où il joue et corrige la route (révise la décision 43) | un palier d'une semaine fait quand un parcours réussit par script |
+| 53 | la carte dessine et nomme les pays réels de 1400, la maison en second, avec des frontières au grain du lieu ; `cell_id` reste la seule clé | une carte des dynasties ; des frontières au grain de la cellule |
+| 54 | le décor de la ville (le désert, ou un village d'Occident) se décide à la fin de l'étape de l'interface (précise la décision 48) | — |
