@@ -22,6 +22,8 @@ namespace Forge.Interface
 
         public Button Bouton => bouton;
         public string Phrase => bulle.Phrase;
+        // Le bouton répond au clic : la ville est ouvrable et la descente n'est pas déjà partie.
+        public bool Actif => bouton.interactable;
 
         // `entrer` reçoit le nom de la scène et la cellule du siège, et dit si la descente part.
         public BoutonDeLaVille(RectTransform bandeau, Func<LecturePartie> partie, Func<string, long, bool> entrer)
@@ -55,7 +57,8 @@ namespace Forge.Interface
 
         static bool Ouvrable(FicheJouable fiche) => fiche != null && fiche.Ville.Batie && fiche.Ville.NomDeScene != null && fiche.Siege.CellId != null;
 
-        void Entrer()
+        // Le geste du bouton, que l'encart des premiers gestes reprend : sans fiche ouvrable, ou déjà descendu, rien ne part.
+        public void Entrer()
         {
             var fiche = partie()?.Jouable;
             if (!Ouvrable(fiche) || descendu) return;

@@ -29,6 +29,7 @@ namespace Forge.Interface
         public CelluleDeCarte Retenue => retenue;
         public AccueilDuPays Accueil => accueil;
         public BoutonDeLaVille Ville => ville;
+        public PremiersGestes Gestes => premiersGestes;
         // La demi-hauteur, en km, de la vue posée sur le siège du joueur quand sa maison apparaît : sa terre et ses voisines.
         public const float DEMI_SUR_LE_SIEGE_KM = 220f;
         CarteDessinee carte;
@@ -39,6 +40,7 @@ namespace Forge.Interface
         RectTransform dossier, lieu;
         AccueilDuPays accueil;
         BoutonDeLaVille ville;
+        PremiersGestes premiersGestes;
         string centreSur; // la maison sur le siège de laquelle la vue s'est posée, une fois
         BarreDuPays jauges;
         readonly HashSet<long> terresEclairees = new HashSet<long>(); // les terres de départ que la carte dessine
@@ -146,6 +148,12 @@ namespace Forge.Interface
                 id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); },
                 () => horloge.Lue != null && horloge.Lue.JoursParSeconde == 0, horloge.Basculer);
             foreach (var texte in accueil.Panneau.GetComponentsInChildren<Text>(true)) texte.supportRichText = false;
+            // Les trois premiers gestes, en bas à gauche sous les feuillets ; « Lever une armée » ouvre le feuillet de la guerre comme sa commande de « Votre maison ».
+            var dossierDeLaGuerre = GetComponent<DossierGuerre>();
+            premiersGestes = new PremiersGestes(toile.transform, () => Partie, () => horloge.Lue, horloge.Basculer, ville,
+                () => { if (!dossierDeLaGuerre.Feuillet.Ouvert) dossier.GetComponentsInChildren<Button>(true).First(b => b.name == DossierGuerre.COMMANDE).onClick.Invoke(); },
+                () => guerre.Guerres);
+            foreach (var texte in premiersGestes.Panneau.GetComponentsInChildren<Text>(true)) texte.supportRichText = false;
             gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
             Afficher();
         }
@@ -279,6 +287,7 @@ namespace Forge.Interface
             accueil.Afficher();
             dossier.gameObject.SetActive(!accueil.Ouvert); lieu.gameObject.SetActive(!accueil.Ouvert);
             ville.Afficher();
+            premiersGestes.Afficher();
             CentrerSurLeSiege();
             AfficherTerres();
             AfficherMaison();
