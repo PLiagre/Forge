@@ -17,8 +17,9 @@ namespace Forge.Pont.Tests
         // Les ordres de la maison seigneurie-2 avec la terre 10461 visée et son armée en marche, puis sans terre ni armée.
         const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
         const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
-        // Trois terres, deux pays.
-        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"grande-29\",\"nom\":\"Wittelsbach\"},{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"}],\"terres\":[{\"cell_id\":10452,\"maitre\":\"grande-29\",\"pays\":\"grande-29\"},{\"cell_id\":10461,\"maitre\":\"seigneurie-2\",\"pays\":\"grande-9\"},{\"cell_id\":10465,\"maitre\":\"seigneurie-2\",\"pays\":\"grande-9\"}],\"tick\":6}";
+        // Quatre terres, trois pays, dans la forme servie : la maison du pays (sa tête) et la maison de chaque terre (la tête de la suzeraineté de son maître).
+        // La terre 10452 est de la maison Wittelsbach mais du pays Saint-Empire, dont la tête est Luxembourg.
+        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
         const string Maison = "seigneurie-2";
         const double Delai = 5;
         int port, statut = 200; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
@@ -49,23 +50,30 @@ namespace Forge.Pont.Tests
             {
                 var l = c.LireTerres(); Assert.IsTrue(l.Presente && l.Absence == null, l.Absence); var t = l.Donnees;
                 Assert.IsTrue(t.Tick == 6 && t.Date.Annee == 1400 && t.Date.JourDeLAnnee == 7);
-                CollectionAssert.AreEqual(new[] { (10452L, "grande-29", "grande-29"), (10461L, "seigneurie-2", "grande-9"), (10465L, "seigneurie-2", "grande-9") }, t.Terres.Select(x => (x.CellId, x.Maitre, x.Pays)).ToArray());
-                CollectionAssert.AreEqual(new[] { ("grande-29", "Wittelsbach"), ("grande-9", "Luxembourg") }, t.Pays.Select(x => (x.Id, x.Nom)).ToArray());
-                Assert.AreEqual("grande-9", t.PaysDe(10461)); Assert.AreEqual("Luxembourg", t.NomDuPays(t.PaysDe(10461))); Assert.AreEqual("seigneurie-2", t.MaitreDe(10461));
-                Assert.IsNull(t.PaysDe(999)); Assert.IsNull(t.MaitreDe(999)); Assert.IsNull(t.NomDuPays("grande-1")); Assert.IsNull(t.NomDuPays(null));
+                CollectionAssert.AreEqual(new[] { (10284L, "grande-9", "puissance-10", "grande-9"), (10452L, "grande-29", "puissance-9", "grande-29"), (10461L, "seigneurie-2", "seigneurie-2", "grande-9"), (10465L, "seigneurie-2", "seigneurie-2", "grande-9") },
+                    t.Terres.Select(x => (x.CellId, x.Maitre, x.Pays, x.Maison)).ToArray());
+                CollectionAssert.AreEqual(new[] { ("puissance-10", "Bohême", "grande-9", "Luxembourg"), ("puissance-9", "Saint-Empire", "grande-9", "Luxembourg"), ("seigneurie-2", "Comté de Wurtemberg", "seigneurie-2", "Wurtemberg") },
+                    t.Pays.Select(x => (x.Id, x.Nom, x.Maison.Id, x.Maison.Nom)).ToArray());
+                Assert.AreEqual("seigneurie-2", t.PaysDe(10461)); Assert.AreEqual("Comté de Wurtemberg", t.NomDuPays(t.PaysDe(10461))); Assert.AreEqual("seigneurie-2", t.MaitreDe(10461));
+                Assert.IsTrue(t.MaisonDuPays("puissance-10").Id == "grande-9" && t.MaisonDuPays("puissance-10").Nom == "Luxembourg" && t.MaisonDuPays(t.PaysDe(10461)).Nom == "Wurtemberg");
+                Assert.AreEqual("grande-29", t.Terres[1].Maison); Assert.AreEqual("grande-9", t.MaisonDuPays(t.PaysDe(10452)).Id);
+                Assert.IsNull(t.PaysDe(999)); Assert.IsNull(t.MaitreDe(999)); Assert.IsNull(t.NomDuPays("grande-1")); Assert.IsNull(t.NomDuPays(null)); Assert.IsNull(t.MaisonDuPays("grande-1")); Assert.IsNull(t.MaisonDuPays(null));
                 Assert.Throws<NotSupportedException>(() => ((IList<TerreLue>)t.Terres).Add(null));
                 Assert.Throws<NotSupportedException>(() => ((IList<PaysDeLaCarte>)t.Pays).Add(null));
             }
             CollectionAssert.AreEqual(new[] { "GET /terres" }, Recues());
         }
 
-        [Test] public void Une_terre_sans_maitre_ni_pays_et_un_pays_sans_nom_sont_des_mesures()
+        [Test] public void Une_terre_sans_maitre_ni_pays_et_un_pays_sans_nom_ni_maison_sont_des_mesures()
         {
-            Servir(Muter(Muter(Terres, "\"maitre\":\"grande-29\",\"pays\":\"grande-29\"", "\"maitre\":null,\"pays\":null"), "\"nom\":\"Wittelsbach\"", "\"nom\":null"));
+            string corps = Muter(Terres, "\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"", "\"maison\":null,\"maitre\":null,\"pays\":null");
+            corps = Muter(corps, "\"nom\":\"Saint-Empire\"", "\"nom\":null"); corps = Muter(corps, "\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"maison\":null,\"nom\":\"Bohême\""); corps = Muter(corps, "\"nom\":\"Wurtemberg\"", "\"nom\":null");
+            Servir(corps);
             using (var c = Client())
             {
-                var l = c.LireTerres(); Assert.IsTrue(l.Presente, l.Absence);
-                Assert.IsNull(l.Donnees.PaysDe(10452)); Assert.IsNull(l.Donnees.MaitreDe(10452)); Assert.IsNull(l.Donnees.NomDuPays("grande-29")); Assert.AreEqual(3, l.Donnees.Terres.Count);
+                var l = c.LireTerres(); Assert.IsTrue(l.Presente, l.Absence); var t = l.Donnees;
+                Assert.IsNull(t.PaysDe(10452)); Assert.IsNull(t.MaitreDe(10452)); Assert.IsNull(t.Terres[1].Maison); Assert.IsNull(t.NomDuPays("puissance-9")); Assert.AreEqual(4, t.Terres.Count);
+                Assert.IsNull(t.MaisonDuPays("puissance-10")); Assert.AreEqual("grande-9", t.MaisonDuPays("puissance-9").Id); Assert.IsNull(t.MaisonDuPays("seigneurie-2").Nom); Assert.AreEqual("seigneurie-2", t.MaisonDuPays("seigneurie-2").Id);
             }
         }
 
@@ -196,11 +204,15 @@ namespace Forge.Pont.Tests
             var fautes = new List<(string corps, string chemin)>
             {
                 (Muter(Terres, "\"tick\":6", "\"tickk\":6"), "tick"), (Muter(Terres, "\"annee\":1400", "\"an\":1400"), "date.annee"),
-                (Muter(Terres, "\"pays\":[", "\"payss\":["), "pays"), (Muter(Terres, "\"id\":\"grande-9\"", "\"identifiant\":\"grande-9\""), "pays[1].id"),
-                (Muter(Terres, "\"nom\":\"Luxembourg\"", "\"noms\":\"Luxembourg\""), "pays[1].nom"),
-                (Muter(Terres, "\"terres\":[", "\"terress\":["), "terres"), (Muter(Terres, "\"cell_id\":10461", "\"cell\":10461"), "terres[1].cell_id"),
-                (Muter(Terres, "\"cell_id\":10465,\"maitre\":\"seigneurie-2\"", "\"cell_id\":10465,\"maitres\":\"seigneurie-2\""), "terres[2].maitre"),
-                (Muter(Terres, "\"maitre\":\"seigneurie-2\",\"pays\":\"grande-9\"},{\"cell_id\":10465", "\"maitre\":\"seigneurie-2\",\"payss\":\"grande-9\"},{\"cell_id\":10465"), "terres[1].pays"),
+                (Muter(Terres, "\"pays\":[", "\"payss\":["), "pays"), (Muter(Terres, "\"id\":\"puissance-9\"", "\"identifiant\":\"puissance-9\""), "pays[1].id"),
+                (Muter(Terres, "\"nom\":\"Saint-Empire\"", "\"noms\":\"Saint-Empire\""), "pays[1].nom"),
+                (Muter(Terres, "\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"maisons\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison"),
+                (Muter(Terres, "{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "{\"identifiant\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.id"),
+                (Muter(Terres, "\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"noms\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.nom"),
+                (Muter(Terres, "\"terres\":[", "\"terress\":["), "terres"), (Muter(Terres, "\"cell_id\":10461", "\"cell\":10461"), "terres[2].cell_id"),
+                (Muter(Terres, "{\"cell_id\":10284,\"maison\":", "{\"cell_id\":10284,\"maisons\":"), "terres[0].maison"),
+                (Muter(Terres, "\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\"", "\"cell_id\":10465,\"maison\":\"grande-9\",\"maitres\":\"seigneurie-2\""), "terres[3].maitre"),
+                (Muter(Terres, "\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"cell_id\":10465", "\"maitre\":\"seigneurie-2\",\"payss\":\"seigneurie-2\"},{\"cell_id\":10465"), "terres[2].pays"),
             };
             Servir(fautes.Select(f => f.corps).ToArray());
             using (var c = Client())
@@ -286,10 +298,14 @@ namespace Forge.Pont.Tests
         {
             var fautes = new List<(string corps, string cle)>
             {
-                (Muter(Terres, "\"pays\":\"grande-29\"}", "\"pays\":\"grande-30\"}"), "terres[0].pays"),
-                (Muter(Terres, "\"cell_id\":10465", "\"cell_id\":10461"), "terres[2].cell_id"),
-                (Muter(Terres, "\"id\":\"grande-9\"", "\"id\":\"grande-29\""), "pays[1].id"),
-                (Muter(Terres, "\"cell_id\":10452", "\"cell_id\":-1"), "terres[0].cell_id"), (Muter(Terres, "\"nom\":\"Luxembourg\"", "\"nom\":\"\""), "pays[1].nom"),
+                (Muter(Terres, "\"pays\":\"puissance-9\"}", "\"pays\":\"puissance-30\"}"), "terres[1].pays"),
+                (Muter(Terres, "\"cell_id\":10465", "\"cell_id\":10461"), "terres[3].cell_id"),
+                (Muter(Terres, "\"id\":\"puissance-9\"", "\"id\":\"puissance-10\""), "pays[1].id"),
+                (Muter(Terres, "\"cell_id\":10452", "\"cell_id\":-1"), "terres[1].cell_id"), (Muter(Terres, "\"nom\":\"Saint-Empire\"", "\"nom\":\"\""), "pays[1].nom"),
+                (Muter(Terres, "\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"maison\":3,\"nom\":\"Bohême\""), "pays[0].maison"),
+                (Muter(Terres, "{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "{\"id\":\"\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.id"),
+                (Muter(Terres, "\"maison\":\"grande-9\",\"maitre\":\"grande-9\"", "\"maison\":7,\"maitre\":\"grande-9\""), "terres[0].maison"),
+                (Muter(Terres, "\"maison\":\"grande-9\",\"maitre\":\"grande-9\"", "\"maison\":\"\",\"maitre\":\"grande-9\""), "terres[0].maison"),
             };
             Servir(fautes.Select(f => f.corps).ToArray());
             using (var c = Client())

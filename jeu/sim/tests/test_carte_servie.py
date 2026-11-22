@@ -342,3 +342,17 @@ def test_departs_fige_du_pont():
         requete_service(port, "/tick?n=1", "POST")
         suivants = requete_service(port, "/departs")[1]["departs"]
         assert any(a["habitants"] != b["habitants"] for a, b in zip(suivants, document["departs"]))
+
+
+def test_jouables_fige_du_pont():
+    """Les octets figés du pont sont ceux du service, graine 0, au tick 0 ; Biskra y est bâtie."""
+    from pathlib import Path
+    fige = (Path(__file__).resolve().parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/jouables-graine0-tick0.json").read_bytes()
+    document = json.loads(fige)
+    assert document["jouables"] and document["tick"] == 0
+    # Les jouables ne lisent ni les départs ni leurs chiffres : le monde de la graine 0 sans amorçage suffit.
+    with lancer_service(0) as port:
+        statut, _, octets = requete_service(port, "/jouables")
+        assert statut == HTTPStatus.OK and octets == fige
+    zab = next(j for j in document["jouables"] if j["id"] == "seigneurie-6")
+    assert zab["ville"]["batie"] is True and zab["ville"]["scene"] and zab["ville"]["raison"] is None
