@@ -13,8 +13,9 @@ using Object = UnityEngine.Object;
 namespace ForgeLocal3D.Captures
 {
     // Sur le service de la capture, Biskra (le Zab) : le joueur monte sa part de grain au plus haut, trace la route de l'est,
-    // fait découper une parcelle, attend que le grenier paie la caserne, puis l'outil de la ville forme et dépose la caserne
-    // par un clic sur la parcelle. Trois images la montrent aux piquets, aux murs, puis finie, la caméra immobile. Chaque
+    // fait découper une parcelle, attend que le grenier paie la caserne, prend l'outil par le bouton Caserne de la barre,
+    // et l'outil de la ville forme et dépose la caserne par un clic sur la parcelle. Trois images la montrent aux piquets,
+    // aux murs, puis finie, la caméra immobile. Chaque
     // relevé parcourt la scène et le plan servi par le monde : la pièce posée sous RacineBatiments, son prefab dans le kit,
     // la ligne du panneau, l'étape et le travail du plan. Le tick n'est jamais écrit : c'est celui que le service sert.
     // Si le grenier ne paie pas, le refus du monde, mot pour mot, fait échouer le scénario. Rapport : `caserne.json`.
@@ -31,9 +32,10 @@ namespace ForgeLocal3D.Captures
         // La parcelle que le service dessine : au nord de la route (y croissant), à une demi-largeur de chaussée de son axe. Le point cliqué est son centre.
         static readonly double X0 = Route[0].x + DebutM, X1 = X0 + FacadeM, Y0 = Route[0].y + LargeurRoute / 2, Y1 = Y0 + ProfondeurM, CentreX = (X0 + X1) / 2, CentreY = (Y0 + Y1) / 2;
         // La caméra : de trois quarts, depuis la rue, la façade de la caserne et la route dans l'image.
-        // Les panneaux couvrent la gauche de l'image : l'ensemble se centre à droite d'eux.
+        // Le feuillet du bourg couvre le haut à gauche, la barre des outils le bas : l'ensemble se centre dans ce qui reste.
         const float CapDeVue = 160f, InclinaisonDeVue = 35f, HauteurDeLaTour = 14f;
-        static readonly Vector2 CentreDeLImage = new(0.68f, 0.5f);
+        static readonly Vector2 CentreDeLImage = new(0.65f, 0.62f);
+        const double DelaiDuBouton_S = 10;
 
         static readonly List<string> images = new();
         static readonly List<string> devis = new();
@@ -138,8 +140,16 @@ namespace ForgeLocal3D.Captures
             var posee = outil.Ouverture.FirstOrDefault(o => o.identifiant == rue);
             routePosee = posee.resultat == null ? "jamais essayée" : posee.resultat.acceptee ? "posée" : posee.resultat.message;
             Debug.Log("CAPTURE_CASERNE route " + L(rue) + " : " + routePosee);
-            etape = "clic"; var t = outil.roads.terrain; outil.EntrerCaserne();
-            if (!outil.ModeCaserne) throw Faux("l'outil n'est pas en mode caserne : " + outil.Message);
+            // L'outil se prend par son bouton, dès que le devis relu par la barre dit que le grenier paie.
+            etape = "bouton caserne"; double attente = Time.realtimeSinceStartupAsDouble;
+            while (!(outil.Recomposer()?[GesteDeLaVille.Caserne].Actif ?? false))
+            {
+                if (Time.realtimeSinceStartupAsDouble - attente > DelaiDuBouton_S)
+                    throw Faux("le bouton Caserne reste grisé alors que le monde la permet : « " + outil.Composition?[GesteDeLaVille.Caserne].Libelle + " »");
+                yield return null;
+            }
+            etape = "clic"; var t = outil.roads.terrain; outil.Barre.Bouton(GesteDeLaVille.Caserne).onClick.Invoke();
+            if (!outil.ModeCaserne) throw Faux("le bouton Caserne n'a pas mis l'outil en mode caserne : " + outil.Message);
             var rt = new RenderTexture(1600, 900, 24); camera.targetTexture = rt;
             try
             {

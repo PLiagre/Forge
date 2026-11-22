@@ -223,7 +223,7 @@ namespace ForgeLocal3D
                 try
                 {
                     ville.Poser(GestesDeCapture.Monde(terrain,g.x[q],g.y[q]),ville.Cap,85f,160f);
-                    tool.largeur=g.largeur;tool.Annuler();
+                    tool.largeur=g.largeur;tool.EntrerRue();
                     for(int i=0;i<g.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(GestesDeCapture.Monde(terrain,g.x[i],g.y[i])));
                     if(clique)essai=tool.Valider();
                 }

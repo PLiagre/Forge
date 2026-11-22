@@ -40,7 +40,9 @@ namespace Forge.Pont.Tests
             (parent, titre, largeur, hauteur) =>
             {
                 var r = new GameObject(titre, typeof(RectTransform)).GetComponent<RectTransform>(); r.SetParent(parent, false); r.sizeDelta = new Vector2(largeur, hauteur); return r;
-            });
+            },
+            actif => actif ? Clair : Sombre);
+        static readonly Color Clair = new Color(.9f, .9f, .8f, 1f), Sombre = new Color(.1f, .1f, .1f, 1f);
 
         BarreDeLaVille Monter(EtatDesOutils etat)
         {
@@ -93,8 +95,10 @@ namespace Forge.Pont.Tests
             var barre = Monter(new EtatDesOutils { Devis = Devis(615.5) });
             var b = barre.Bouton(GesteDeLaVille.Caserne);
             Assert.IsFalse(b.interactable); Assert.AreEqual("Caserne (4)\nil manque 615,5 kg de grain", b.GetComponentInChildren<Text>(true).text);
+            Assert.AreEqual(Sombre, b.GetComponentInChildren<Text>(true).color, "le libellé grisé prend l'encre que la fabrique donne au bouton grisé");
             barre.Appliquer(OutilsDeLaVille.Composer(new EtatDesOutils { Devis = Devis() }));
             Assert.IsTrue(b.interactable); Assert.AreEqual("Caserne (4)\n2,40 t de grain", b.GetComponentInChildren<Text>(true).text);
+            Assert.AreEqual(Clair, b.GetComponentInChildren<Text>(true).color);
         }
 
         [Test] public void Les_boutons_visibles_se_rangent_sans_trou()

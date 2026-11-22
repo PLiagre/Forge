@@ -7,16 +7,19 @@ using UnityEngine.UI;
 namespace Forge.Pont
 {
     // Ce qui donne son apparence à la barre : un bouton (parent, nom, action), un texte (parent), un panneau titré (parent,
-    // titre, largeur, hauteur). La ville y branche le socle de l'interface ; la barre ne pose ni couleur ni police à elle.
+    // titre, largeur, hauteur), et l'encre du libellé d'un bouton selon qu'il est actif ou grisé. La ville y branche le socle de
+    // l'interface ; la barre ne pose ni couleur ni police à elle.
     public sealed class FabriqueDeLaBarre
     {
         public Func<Transform, string, Action, Button> Bouton { get; }
         public Func<Transform, Text> Texte { get; }
         public Func<Transform, string, float, float, RectTransform> Panneau { get; }
-        public FabriqueDeLaBarre(Func<Transform, string, Action, Button> bouton, Func<Transform, Text> texte, Func<Transform, string, float, float, RectTransform> panneau)
+        public Func<bool, Color> Encre { get; }
+        public FabriqueDeLaBarre(Func<Transform, string, Action, Button> bouton, Func<Transform, Text> texte, Func<Transform, string, float, float, RectTransform> panneau,
+            Func<bool, Color> encre)
         {
             Bouton = bouton ?? throw new ArgumentNullException(nameof(bouton)); Texte = texte ?? throw new ArgumentNullException(nameof(texte));
-            Panneau = panneau ?? throw new ArgumentNullException(nameof(panneau));
+            Panneau = panneau ?? throw new ArgumentNullException(nameof(panneau)); Encre = encre ?? throw new ArgumentNullException(nameof(encre));
         }
     }
 
@@ -33,12 +36,14 @@ namespace Forge.Pont
         public RectTransform Panneau { get; }
         public Text Ligne { get; }
         readonly Dictionary<GesteDeLaVille, (Button bouton, Text texte, ColorBlock couleurs)> boutons = new();
+        readonly Func<bool, Color> encre;
 
         public BarreDeLaVille(Transform toile, FabriqueDeLaBarre fabrique, IReadOnlyDictionary<GesteDeLaVille, Action> gestes)
         {
             if (toile == null) throw new ArgumentNullException(nameof(toile));
             if (fabrique == null) throw new ArgumentNullException(nameof(fabrique));
             if (gestes == null) throw new ArgumentNullException(nameof(gestes));
+            encre = fabrique.Encre;
             var dans = OutilsDeLaVille.Gestes.Where(g => g.geste != GesteDeLaVille.Retour).ToArray();
             float largeur = 2 * MARGE + dans.Length * LARGEUR_BOUTON + (dans.Length - 1) * ECART;
             Panneau = fabrique.Panneau(toile, TITRE, largeur, HAUT_TITRE + HAUTEUR_BOUTON + ECART + HAUTEUR_LIGNE + MARGE);
@@ -74,6 +79,7 @@ namespace Forge.Pont
                 if (bouton.gameObject.activeSelf != b.Visible) bouton.gameObject.SetActive(b.Visible);
                 if (texte.text != b.Libelle) texte.text = b.Libelle;
                 if (bouton.interactable != b.Actif) bouton.interactable = b.Actif;
+                var couleur = encre(b.Actif); if (texte.color != couleur) texte.color = couleur;
                 var voulues = couleurs;
                 if (b.Enfonce) voulues.normalColor = voulues.highlightedColor = voulues.selectedColor = couleurs.pressedColor;
                 if (bouton.colors != voulues) bouton.colors = voulues;

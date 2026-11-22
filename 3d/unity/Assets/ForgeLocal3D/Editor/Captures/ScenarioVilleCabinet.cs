@@ -9,7 +9,7 @@ using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D.Captures
 {
-    // La ville du désert avec son cabinet : « Le bourg » et « Outils de la ville » posés sur l'image, et plus
+    // La ville du désert avec son cabinet : « Le bourg » et la barre des outils posés sur l'image, et plus
     // aucun texte de mise au point. La caméra descend vers la ville ; la photo n'est prise que lorsque le
     // feuillet du bourg a fini de se lire (les textes du cabinet sont récrits une image après la lecture du
     // lieu), puis le scénario refuse tout texte de mise au point encore visible.
@@ -61,9 +61,15 @@ namespace ForgeLocal3D.Captures
             if (vu.StartsWith(PANNE, StringComparison.Ordinal))
                 throw new InvalidOperationException("le feuillet « Le bourg » n'a pas lu le lieu : " + vu);
 
-            // Les deux feuillets passent les juges du clerc, ligne à ligne : ni identifiant, ni mot de mise au point, ni nombre
-            // sans unité. Les aides des modes nomment des touches (« 1 : maison ») et se lisent telles quelles.
-            foreach (string ecrit in (cabinet.TexteDuBourg + "\n" + cabinet.TexteDesOutils).Split('\n').Where(l => !DesertRoadTool.EstUneAide(l)))
+            // Le feuillet du bourg et la barre des outils passent les juges du clerc, ligne à ligne : ni identifiant, ni mot de mise
+            // au point, ni nombre sans unité. Un libellé se lit sans son raccourci : « (4) » nomme une touche, pas un nombre du monde.
+            // Le grand feuillet d'aide du tracé n'a plus sa place : la ligne de la barre le remplace.
+            if (cabinet.FeuilletDesOutils.gameObject.activeInHierarchy)
+                throw new InvalidOperationException("le feuillet « " + CabinetDeVille.OUTILS + " » est encore visible : « " + cabinet.TexteDesOutils + " »");
+            var composition = outil?.Recomposer() ?? throw new InvalidOperationException("la ville n'a pas de barre des outils");
+            var barre = composition.Boutons.Where(b => b.Visible).Select(b => b.Libelle.Replace(Forge.Pont.OutilsDeLaVille.Libelle(b.Geste), ""))
+                .Append(outil.Barre.Ligne.text);
+            foreach (string ecrit in cabinet.TexteDuBourg.Split('\n').Concat(barre.SelectMany(t => t.Split('\n'))).Where(l => l.Length > 0))
             {
                 string faute = Forge.Pont.TexteDuMonde.Interdit(ecrit ?? "") ?? Forge.Pont.TexteDuMonde.SansUnite(ecrit ?? "");
                 if (faute != null) throw new InvalidOperationException("« " + faute + " » dans un feuillet du cabinet : « " + ecrit + " »");
