@@ -556,3 +556,25 @@ def test_service_formes_erreur(monkeypatch, monde, decoupe, erreur):
         statut, _, octets = requete_service(port, "/formes")
         assert statut == HTTPStatus.OK
         assert octets == _serialiser(document_des_formes(monde))
+
+
+# --- La règle écrite ---
+
+def test_documentation_de_la_forme_des_lieux():
+    import pathlib
+
+    def verifier(texte):
+        section = texte.split("## La forme des lieux, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
+        for attendu in ("GET /formes", "`rang`", "n'est pas une grandeur du\nmonde", "côte", "Niveau 1",
+                        "Niveau 2", "Niveau 3", "fleuves", "verrou du tick", "jamais par\nl'aléa du monde"):
+            assert attendu in section, f"{attendu!r} absent de « La forme des lieux »"
+        carte = texte.split("## La carte et les terres servies, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
+        assert "« La forme\ndes lieux, vue dérivée »" in carte, "la carte servie ne renvoie pas à la forme des lieux"
+        lieux = texte.split("## Les lieux d'une cellule, vue dérivée\n", 1)[1].split("\n### ", 1)[0]
+        assert "ne sont pas simulées" not in lieux and "`sim/formes.py`" in lieux
+
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    verifier(texte)
+    for retire in ("GET /formes", "`rang`", "n'est pas une grandeur du\nmonde", "côte"):
+        with pytest.raises(AssertionError):
+            verifier(texte.replace(retire, "mot retiré"))
