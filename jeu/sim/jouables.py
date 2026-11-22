@@ -120,7 +120,7 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
     def court(identifiant):
         return {"id": identifiant, "nom": fiches[identifiant]["nom"]}
 
-    scenes = {v.maison: v.scene for v in villes.villes}
+    scenes = {v.maison: v.scene for v in villes.capitales}
     baties = ", ".join(sorted(par_id[m].siege for m in scenes if m in par_id))
     resultat = []
     for m in jouables:

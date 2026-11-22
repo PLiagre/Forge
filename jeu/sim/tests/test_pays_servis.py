@@ -129,8 +129,8 @@ def _verifier_villes(jouables, villes, seigneuries):
         assert isinstance(ville["batie"], bool), depart["id"]
         if not ville["batie"]:
             assert ville["raison"] and depart["siege"]["nom"] in ville["raison"] and ville["scene"] is None
-    assert {m["id"] for m in departs if m["ville"]["batie"]} == {v.maison for v in villes.villes}
-    assert all(m["ville"]["batie"] == (m["id"] in {v.maison for v in villes.villes}) for m in jouables)
+    assert {m["id"] for m in departs if m["ville"]["batie"]} == {v.maison for v in villes.capitales}
+    assert all(m["ville"]["batie"] == (m["id"] in {v.maison for v in villes.capitales}) for m in jouables)
 
 
 def test_chaque_depart_dit_si_sa_capitale_est_batie(sources, jouables):
@@ -140,7 +140,7 @@ def test_chaque_depart_dit_si_sa_capitale_est_batie(sources, jouables):
     _verifier_villes(jouables, villes, sources.seigneuries)
     # Aujourd'hui, seule la terre dont le siège est Biskra a sa ville.
     (biskra,) = [s for s in sources.seigneuries if s.siege.nom == "Biskra"]
-    assert {v.maison for v in villes.villes} == {identifiant_de_seigneurie(biskra.id)}
+    assert {v.maison for v in villes.capitales} == {identifiant_de_seigneurie(biskra.id)}
     # Contre-épreuve : un départ servi bâti sans entrée dans la donnée.
     faux = copy.deepcopy(jouables)
     autre = next(m for m in faux if m["sorte"] == "seigneurie" and not m["ville"]["batie"])

@@ -29,7 +29,7 @@ class VilleEn3D(_NoBadSpatialField):
 
 @dataclasses.dataclass(frozen=True)
 class VillesEn3D(_NoBadSpatialField):
-    villes: tuple
+    capitales: tuple
     raison_sans_ville: str
 
 

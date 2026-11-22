@@ -20,8 +20,8 @@ _SCENE_INEXISTANTE = "3d/unity/Assets/ForgeLocal3D/Desert/Scenes/Inexistante.uni
 
 
 def _verifier_scenes(villes: VillesEn3D, racine: pathlib.Path) -> None:
-    assert villes.villes, "aucune ville déclarée"
-    for ville in villes.villes:
+    assert villes.capitales, "aucune ville déclarée"
+    for ville in villes.capitales:
         assert (racine / ville.scene).is_file(), f"{ville.maison} : scène absente ({ville.scene})"
 
 
@@ -35,7 +35,7 @@ def _copie_alteree(tmp_path, alterer) -> pathlib.Path:
 
 def test_les_scenes_existent():
     villes = charger_villes_3d()
-    assert len(villes.villes) >= 1
+    assert len(villes.capitales) >= 1
     _verifier_scenes(villes, _RACINE)
 
 
@@ -45,7 +45,7 @@ def test_contre_epreuve_une_scene_inexistante_est_refusee(tmp_path):
         lambda d: d["villes"].append({"maison": "seigneurie-1", "scene": _SCENE_INEXISTANTE}),
     )
     villes = charger_villes_3d(chemin)
-    assert len(villes.villes) == len(charger_villes_3d().villes) + 1
+    assert len(villes.capitales) == len(charger_villes_3d().capitales) + 1
     with pytest.raises(AssertionError):
         _verifier_scenes(villes, _RACINE)
 
@@ -57,8 +57,8 @@ def test_memes_maisons_qu_unity():
     couples = dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"', bloc))
     assert couples, "aucun couple lu dans TerresAvecKit"
     villes = charger_villes_3d()
-    assert set(couples) == {v.maison for v in villes.villes}
-    for ville in villes.villes:
+    assert set(couples) == {v.maison for v in villes.capitales}
+    for ville in villes.capitales:
         assert couples[ville.maison] == pathlib.Path(ville.scene).stem
 
 
