@@ -3,21 +3,24 @@ name: lot-pc
 # Un lot « machine : pc » (Unity, Blender), travaillé sur le PC du propriétaire.
 #
 # Le pilote du VPS le lance par `workflow_dispatch`, jamais par `pull_request` :
-# le dépôt est public, et une fourche ne doit rien lancer sur le PC. Le runner
-# `pc-forge` tourne sous la session Windows du propriétaire : c'est là que
-# vivent Claude Code, la licence Unity et les packs de l'Asset Store.
+# le dépôt est public, et une fourche ne doit rien lancer sur le PC. Les
+# runners `pc-forge` et `pc-forge-2` tournent en service sous le compte du
+# propriétaire : c'est là que vivent Claude Code, la licence Unity et les
+# packs de l'Asset Store.
 #
 # Tout se passe dans des worktrees de D:\Forge, ignorés par git :
-#   .atelier\pilote-pc       le code de la chaîne, sur master
-#   .atelier\chantiers\pc    le lot, sur sa branche ; sa Library Unity reste
-#                            chaude d'un lot à l'autre
-#   .atelier\journal         la branche des captures
+#   .atelier\pilote-<chantier>     le code de la chaîne, sur master : une
+#                                  copie par chantier, pour qu'un passage ne
+#                                  récrive pas le code sous celui d'à côté
+#   .atelier\chantiers\<chantier>  le lot, sur sa branche (pc, pc-2) ; sa
+#                                  Library Unity reste chaude d'un lot à l'autre
+#   .atelier\journal               la branche des captures
 #
 # Le travail ne part que quand le PC est allumé : GitHub le garde en file un
 # jour, puis le pilote le renvoie. Pas de groupe de concurrence : il
-# n'admet qu'un travail en attente, et le build de la nuit en file pendant
-# que le PC dort annulait l'envoi d'un lot. Le runner unique enchaîne déjà
-# les travaux un par un.
+# n'admet qu'un travail en attente, et deux lots envoyés pendant que le PC
+# dort s'annuleraient. Chaque runner passe un travail à la fois : à deux, ils
+# mènent deux lots ensemble, chacun dans son chantier.
 
 on:
   workflow_dispatch:
@@ -49,8 +52,11 @@ jobs:
           # (claude). Les .cmd ne se lancent pas
           # tels quels : `atelier.agents.lancement` appelle leur node.exe.
           $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          # Le nom du chantier entre dans un chemin : seuls ceux que le pilote
+          # nomme passent.
+          if ($env:CHANTIER -notmatch '^pc(-[0-9]+)?$') { throw "chantier inconnu : $env:CHANTIER" }
           git -C D:\Forge fetch --quiet --prune origin
-          $atelier = 'D:\Forge\.atelier\pilote-pc'
+          $atelier = "D:\Forge\.atelier\pilote-$env:CHANTIER"
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
           git -C $atelier checkout --quiet --force --detach origin/master
           $env:PYTHONPATH = $atelier
@@ -69,11 +75,16 @@ jobs:
         # script en ANSI, et abîmer ses accents.
         env:
           ISSUE: ${{ inputs.issue }}
+          CHANTIER: ${{ inputs.chantier || 'pc' }}
           RAISON: "le passage du PC est tombé sans répondre (travail `lot` : ${{ needs.lot.result }}, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
         run: |
           $ErrorActionPreference = 'Stop'
           # Le code de la chaîne tel que `lot` l'a laissé : pas de fetch, il a
-          # peut-être cassé là.
+          # peut-être cassé là. Si `lot` est tombé avant de poser la copie de
+          # son chantier, celle du premier chantier répond.
           $atelier = 'D:\Forge\.atelier\pilote-pc'
+          if ($env:CHANTIER -match '^pc(-[0-9]+)?$' -and (Test-Path "D:\Forge\.atelier\pilote-$env:CHANTIER\atelier")) {
+            $atelier = "D:\Forge\.atelier\pilote-$env:CHANTIER"
+          }
           $env:PYTHONPATH = $atelier
           py -m atelier --projet $atelier marquer-attente --issue $env:ISSUE --raison $env:RAISON

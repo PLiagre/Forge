@@ -3,7 +3,8 @@
     py pc\\disponibilite.py        (ou pc\\Disponibilite.cmd)
 
 Ce qu'elle montre : la charge du processeur, ce qui tourne de lourd (Python,
-Unity, Blender), le service du runner `pc-forge` et le travail qu'il fait.
+Unity, Blender), les services des runners du PC (`pc-forge`, `pc-forge-2`) et
+s'ils ont un travail en cours.
 
 Ce qu'elle fait :
 - l'interrupteur de la chaîne : la variable d'Actions `PC_ACTIF` du dépôt,
@@ -14,9 +15,10 @@ Ce qu'elle fait :
 - le mode discret : Python, Unity et Blender passent en priorité basse, que
   la charge vienne de la chaîne ou de tests lancés à la main : le PC reste
   fluide, le travail va seulement moins vite quand on s'en sert ;
-- le service du runner : l'arrêter coupe aussi ce que le pilote avait déjà
-  envoyé (il attend alors en file chez GitHub, ou se renvoie au bout d'une
-  heure) ; Windows demande l'élévation.
+- les services des runners, tous ensemble : les arrêter coupe aussi ce que
+  le pilote avait déjà envoyé (il attend alors en file chez GitHub, ou se
+  renvoie au bout d'un quart d'heure) ; Windows demande l'élévation, une
+  seule fois pour tous.
 
 Bibliothèque standard seule, plus `gh` pour la variable. Les fonctions du haut
 du fichier ne touchent à rien : les tests les jouent sans Windows.
@@ -92,11 +94,34 @@ def a_baisser(classe: int) -> bool:
     return classe in (NORMAL, ABOVE_NORMAL, HIGH)
 
 
-def nom_du_service(sortie_sc: str) -> str | None:
-    """Le service du runner dans la liste de `sc query state= all`. Cherché
-    par son nom, qui ne se traduit pas : les libellés de `sc` le sont."""
-    trouve = RUNNER.search(sortie_sc)
-    return trouve.group(0) if trouve else None
+def noms_des_services(sortie_sc: str) -> list[str]:
+    """Les services des runners dans la liste de `sc query state= all`, une
+    fois chacun, triés. Cherchés par leur nom, qui ne se traduit pas : les
+    libellés de `sc` le sont."""
+    return sorted(set(RUNNER.findall(sortie_sc)))
+
+
+def nom_court(service: str) -> str:
+    """`actions.runner.PLiagre-Forge.pc-forge-2` : `pc-forge-2`, le nom que
+    GitHub montre."""
+    return service.rsplit(".", 1)[-1]
+
+
+def a_commander(services: dict[str, str | None]) -> tuple[str, list[str]]:
+    """Le geste du bouton, et sur quels services. Tant qu'un runner tourne, le
+    bouton les arrête tous : un seul laissé en marche prendrait encore les
+    travaux. Sinon il démarre ceux qui sont arrêtés."""
+    lances = [nom for nom, etat in services.items() if etat == "RUNNING"]
+    if lances:
+        return "stop", lances
+    return "start", [nom for nom, etat in services.items() if etat == "STOPPED"]
+
+
+def arguments_de_cmd(verbe: str, noms: list[str]) -> str:
+    """Ce que reçoit `cmd.exe` pour commander plusieurs services en une seule
+    élévation. Un nom qui n'est pas celui d'un runner n'y entre jamais."""
+    surs = [nom for nom in noms if RUNNER.fullmatch(nom)]
+    return "/c " + " & ".join(f"sc {verbe} {nom}" for nom in surs)
 
 
 def etat_du_service(sortie_sc: str) -> str | None:
@@ -170,18 +195,18 @@ def rabaisser(pid: int) -> bool:
 
 
 def releve(discret: bool) -> dict:
-    """Un instantané : ce qui tourne, le service du runner, et — en mode
-    discret — ce qu'on vient de rabaisser."""
+    """Un instantané : ce qui tourne, les services des runners avec l'état
+    de chacun, et — en mode discret — ce qu'on vient de rabaisser."""
     _, liste, _ = _lancer(["tasklist", "/FO", "CSV", "/NH"], 15)
     familles, en_travail = regrouper(lire_tasklist(liste))
     rabaisses = 0
     if discret:
         moi = os.getpid()
         rabaisses = sum(rabaisser(pid) for pids in familles.values() for pid in pids if pid != moi)
-    nom = nom_du_service(_lancer(["sc", "query", "state=", "all"], 15)[1])
-    etat = etat_du_service(_lancer(["sc", "query", nom], 15)[1]) if nom else None
+    noms = noms_des_services(_lancer(["sc", "query", "state=", "all"], 15)[1])
+    services = {nom: etat_du_service(_lancer(["sc", "query", nom], 15)[1]) for nom in noms}
     return {"familles": {k: len(v) for k, v in familles.items()}, "travail": en_travail,
-            "service": nom, "etat": etat, "rabaisses": rabaisses}
+            "services": services, "rabaisses": rabaisses}
 
 
 def variable_de_la_chaine(depot: str) -> str | None:
@@ -195,12 +220,12 @@ def poser_la_variable(depot: str, valeur: str) -> str | None:
     return None if code == 0 else (erreur.strip() or "gh a échoué")[:300]
 
 
-def commande_du_service(verbe: str, nom: str) -> str | None:
-    """`sc stop` ou `sc start`, élevé : Windows pose sa question. Rien si c'est
-    parti, sinon pourquoi."""
+def commander_les_services(verbe: str, noms: list[str]) -> str | None:
+    """`sc stop` ou `sc start` sur chaque service, élevé : Windows pose sa
+    question une fois pour tous. Rien si c'est parti, sinon pourquoi."""
     import ctypes
 
-    code = ctypes.windll.shell32.ShellExecuteW(None, "runas", "sc.exe", f"{verbe} {nom}", None, 0)
+    code = ctypes.windll.shell32.ShellExecuteW(None, "runas", "cmd.exe", arguments_de_cmd(verbe, noms), None, 0)
     return None if code > 32 else "l'élévation a été refusée ou a échoué"
 
 
@@ -222,7 +247,7 @@ def fenetre() -> int:
     cadre.grid()
 
     recus: "queue.Queue[tuple[str, object]]" = queue.Queue()
-    etat = {"service": None, "service_etat": None, "travail": False, "variable": None,
+    etat = {"services": {}, "travail": False, "variable": None,
             "mesure": False, "variable_en_cours": False}
     discret = tk.BooleanVar(value=False)
 
@@ -238,7 +263,7 @@ def fenetre() -> int:
     texte_charge = ttk.Label(cadre, text="…")
     texte_charge.grid(row=0, column=2, sticky="w", padx=(8, 0))
     v_lourds = ligne(1, "Ce qui tourne")
-    v_runner = ligne(2, "Runner pc-forge")
+    v_runner = ligne(2, "Les runners")
     v_chaine = ligne(3, "La chaîne")
     v_message = ttk.Label(cadre, text="", foreground="#a33", wraplength=480, justify="left")
 
@@ -293,15 +318,14 @@ def fenetre() -> int:
         en_fil("pose", lambda: (voulu, poser_la_variable(depot, voulu)))
 
     def basculer_le_service() -> None:
-        nom, courant = etat["service"], etat["service_etat"]
-        if not nom:
+        verbe, noms = a_commander(etat["services"])
+        if not noms:
             return
-        verbe = "stop" if courant == "RUNNING" else "start"
         if verbe == "stop" and etat["travail"] and not messagebox.askyesno(
-                "Arrêter le runner", "Un travail est en cours sur le PC : l'arrêter l'interrompt.\n\n"
-                                     "Arrêter quand même ?"):
+                "Arrêter les runners", "Un travail est en cours sur le PC : l'arrêter l'interrompt.\n\n"
+                                       "Arrêter quand même ?"):
             return
-        dire(commande_du_service(verbe, nom) or "")
+        dire(commander_les_services(verbe, noms) or "")
 
     b_chaine.config(command=basculer_la_chaine)
     b_service.config(command=basculer_le_service)
@@ -321,19 +345,23 @@ def fenetre() -> int:
             b.config(text="Mettre la chaîne en pause")
 
     def afficher_releve(r: dict) -> None:
-        etat.update(service=r["service"], service_etat=r["etat"], travail=r["travail"], mesure=False)
+        services = r["services"]
+        etat.update(services=services, travail=r["travail"], mesure=False)
         lourds = r["familles"]
         v_lourds.config(text=" · ".join(f"{nom} : {n}" for nom, n in sorted(lourds.items())) or "rien de lourd")
-        if r["service"] is None:
-            v_runner.config(text="service introuvable sur ce PC")
+        if not services:
+            v_runner.config(text="aucun service de runner sur ce PC")
             b_service.config(text="Runner introuvable")
             b_service.state(["disabled"])
         else:
             travail = "un travail est en cours" if r["travail"] else "aucun travail en cours"
-            v_runner.config(text=f"{ETATS_FR.get(r['etat'], '?')} · {travail}")
-            b_service.state(["!disabled"])
-            b_service.config(text="Arrêter le service du runner" if r["etat"] == "RUNNING"
-                             else "Démarrer le service du runner")
+            etats = " · ".join(f"{nom_court(nom)} : {ETATS_FR.get(e, '?')}" for nom, e in services.items())
+            v_runner.config(text=f"{etats} · {travail}")
+            verbe, noms = a_commander(services)
+            b_service.state(["!disabled"] if noms else ["disabled"])
+            pluriel = len(services) > 1
+            b_service.config(text=("Arrêter" if verbe == "stop" else "Démarrer")
+                             + (" les services des runners" if pluriel else " le service du runner"))
 
     avant = [temps_du_systeme()]
 

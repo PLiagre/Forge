@@ -54,8 +54,8 @@ lecteur     = "claude/claude-haiku-5-5@medium"
 # deux processeurs. Le PC mène deux lots Unity, chacun dans son chantier
 # (`.atelier/chantiers/pc` et `pc-2`, 3,4 Go de `Library` chacun) : deux Unity
 # ensemble y jouent les 1 364 tests EditMode en 189 et 196 s, contre 187 s
-# pour un seul. Les deux lots n'avancent vraiment ensemble que si le PC a
-# deux runners ; avec un seul, leurs passages se suivent, sans rien casser.
+# pour un seul. Le PC a deux runners, un par lot : avec un seul, les
+# passages des deux lots se suivraient, sans rien casser.
 [machines]
 vps = 2
 pc = 2

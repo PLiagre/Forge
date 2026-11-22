@@ -3,9 +3,10 @@ name: unity
 # Le projet Unity s'ouvre et compile, sur le PC du propriétaire.
 #
 # Aucune machine hébergée par GitHub n'a Unity ni sa licence : ce travail
-# tourne sur le runner `pc-forge`, installé comme service sous le compte
-# de la session Windows — c'est là que vit la licence Personal. Un service
-# sous un autre compte ne la voit pas.
+# tourne sur l'un des deux runners du PC (`pc-forge`, `pc-forge-2`),
+# installés comme services sous le compte de la session Windows — c'est là
+# que vit la licence Personal. Un service sous un autre compte ne la voit
+# pas. Chaque runner garde son propre espace de travail, et sa `Library/`.
 #
 # Le dépôt est public. Un runner auto-hébergé exécute le code qu'on lui
 # donne, et une PR venue d'une fourche est du code d'inconnu. D'où les
