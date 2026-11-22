@@ -12,9 +12,10 @@ namespace ForgeLocal3D.Captures
     // La carte qui prend tout l'écran, branchée au service et photographiée cinq fois, chaque image partant de l'état de la précédente :
     //   1-europe         la France choisie et « Commencer » pressé, puis la vue ramenée à toute la carte : la caméra regarde d'en haut, le nord
     //                    en haut, sur tout l'écran ; l'accueil, « Votre maison » et la fiche d'une terre sont fermés, « Ma capitale » est là ;
-    //   2-france         « Ma capitale » pressé : la vue se pose sur le siège servi, à la demi-hauteur du siège, et le nom « France » se lit ;
+    //   2-france         « Ma capitale » pressé : la vue se pose sur le siège servi, à la demi-hauteur du siège ; puis la molette recule,
+    //                    sous le milieu de l'écran, jusqu'à ce que le nom « France », trop grand de si près, se lise en entier ;
     //   3-province       au plus près : une province, ses lieux montrés en figurines ;
-    //   4-fiche-ouverte  la terre sous le centre de l'écran gardée par le chemin du clic : sa marque, la fiche « Territoire conservé » avec
+    //   4-fiche-ouverte  le temps arrêté, la terre sous le centre de l'écran gardée par le chemin du clic : sa marque, la fiche « Territoire conservé » avec
     //                    sa croix, et son texte lu au service ;
     //   5-fiche-fermee   la croix de la fiche pressée : la fiche est fermée, la terre relâchée, sa marque ôtée.
     // Chaque scénario vérifie ce qu'il photographie et échoue sinon. Le tick est celui que le service sert, jamais un tick écrit en dur.
@@ -23,7 +24,7 @@ namespace ForgeLocal3D.Captures
     static class ScenarioCartePleinEcran
     {
         const string GROUPE = "carte-plein-ecran", FRANCE = "France", CROIX = "Fermer", MAISON = "Votre maison", FICHE = "Territoire conservé", LECTURE = "Lecture du territoire";
-        const float TOLERANCE_DU_CENTRE_KM = 5f, TOLERANCE_DE_L_ECHELLE_KM = 0.01f, TOLERANCE_DE_L_ANGLE = 0.01f; const int IMAGES_DE_POSE = 4, LIEUX_MONTRES = 3;
+        const float TOLERANCE_DU_CENTRE_KM = 5f, TOLERANCE_DE_L_ECHELLE_KM = 0.01f, TOLERANCE_DE_L_ANGLE = 0.01f; const int IMAGES_DE_POSE = 4, LIEUX_MONTRES = 3, CRANS_POUR_LIRE_LE_PAYS = 12;
         const double STABLE_S = 2.5; // le texte de la fiche est récrit une image après la lecture
         static readonly Rect TOUT_L_ECRAN = new Rect(0, 0, 1, 1);
 
@@ -71,12 +72,21 @@ namespace ForgeLocal3D.Captures
             if ((carte.Vue.Centre - ici).magnitude > TOLERANCE_DU_CENTRE_KM) throw Faux("la vue n'est pas sur le siège : centre " + carte.Vue.Centre + " pour " + ici);
             if (Mathf.Abs(carte.Vue.Demi - CabinetDeCarte.DEMI_SUR_LE_SIEGE_KM) > TOLERANCE_DE_L_ECHELLE_KM) throw Faux("la demi-hauteur n'est pas celle du siège : " + carte.Vue.Demi + " km pour " + CabinetDeCarte.DEMI_SUR_LE_SIEGE_KM);
             NomCourbe nom = guerre.NomsDesPays.SingleOrDefault(n => n.Texte == FRANCE) ?? throw Faux("« " + FRANCE + " » n'est pas écrit sur la carte");
-            string hors = string.Join(", ", nom.Compose.Lettres.Select((l, k) => (v: carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(new Vector3(l.Point.x, 0f, l.Point.y))), k))
+            string Hors() => string.Join(", ", nom.Compose.Lettres.Select((l, k) => (v: carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(new Vector3(l.Point.x, 0f, l.Point.y))), k))
                 .Where(l => l.v.z <= 0f || l.v.x < 0f || l.v.x > 1f || l.v.y < 0f || l.v.y > 1f).Select(l => "lettre " + l.k + " " + l.v));
-            if (hors.Length > 0) throw Faux("« " + FRANCE + " » sort de l'image : " + hors);
-            if (nom.Opacite <= 0f) throw Faux("« " + FRANCE + " » est caché à la demi-hauteur du siège (" + nom.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px)");
+            // Sur le siège, le nom du pays est trop grand et s'efface : le joueur recule d'un cran de molette à la fois, sous le
+            // milieu de l'écran, jusqu'à le lire en entier.
+            int crans = 0;
+            for (; crans < CRANS_POUR_LIRE_LE_PAYS && (nom.Opacite <= 0f || Hors().Length > 0); crans++)
+            {
+                carte.Vue.Zoomer(-1f, new Vector2(.5f, .5f)); carte.Vue.Poser(carte.camera, carte.transform); PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
+                for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            }
+            string hors = Hors(); if (hors.Length > 0) throw Faux("« " + FRANCE + " » sort de l'image après " + crans + " crans : " + hors);
+            if (nom.Opacite <= 0f) throw Faux("« " + FRANCE + " » reste caché après " + crans + " crans de recul (" + nom.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px)");
+            if ((carte.Vue.Centre - ici).magnitude > TOLERANCE_DU_CENTRE_KM) throw Faux("en reculant sous le milieu de l'écran, la vue a quitté le siège : " + carte.Vue.Centre);
             Debug.Log("CAPTURE carte plein écran : le siège au tick " + cabinet.Partie.Monde.Donnees.Monde.Tick + ", centre " + carte.Vue.Centre + ", demi " + carte.Vue.Demi.ToString("0", CultureInfo.InvariantCulture)
-                + " km ; « " + FRANCE + " » à " + nom.CorpsPx.ToString("0", CultureInfo.InvariantCulture) + " px, opacité " + nom.Opacite.ToString("0.##", CultureInfo.InvariantCulture));
+                + " km après " + crans + " crans de recul ; « " + FRANCE + " » à " + nom.CorpsPx.ToString("0", CultureInfo.InvariantCulture) + " px, opacité " + nom.Opacite.ToString("0.##", CultureInfo.InvariantCulture));
             yield return carte.camera;
         }
 
@@ -101,6 +111,10 @@ namespace ForgeLocal3D.Captures
         {
             var (carte, cabinet, _) = ScenarioAccueil.Lire();
             PoserLaToile(carte, cabinet);
+            // Le temps arrêté, comme le joueur qui lit une fiche : elle suit chaque jour du monde, et ne se fixerait pas sinon.
+            var horloge = carte.GetComponent<HorlogeDeCarte>() ?? throw Faux("pas d'horloge sur la carte");
+            if (horloge.Lue == null || horloge.Lue.JoursParSeconde != 0) horloge.Basculer();
+            for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null && horloge.Lue.JoursParSeconde == 0, () => "le temps ne s'arrête pas : " + horloge.Lue?.JoursParSeconde + " jours par seconde"); a.MoveNext();) yield return null;
             Vector2 ici = carte.camera.ViewportToScreenPoint(new Vector3(.5f, .5f, 0f));
             var fiche = carte.GetComponent<FicheDeCellule>() ?? throw Faux("pas de fiche de cellule sur la carte");
             fiche.Survoler(ici);
