@@ -8,6 +8,10 @@ le point de chacune est dans une cellule. Les sièges : celui de chaque maison p
 servi, par la table des villes ou par l'atlas ; Biskra, Bar-le-Duc et Mistra y sont. Aucun nom
 n'est en double, et un échantillon vide échoue.
 
+Le service : `GET /atlas` sert ce que le module calcule, calculé une fois à la première lecture,
+hors du verrou du tick ; ni un tick ni une prise ne le refont, et une erreur rend 500 sans
+arrêter le service.
+
 Contre-épreuves : un fleuve qui finit dans les terres, un fleuve qui ne part pas de la terre,
 une mer posée sur la terre, une région en mer, un doublon, des listes vides, une source
 absente, un siège retiré rougissent.
@@ -17,6 +21,10 @@ import copy
 import json
 import math
 import pathlib
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from http import HTTPStatus
 
 import pytest
 
@@ -25,6 +33,8 @@ from sim.atlas import (AtlasInvalide, Atlas, charger_atlas, document_de_l_atlas,
 from sim.fleuve import charger_points
 from sim.places import sieges_des_maisons
 from sim.projection import projeter_epsg3035
+from sim.service import ServeurMonde, _serialiser
+from sim.tests.test_monde import requete_service
 from sim.puissances import charger_table
 from sim.registre_maisons import charger_registre_maisons
 from sim.villes import charger_villes, point_dans_geometrie
@@ -375,3 +385,103 @@ def test_une_donnee_alteree_est_refusee_et_nommee(tmp_path, modifier, attendu):
 def test_le_document_est_le_meme_a_chaque_appel(monde, atlas, document):
     assert document_de_l_atlas(monde, atlas) == document
     assert json.loads(json.dumps(document)) == document
+
+
+# --- Le service : GET /atlas ---
+
+@contextmanager
+def _service_local():
+    """Un service de graine 0, dont l'horloge ne joue pas seule."""
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join()
+
+
+def test_la_route_sert_ce_que_le_module_calcule(monde, document):
+    attendu = _serialiser(document_de_l_atlas(monde))
+    with _service_local() as (_, port):
+        statut, servi, octets = requete_service(port, "/atlas")
+        _, carte_servie, _ = requete_service(port, "/carte")
+    assert statut == HTTPStatus.OK
+    assert octets == attendu and len(attendu) > 0
+    assert set(servi) == {"crs", "version", "fleuves", "mers", "regions", "sieges"}
+    assert servi["crs"] == "EPSG:3035"
+    assert servi["version"] == carte_servie["version"] == monde.carte_meta["version"]
+    assert servi == document
+    # Contre-épreuve : un octet de plus ne passe pas.
+    with pytest.raises(AssertionError):
+        assert octets + b" " == attendu
+
+
+def test_la_route_calcule_une_fois_et_garde_ses_octets(monkeypatch):
+    import sim.service as service
+
+    appels = []
+    vraie = service.document_de_l_atlas
+
+    def compter(*args, **kwargs):
+        appels.append(1)
+        return vraie(*args, **kwargs)
+
+    monkeypatch.setattr(service, "document_de_l_atlas", compter)
+    with _service_local() as (serveur, port):
+        assert not appels
+        with ThreadPoolExecutor(max_workers=4) as lecteurs:
+            reponses = list(lecteurs.map(lambda _: requete_service(port, "/atlas"), range(4)))
+        assert len(appels) == 1
+        assert {statut for statut, _, _ in reponses} == {HTTPStatus.OK}
+        premiers = reponses[0][2]
+        assert premiers and all(octets == premiers for _, _, octets in reponses)
+        requete_service(port, "/tick?n=1", "POST")
+        # Une prise de bourg : le maître d'un lieu devient celui d'une autre maison.
+        with serveur.verrou_tick:
+            cid = next(c for c in sorted(serveur.world.cells) if serveur.world.cells[c].lieux)
+            lieu = serveur.world.cells[cid].lieux[0]
+            lieu.maitre = next(m for m in sorted({l.maitre for c in serveur.world.cells.values()
+                                                  for l in c.lieux if l.maitre}) if m != lieu.maitre)
+        requete_service(port, "/tick?n=1", "POST")
+        statut, _, apres = requete_service(port, "/atlas")
+        assert statut == HTTPStatus.OK
+        assert apres == premiers
+        assert len(appels) == 1
+
+
+def test_le_tick_ne_calcule_aucun_atlas(monkeypatch):
+    import sim.service as service
+
+    def sonde(*args, **kwargs):
+        raise AssertionError("le tick a calculé l'atlas")
+
+    monkeypatch.setattr(service, "document_de_l_atlas", sonde)
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    try:
+        serveur.jouer_un_tick()
+        serveur.jouer_un_tick()
+        assert serveur._atlas_figee is None
+    finally:
+        serveur.server_close()
+
+
+@pytest.mark.parametrize("erreur", [AtlasInvalide, ValueError, OSError])
+def test_une_erreur_de_calcul_rend_500_sans_arreter_le_service(monkeypatch, monde, erreur):
+    import sim.service as service
+
+    with _service_local() as (_, port):
+        with monkeypatch.context() as patch:
+            def refuser(*args, **kwargs):
+                raise erreur("donnée absente")
+
+            patch.setattr(service, "document_de_l_atlas", refuser)
+            statut, document, _ = requete_service(port, "/atlas")
+            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR
+            assert document == {"erreur": "donnée absente"}
+            assert requete_service(port, "/monde")[0] == HTTPStatus.OK
+        statut, _, octets = requete_service(port, "/atlas")
+        assert statut == HTTPStatus.OK
+        assert octets == _serialiser(document_de_l_atlas(monde))

@@ -258,7 +258,8 @@ def sieges_a_nommer(registre, sieges, villes) -> list:
 def document_de_l_atlas(monde, atlas=None, registre=None, sieges=None, villes=None) -> dict:
     """Ce que `GET /atlas` sert : les noms et les places, en mètres EPSG:3035 entiers.
 
-    Ne dépend que des tables de 1400 et de la carte, jamais du tick : le service le calcule une fois.
+    Ne dépend que des tables de 1400 et de la carte figée (dont `version` est celle de `/carte`),
+    jamais du tick : le service le calcule une fois.
     """
     atlas = charger_atlas() if atlas is None else atlas
     verifier_la_place(atlas, monde.carte)
@@ -272,7 +273,7 @@ def document_de_l_atlas(monde, atlas=None, registre=None, sieges=None, villes=No
 
     document = {
         "crs": _PROJECTION,
-        "date": _DATE,
+        "version": monde.carte_meta.get("version"),
         _CLE_FLEUVES: [
             {"nom": f.nom, "lignes": [[{"x_m": x, "y_m": y} for x, y in map(_en_metres, ligne)]
                                       for ligne in f.lignes]}
