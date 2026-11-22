@@ -437,7 +437,7 @@ namespace Forge.Pont.Tests {
                     Assert.IsTrue(vus[k].x >= 0 && vus[k].x <= 1 && vus[k].y >= 0 && vus[k].y <= 1 && vus[k].z >= cam.nearClipPlane && vus[k].z <= cam.farClipPlane, "aspect " + aspect + ", coin " + k + " hors du champ : " + vus[k].ToString("R"));
                 }
                 float largeur = vus[1].x - vus[0].x, hauteur = vus[3].y - vus[0].y;
-                // Sous la caméra inclinée, le nord s'éloigne et se tasse : la carte couvre un peu moins du champ que vue d'en haut.
+                // Vue d'en haut, la carte remplit le champ sur son axe le plus serré, à la marge du cadre près.
                 Assert.IsTrue(largeur >= 0.85f || hauteur >= 0.85f, "aspect " + aspect + " : la carte ne couvre que " + largeur + " × " + hauteur + " du champ");
                 Assert.Greater(vus[3].y, vus[0].y, "aspect " + aspect + " : le nord n'est pas en haut");
             }
@@ -459,9 +459,9 @@ namespace Forge.Pont.Tests {
                 Noms(lue, o); // avec une caméra donnée aussi, la carte nomme ses villes
             } finally { UnityEngine.Object.DestroyImmediate(donnee.gameObject); }
         }
-        // La caméra créée montre la vue que le joueur glisse et zoome : en perspective, penchée sur la carte, d'autant
-        // plus qu'il s'approche, sans sortir de la carte servie. Elle n'est plus à la verticale du centre de la vue : le
-        // cas juge sa pose par les rayons de l'écran, qui doivent tomber au sol là où la vue le dit.
+        // La caméra créée montre la vue que le joueur glisse et zoome : en perspective, à la verticale, nord en haut, à
+        // toute échelle, sans sortir de la carte servie. Le cas juge sa pose par les rayons de l'écran, qui doivent
+        // tomber au sol là où la vue le dit.
         [Test] public void La_camera_de_la_carte_suit_la_vue_sans_sortir_de_la_carte() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; cam.aspect = 16f / 9f; carte.Pas(2);
@@ -481,19 +481,19 @@ namespace Forge.Pont.Tests {
                 Vector3 v = cam.WorldToViewportPoint(objet.transform.TransformPoint(new Vector3(x, 0f, z)));
                 Assert.IsTrue(v.z > 0 && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1, "le coin (" + x + ", " + z + ") de la carte est hors de la vue du départ : " + v);
             }
-            float loin = carte.Vue.Distance; Assert.AreEqual(VueDeCarte.INCLINAISON_LOIN, carte.Vue.Inclinaison, 1e-3f, "l'inclinaison sur toute la carte");
+            float loin = carte.Vue.Distance; Assert.Less(Vector3.Angle(cam.transform.forward, Vector3.down), 1e-2f, "sur toute la carte, la caméra ne regarde pas à la verticale");
             foreach (var (crans, glisse) in new[] { (12f, new Vector2(0, 0)), (0f, new Vector2(1e7f, 1e7f)), (0f, new Vector2(-1e7f, -1e7f)), (-1000f, new Vector2(0, 0)) }) {
                 carte.Vue.Zoomer(crans, new Vector2(.3f, .6f)); carte.Vue.Glisser(glisse, 900f); carte.Pas(3);
                 string quand = "crans " + crans + ", glissé " + glisse; float tolerance = 3e-4f * carte.Vue.Demi;
                 Assert.Less((cam.transform.position - objet.transform.TransformPoint(carte.Vue.Position)).magnitude, 5e-2f, quand + " : la caméra n'est pas là où la vue la met");
                 Assert.Less(Vector3.Angle(cam.transform.forward, objet.transform.TransformDirection(carte.Vue.Regard)), 1e-2f, quand + " : la caméra ne regarde pas où la vue regarde");
-                Assert.AreEqual(90f - carte.Vue.Inclinaison, Vector3.Angle(cam.transform.forward, Vector3.down), 1e-2f, quand + " : la caméra n'est pas inclinée comme la vue");
+                Assert.Less(Vector3.Angle(cam.transform.forward, Vector3.down), 1e-2f, quand + " : la caméra ne regarde pas à la verticale");
+                Assert.Less(Vector3.Angle(cam.transform.up, objet.transform.TransformDirection(Vector3.forward)), 1e-2f, quand + " : le haut de l'écran n'est pas le nord de la carte");
                 Assert.Less((Sol(new Vector2(.5f, .5f)) - carte.Vue.Centre).magnitude, tolerance, quand + " : la caméra ne vise pas le centre de la vue");
                 foreach (Vector2 ancre in new[] { new Vector2(.3f, .6f), new Vector2(.9f, .1f), new Vector2(.05f, .95f) })
                     Assert.Less((Sol(ancre) - carte.Vue.PointSous(ancre)).magnitude, tolerance, quand + " : le rayon de l'écran en " + ancre + " ne tombe pas où la vue le dit");
                 if (crans < 0) { Assert.AreEqual(loin, carte.Vue.Distance, 1e-2f, "au plus loin, ce n'est plus toute la carte"); continue; }
                 Assert.Less(carte.Vue.Distance, loin / 4, quand + " : la vue ne s'est pas approchée");
-                Assert.IsTrue(carte.Vue.Inclinaison < VueDeCarte.INCLINAISON_LOIN - 5f && carte.Vue.Inclinaison >= VueDeCarte.INCLINAISON_PRES - 1e-3f, quand + " : la caméra ne s'incline pas en s'approchant : " + carte.Vue.Inclinaison);
                 // Le rectangle visé reste dans la boîte de la carte : ses bords de gauche et de droite se lisent au sol, à mi-hauteur de l'écran.
                 Vector2 gauche = Sol(new Vector2(0f, .5f)), droite = Sol(new Vector2(1f, .5f));
                 Assert.IsTrue(gauche.x >= minX - tolerance && droite.x <= maxX + tolerance && carte.Vue.Centre.y - carte.Vue.Demi >= minZ - tolerance && carte.Vue.Centre.y + carte.Vue.Demi <= maxZ + tolerance,
@@ -502,7 +502,7 @@ namespace Forge.Pont.Tests {
         }
         // Le terrain se dessine en relief, la mer au niveau 0 : ce que la carte pose se pose sur ce sol, et le rayon de
         // l'écran trouve le point du relief qu'il touche le premier, pas celui d'un plan. Sur les Alpes, vues de près
-        // par la caméra inclinée, en 1600 × 900.
+        // d'en haut, en 1600 × 900.
         [Test] public void Le_rayon_de_l_ecran_trouve_le_relief_et_le_geste_y_tient_son_point() {
             Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser(); Lire(1);
             var ecran = new RenderTexture(1600, 900, 16); Camera cam = carte.camera; cam.targetTexture = ecran;

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 namespace Forge.Pont {
-    // Le geste du joueur qui parcourt sa carte, image après image, sous une caméra inclinée. Au bouton enfoncé, le
+    // Le geste du joueur qui parcourt sa carte, image après image, sous la caméra de la carte. Au bouton enfoncé, le
     // point du sol sous la souris est saisi, relief compris ; tant que le bouton est tenu, la vue se déplace pour que
     // ce point reste sous la souris, où qu'elle aille. La molette rapproche ou éloigne du point du sol sous la souris,
     // qui reste sous elle. Le point se lit par le rayon de l'écran jusqu'au sol dessiné (`CarteDessinee.SolSous`), à
