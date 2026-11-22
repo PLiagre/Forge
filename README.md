@@ -17,7 +17,7 @@ transporte et se mange —, dans **un seul monde**.
 
 | pour savoir | lire |
 |---|---|
-| où on va, dans quel ordre (les paliers d'une semaine) | [CAP.md](CAP.md) |
+| où on va, dans quel ordre (la feuille de route et ses étapes) | [CAP.md](CAP.md) |
 | où on en est aujourd'hui | l'issue épinglée **« Journal du … »** du jour |
 | ce que le jeu doit devenir | [docs/VISION.md](docs/VISION.md) |
 | comment le monde fonctionne | [jeu/sim/MODELE.md](jeu/sim/MODELE.md) |

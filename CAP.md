@@ -1,154 +1,175 @@
-# CAP — des paliers jouables d'une semaine
+# CAP — la feuille de route
 
 Ce que le jeu doit devenir : [docs/VISION.md](docs/VISION.md). Ce fichier dit
-dans quel ordre on y va. Le palier en cours vit sur GitHub : son issue
-épinglée, « Palier n », où le propriétaire écrit le samedi et où le CTO
-propose la suite, et son jalon, qui porte ses lots. Ce fichier se change en
-mode direct.
+dans quel ordre on y va, et à quoi on reconnaît qu'on y est. Il se change en
+mode direct. L'étape en cours vit sur GitHub : son issue épinglée, où le
+propriétaire écrit le samedi, et son jalon, qui porte ses lots. Pour la
+chaîne, une étape se mène comme un palier : son issue s'appelle « Palier n ».
 
-## D'où l'on part
+## Le constat du 22 novembre 2026
 
-Une carte d'Europe en 596 cases, une horloge, six maisons à choisir, des
-panneaux de texte, six gestes, l'infobulle des modificateurs, une ville 3D au
-désert (Biskra). Ni guerre, ni diplomatie, ni argent, ni dynastie jouable, ni
-but.
+Le propriétaire a joué le palier 1 et n'a su ni démarrer, ni jouer, ni ouvrir
+la ville : « c'est incompréhensible, tout est brouillon ; on est très loin d'un
+Europa sur la carte, très loin d'un Manor Lords dans la ville ». Ce que l'écran
+montre lui donne raison, et dit pourquoi.
 
-## La règle d'un palier
+| ce qu'on voit | la cause |
+|---|---|
+| « Luxembourg » grand comme l'Allemagne, « Évreux » en Espagne, ni France ni Angleterre | la carte écrit les 30 maisons (dynasties) ; les 39 pays de `puissances-1400.json` (France, Bohême, Hongrie, Navarre…) existent mais ne sont ni dessinés ni nommés |
+| des frontières en nids d'abeille | 596 cellules de 15 000 km² : une cellule vaut cinq à dix provinces d'Europa. Les 6 619 lieux, qu'on possède et qu'on assiège, n'ont pas de forme |
+| une carte petite, posée de biais dans un cadre | elle tient la moitié de l'écran ; le reste est pris par des panneaux |
+| des panneaux qui sont des pages de texte | aucun écran de départ, aucune icône, aucun chiffre mis en avant, des raisons de refus à la place de boutons, des touches à connaître |
+| une douzaine de cubes sur des dunes pour 3 564 habitants | la ville dessine quelques maisons du kit, sans rue visible, sans habitant, sans chantier qui monte |
+| une seule ville, au Sahara | qui choisit une autre maison que les Banou Mozni n'a pas de ville, et rien ne le dit |
+| des armées de 27 000 hommes et des sièges partout dès 1400, un bourg pris qui passe de 332 à 32 habitants | l'IA et le siège ne sont réglés sur aucun ordre de grandeur de l'histoire |
 
-- **Un palier dure une semaine**, et il est **jouable** : le samedi, le
-  propriétaire lance la démo, fait les gestes du palier, et voit le monde
-  répondre.
-- **Un palier est une seule grosse feature**, taillée pour remplir la
-  semaine. La mesure : le palier 1, trois lots, s'est fait en un jour et demi
-  (six heures de travail d'agent, un cinquième au plus de la limite
-  hebdomadaire de l'abonnement), et la chaîne est restée sans travail le
-  reste de la semaine. Un palier pèse donc trois à quatre fois le palier 1 :
-  une dizaine de lots ou plus selon leur taille, et ce qui le borne est la
-  limite hebdomadaire, pas le temps. La piste du monde en porte le plus : le VPS mène deux lots à la
-  fois, le PC un seul Unity, et seulement allumé.
-- **Il avance sur les trois pistes**, d'une avancée que le joueur voit sur
-  chacune. Un palier sans rien de neuf à l'écran n'en est pas un.
-- **Il se joue d'un trait.** Ses lots s'emboîtent : ce qu'un geste exige, un
-  autre lot du palier le donne à toute maison de départ. Le dernier lot porte
-  le scénario du palier, joué de bout en bout dans le build.
-- **Il est atteint quand le propriétaire l'a joué et qu'il dit oui.** Une
-  suite verte ne suffit pas : elle dit que c'est juste, pas que ça se joue.
-- **Le samedi réoriente.** Ce que le propriétaire écrit après avoir joué
-  commande le palier suivant ; les paliers écrits plus bas sont des
-  propositions, pas un engagement.
+Et une cause de méthode : chaque semaine ajoutait un geste sur trois pistes à
+la fois, et un palier se disait fait quand un script réussissait le parcours.
+On a élargi un jeu dont aucun écran n'était au niveau.
 
-## Les trois pistes
+## Ce qui change dans la méthode
 
-| piste | ce qui y avance | où | machine |
-|---|---|---|---|
-| **le monde** | la carte et la simulation : les règles, les gestes, l'IA | `jeu/sim/`, `jeu/data/` | le VPS |
-| **la ville** | la ville 3D bâtie à la main, sur le kit du désert d'abord | `3d/unity/Assets/ForgeLocal3D/`, `3d/local3d/` | le PC |
-| **l'interface** | ce qu'on voit et ce qu'on clique sur la carte : frontières, armées, panneaux, dans le style du cabinet | `3d/unity/Assets/Interface/`, le pont | le PC |
+1. **La qualité avant l'étendue.** Aucune règle neuve (paix, argent,
+   dynastie) tant que la carte et son interface ne sont pas au niveau. Le
+   moteur existe ; c'est ce qu'on en voit qui manque.
+2. **Un front à la fois sur le PC.** La carte et son interface d'abord : « la
+   carte est le jeu » (décision 24). La ville vient ensuite, entière, au lieu
+   d'un morceau par semaine. Pendant ce temps le VPS prépare les données et
+   règle l'IA.
+3. **Une étape se juge contre son modèle.** Chaque étape a des critères qu'on
+   juge à l'œil, et sa preuve est une image du jeu posée à côté de la même vue
+   d'Europa Universalis IV ou de Manor Lords.
+4. **Une étape dure le temps qu'il faut.** Le samedi reste : le propriétaire
+   joue ce qui est prêt et corrige la route. Mais une étape n'est finie que
+   s'il a joué **seul, sans guide et sans touche à connaître**, et qu'il dit
+   oui. Un parcours réussi par script prouve que le chemin existe, pas qu'on
+   le trouve.
+5. **Rien ne s'ajoute hors de l'interface.** Un geste neuf n'arrive qu'avec
+   son bouton, son infobulle et son retour à l'écran.
 
-Un geste neuf traverse souvent deux pistes : la règle dans le monde, son
-écran dans l'interface. Chaque lot reste dans sa piste ; le lot de l'écran
-dit qu'il dépend de celui de la règle.
+## Les étapes
+
+Les durées sont des ordres de grandeur, à corriger chaque samedi.
+
+### Étape 0 — on s'y retrouve (1 semaine)
+
+Arrêter l'élargissement et rendre le jeu d'aujourd'hui trouvable.
+
+- Un écran de départ : « Choisissez un pays », puis « Commencer ».
+- Un bouton « Entrer dans la ville », grisé avec sa raison quand le pays n'en
+  a pas.
+- Les gestes de la ville en boutons ; plus aucune touche obligatoire.
+- La carte nomme les **pays** (France, Bohême, Navarre), la maison en second.
+
+**Fini quand** le propriétaire lance le jeu, choisit un pays, lève une armée
+et entre dans Biskra sans rien lire d'autre que l'écran.
+
+### Étape 1 — la carte de 1400 qu'on reconnaît (3 à 4 semaines)
+
+- **Les pays réels** : les 39 puissances dessinées chacune avec sa couleur, son
+  nom couché sur son territoire, sa capitale ; le Saint-Empire comme un
+  ensemble de princes, pas comme la terre d'une seule maison ; les vassaux
+  rattachés à leur suzerain.
+- **Des frontières à l'échelle d'une province** : donner une forme aux lieux
+  (un découpage de chaque cellule en ses lieux, calé sur les côtes et les
+  fleuves) et dessiner les frontières à ce grain, dix fois plus fin
+  qu'aujourd'hui. `cell_id` reste la seule clé, le moteur ne change pas. Une
+  étude de deux jours le confirme ou propose une nouvelle maille.
+- **La carte en plein écran**, vue de dessus, qu'on fait glisser et qu'on
+  zoome sous la souris, du continent jusqu'à la province.
+- **Les modes de carte** : politique, relief, population, vivres, guerres.
+- **Villes, fleuves, mers et régions** nommés et placés d'après l'atlas.
+
+**Fini quand**, la carte du jeu posée à côté d'un atlas de 1400 et de la carte
+politique d'Europa, le propriétaire reconnaît chaque grand pays, ne relève
+aucune absurdité, et trouve la carte belle.
+
+### Étape 2 — l'interface d'un Europa (4 à 5 semaines)
+
+- **La barre du haut** : l'écu et le nom du pays, grain, hommes, les quatre
+  jauges en icônes avec leur infobulle, la date, la pause et les cinq vitesses.
+- **Le panneau de province**, ouvert d'un clic : qui la tient, ses gens, ce
+  qu'elle produit, ses bâtiments, ses modificateurs, ce qu'on peut y faire.
+- **Le panneau du pays** par onglets : la cour, l'économie, l'armée, la
+  diplomatie.
+- **La liste de droite** : ses armées, ses sièges, ses chantiers, en un clic.
+- **Les alertes et le fil des nouvelles**, qui mènent au lieu.
+- **Les armées sur la carte** : on les sélectionne, clic droit pour marcher,
+  la route et les jours s'affichent ; le siège montre son avancement.
+- **Partout** : un bouton impossible est grisé et dit pourquoi au survol ;
+  plus aucune page de texte ; les nombres arrondis comme on les lit.
+- **Les premiers pas** : trois objectifs affichés au départ, qui apprennent le
+  jeu en le jouant.
+
+**Fini quand** le propriétaire joue une heure, mène une guerre du début à la
+fin, et n'a posé aucune question.
+
+### Étape 3 — une guerre crédible (3 semaines, en partie menée sur le VPS pendant les étapes 1 et 2)
+
+- L'IA règle ses levées et ses guerres sur l'histoire : des armées à
+  l'échelle de 1400, des raisons de guerre lisibles, des années de paix.
+- La paix : on propose, on cède une terre, la guerre se termine.
+- Le siège affame et prend la place sans vider le pays.
+- Le monde tient dix ans sans joueur en gardant une Europe vraisemblable.
+
+**Fini quand** le propriétaire regarde dix ans en observateur et dit « c'est
+plausible », puis gagne et perd une guerre.
+
+### Étape 4 — la ville qu'on a envie de bâtir (8 à 10 semaines)
+
+En trois temps, chacun jugé contre Manor Lords.
+
+1. **Elle existe** (3 semaines) : la ville du monde dessinée en entier — ses
+   maisons au nombre de ses foyers, ses rues, ses champs, son marché, son
+   enceinte —, une caméra libre, une lumière et une végétation soignées.
+2. **On la bâtit à la souris** (3 semaines) : la rue qu'on tire et qui se
+   courbe, la parcelle qui se découpe seule le long de la rue, le bâtiment
+   qu'on pose en fantôme, tourne et valide, le chantier qui monte étape par
+   étape, le prix et le refus dits sur place.
+3. **Elle vit** (3 semaines) : les habitants marchent, portent, travaillent ;
+   les bêtes, les fumées, les saisons, le son ; un clic sur une maison dit qui
+   y vit et ce qu'il mange.
+
+**Fini quand** le propriétaire a envie d'y passer une heure, et qu'une image de
+la ville ne fait pas honte à côté de Manor Lords.
+
+### Étape 5 — le jeu s'étend
+
+Une fois la carte, l'interface et la ville au niveau, les systèmes reviennent
+un par un, chacun avec son écran : l'argent, la dynastie, les alliances, les
+bâtiments de province, les événements à choix, la bataille.
+
+## Ce qu'il faut savoir
+
+- Europa Universalis IV et Manor Lords sont des années de travail. Au bout des
+  étapes 0 à 4, soit cinq à six mois, on vise un **petit Europa crédible et
+  une ville qu'on a envie de bâtir**, pas leur égal en contenu.
+- La carte et la ville passent toutes deux par l'unique Unity du PC : elles
+  se font l'une après l'autre, pas en même temps.
+
+## Ce qui revient au propriétaire
+
+| décision | ce que je recommande |
+|---|---|
+| l'ordre : la carte et son interface d'abord, la ville ensuite (change la décision 43, « trois pistes chaque semaine ») | oui |
+| donner une forme aux lieux pour des frontières fines, ou refaire la maille | les lieux d'abord : le moteur ne bouge pas ; l'étude de l'étape 1 tranche |
+| le décor de la ville : rester au désert, ou passer à un village d'Occident, où sont presque tous les pays et le modèle de Manor Lords | décider à la fin de l'étape 2 ; un kit d'Occident de qualité s'achète, c'est une dépense |
+| que devient la proposition « la paix et les alliés » posée sur l'issue du palier 1 | elle est retirée ; la paix entre à l'étape 3 |
 
 ## La règle d'un lot
 
-Un lot est **un système complet du jeu sur une piste** — la bataille, le
-traité, l'écran de la diplomatie —, sans plafond de taille : jamais une
-tranche qui ne se joue pas seule. Une piste en porte plusieurs dans un
-palier, enchaînés par « Dépend de ». C'est une issue, écrite par le CTO comme
-une fiche courte :
+Un lot est **un système complet du jeu** — la carte politique, le panneau de
+province, la rue qu'on tire —, sans plafond de taille : jamais une tranche qui
+ne se joue pas seule. C'est une issue, écrite par le CTO comme une fiche
+courte :
 
-- **ce que je joue de plus** : le geste, et ce qu'il décide ;
-- **ce que je vois samedi** : l'écran, en mots de joueur ;
+- **ce que je joue ou vois de plus**, en mots de joueur ;
+- **le modèle** : l'écran d'Europa ou de Manor Lords auquel on le compare ;
 - **la règle du monde** : comment ça marche, son niveau de fidélité, la
   section de `jeu/sim/MODELE.md` qui change ; « sans objet » pour un écran ;
-- **les preuves** : des commandes qui peuvent échouer, et, pour un écran, la
-  capture qu'on regarde ;
-- **la piste**, la machine, qui le mène, et ce qu'il attend (« Dépend de »).
+- **les preuves** : des commandes qui peuvent échouer, et l'image qu'on
+  regarde à côté du modèle ;
+- la machine, qui le mène, et ce qu'il attend (« Dépend de »).
 
 Celui qui conçoit le lot le construit : le chef de lot écrit son plan dans la
 PR et le réalise ([docs/WORKFLOW.md](docs/WORKFLOW.md)).
-
-## Les paliers
-
-Les lots du palier en cours sont les issues de son jalon GitHub ; ils y font
-foi. Les paliers suivants sont écrits ici pour que le CTO en tire les lots le
-samedi, d'après ce que le propriétaire aura dit en jouant. Chacun est une
-seule grosse feature, en une dizaine de lots ou plus selon leur taille.
-
-### Palier 1 — la première guerre (livré, à jouer)
-
-Le joueur lève une armée, déclare la guerre, marche, assiège, et prend une
-terre qui change de couleur sur la carte. Trois lots, un par piste : la
-guerre dans le monde, la caserne dans Biskra, la guerre lue sur la carte. Ce
-qu'il a laissé, et que le palier 2 reprend : seul l'émirat du Zab peut lever
-de la main du joueur, deux armées au même lieu ne se battent pas, et une
-guerre ne finit jamais.
-
-### Palier 2 — la guerre complète
-
-Une guerre se finit par un traité, ne se fait plus seul, se tient derrière
-des murs et se gagne en bataille. Le palier se joue d'un trait depuis
-l'émirat du Zab, et toute maison de départ lève depuis la carte. Seize lots,
-proposés sur l'issue du palier 1 : huit du monde, enchaînés sur le VPS, et
-huit sur le PC. Une fois ouverts, ce sont les issues du jalon qui font foi.
-
-| # | piste | le lot | ce que je joue et vois de plus |
-|---|---|---|---|
-| 1 | le monde | **faire la paix** | proposer un traité et ses conditions ; l'autre maison pèse l'offre et répond avec sa raison ; une trêve suit, et la guerre qui dure entame la Concorde |
-| 2 | le monde | **les murs et le pain tiennent le siège** | une place sans murs se rend en deux semaines, ses habitants vivants ; une ville close tient tant qu'elle a du pain ; il faut assez d'hommes pour assiéger |
-| 3 | le monde | **les alliés entrent en guerre** | s'allier au prix du Sceau, appeler alliés, suzerain et vassaux, répondre à un appel ; attaquer un petit seigneur fait entrer son suzerain |
-| 4 | le monde | **les autres maisons traitent et s'allient** | l'IA propose la paix, s'allie, vient assiéger ma capitale, ne mène qu'une guerre à la fois, et chaque décision a sa raison en clair |
-| 5 | le monde | **le monde dit ce qui arrive** | un fil de nouvelles datées, en phrases de joueur, avec le lieu et le geste attendu |
-| 13 | le monde | **la bataille** | tenir, attaquer ou se retirer ; deux armées se battent plusieurs jours ; le nombre, les vivres, le terrain et le chef décident ; une armée de secours lève un siège |
-| 14 | le monde | **l'assaut, la garnison et l'occupation** | donner l'assaut et payer en hommes ; tenir une place prise avec une garnison jusqu'au traité, ou la ravager ; tenter une sortie |
-| 15 | le monde | **le jour tient la vitesse la plus rapide** | dix jours par seconde, guerre, bataille et nouvelles comprises |
-| 6 | l'interface | **la carte obéit à la main** | la carte se centre sur ma maison, la molette zoome sous la souris, la barre reste lisible à toute vitesse |
-| 7 | l'interface | **traiter et assiéger depuis le cabinet** | composer une offre de paix en cliquant les terres, lire d'avance la réponse ; l'ordre de siège dit la garnison, les murs et le jour de la reddition |
-| 8 | l'interface | **l'écran des relations** | suzerain, vassaux, alliés, ennemis et trêves, avec leur raison ; un mode de carte « Relations » |
-| 9 | l'interface | **le fil des nouvelles** | un clic sur une nouvelle mène au lieu et ouvre le panneau où répondre |
-| 16 | l'interface | **la bataille et l'assaut sur la carte, pour toute maison** | la bataille jour par jour, le prix d'un assaut, la terre occupée hachurée ; la caserne et la levée depuis la carte pour toute maison |
-| 10 | la ville | **fermer sa capitale de murs** | tracer l'enceinte de Biskra, choisir les bras du chantier, voir le mur monter avec ses tours et ses portes |
-| 11 | la ville | **ma capitale assiégée** | le camp ennemi devant les murs, les portes closes, ce qu'il reste de pain |
-| 12 | l'interface | **la guerre du Zab finit par un traité** | le scénario du palier, joué d'un trait dans le build : murs, caserne, alliance, guerre, bataille devant Biskra, traité |
-
-### Palier 3 — l'argent et le commerce
-
-Les pièces entrent au monde : on les frappe, on les lève, on les dépense, on
-les prête, et les prix naissent du marché.
-
-| piste | ce que je joue de plus | ce que je vois samedi |
-|---|---|---|
-| le monde | frapper monnaie avec le métal de ses mines, lever l'impôt en pièces, payer la solde, emprunter, dévaluer, acheter une terre ; commercer : le marché fait le prix, lieu par lieu, et les marchands vont où c'est cher | chaque maison a son trésor, et les pièces de 1400 sont déjà dans les bourses ; une armée qu'on ne paie plus se défait ; un prix monte où le grain manque ; une dette pèse des années ; l'IA décide sur les prix |
-| la ville | poser le marché et ses étals, tracer les parcelles le long des rues, bâtir les ateliers | le marché de la capitale et ce qui s'y vend ; la route du commerce qui en part vers la ville voisine ; les artisans à l'ouvrage |
-| l'interface | suivre son argent, bâtir dans sa province depuis la carte | le trésor dans la barre du pays, avec ce qui entre et ce qui sort ; la carte des prix et des routes marchandes ; le livre de comptes ; ses dettes et leurs échéances |
-
-### Palier 4 — la dynastie et la cour
-
-Le chef vieillit et meurt ; la partie continue avec son héritier, et les
-jauges du pays naissent de personnes.
-
-| piste | ce que je joue de plus | ce que je vois samedi |
-|---|---|---|
-| le monde | marier ses enfants, éduquer un héritier, nommer son conseil, changer sa loi de succession, jouer l'héritier à la mort du chef | on vieillit, on naît, on meurt ; les traits et l'éducation font les compétences, et le conseil remplit la Plume, le Sceau et l'Épée ; la loi désigne l'héritier et partage les terres ; un cadet ambitieux complote ; une dynastie sans terre a perdu |
-| la ville | poser le palais à la main, et y tenir sa cour | le palais dans la capitale ; le chef de la maison et les siens qui y marchent |
-| l'interface | lire sa famille et sa cour | l'arbre de la dynastie ; le conseil et ce que chacun apporte ; à la mort du chef, la carte montre l'héritier et le partage ; la chronique de la dynastie |
-
-## Les candidats, au-delà du palier 4
-
-Une ligne chacun. Le samedi choisit, change ou remplace.
-
-- **Le monde qui tient dix ans** : l'arrière-pays nourrit ses villes, les
-  petits seigneurs jouent aussi, l'IA garde des raisons d'agir chaque année.
-- **La bataille menée** : la regarder et la mener en 3D sur le moteur du
-  monde, l'artillerie qui ouvre une brèche, le siège livré dans la ville
-  bâtie.
-- **La révolte** : elle naît de la faim et d'une occasion.
-- **Le siècle** : sauvegarder et reprendre, déléguer ce qui se répète
-  (intendants, vassaux, lois), les ambitions de l'héritier et le score de la
-  dynastie, les républiques et l'Église.
-- **Le décor d'Occident et des Balkans** : des villes hors du désert, et la
-  ville conquise qui s'ouvre avec le kit de sa terre.
-- **La ville plus belle et plus vivante** : les matériaux, la lumière, les
-  animations, le son, les carrefours, soixante images par seconde.
-- **Le monde plus dur** : l'usure, la maladie, la foi, le crime, le feu.
-- **Le jeu en anglais.**
