@@ -157,7 +157,7 @@ namespace ForgeLocal3D
                 double etendue=Enumerable.Range(0,g.x.Length).Max(i=>Math.Max(Math.Abs(g.x[i]-g.x.Average()),Math.Abs(g.y[i]-g.y.Average())));
                 var rt=new RenderTexture(1600,900,24);camera.targetTexture=rt;
                 camera.transform.position=centre+new Vector3(0,Mathf.Max(120,(float)(etendue*2.5)),-.5f);camera.transform.LookAt(centre);camera.fieldOfView=60;
-                tool.largeur=g.largeur;tool.Annuler();bool clique=true;
+                tool.largeur=g.largeur;tool.EntrerRue();bool clique=true;
                 for(int i=0;i<g.x.Length;i++)clique&=tool.Clic(camera.WorldToScreenPoint(World(terrain,g.x[i],g.y[i])));
                 var essai=clique?tool.Valider():null;camera.targetTexture=null;rt.Release();Object.DestroyImmediate(rt);
                 if(!clique){faults.Add("route "+g.id+" ("+famille+") : un point n'a pas été cliqué sur le terrain");tool.Annuler();continue;}
