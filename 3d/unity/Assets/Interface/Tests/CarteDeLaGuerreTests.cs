@@ -212,8 +212,8 @@ namespace Forge.Interface.Tests
             Assert.That((Milieu(0) - avant).magnitude, Is.GreaterThan(1e-4f), "échantillon vide : la première lettre n'a pas changé de place dans l'atlas");
         }
 
-        // Un nom de ville ou le nombre d'une armée ne se lit plus sur un texte couché sur la carte, à une taille en km : sous
-        // une caméra inclinée il se lit sur une étiquette d'écran, au même corps quelle que soit la distance.
+        // Un nom de ville ou le nombre d'une armée ne se lit pas sur un texte couché sur la carte, à une taille en km : sous
+        // une caméra en perspective il se lit sur une étiquette d'écran, au même corps quelle que soit la distance.
         [Test] public void Une_etiquette_se_lit_a_l_ecran_au_meme_corps_a_toute_distance()
         {
             Camera camera = carte.camera; ecran = new RenderTexture(1600, ECRAN_PX, 16); camera.targetTexture = ecran; camera.orthographic = false; camera.fieldOfView = 30f; camera.nearClipPlane = 1f; camera.farClipPlane = 5000f;

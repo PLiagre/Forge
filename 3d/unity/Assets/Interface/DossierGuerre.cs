@@ -84,8 +84,8 @@ namespace Forge.Interface
             this.maison = maison ?? throw new ArgumentNullException(nameof(maison)); this.retenue = retenue ?? (() => null);
             Ordre = ordre ?? throw new ArgumentNullException(nameof(ordre)); this.noms = noms; this.port = port;
             Feuillet = gameObject.AddComponent<Feuillet>(); Feuillet.Initialiser(toile, TITRE);
-            // Dans l'en-tête du panneau « Votre maison », à droite de son titre : la barre du haut n'a plus de place entre ses dossiers et le temps.
-            var ouvrir = SocleInterface.Commande(dossier, COMMANDE, 400, 20, () => { if (Feuillet.Ouvert) Feuillet.Fermer(); else { Feuillet.Ouvrir(); prochaine = 0; } },
+            // Dans l'en-tête du panneau « Votre maison », entre son titre et sa croix : la barre du haut n'a plus de place entre ses dossiers et le temps.
+            var ouvrir = SocleInterface.Commande(dossier, COMMANDE, 340, 20, () => { if (Feuillet.Ouvert) Feuillet.Fermer(); else { Feuillet.Ouvrir(); prochaine = 0; } },
                 phrase: "La guerre : ouvre ou ferme vos guerres, vos armées et les ordres de guerre, avec leur prix.");
             Taille(ouvrir, 160);
             // Chaque texte garde sous lui la place de son écriture la plus longue (son refus compris) : aucun ne passe sous
