@@ -145,7 +145,7 @@ namespace Forge.Interface
         {
             var sb = new StringBuilder();
             foreach (var t in terres.Terres) sb.Append(t.CellId.ToString(CultureInfo.InvariantCulture)).Append(':').Append(t.Pays).Append(';');
-            foreach (var p in terres.Pays) sb.Append('|').Append(p.Id).Append('=').Append(p.Nom);
+            foreach (var p in terres.Pays) sb.Append('|').Append(p.Id).Append('=').Append(p.Nom).Append('/').Append(p.Maison?.Nom);
             return sb.ToString();
         }
 
@@ -165,7 +165,7 @@ namespace Forge.Interface
             CotesDeFrontiere = n;
         }
 
-        // Un nom par pays, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
+        // Un nom par pays, et sa maison en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
         // pays servi de chaque terre, et se refait donc quand une terre change de pays.
         void NommerLesPays()
         {
@@ -175,7 +175,8 @@ namespace Forge.Interface
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
             Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
-            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom ?? "Pays sans nom", traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
+            // Le nom servi du pays, et en petit dessous celui de sa maison quand il diffère.
+            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom ?? "Pays sans nom", p.Maison?.Nom, traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
             SuivreLaVue();
         }
 

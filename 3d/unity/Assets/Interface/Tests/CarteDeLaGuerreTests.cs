@@ -138,6 +138,24 @@ namespace Forge.Interface.Tests
             Servir(Terres(A, A, A, 8)); Assert.That(guerre.NomsDesPays.Single(), Is.SameAs(etendu), "mêmes pays : le nom est récrit");
         }
 
+        // Le pays servi garde son nom ; sa maison, quand elle en porte un autre, s'écrit en petit sous lui. La légende et les teintes n'en changent pas.
+        [Test] public void La_maison_s_ecrit_sous_le_pays_qui_porte_un_autre_nom()
+        {
+            var terres = new TerresDeLaCarte(5, new DateDuMonde(1400, 6), new[] { new PaysDeLaCarte(A, "Bohême", new IdentiteDeMaison("grande-9", "Luxembourg")), new PaysDeLaCarte(B, "Brume", new IdentiteDeMaison(B, "Brume")) },
+                new[] { new TerreLue(10, "m10", A, "grande-9"), new TerreLue(20, "m20", A, "grande-9"), new TerreLue(30, "m30", B, B) });
+            Servir(terres); Peindre();
+            Assert.That(guerre.NomsDesPays.Select(n => n.Texte), Is.EquivalentTo(new[] { "Bohême", "Brume" }), "les noms des pays ne sont plus ceux servis");
+            NomCourbe boheme = guerre.NomsDesPays.Single(n => n.Texte == "Bohême"), brume = guerre.NomsDesPays.Single(n => n.Texte == "Brume");
+            Assert.That(boheme.Maison?.Texte, Is.EqualTo("Luxembourg")); Assert.That(brume.Maison, Is.Null, "un pays qui est sa propre maison l'écrit deux fois");
+            Assert.That(boheme.Maison.Corps, Is.LessThan(boheme.Corps)); Assert.That(boheme.Maison.Compose.Lettres.Max(l => l.Point.y), Is.LessThan(boheme.Compose.Lettres.Min(l => l.Point.y)), "la maison n'est pas au sud du nom");
+            Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(B))), "la maison change la teinte du pays");
+            Assert.That(calques.Legende.text, Is.EqualTo("Pays au jour 6 de 1400 · Rouge : territoire conservé"));
+            // Une autre maison pour le même pays récrit sa seconde ligne.
+            int version = guerre.Version;
+            Servir(new TerresDeLaCarte(6, new DateDuMonde(1400, 7), new[] { new PaysDeLaCarte(A, "Bohême", new IdentiteDeMaison("grande-29", "Wittelsbach")), new PaysDeLaCarte(B, "Brume", new IdentiteDeMaison(B, "Brume")) }, terres.Terres));
+            Assert.That(guerre.Version, Is.EqualTo(version + 1)); Assert.That(guerre.NomsDesPays.Single(n => n.Texte == "Bohême").Maison.Texte, Is.EqualTo("Wittelsbach"));
+        }
+
         [Test] public void Un_nom_se_cache_de_trop_loin_et_s_efface_de_trop_pres()
         {
             float lisible = NomsCourbes.LISIBLE_PX, proche = NomsCourbes.PROCHE * ECRAN_PX, disparu = NomsCourbes.DISPARU * ECRAN_PX;
