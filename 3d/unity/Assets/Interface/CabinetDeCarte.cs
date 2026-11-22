@@ -32,6 +32,12 @@ namespace Forge.Interface
         public PremiersGestes Gestes => premiersGestes;
         // La demi-hauteur, en km, de la vue posée sur le siège du joueur quand sa maison apparaît : son pays et ses voisins.
         public const float DEMI_SUR_LE_SIEGE_KM = 450f;
+        // Le bouton qui ramène la vue sur ce siège ; et le pas des icônes des dossiers de la barre (56 de large, 4 d'écart).
+        public const string CAPITALE = "Ma capitale";
+        public const float PAS_DES_ICONES = 60f;
+        static readonly Rect TOUT_L_ECRAN = new Rect(0, 0, 1, 1);
+        Button capitale;
+        bool maisonOuverte; // « Votre maison » ouvert par le joueur ; l'accueil le cache tant qu'il est ouvert
         CarteDessinee carte;
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
@@ -74,7 +80,6 @@ namespace Forge.Interface
             if (prototype != null) { prototype.enabled = false; prototype.Arreter(); }
             Partie = Partie ?? LecturePartie.Locale(carte.port);
             foreach (var ancien in GetComponentsInChildren<Canvas>()) ancien.gameObject.SetActive(false);
-            if (carte.camera != null) carte.camera.rect = new Rect(0, 0, .67f, 1);
             toile = new GameObject("Cabinet", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             toile.transform.SetParent(transform, false);
             toile.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -82,16 +87,12 @@ namespace Forge.Interface
             var echelle = toile.GetComponent<CanvasScaler>();
             echelle.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             echelle.referenceResolution = new Vector2(1920, 1080);
-            var fond = new GameObject("Fond des dossiers", typeof(RectTransform), typeof(Image)).GetComponent<RectTransform>();
-            fond.SetParent(toile.transform, false);
-            fond.anchorMin = new Vector2(.67f, 0); fond.anchorMax = Vector2.one;
-            fond.offsetMin = fond.offsetMax = Vector2.zero;
-            MatieresCabinet.Habiller(fond.GetComponent<Image>(), true);
             var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
-            // Les icônes des dossiers, entre la date et les commandes du temps ; le bandeau garde ses trois boutons enfants directs.
+            // Les icônes des dossiers, entre « Entrer dans la ville » et les commandes du temps (x 1112 à 1288, au pas de PAS_DES_ICONES) ;
+            // le bandeau garde ses trois boutons enfants directs.
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
             dossiers.anchorMin = dossiers.anchorMax = dossiers.pivot = new Vector2(0, 1);
-            dossiers.anchoredPosition = new Vector2(1112, -20); dossiers.sizeDelta = new Vector2(136, 44);
+            dossiers.anchoredPosition = new Vector2(1112, -20); dossiers.sizeDelta = new Vector2(2 * PAS_DES_ICONES + 56, 44);
             // L'icône du pays, hors des dossiers, entre le titre du bandeau et la date posée en x 480.
             var pays = new GameObject(PAYS, typeof(RectTransform)).GetComponent<RectTransform>(); pays.SetParent(bandeau, false);
             pays.anchorMin = pays.anchorMax = pays.pivot = new Vector2(0, 1);
@@ -108,18 +109,24 @@ namespace Forge.Interface
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
+            // « Votre maison » s'ouvre de l'icône à écu, la première des dossiers, et se ferme de sa croix ; l'accueil le cache.
             dossier = SocleInterface.Panneau(toile.transform, "Votre maison", 1312, 124, 584, 536);
+            SocleInterface.Croix(dossier, () => OuvrirLaMaison(false), "Ferme le panneau de votre maison.");
+            EmblemeCommande.Icone(dossiers, "Votre maison", 0, () => OuvrirLaMaison(!maisonOuverte), "Votre maison : ouvre ou ferme le panneau de votre maison : son siège, ses lieux, ses ordres et ses guerres.");
             maison = SocleInterface.Texte(dossier, "Lecture de la partie…", 24, 88, 536);
             gameObject.AddComponent<CommandesMaison>().Initialiser(dossier,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null,
                 LectureDossier.Locale(carte.port), OrdreConfirme.Local(carte.port));
-            lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 372);
+            // La fiche de la terre gardée, sous « Votre maison » ; elle laisse libre le coin d'en bas, où se tient « Ma capitale ».
+            // Sa croix relâche la terre, comme Échap.
+            lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 308);
+            SocleInterface.Croix(lieu, () => { Relacher(); lieu.gameObject.SetActive(false); }, "Ferme la fiche de la terre et la relâche sur la carte.");
             territoire = SocleInterface.Texte(lieu, INVITATION, 24, 88, 536);
-            territoire.rectTransform.sizeDelta = new Vector2(536, 260);
+            territoire.rectTransform.sizeDelta = new Vector2(536, 196);
             gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
-            // Plus de panneau en bas de la carte ; l'état de la carte s'écrit au centre de sa vue (0,67 × 1920 / 2, 540).
-            etat = SocleInterface.Texte(toile.transform, "La carte se prépare…", 343, 492, 600); etat.name = ETAT;
+            // L'état de la carte s'écrit au centre de l'écran, que la carte couvre tout (960, 540).
+            etat = SocleInterface.Texte(toile.transform, "La carte se prépare…", 660, 492, 600); etat.name = ETAT;
             etat.rectTransform.sizeDelta = new Vector2(600, 96); etat.alignment = TextAnchor.MiddleCenter; etat.color = SocleInterface.Couleur("papier"); etat.raycastTarget = false;
             gameObject.AddComponent<CalquesCarte>().Initialiser(carte, toile.transform,
                 () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.Monde : null, () => retenue);
@@ -127,10 +134,12 @@ namespace Forge.Interface
             // Le Menu cède la colonne de l'icône du pays (x 408) : il passe de 330 à 280, entre les glyphes du titre et l'icône, sans la recouvrir.
             ((RectTransform)toile.transform.Find("Menu")).anchoredPosition = new Vector2(280, -20);
             var bulle = toile.transform.Find("Menu").GetComponent<Infobulle>(); bulle.phrase = bulle.Phrase + "\n" + AIDE; // les gestes de la carte, au survol du Menu
-            gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port);
+            gameObject.AddComponent<DossierVoisins>().Initialiser(toile.transform, dossiers, carte.port, 2 * PAS_DES_ICONES);
+            // En bas à droite de la carte, sous la fiche de la terre : la vue revient sur le siège servi.
+            capitale = Bouton(toile.transform, CAPITALE, 1696, 1012, 200, () => CentrerSurLeSiege(true), "Ma capitale : recentre la carte sur le siège de votre maison.");
             foreach (var texte in toile.GetComponentsInChildren<Text>()) texte.supportRichText = false;
             gameObject.AddComponent<DossierMaison>().Initialiser(toile.transform,
-                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers);
+                () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null, carte.port, dossiers, PAS_DES_ICONES);
             var dossierPays = gameObject.AddComponent<DossierPays>();
             dossierPays.Initialiser(toile.transform, pays, () => Partie.Monde, () => Partie.Terres, LectureDossier.Locale(carte.port), NomsDesTerres.Local(carte.port));
             // À droite du feuillet du pays, ses gestes ; le panneau s'ouvre et se ferme avec lui.
@@ -142,7 +151,7 @@ namespace Forge.Interface
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre); lieux.Eviter(guerre, calques);
-            // L'accueil prend la colonne des deux panneaux tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
+            // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,
                 id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); },
@@ -266,6 +275,8 @@ namespace Forge.Interface
         public void Afficher()
         {
             foreach (Transform enfant in transform) if (enfant.name != "Cabinet" && enfant.gameObject.activeSelf && enfant.GetComponent<Canvas>() != null) enfant.gameObject.SetActive(false);
+            // La carte couvre tout l'écran, même sous une caméra donnée par la scène qui n'en montrait qu'une part.
+            if (carte.camera != null && carte.camera.rect != TOUT_L_ECRAN) carte.camera.rect = TOUT_L_ECRAN;
             date.text = horloge.Absence != null ? "Date indisponible : le monde ne répond pas"
                 : horloge.Lue != null ? HorlogeDeCarte.Decrire(horloge.Lue) : "Date en attente du monde";
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
@@ -285,10 +296,12 @@ namespace Forge.Interface
             guide.gameObject.SetActive(geste != null);
             if (geste != null) guide.text = geste;
             accueil.Afficher();
-            dossier.gameObject.SetActive(!accueil.Ouvert); lieu.gameObject.SetActive(!accueil.Ouvert);
+            // Rien ne s'ouvre sans un clic : « Votre maison » par son icône, la fiche par une terre gardée ; l'accueil passe devant.
+            dossier.gameObject.SetActive(maisonOuverte && !accueil.Ouvert); lieu.gameObject.SetActive(retenue != null && !accueil.Ouvert);
+            capitale.gameObject.SetActive(carte.Vue != null && carte.camera != null && SiegePlace() != null);
             ville.Afficher();
             premiersGestes.Afficher();
-            CentrerSurLeSiege();
+            CentrerSurLeSiege(false);
             AfficherTerres();
             AfficherMaison();
         }
@@ -307,15 +320,26 @@ namespace Forge.Interface
             return (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
         }
 
-        // Quand la maison du joueur est servie, la vue se pose une fois sur son siège servi ; ensuite le joueur la mène.
-        void CentrerSurLeSiege()
+        // Le siège servi de la maison du joueur, posé sur la carte ; null sans maison servie, sans position servie, ou hors de la carte.
+        Vector3? SiegePlace()
         {
             var lue = Partie.Maison;
-            if (lue == null || !lue.Presente || lue.Donnees.Id == centreSur || carte.Vue == null || carte.camera == null) return;
-            if (!(lue.Donnees.Siege.Position is PointCarte siege) || !(carte.PositionSurLaCarte(siege, 0f) is Vector3 ici)) return;
+            if (lue == null || !lue.Presente || !(lue.Donnees.Siege.Position is PointCarte siege)) return null;
+            return carte.PositionSurLaCarte(siege, 0f);
+        }
+
+        // Quand la maison du joueur est servie, la vue se pose une fois sur son siège servi ; ensuite le joueur la mène, et
+        // « Ma capitale » (`forcer`) l'y ramène par le même chemin.
+        void CentrerSurLeSiege(bool forcer)
+        {
+            var lue = Partie.Maison;
+            if (lue == null || !lue.Presente || !forcer && lue.Donnees.Id == centreSur || carte.Vue == null || carte.camera == null) return;
+            if (!(SiegePlace() is Vector3 ici)) return;
             centreSur = lue.Donnees.Id;
             carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), DEMI_SUR_LE_SIEGE_KM); carte.Vue.Poser(carte.camera, carte.transform);
         }
+
+        void OuvrirLaMaison(bool ouvrir) { maisonOuverte = ouvrir; dossier.gameObject.SetActive(ouvrir && accueil != null && !accueil.Ouvert); }
 
         // « Votre maison » dit la maison servie : son nom, son siège, ses lieux et la date du relevé ; sans maison, elle se tait derrière l'accueil.
         void AfficherMaison()
