@@ -8,10 +8,32 @@ Bohême, Hongrie), qui restent trois pays. Le tick ne lit pas cette vue.
 Les identifiants de pays : `puissance-<id>` pour une puissance de la table, l'identifiant
 de la maison pour une terre de départ (`seigneurie-<n>`) ou un seigneur libre.
 """
+from dataclasses import dataclass
+
+from sim.maisons import TableDesMaisons, charger_maisons
 from sim.maisons_servies import _nom_de_maison
-from sim.seigneuries import numero_de_seigneurie
+from sim.model import _NoBadSpatialField
+from sim.puissances import TableDesPuissances, charger_table, puissances_depuis_monde
+from sim.seigneuries import charger_seigneuries, numero_de_seigneurie
 
 _SORTE_DEPART = "seigneurie"
+
+
+@dataclass(frozen=True)
+class SourcesDesPays(_NoBadSpatialField):
+    """Ce que les pays lisent des tables de 1400 et de la carte, jamais des maîtres : lu une fois
+    par monde servi, repassé à chaque prise."""
+    table: TableDesPuissances
+    maisons: TableDesMaisons
+    seigneuries: tuple
+    vue: dict
+
+
+def sources_des_pays(monde, table=None, vue=None) -> SourcesDesPays:
+    """Lit les tables ; la table des puissances et la vue déjà lues se repassent."""
+    table = charger_table() if table is None else table
+    vue = puissances_depuis_monde(monde, table=table) if vue is None else vue
+    return SourcesDesPays(table, charger_maisons(), charger_seigneuries(table=table), vue)
 
 
 def identifiant_de_puissance(puissance_id) -> str:

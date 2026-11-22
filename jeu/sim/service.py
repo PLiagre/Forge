@@ -33,6 +33,7 @@ from sim.evenements import document_de_l_evenement
 from sim.batiments import document_des_batiments, documents_des_plans
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.jouables import maisons_jouables
+from sim.pays_servis import sources_des_pays
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
@@ -372,6 +373,8 @@ class ServeurMonde(ThreadingHTTPServer):
         # (monde, listes de noms, table des puissances, puissance de chaque cellule) : ce que les noms
         # lisent hors des maîtres, lu une fois par monde servi.
         self._sources_noms = None
+        # (monde, sources des pays) : les tables et la vue que les pays de `/terres` lisent, une fois par monde servi.
+        self._sources_pays = None
         self._pays_du_tick = (None, {})
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
@@ -473,6 +476,14 @@ class ServeurMonde(ThreadingHTTPServer):
             self._sources_noms = (self.world, *sources_des_noms(self.world))
         return self._sources_noms[1:]
 
+    def _sources_des_pays(self):
+        """Les tables et la vue des puissances que lisent les pays, reprises des noms et lues une fois
+        par monde servi : une prise ne refait que les pays."""
+        if self._sources_pays is None or self._sources_pays[0] is not self.world:
+            _listes, table, vue = self._sources_des_noms()
+            self._sources_pays = (self.world, sources_des_pays(self.world, table=table, vue=vue))
+        return self._sources_pays[1]
+
     def _places_des_lieux(self) -> dict:
         """Les places des lieux, recalculées seulement quand ce qui les pose change. Un monde chargé les
         ancre au chargement (`World.ancres_des_bourgs`) : une conquête ne les déplace pas et ne les fait pas
@@ -490,7 +501,8 @@ class ServeurMonde(ThreadingHTTPServer):
         cle = (bourgs_et_maitres(self.world), tuple((m.id, m.suzerain) for m in self.world.maisons))
         gardees = self._terres
         if gardees is None or gardees[0] != cle or gardees[1] is not noms:
-            gardees = self._terres = (cle, noms, DocumentDiffere(terres_et_pays(self.world, matiere)))
+            gardees = self._terres = (cle, noms, DocumentDiffere(terres_et_pays(
+                self.world, matiere, self._sources_des_pays())))
         _cle, _noms, corps = gardees
         return TerresDifferees(corps, matiere.date, matiere.tick)
 
