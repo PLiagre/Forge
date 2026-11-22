@@ -2,35 +2,25 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 namespace Forge.Pont {
-    // De la carte à la capitale. Le composant relit l'aiguillage toutes les `PERIODE_LECTURE_S` ; quand le joueur
-    // confirme une terre qui a un kit, il charge sa scène, une seule fois, et ne lit plus rien. Une terre sans kit le dit
-    // dans un panneau. La ville ne s'ouvre que sur une confirmation vue : une lecture `Depart`, puis une lecture `Ville` ;
-    // une terre déjà confirmée à l'ouverture laisse le joueur sur la carte. Une absence n'arme, ne montre ni ne cache rien.
-    // Un double-clic sur le siège lu descend aussi ; par défaut, la scène se charge par le fondu de TransitionDeVue.
+    // De la carte à la capitale. Le composant relit l'aiguillage toutes les `PERIODE_LECTURE_S` pour connaître le siège et
+    // la scène de la ville du joueur ; il ne descend jamais de lui-même. La ville s'ouvre par `Entrer` (le bouton « Entrer
+    // dans la ville » du cabinet) ou par un double-clic sur le siège lu, une seule fois ; ensuite plus rien ne se lit.
+    // Une absence ne change ni le siège ni la scène lus. Par défaut, la scène se charge par le fondu de TransitionDeVue.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class PassageALaCapitale : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 1;
-        public const string MESSAGE_SANS_KIT = "Pas encore de kit pour cette terre";
         private static readonly TimeSpan DELAI = TimeSpan.FromSeconds(5);
-        private static readonly Color FOND = new Color(0.05f, 0.05f, 0.07f, 0.78f);
-        // En haut à droite de la vue de la carte, sous le bandeau du cabinet et à droite de ses feuillets.
-        private static readonly Vector2 POSITION = new Vector2(-24, -124), TAILLE = new Vector2(474, 112);
-        private const float ECART_PLAN = 0.2f; private const int RETRAIT = 16, TAILLE_POLICE = 26;
 
         public int port = PanneauLieu.DEFAULT_SERVICE_PORT;
         public new Camera camera; // vide : celle de la CarteDessinee du même objet
         public Action<string> ChargerScene { get; set; } // vide : TransitionDeVue.Lancer vers la ville, avec le port du passage
 
-        private Task<Lecture<CapitaleAOuvrir>> enCours; private double prochaineLecture; private bool departVu;
-        private GameObject toile; private Text texte;
+        private Task<Lecture<CapitaleAOuvrir>> enCours; private double prochaineLecture; private bool demarre;
 
         public bool RequeteEnVol => enCours != null && !enCours.IsCompleted;
         public string Absence { get; private set; } // la cause de la dernière lecture manquée ; null après une lecture servie
-        public bool PanneauVisible => toile != null && toile.activeSelf;
-        public string TexteAffiche => PanneauVisible ? texte.text : null;
         public string SceneDemandee { get; private set; } // null tant que rien n'est chargé
         // La cellule du siège de la dernière lecture servie qui rend `Ville` ; nulle après `Depart` ou `PasDeKit`.
         public long? SiegeLu { get; private set; }
@@ -46,6 +36,12 @@ namespace Forge.Pont {
             Descendre(villeLue, cellule); return true;
         }
 
+        // La ville servie au joueur : sa scène et la cellule de son siège, telles que le service les dit. Une seule descente.
+        public bool Entrer(string scene, long cellule) {
+            if (string.IsNullOrEmpty(scene) || SceneDemandee != null) return false;
+            Descendre(scene, cellule); return true;
+        }
+
         private void Start() { var carte = GetComponent<CarteDessinee>(); Demarrer(camera != null ? camera : carte != null ? carte.camera : null); }
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         private void OnDestroy() => Arreter();
@@ -53,13 +49,13 @@ namespace Forge.Pont {
         public void Demarrer(Camera vue) {
             camera = vue;
             if (camera == null) { Debug.LogError("PassageALaCapitale : pas de caméra, le passage ne lit rien", this); return; }
-            Construire();
+            demarre = true;
         }
 
-        public void Arreter() { enCours = null; if (toile != null) Detruire(toile); toile = null; }
+        public void Arreter() { enCours = null; demarre = false; }
 
         public void Pas(double maintenant) {
-            if (toile == null || SceneDemandee != null) return;
+            if (!demarre || SceneDemandee != null) return;
             if (enCours != null && enCours.IsCompleted) { var fini = enCours; enCours = null; Appliquer(fini); }
             if (enCours != null || SceneDemandee != null || maintenant < prochaineLecture) return;
             prochaineLecture = maintenant + PERIODE_LECTURE_S;
@@ -71,40 +67,18 @@ namespace Forge.Pont {
             var lecture = fini.Result;
             if (!lecture.Presente) { Absence = lecture.Absence; return; }
             Absence = null;
-            var capitale = lecture.Donnees;
-            toile.SetActive(capitale.Destination == DestinationDeCapitale.PasDeKit);
-            bool ville = capitale.Destination == DestinationDeCapitale.Ville; SiegeLu = ville ? capitale.Cellule : null; villeLue = ville ? capitale.Scene : null;
-            if (capitale.Destination == DestinationDeCapitale.Depart) departVu = true;
-            else if (ville && departVu) Descendre(capitale.Scene, capitale.Cellule);
+            bool ville = lecture.Donnees.Destination == DestinationDeCapitale.Ville;
+            SiegeLu = ville ? lecture.Donnees.Cellule : null; villeLue = ville ? lecture.Donnees.Scene : null;
         }
 
         // La remise, puis le chargement : celui qu'on a donné, sinon le fondu au noir vers la vue de la ville.
         private void Descendre(string scene, long? cellule) {
-            SceneDemandee = scene; (sceneRemise, celluleRemise) = (scene, cellule);
+            SceneDemandee = scene; (sceneRemise, celluleRemise) = (scene, cellule); enCours = null;
             if (ChargerScene != null) ChargerScene(scene); else TransitionDeVue.Lancer(scene, VueDuJeu.Ville, port);
         }
 
-        // Une toile sans parent : CabinetDeCarte cache toutes celles de l'objet de la carte, pas celle-ci.
-        private void Construire() {
-            toile = new GameObject("Toile du passage à la capitale", typeof(RectTransform));
-            var canvas = toile.AddComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera;
-            canvas.planeDistance = camera.nearClipPlane + ECART_PLAN; canvas.sortingOrder = 1;
-            var echelle = toile.AddComponent<CanvasScaler>(); echelle.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            echelle.referenceResolution = new Vector2(1920, 1080); echelle.matchWidthOrHeight = 0;
-            var fond = new GameObject("Pas de kit", typeof(RectTransform)); fond.transform.SetParent(toile.transform, false);
-            fond.AddComponent<Image>().color = FOND;
-            var cadre = (RectTransform)fond.transform; cadre.anchorMin = cadre.anchorMax = cadre.pivot = Vector2.one;
-            cadre.anchoredPosition = POSITION; cadre.sizeDelta = TAILLE;
-            texte = new GameObject("Message", typeof(RectTransform)).AddComponent<Text>(); texte.transform.SetParent(fond.transform, false);
-            var zone = texte.rectTransform; zone.anchorMin = Vector2.zero; zone.anchorMax = Vector2.one; zone.offsetMin = new Vector2(RETRAIT, RETRAIT); zone.offsetMax = new Vector2(-RETRAIT, -RETRAIT);
-            texte.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); texte.fontSize = TAILLE_POLICE; texte.color = Color.white; texte.raycastTarget = false;
-            texte.alignment = TextAnchor.MiddleLeft; texte.horizontalOverflow = HorizontalWrapMode.Wrap; texte.verticalOverflow = VerticalWrapMode.Truncate;
-            texte.text = MESSAGE_SANS_KIT;
-            toile.SetActive(false);
-        }
-
-        // La cellule du siège, lue dans /maison par l'aiguillage, retenue juste avant le chargement pour la
-        // seule scène demandée. Une prise l'efface, que la scène corresponde ou non : une seule ville en profite.
+        // La cellule du siège, retenue juste avant le chargement pour la seule scène demandée. Une prise l'efface, que la
+        // scène corresponde ou non : une seule ville en profite.
         private static string sceneRemise; private static long? celluleRemise;
         public static long? PrendreCelluleRemise(string scene)
         {
@@ -112,8 +86,6 @@ namespace Forge.Pont {
             (sceneRemise, celluleRemise) = (null, null);
             return cellule;
         }
-
-        private static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
         // À l'ouverture de la carte, le passage manquant se pose sur chaque CarteDessinee, avec son port.
         // Un second avis ne crée rien. Une autre scène n'est pas touchée. Le Start prend ensuite la caméra.

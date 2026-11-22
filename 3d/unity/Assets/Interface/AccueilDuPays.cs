@@ -210,12 +210,12 @@ namespace Forge.Interface
             if (montree.Siege.Nom != null) lignes.Add("Siège : " + montree.Siege.Nom);
             if (montree.Suzerain != null) lignes.Add("Suzerain : " + (montree.Suzerain.Nom ?? MAISON_SANS_NOM) + (montree.Suzerain.Pays.Nom != null ? " (" + montree.Suzerain.Pays.Nom + ")" : ""));
             lignes.Add(Habitants());
-            lignes.Add(montree.Ville.Batie ? "Ville à bâtir : oui" : "Ville à bâtir : non, pas encore de ville\n" + Phrase(montree.Ville.Raison));
+            lignes.Add(montree.Ville.Batie ? "Ville à bâtir : oui" : "Ville à bâtir : non, pas encore de ville\n" + PhraseDeRaison(montree.Ville.Raison));
             fiche.text = string.Join("\n", lignes);
         }
 
         // La raison servie, en phrase : sa première lettre en capitale, un point final.
-        static string Phrase(string raison) => char.ToUpperInvariant(raison[0]) + raison.Substring(1) + (raison.EndsWith(".") ? "" : ".");
+        public static string PhraseDeRaison(string raison) => char.ToUpperInvariant(raison[0]) + raison.Substring(1) + (raison.EndsWith(".") ? "" : ".");
 
         static void Detruire(UnityEngine.Object o) { if (Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o); }
     }

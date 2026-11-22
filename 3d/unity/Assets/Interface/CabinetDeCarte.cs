@@ -28,6 +28,9 @@ namespace Forge.Interface
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
         public AccueilDuPays Accueil => accueil;
+        public BoutonDeLaVille Ville => ville;
+        // La demi-hauteur, en km, de la vue posée sur le siège du joueur quand sa maison apparaît : sa terre et ses voisines.
+        public const float DEMI_SUR_LE_SIEGE_KM = 220f;
         CarteDessinee carte;
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;
@@ -35,6 +38,8 @@ namespace Forge.Interface
         Text date, barre, guide, maison, territoire, etat;
         RectTransform dossier, lieu;
         AccueilDuPays accueil;
+        BoutonDeLaVille ville;
+        string centreSur; // la maison sur le siège de laquelle la vue s'est posée, une fois
         BarreDuPays jauges;
         readonly HashSet<long> terresEclairees = new HashSet<long>(); // les terres de départ que la carte dessine
         string ensembleDesTerres;
@@ -89,7 +94,7 @@ namespace Forge.Interface
             var pays = new GameObject(PAYS, typeof(RectTransform)).GetComponent<RectTransform>(); pays.SetParent(bandeau, false);
             pays.anchorMin = pays.anchorMax = pays.pivot = new Vector2(0, 1);
             pays.anchoredPosition = new Vector2(408, -20); pays.sizeDelta = new Vector2(56, 44);
-            date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 600);
+            date = SocleInterface.Texte(bandeau, "Lecture de la date…", 480, 24, 400); // x 480 à 880, avant « Entrer dans la ville »
             date.color = SocleInterface.Couleur("papier");
             barre = SocleInterface.Texte(bandeau, "Lecture de la maison…", 24, 72, 1872); // sous le filet, dans les 100 px du bandeau
             barre.color = SocleInterface.Couleur("papier"); barre.rectTransform.sizeDelta = new Vector2(1872, 26);
@@ -97,6 +102,7 @@ namespace Forge.Interface
             guide = SocleInterface.Texte(bandeau, "", 1104, 72, 792); guide.name = GUIDE;
             guide.rectTransform.sizeDelta = new Vector2(792, 26); guide.alignment = TextAnchor.MiddleRight; guide.color = SocleInterface.Couleur("papier"); guide.raycastTarget = false;
             jauges = new BarreDuPays(bandeau); // sous la barre des comptes, les trois jauges et les trois réserves de points
+            ville = new BoutonDeLaVille(bandeau, () => Partie, BoutonDeLaVille.Par(gameObject)); // entre la date et les dossiers
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
@@ -272,6 +278,8 @@ namespace Forge.Interface
             if (geste != null) guide.text = geste;
             accueil.Afficher();
             dossier.gameObject.SetActive(!accueil.Ouvert); lieu.gameObject.SetActive(!accueil.Ouvert);
+            ville.Afficher();
+            CentrerSurLeSiege();
             AfficherTerres();
             AfficherMaison();
         }
@@ -288,6 +296,16 @@ namespace Forge.Interface
             if (!comptes.Presente) return DossierMaison.Indisponible(comptes.Absence);
             var lus = comptes.Donnees;
             return (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
+        }
+
+        // Quand la maison du joueur est servie, la vue se pose une fois sur son siège servi ; ensuite le joueur la mène.
+        void CentrerSurLeSiege()
+        {
+            var lue = Partie.Maison;
+            if (lue == null || !lue.Presente || lue.Donnees.Id == centreSur || carte.Vue == null || carte.camera == null) return;
+            if (!(lue.Donnees.Siege.Position is PointCarte siege) || !(carte.PositionSurLaCarte(siege, 0f) is Vector3 ici)) return;
+            centreSur = lue.Donnees.Id;
+            carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), DEMI_SUR_LE_SIEGE_KM); carte.Vue.Poser(carte.camera, carte.transform);
         }
 
         // « Votre maison » dit la maison servie : son nom, son siège, ses lieux et la date du relevé ; sans maison, elle se tait derrière l'accueil.

@@ -457,6 +457,26 @@ namespace Forge.Interface.Tests
         }
 
         // Tant que l'accueil est ouvert, il prend la colonne de « Votre maison » et du « Territoire conservé », sans laisser l'ancien choix.
+        // Quand la maison du joueur est servie, la vue se pose une fois sur son siège ; le joueur la mène ensuite.
+        [Test] public void La_carte_se_centre_une_fois_sur_le_siege_de_la_maison_servie()
+        {
+            Preparer(); partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie;
+            void Servir(string id, PointCarte siege)
+            {
+                Poser(partie, "Monde", MondeDe(id));
+                Poser(partie, "Maison", Lecture<MaisonLue>.De(new MaisonLue(id, "Maison", new SiegeDeMaison(10, 0, "Siège", siege), new[] { new LieuTenu(10, 0) }, new Dictionary<string, string>())));
+                cabinet.Afficher();
+            }
+            Vector2 Attendu(PointCarte p) { Vector3 ici = carte.PositionSurLaCarte(p, 0f).Value; return new Vector2(ici.x, ici.z); }
+            var avant = carte.Vue.Centre; Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(carte.Vue.Centre, Is.EqualTo(avant), "la vue bouge sans maison");
+            var siege = new PointCarte(3001000, 1502000); Servir(JOUEUR, siege);
+            Assert.That(Vector2.Distance(carte.Vue.Centre, Attendu(siege)), Is.LessThan(1e-3f), "la vue ne vise pas le siège : " + carte.Vue.Centre);
+            Assert.That(carte.Vue.Demi, Is.EqualTo(CabinetDeCarte.DEMI_SUR_LE_SIEGE_KM).Within(1e-3f));
+            Assert.That(camera.transform.position, Is.EqualTo(carte.Vue.Position), "la caméra n'est pas posée sur la vue");
+            carte.Vue.Centrer(new Vector2(-500, 300), 900); cabinet.Afficher(); Assert.That(carte.Vue.Centre, Is.EqualTo(new Vector2(-500, 300)), "la vue est reprise au joueur à chaque image");
+            var autre = new PointCarte(2999000, 1499000); Servir(B, autre); Assert.That(Vector2.Distance(carte.Vue.Centre, Attendu(autre)), Is.LessThan(1e-3f), "une autre maison ne recentre pas");
+        }
+
         [Test] public void L_accueil_remplace_les_deux_dossiers_et_l_ancien_choix()
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet");
@@ -695,7 +715,7 @@ namespace Forge.Interface.Tests
             Poser(partie, "Comptes", ComptesBarre(JOUEUR, 1)); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo("Aucune maison choisie"), "des comptes sans maison du joueur ne s'affichent pas");
             Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo("Maison indisponible : service coupé"));
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
-            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
+            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet" && b.name != BoutonDeLaVille.NOM), Is.EqualTo(3), "la barre n'est pas une commande");
         }
         // « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
         static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
@@ -737,8 +757,10 @@ namespace Forge.Interface.Tests
             Assert.That(barre.Contains(icones.min) && barre.Contains(icones.max) && bas <= 70, Is.True, "les icônes " + icones + " (bas " + bas + ") sortent du bandeau " + barre + " ou passent sous le filet");
             foreach (var voisin in new[] { Nomme("Lecture de la date…").rectTransform, Nomme(BARRE).rectTransform }.Concat(new[] { "Menu", "Ralentir", "Pause / Reprendre", "Accélérer" }.Select(n => (RectTransform)Commande(n).transform)))
                 Assert.That(icones.Overlaps(Monde(voisin)), Is.False, "les icônes " + icones + " recouvrent « " + voisin.name + " » " + Monde(voisin));
-            Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(600f));
-            foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(600f), texte); }
+            // La date raccourcie laisse sa place à « Entrer dans la ville », de x 888 à 1104, avant les dossiers.
+            Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(400f));
+            foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(400f), texte); }
+            Assert.That(icones.Overlaps(Monde((RectTransform)Commande(BoutonDeLaVille.NOM).transform)), Is.False, "les icônes recouvrent « Entrer dans la ville »");
         }
         // Le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.
         [Test] public void Aucun_panneau_Parcourir_le_monde_ne_reste()
@@ -811,7 +833,7 @@ namespace Forge.Interface.Tests
             Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Pays indisponible : service coupé"));
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(EtatDesJauges(), Is.EqualTo("Lecture du pays…"));
             Poser(partie, "Monde", MondeDe(null)); cabinet.Afficher(); Assert.That(Jauges.GetComponentsInChildren<Text>().Any(t => t.gameObject.activeInHierarchy), Is.False);
-            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet"), Is.EqualTo(3), "la barre n'est pas une commande");
+            Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet" && b.name != BoutonDeLaVille.NOM), Is.EqualTo(3), "la barre n'est pas une commande");
         }
         [Test] public void Une_jauge_que_le_service_ne_sert_pas_est_nommee()
         {
