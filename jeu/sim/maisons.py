@@ -106,7 +106,7 @@ def maisons_depuis_monde(
     Une cellule que la table des frontières décide est tenue par la maison de son pays
     (`par_puissance`), sans maison pour une république, une Église, un ordre ou une lacune ;
     l'ancre retenue ne décide que des autres."""
-    from sim.frontieres import charger_frontieres, decisions_des_frontieres
+    from sim.frontieres import decisions_des_frontieres, frontieres_du_monde
     if positions is None:
         positions = charger_positions()
     if table is None:
@@ -122,7 +122,7 @@ def maisons_depuis_monde(
         retenues, table, maisons, portee, latitude_moyenne, geometries_du_monde(world)
     )
     if frontieres is None:
-        frontieres = charger_frontieres(table=table, carte=world.carte)
+        frontieres = frontieres_du_monde(world, table)
     for cell_id, pays in decisions_des_frontieres(world, table, frontieres).items():
         vue[cell_id] = None if pays is None else maisons.par_puissance[pays]
     return vue

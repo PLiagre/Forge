@@ -14,8 +14,10 @@ from sim.aggregation import (
     PositionCelluleInconnue,
     derive_appartenance,
     facteur_de_projection,
+    positions_du_monde,
     projeter,
 )
+from sim.frontieres import charger_frontieres, frontieres_du_monde, puissances_des_lieux
 from sim.puissances import (
     Ancre,
     Puissance,
@@ -23,6 +25,7 @@ from sim.puissances import (
     cellules_non_couvertes,
     charger_latitude_moyenne_puissances,
     charger_portee,
+    geometries_du_monde,
     puissance_de_cellule,
     puissance_par_cellule,
     puissances_depuis_monde,
@@ -62,8 +65,8 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 24 <= puissances_lues == len(brut["puissances"]) <= 40
-    assert 46 <= ancres_lues == len(brut["ancres"]) <= 80
+    assert 49 <= puissances_lues == len(brut["puissances"]) <= 50
+    assert 83 <= ancres_lues == len(brut["ancres"]) <= 90
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
 def _alterer(document, cas, id_navarre):
@@ -100,26 +103,38 @@ def test_refus_d_une_alteration(tmp_path):
     assert refus_observes == len(CAS_REFUS)
     assert refus_observes > 0
 def _connues(table):
-    attendues = {"Angleterre", "Écosse", "France", "Portugal", "Castille", "Aragon", "Navarre", "Grenade", "Saint-Empire", "Bohême"}
+    attendues = {"Angleterre", "Écosse", "France", "Portugal", "Castille", "Aragon", "Navarre", "Grenade", "Saint-Empire", "Bohême",
+                 "Guyenne", "Irlande"}
     par_nom = {p.nom: p for p in table.puissances}
     if not attendues <= par_nom.keys():
         return False
-    villes = {a.nom for a in table.ancres if a.puissance == par_nom["Angleterre"].id}
+    # Londres reste anglaise ; Bordeaux est à la Guyenne et Dublin à l'Irlande.
+    tenues = {(a.nom, a.puissance) for a in table.ancres}
     return (par_nom["Grenade"].religion == "musulmane"
             and all(par_nom[n].religion == "catholique" for n in attendues - {"Grenade"})
             and any(p.nature == "Église" for p in table.puissances)
             and any(p.nature == "république" for p in table.puissances)
-            and {"Londres", "Bordeaux", "Dublin"} <= villes)
+            and all((ville, par_nom[pays].id) in tenues
+                    for ville, pays in (("Londres", "Angleterre"), ("Bordeaux", "Guyenne"), ("Dublin", "Irlande"))))
 def test_puissances_connues(tmp_path):
     assert _connues(charger_table())
     document = _document()
     next(p for p in document["puissances"] if p["nom"] == "Grenade")["religion"] = "catholique"
     religion_fausse = _connues(charger_table(_ecrire(tmp_path, document)))
     document = _document()
-    document["ancres"] = [a for a in document["ancres"] if a["nom"] != "Bordeaux"]
+    next(a for a in document["ancres"] if a["nom"] == "Bordeaux")["nom"] = "Libourne"
     bordeaux_absente = _connues(charger_table(_ecrire(tmp_path, document)))
-    print(f"vraie=1, religion_fausse={int(religion_fausse)}, bordeaux_absente={int(bordeaux_absente)}")
-    assert not religion_fausse and not bordeaux_absente
+    # Bordeaux passée à l'Angleterre : la Guyenne garde une ancre, mais plus Bordeaux.
+    document = _document()
+    ids = {p["nom"]: p["id"] for p in document["puissances"]}
+    bordeaux = next(a for a in document["ancres"] if a["nom"] == "Bordeaux")
+    bordeaux["puissance"] = ids["Angleterre"]
+    document["ancres"].append({"id": max(a["id"] for a in document["ancres"]) + 1, "puissance": ids["Guyenne"],
+                               "nom": "Libourne", "lat": 44.91, "lon": -0.24, "source": "contre-épreuve"})
+    bordeaux_anglaise = _connues(charger_table(_ecrire(tmp_path, document)))
+    print(f"vraie=1, religion_fausse={int(religion_fausse)}, bordeaux_absente={int(bordeaux_absente)}, "
+          f"bordeaux_anglaise={int(bordeaux_anglaise)}")
+    assert not religion_fausse and not bordeaux_absente and not bordeaux_anglaise
 def _compter_ancrage(table):
     positions = charger_positions()
     lats, lons = zip(*positions.values())
@@ -217,6 +232,22 @@ def _cellule_la_plus_proche(point, positions, latitude_moyenne):
     return derive_appartenance({0: point}, centroides, latitude_moyenne)[0]
 
 
+def _par_ancre(monde, table, portee=None):
+    """La règle de l'ancre seule, sans la table des frontières : l'ancre contenue, sinon la plus proche."""
+    return puissance_par_cellule(positions_du_monde(monde, charger_positions()), table,
+                                 charger_portee() if portee is None else portee,
+                                 charger_latitude_moyenne_puissances(), geometries_du_monde(monde))
+
+
+def _sans_pays_de_la_table(monde):
+    """Les cellules que la table des frontières laisse sans pays : ses lacunes, et ses cellules partagées
+    dont le bourg est d'une ville sans pays."""
+    frontieres = frontieres_du_monde(monde)
+    lieux = puissances_des_lieux(monde, frontieres=frontieres)
+    return tuple(sorted({c for c in frontieres.lacunes if c in monde.cells}
+                        | {c for c in frontieres.partages if c in monde.cells and lieux[c, 0] is None}))
+
+
 def test_geographie_des_puissances_et_des_non_couvertes():
     monde = World.charger(0)
     positions = charger_positions()
@@ -255,15 +286,29 @@ def test_geographie_des_puissances_et_des_non_couvertes():
         for ancre in table.ancres
     )
     table_echangee = dataclasses.replace(table, ancres=ancres_echangees)
+    # La règle de l'ancre échangée met Paris à l'Angleterre et Londres à la France...
+    par_ancre_echangee = _par_ancre(monde, table_echangee)
+    assert puissance_de_cellule(cellules["Paris"], par_ancre_echangee, table_echangee).nom == "Angleterre"
+    assert puissance_de_cellule(cellules["Londres"], par_ancre_echangee, table_echangee).nom == "France"
+    # ... mais Paris et Londres sont des cellules de la table : l'échange n'y change rien, nulle part.
+    declarees = charger_frontieres().declarees()
+    assert {cellules["Paris"], cellules["Londres"]} <= declarees
     vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
-    assert puissance_de_cellule(cellules["Paris"], vue_echangee, table_echangee).nom == "Angleterre"
-    assert puissance_de_cellule(cellules["Londres"], vue_echangee, table_echangee).nom == "France"
+    assert puissance_de_cellule(cellules["Paris"], vue_echangee, table_echangee).nom == "France"
+    assert puissance_de_cellule(cellules["Londres"], vue_echangee, table_echangee).nom == "Angleterre"
+    assert {c for c in vue if vue_echangee[c] != vue[c]}.isdisjoint(declarees)
+    par_ancre = _par_ancre(monde, table)
+    assert {c for c in vue if vue_echangee[c] != vue[c]} == {
+        c for c in vue if c not in declarees and par_ancre_echangee[c] != par_ancre[c]}
 
+    # À portée infinie, l'ancre couvre tout ce que la table ne décide pas : ne restent sans pays que
+    # les cellules que la table laisse sans pays.
     vue_infinie = puissances_depuis_monde(monde, portee=math.inf)
+    sans_pays = _sans_pays_de_la_table(monde)
     print(f"cellules_de_référence_distinctes={len(set(cellules.values()))}")
-    print(f"non_couvertes={len(non_couvertes)}")
+    print(f"non_couvertes={len(non_couvertes)}, sans_pays_de_la_table={len(sans_pays)}")
     assert puissance_de_cellule(cellules["Le Caire"], vue_infinie, table) is not None
-    assert cellules_non_couvertes(vue_infinie) == ()
+    assert sans_pays and cellules_non_couvertes(vue_infinie) == sans_pays
 
 
 def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
@@ -279,8 +324,14 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     assert couvertes + non_couvertes == len(monde.cells)
     assert couvertes > 0 and non_couvertes > 0
     assert {valeur for valeur in vue.values() if valeur is not None} <= ids_puissances
+    # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée : Venise ne tient
+    # aucune cellule entière, seulement des lieux du Trévisan.
+    lieux = puissances_des_lieux(monde)
+    sans_cellule = [p.nom for p in table.puissances if p.id not in vue.values()]
     for puissance in table.puissances:
-        assert puissance.id in vue.values(), puissance.nom
+        assert puissance.id in vue.values() or puissance.id in lieux.values(), puissance.nom
+    print(f"puissances_sans_cellule={sans_cellule}")
+    assert sans_cellule == ["Venise"]
 
     facteur = facteur_de_projection(latitude)
     carres = []
@@ -292,10 +343,14 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     plus_petite_distance = math.sqrt(min(carres))
     portee_minuscule = plus_petite_distance / 2
     vue_vide = puissances_depuis_monde(monde, portee=portee_minuscule)
+    declarees = charger_frontieres().declarees()
+    couvertes_minuscule = {c for c, v in vue_vide.items() if v is not None}
     print(f"couvertes={couvertes}, non_couvertes={non_couvertes}")
-    print(f"couvertes_portee_minuscule={sum(v is not None for v in vue_vide.values())}")
+    print(f"couvertes_portee_minuscule={len(couvertes_minuscule)}")
     assert plus_petite_distance > 0
-    assert sum(valeur is not None for valeur in vue_vide.values()) == 0
+    # L'ancre ne couvre plus rien à une portée minuscule : ne restent couvertes que les cellules de la table.
+    assert sum(v is not None for v in _par_ancre(monde, table, portee_minuscule).values()) == 0
+    assert couvertes_minuscule and couvertes_minuscule == {c for c in declarees if vue[c] is not None}
 
 
 def test_egalite_des_ancres_et_bord_de_portee():
@@ -357,7 +412,7 @@ def test_vue_pure_que_le_tick_ne_lit_pas():
 
 def test_lecture_des_douze_ajouts(tmp_path):
     attendues = {
-        "Venise", "Milan", "Florence", "Gênes", "Papauté", "Naples",
+        "Venise", "Milan", "Florence", "Gênes", "États de l'Église", "Naples",
         "Sicile", "Savoie", "Union de Kalmar", "Ordre teutonique",
         "Pologne-Lituanie", "Hongrie",
     }
@@ -367,8 +422,8 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 39 <= len(table.puissances) == len(document["puissances"]) <= 40
-        assert 73 <= len(table.ancres) == len(document["ancres"]) <= 80
+        assert 49 <= len(table.puissances) == len(document["puissances"]) <= 50
+        assert 83 <= len(table.ancres) == len(document["ancres"]) <= 90
 
     table = charger_table()
     verifier_bornes(table, _document())
@@ -411,7 +466,7 @@ def test_refus_des_nouveaux_cas(tmp_path, nom, champ, valeur):
 def test_nouvelles_puissances_connues(tmp_path):
     attendues = {
         "Venise": "république", "Milan": "principauté", "Florence": "république",
-        "Gênes": "république", "Papauté": "Église", "Naples": "royaume",
+        "Gênes": "république", "États de l'Église": "Église", "Naples": "royaume",
         "Sicile": "royaume", "Savoie": "principauté", "Union de Kalmar": "royaume",
         "Ordre teutonique": "ordre", "Pologne-Lituanie": "royaume", "Hongrie": "royaume",
     }
@@ -424,15 +479,15 @@ def test_nouvelles_puissances_connues(tmp_path):
 
     vraie = connues(charger_table())
     document = _document()
-    next(p for p in document["puissances"] if p["nom"] == "Papauté")["nature"] = "royaume"
-    papaute_fausse = connues(charger_table(_ecrire(tmp_path, document)))
+    next(p for p in document["puissances"] if p["nom"] == "États de l'Église")["nature"] = "royaume"
+    eglise_fausse = connues(charger_table(_ecrire(tmp_path, document)))
     document = _document()
     milan = next(p for p in document["puissances"] if p["nom"] == "Milan")
     document["puissances"].remove(milan)
     document["ancres"] = [a for a in document["ancres"] if a["puissance"] != milan["id"]]
     milan_absente = connues(charger_table(_ecrire(tmp_path, document)))
-    print(f"connues={int(vraie)}, papauté_fausse={int(papaute_fausse)}, milan_absente={int(milan_absente)}")
-    assert vraie and not papaute_fausse and not milan_absente
+    print(f"connues={int(vraie)}, église_fausse={int(eglise_fausse)}, milan_absente={int(milan_absente)}")
+    assert vraie and not eglise_fausse and not milan_absente
 
 
 def test_geographie_et_compte_des_douze_nouvelles_puissances():
@@ -442,7 +497,7 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     table = charger_table()
     points = {
         "Venise": (45.44, 12.33), "Milan": (45.46, 9.19),
-        "Florence": (43.77, 11.26), "Papauté": (41.90, 12.50),
+        "Florence": (43.77, 11.26), "États de l'Église": (41.90, 12.50),
         "Gênes": (44.41, 8.93), "Naples": (40.85, 14.27),
         "Sicile": (38.12, 13.36), "Savoie": (45.57, 5.92),
         "Union de Kalmar": (55.68, 12.57), "Ordre teutonique": (54.04, 19.03),
@@ -457,36 +512,55 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     non_couvertes = len(cellules_non_couvertes(vue))
     print(f"cellules_distinctes={len(set(cellules.values()))}, couvertes={couvertes}, non_couvertes={non_couvertes}")
     assert len(set(cellules.values())) == len(points) > 0
-    assert noms == {nom: nom for nom in points}
-    assert couvertes + non_couvertes == len(monde.cells)
-
+    # Le point de Venise tombe dans la cellule partagée du Véronais, dont le bourg est milanais : Venise
+    # n'y tient que des lieux (Trévise).
+    assert noms == {nom: ("Milan" if nom == "Venise" else nom) for nom in points}
+    lieux = puissances_des_lieux(monde)
     ids = {p.nom: p.id for p in table.puissances}
     venise, milan = ids["Venise"], ids["Milan"]
+    assert cellules["Venise"] in charger_frontieres().partages
+    assert sum(p == venise for (cid, _), p in lieux.items() if cid == cellules["Venise"]) > 0
+    assert couvertes + non_couvertes == len(monde.cells)
+
+    # Les échanges et les ancres ajoutées se jugent sur la règle de l'ancre : la table décide ces cellules.
+    declarees = charger_frontieres().declarees()
+    assert {cellules[nom] for nom in ("Venise", "Milan", "Florence", "Gênes", "États de l'Église",
+                                      "Naples", "Sicile", "Savoie")} <= declarees
+    assert declarees.isdisjoint(cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique",
+                                                          "Pologne-Lituanie", "Hongrie"))
+    par_ancre = _par_ancre(monde, table)
+    assert {nom: puissance_de_cellule(cellules[nom], par_ancre, table).nom
+            for nom in ("Venise", "Milan")} == {"Venise": "Venise", "Milan": "Milan"}
     echangees = tuple(dataclasses.replace(a, puissance=milan if a.puissance == venise
                                            else venise if a.puissance == milan else a.puissance)
                       for a in table.ancres)
     table_echangee = dataclasses.replace(table, ancres=echangees)
-    vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
-    venise_echangee = puissance_de_cellule(cellules["Venise"], vue_echangee, table_echangee).nom
-    milan_echangee = puissance_de_cellule(cellules["Milan"], vue_echangee, table_echangee).nom
+    par_ancre_echangee = _par_ancre(monde, table_echangee)
+    venise_echangee = puissance_de_cellule(cellules["Venise"], par_ancre_echangee, table_echangee).nom
+    milan_echangee = puissance_de_cellule(cellules["Milan"], par_ancre_echangee, table_echangee).nom
     print(f"Venise_après_échange={venise_echangee}, Milan_après_échange={milan_echangee}")
     assert venise_echangee == "Milan" and milan_echangee == "Venise"
+    # Les deux cellules sont de la table : l'échange des ancres ne change rien au monde.
+    assert {cellules["Venise"], cellules["Milan"]} <= declarees
+    assert puissances_depuis_monde(monde, table=table_echangee) == vue
 
     verone = dataclasses.replace(next(a for a in table.ancres if a.nom == "Milan"),
                                  id=max(a.id for a in table.ancres) + 1,
                                  nom="Vérone", lat=45.44, lon=10.99)
     table_verone = dataclasses.replace(table, ancres=table.ancres + (verone,))
-    vue_verone = puissances_depuis_monde(monde, table=table_verone)
-    venise_avec_verone = puissance_de_cellule(cellules["Venise"], vue_verone, table_verone).nom
+    venise_avec_verone = puissance_de_cellule(
+        cellules["Venise"], _par_ancre(monde, table_verone), table_verone).nom
     print(f"Venise_avec_ancre_à_Vérone={venise_avec_verone}")
     assert venise_avec_verone == "Milan"
+    assert puissances_depuis_monde(monde, table=table_verone) == vue
 
     table_sans_venise = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.puissance != venise))
-    vue_sans_venise = puissances_depuis_monde(monde, table=table_sans_venise)
-    cellules_venise = sum(p == venise for p in vue.values())
-    cellules_venise_sans_ancre = sum(p == venise for p in vue_sans_venise.values())
-    print(f"cellules_de_Venise={cellules_venise}, sans_ancre={cellules_venise_sans_ancre}")
+    cellules_venise = sum(p == venise for p in par_ancre.values())
+    cellules_venise_sans_ancre = sum(p == venise for p in _par_ancre(monde, table_sans_venise).values())
+    print(f"cellules_de_Venise_par_ancre={cellules_venise}, sans_ancre={cellules_venise_sans_ancre}")
     assert cellules_venise > 0 and cellules_venise_sans_ancre == 0
+    # Dans le monde, la table ne laisse à Venise aucune cellule entière : seulement des lieux.
+    assert sum(p == venise for p in vue.values()) == 0
 
 
 def test_ancrage_sans_piege():
@@ -638,23 +712,48 @@ def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
     portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
     assert len(lacunes) == 8 and all(l.raison.strip() for l in lacunes)
     assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
+
+    # Une cellule non couverte est expliquée par la table des frontières quand elle la décide : sa lacune,
+    # ou la ville sans pays (et sa raison) d'une cellule partagée dont le bourg est sans pays. Les autres
+    # le sont par la lacune ponctuelle la plus proche.
+    frontieres = frontieres_du_monde(monde)
+    declarees = frontieres.declarees()
+    lieux = puissances_des_lieux(monde, frontieres=frontieres)
+    non_couvertes = cellules_non_couvertes(vue)
+    de_la_table = tuple(c for c in non_couvertes if c in declarees)
+    assert de_la_table == _sans_pays_de_la_table(monde) and de_la_table
+    sans_raison_de_la_table = 0
+    for cid in de_la_table:
+        if cid in frontieres.lacunes:
+            raison = frontieres.lacunes[cid]
+        else:
+            assert lieux[cid, 0] is None
+            raison = " ".join(v.raison or "" for v in frontieres.partages[cid] if v.pays is None)
+        sans_raison_de_la_table += not raison.strip()
+    vue_hors_table = {c: p for c, p in vue.items() if c not in declarees}
     avant = copy.deepcopy((positions, vue, lacunes, monde.to_dict()))
 
     def compter(retenues):
-        raisons = lacune_par_cellule(positions, vue, retenues, portee, latitude)
-        assert set(raisons) == set(cellules_non_couvertes(vue))
+        raisons = lacune_par_cellule(positions, vue_hors_table, retenues, portee, latitude)
+        assert set(raisons) == set(cellules_non_couvertes(vue_hors_table))
         return len(raisons), sum(r is None for r in raisons.values()), sum(l.id not in raisons.values() for l in retenues)
 
-    non_couvertes, sans_raison, lacunes_inutiles = compter(lacunes)
-    print(f"non_couvertes={non_couvertes}, sans_raison={sans_raison}, lacunes_inutiles={lacunes_inutiles}")
-    assert non_couvertes > 0 and sans_raison == lacunes_inutiles == 0
+    hors_table, sans_raison, lacunes_inutiles = compter(lacunes)
+    print(f"non_couvertes={len(non_couvertes)}, de_la_table={len(de_la_table)}, hors_table={hors_table}, "
+          f"sans_raison={sans_raison + sans_raison_de_la_table}, lacunes_inutiles={lacunes_inutiles}")
+    assert len(non_couvertes) == len(de_la_table) + hors_table and hors_table > 0
+    assert sans_raison == sans_raison_de_la_table == lacunes_inutiles == 0
+    # Sans la lacune ponctuelle de la Cyrénaïque, une cellule hors table reste sans raison ; sans la table,
+    # les cellules qu'elle décide n'auraient aucune lacune ponctuelle pour les expliquer.
     sans_cyrenaique = compter(tuple(l for l in lacunes if l.nom != "Cyrénaïque"))
     paris = dataclasses.replace(lacunes[0], id=max(l.id for l in lacunes) + 1,
                                 nom="Paris", lat=48.86, lon=2.35)
     avec_paris = compter(lacunes + (paris,))
     print(f"sans_Cyrénaïque={sans_cyrenaique}, avec_Paris={avec_paris}")
     assert sans_cyrenaique[1] == 1 and avec_paris[2] == 1
-    assert compter(tuple(reversed(lacunes))) == (non_couvertes, sans_raison, lacunes_inutiles)
+    sans_la_table = lacune_par_cellule(positions, vue, lacunes, portee, latitude)
+    assert sum(r is None for r in sans_la_table.values()) == len(de_la_table)
+    assert compter(tuple(reversed(lacunes))) == (hors_table, sans_raison, lacunes_inutiles)
     assert (positions, vue, lacunes, monde.to_dict()) == avant
     with pytest.raises(dataclasses.FrozenInstanceError):
         paris.raison = "modifiée"
@@ -816,21 +915,32 @@ def test_ancre_contenue_carte():
     monde, table = World.charger(0), charger_table()
     positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
     vue = puissances_depuis_monde(monde)
+    # La règle de l'ancre contenue, seule ; la plus proche, sans la géométrie des cellules, en est la référence.
+    par_ancre = _par_ancre(monde, table)
     ancienne = puissance_par_cellule(positions, table, charger_portee(), latitude)
+    declarees = charger_frontieres().declarees()
     ids = {p.nom: p.id for p in table.puissances}
     assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
-    assert [c for c in vue if vue[c] != ancienne[c]] == [10374]
+    assert [par_ancre[c] for c in (10374, 10032, 10366)] == [vue[c] for c in (10374, 10032, 10366)]
+    assert [c for c in par_ancre if par_ancre[c] != ancienne[c]] == [10374]
+    # Ces trois cellules ne sont pas de la table : l'ancre les décide, et la table décide les autres.
+    assert declarees.isdisjoint((10374, 10032, 10366))
+    assert [c for c in vue if c not in declarees and vue[c] != par_ancre[c]] == []
+    assert [c for c in vue if c in declarees and vue[c] != par_ancre[c]]
     hors = {(a.id, a.nom) for a in table.ancres if not any(
         point_dans_geometrie(*projeter_epsg3035(a.lat, a.lon), cell["geometry"])
         for cell in monde.carte.values())}
     assert hors == {(25, "Venise"), (37, "Copenhague")}
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (565, 31)
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 207, dont 7 sans pays.
+    comptes_ancre = Counter(par_ancre.values())
+    assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (558, 38)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
-    assert vue[10209] == ids["Grenade"]
+    assert vue[10209] == par_ancre[10209] == ids["Grenade"]
     edirne = next(a for a in table.ancres if a.nom == "Edirne")
     for point, attendues in ((positions[10032], {10374: ids["Ottomans"], 10032: ids["Byzance"]}),
                              ((edirne.lat, edirne.lon), {10366: ids["Byzance"]})):

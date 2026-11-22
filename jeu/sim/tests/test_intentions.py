@@ -2769,7 +2769,7 @@ def test_tout_pays_refus(monkeypatch):
     refus = [
         ({"maison": "grande-21"}, "maison sans lieu : grande-21"),
         ({"maison": "institution-15"}, "maison non jouable : institution-15 (Florence), une république élit ses magistrats"),
-        ({"maison": "institution-17"}, "maison non jouable : institution-17 (Papauté), l'Église élit ses prélats"),
+        ({"maison": "institution-17"}, "maison non jouable : institution-17 (États de l'Église), l'Église élit ses prélats"),
         ({"maison": "institution-22"}, "maison non jouable : institution-22 (Ordre teutonique), un ordre élit son maître"),
         ({"maison": "grande-999"}, "maison inconnue ou mal formée : 'grande-999'"),
         ({"maison": 3}, "maison inconnue ou mal formée : 3"),
@@ -2779,7 +2779,7 @@ def test_tout_pays_refus(monkeypatch):
         ({"maison": "seigneurie-1", "seigneurie": 1}, "choisir_depart : seigneurie ou maison, pas les deux"),
         ({}, "seigneurie inconnue : None"),
     ]
-    assert any("Papauté" in message for _, message in refus), "la Papauté doit se refuser comme l'Église"
+    assert any("États de l'Église" in message for _, message in refus), "les États de l'Église doivent se refuser comme l'Église"
 
     def verifier(monde):
         avant = (deepcopy(monde.to_dict()), list(monde.intentions_en_attente))
@@ -2799,7 +2799,7 @@ def test_tout_pays_refus(monkeypatch):
     assert monde.maison_du_joueur == "grande-3"
     assert _refus_du_choix(monde, {"type": "choisir_depart", "maison": petit}) == "départ déjà choisi : grande-3"
     assert _refus_du_choix(monde, {"type": "choisir_depart", "seigneurie": 1}) == "départ déjà choisi : grande-3"
-    # Contre-épreuve : un contrôle qui accepte tout fait accepter la Papauté, et la vérification échoue.
+    # Contre-épreuve : un contrôle qui accepte tout fait accepter les États de l'Église, et la vérification échoue.
     sonde = World.charger(0)
     monkeypatch.setattr("sim.intentions.raison_de_refus", lambda monde, identifiant: None)
     with pytest.raises(AssertionError):

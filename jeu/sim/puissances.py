@@ -284,7 +284,7 @@ def puissances_depuis_monde(
     Une cellule que la table des frontières décide (`sim/frontieres.py`) prend son pays déclaré,
     le pays de son bourg si elle est partagée, ou aucun si elle est en lacune ; l'ancre retenue
     ne décide que des autres."""
-    from sim.frontieres import charger_frontieres, decisions_des_frontieres
+    from sim.frontieres import decisions_des_frontieres, frontieres_du_monde
     if positions is None:
         positions = charger_positions()
     if table is None:
@@ -298,7 +298,7 @@ def puissances_depuis_monde(
         retenues, table, portee, latitude_moyenne, geometries_du_monde(world)
     )
     if frontieres is None:
-        frontieres = charger_frontieres(table=table, carte=world.carte)
+        frontieres = frontieres_du_monde(world, table)
     vue.update(decisions_des_frontieres(world, table, frontieres))
     return vue
 

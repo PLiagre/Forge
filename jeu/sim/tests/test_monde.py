@@ -3402,7 +3402,7 @@ def test_photographie_1400_tout_pays():
         verifier("grande-3", autre, None)
     # Les institutions et les maisons sans lieu se refusent avec leur raison.
     for identifiant, raison in (
-            ("institution-17", "maison non jouable : institution-17 (Papauté), l'Église élit ses prélats"),
+            ("institution-17", "maison non jouable : institution-17 (États de l'Église), l'Église élit ses prélats"),
             ("institution-22", "maison non jouable : institution-22 (Ordre teutonique), un ordre élit son maître"),
             ("institution-15", "maison non jouable : institution-15 (Florence), une république élit ses magistrats"),
             ("grande-21", "maison sans lieu : grande-21")):

@@ -81,22 +81,22 @@ def _pays_connu(valeur, sorte, identifiant, connus):
     return valeur
 
 
-def _cellule(valeur, sorte, vues, carte):
+def _cellule(valeur, sorte, vues):
     if isinstance(valeur, bool) or not isinstance(valeur, int):
         raise PuissanceInvalide(f"{sorte} {valeur!r}, champ cell_id : entier attendu")
-    if carte is not None and valeur not in carte:
-        raise PuissanceInvalide(f"{sorte} {valeur}, champ cell_id : cellule inconnue")
     if valeur in vues:
         raise PuissanceInvalide(f"{sorte} {valeur}, champ cell_id : cellule déclarée deux fois")
     vues.add(valeur)
     return valeur
 
 
-def charger_frontieres(path=None, table=None, carte=None) -> TableDesFrontieres:
+def charger_frontieres(path=None, table=None, carte=None, partielle=False) -> TableDesFrontieres:
     """Lit la table, la valide entièrement et rend ses lignes triées.
 
     `carte` (cell_id → enregistrement de la carte figée), quand elle est donnée, fait refuser une
-    cellule inconnue et une ville de partage hors de sa cellule."""
+    cellule inconnue et une ville de partage hors de sa cellule. `partielle` dit que la carte n'est
+    qu'une part de la carte figée, celle d'un monde d'épreuve : une cellule déclarée qui n'y est pas
+    est laissée de côté au lieu d'être refusée."""
     chemin = pathlib.Path(path) if path is not None else _CHEMIN
     document = json.loads(chemin.read_text(encoding="utf-8"))
     table = charger_table() if table is None else table
@@ -129,12 +129,12 @@ def charger_frontieres(path=None, table=None, carte=None) -> TableDesFrontieres:
         if not isinstance(liste, list) or not liste:
             raise PuissanceInvalide(f"pays {pays}, champ cellules : liste absente ou vide")
         for cid in liste:
-            cellules[_cellule(cid, "cellule", vues, carte)] = pays
+            cellules[_cellule(cid, "cellule", vues)] = pays
 
     partages = {}
     for brute in _liste(document, "partages"):
         brute = _ligne(brute, "partage", None)
-        cid = _cellule(brute.get("cell_id"), "partage", vues, carte)
+        cid = _cellule(brute.get("cell_id"), "partage", vues)
         villes = []
         for ville in brute.get("villes") or ():
             ville = _ligne(ville, "partage", cid)
@@ -147,9 +147,6 @@ def charger_frontieres(path=None, table=None, carte=None) -> TableDesFrontieres:
             lieu = VilleDePartage(nom, _nombre(ville.get("lat"), cid, "lat", "partage"),
                                   _nombre(ville.get("lon"), cid, "lon", "partage"), pays,
                                   _texte(ville.get("source"), "partage", cid, f"villes.{nom}.source"), raison)
-            if carte is not None and not point_dans_geometrie(
-                    *projeter_epsg3035(lieu.lat, lieu.lon), carte[cid]["geometry"]):
-                raise PuissanceInvalide(f"partage {cid}, champ villes : {nom} hors de sa cellule")
             villes.append(lieu)
         if len({v.pays for v in villes}) < PAYS_MIN_D_UN_PARTAGE:
             raise PuissanceInvalide(f"partage {cid}, champ villes : au moins deux pays attendus")
@@ -158,7 +155,7 @@ def charger_frontieres(path=None, table=None, carte=None) -> TableDesFrontieres:
     lacunes = {}
     for brute in _liste(document, "lacunes"):
         brute = _ligne(brute, "lacune", None)
-        cid = _cellule(brute.get("cell_id"), "lacune", vues, carte)
+        cid = _cellule(brute.get("cell_id"), "lacune", vues)
         lacunes[cid] = _texte(brute.get("raison"), "lacune", cid, "raison")
 
     petits, noms_vus = [], set()
@@ -185,9 +182,32 @@ def charger_frontieres(path=None, table=None, carte=None) -> TableDesFrontieres:
                               _texte(brute.get("source"), "témoin", nom, "source"), hors))
     if not temoins:
         raise PuissanceInvalide("frontières, champ temoins : liste vide")
+    if carte is not None:
+        cellules, partages, lacunes = _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle)
     return TableDesFrontieres(_DATE, lues, dict(sorted(cellules.items())), dict(sorted(sources.items())),
                               dict(sorted(partages.items())), dict(sorted(lacunes.items())),
                               tuple(sorted(petits)), tuple(sorted(temoins, key=lambda t: t.nom)))
+
+
+def _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle):
+    """Refuse une cellule absente de la carte (ou l'écarte si la carte n'est qu'une part de la carte
+    figée) et une ville de partage hors de sa cellule."""
+    gardees = []
+    for sorte, lignes in (("cellule", cellules), ("partage", partages), ("lacune", lacunes)):
+        for cid in sorted(lignes):
+            if cid not in carte and not partielle:
+                raise PuissanceInvalide(f"{sorte} {cid}, champ cell_id : cellule inconnue")
+        gardees.append({cid: ligne for cid, ligne in lignes.items() if cid in carte})
+    for cid, villes in sorted(gardees[1].items()):
+        for ville in villes:
+            if not point_dans_geometrie(*projeter_epsg3035(ville.lat, ville.lon), carte[cid]["geometry"]):
+                raise PuissanceInvalide(f"partage {cid}, champ villes : {ville.nom} hors de sa cellule")
+    return tuple(gardees)
+
+
+def frontieres_du_monde(monde, table=None) -> TableDesFrontieres:
+    """La table lue pour un monde : jugée contre sa carte, qui peut n'être qu'une part de la carte figée."""
+    return charger_frontieres(table=table, carte=monde.carte, partielle=True)
 
 
 def maison_du_bourg(monde, cell_id):
@@ -224,7 +244,7 @@ def puissances_des_lieux(monde, table=None, frontieres=None) -> dict:
     grande ville placée, et les autres rangs par le tirage de `places_de_cellule`. Hors des cellules
     partagées, un lieu a le pays de sa cellule : il n'est pas dans ce dictionnaire."""
     table = charger_table() if table is None else table
-    frontieres = charger_frontieres(table=table, carte=monde.carte) if frontieres is None else frontieres
+    frontieres = frontieres_du_monde(monde, table) if frontieres is None else frontieres
     partagees = [cid for cid in frontieres.partages if cid in monde.cells]
     if not partagees:
         return {}
@@ -243,7 +263,7 @@ def decisions_des_frontieres(monde, table=None, frontieres=None, lieux=None) -> 
     """cell_id → puissance (ou `None`) de chaque cellule du monde que la table décide : son pays
     déclaré, le pays de son bourg si elle est partagée, `None` si elle est en lacune."""
     table = charger_table() if table is None else table
-    frontieres = charger_frontieres(table=table, carte=monde.carte) if frontieres is None else frontieres
+    frontieres = frontieres_du_monde(monde, table) if frontieres is None else frontieres
     lieux = puissances_des_lieux(monde, table, frontieres) if lieux is None else lieux
     decisions = {cid: pays for cid, pays in frontieres.cellules.items() if cid in monde.cells}
     decisions.update({cid: None for cid in frontieres.lacunes if cid in monde.cells})
