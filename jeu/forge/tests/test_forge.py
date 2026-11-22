@@ -283,7 +283,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
 
 
-@pytest.mark.parametrize('ticks,empreinte', [(0, '1c845fcb02c3a9d696a10facfa81f03db06b1ca742f8a82b846dc8919a86bdc1'), (30, '50fc4d91cc9b642ab4fd26b49e43e2b48955eb68ba273c472722b6b2f1a20abf')])
+@pytest.mark.parametrize('ticks,empreinte', [(0, '7afb4457b5d3b5fcf60f0927c53779ab7c98161c42ced8f6ac47a55551a0e7c8'), (30, 'f2e1f3d3145ed7d12707a4287074edab9c90a8b5540b7c25bb7a88787f58d70b')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Les empreintes historiques de la photographie, couche après couche : le
@@ -308,16 +308,16 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
         chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: 'f140bdcc10bcdaec0a8c852625548b42b548c396a7cc36c52b1c5310c26cacb7', 30: 'aacd23d25dcbfb2e2b0a46a71d2ff5479c6246ff82934a8ddb4c0e0db82da76c'}[ticks]
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '936521c58d935e33145b22a902d76344a9f3a673863c793555fccf169360aba1', 30: 'e90127b37adb185868cb1ea8ceff926d728db3793755a10beab82a6800454ede'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
     faux_flux = json.loads(chemin.read_bytes()); faux_flux['cells'][0]['lieux'][0]['flux_30j']['preleve_kg'] += 1
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux_flux)).hexdigest() == hashlib.sha256(chemin.read_bytes()).hexdigest()
     for cellule in photo_noms['cells']:
         for lieu in cellule['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '63c46db858d419d615a9bb3c267a4dbc26b7914729c22db881a62c7172a47e8f', 30: '30e1e18f051c2239d5737424d22a34e88a8d6254d0fec798139d2a9c4f8d519d'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '73c7bae7a490e6d13f1ac3e30b857ce04953161a36530d74d9288b4d3aba99eb', 30: '12d27ecba09b523cee6a59cd19fc9b3a20f934757dc914aaa1e95bfd551f927d'}[ticks]
     points = [lieu.pop('point') for c in photo_noms['cells'] for lieu in c['lieux']]
     assert points and all(set(p) == {'x_m', 'y_m', 'latitude', 'longitude'} for p in points)
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'd9814af06631cbdc78cad68f971041669d270d4722416387227f79d620e28b3b', 30: 'e6eefd2c56d28cee23d1de23810f12a9f04848af261af704fccd7e5c895b2ac7'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'b43b68450c7fd17901f509b51ffcd536305ebb6f3e31546bd823cfdf7b8dd2ab', 30: '5e276eee5aae08c4b1e3a98aac26472f672ba355a1212c4eeb4d887e141c6d43'}[ticks]
     assert all(c.pop('noms') for c in photo_noms['cells']); assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == empreinte
     faux = dict(photo_noms, ia=[])
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
@@ -339,7 +339,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     if ticks == 30:
         normal, _ = _simuler(ticks, 0, tmp_path / 'normal.json')
         def controler(octets):
-            assert hashlib.sha256(octets).hexdigest() == '51eef95658f8c1c801912a1e03663825aa779f1495d7acfc515fec116b876673'
+            assert hashlib.sha256(octets).hexdigest() == 'ab956dd4bc726c561c9ad979a2058c593ab6777dbfaee284698958b5f0507a52'
         controler(normal.read_bytes())
         with pytest.raises(AssertionError):
             controler(normal.read_bytes() + b' ')

@@ -105,7 +105,8 @@
     { "cell_id": 10268, "villes": [
       {"nom": "Arezzo", "lat": 43.46, "lon": 11.88, "pays": 15, "source": "Wikipédia en anglais, article Arezzo : la commune reste indépendante jusqu'en 1384, puis passe à Florence (https://en.wikipedia.org/wiki/Arezzo)"},
       {"nom": "Rimini", "lat": 44.06, "lon": 12.57, "pays": null, "source": "Wikipédia en anglais, article Papal States : les Malatesta de Rimini ne reconnaissent le pape que de nom (https://en.wikipedia.org/wiki/Papal_States)", "raison": "Seigneurie des Malatesta, vicaires du pape, puissance absente de la table."},
-      {"nom": "Urbino", "lat": 43.73, "lon": 12.64, "pays": null, "source": "Wikipédia en anglais, article Urbino : la ville est aux Montefeltro depuis environ 1200 (https://en.wikipedia.org/wiki/Urbino)", "raison": "Seigneurie des Montefeltro, puissance absente de la table."}
+      {"nom": "Urbino", "lat": 43.73, "lon": 12.64, "pays": null, "source": "Wikipédia en anglais, article Urbino : la ville est aux Montefeltro depuis environ 1200 (https://en.wikipedia.org/wiki/Urbino)", "raison": "Seigneurie des Montefeltro, puissance absente de la table."},
+      {"nom": "Pérouse", "lat": 43.11, "lon": 12.39, "pays": 17, "source": "Wikipédia en anglais, article Papal States : les États de l'Église couvrent l'Ombrie (https://en.wikipedia.org/wiki/Papal_States) ; article Duchy of Milan : les Visconti ne prennent Pérouse qu'en 1400 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"}
     ] },
     { "cell_id": 10260, "villes": [
       {"nom": "Florence", "lat": 43.77, "lon": 11.26, "pays": 15, "source": "Wikipédia en anglais, article Republic of Florence : Florence est le siège de la république (https://en.wikipedia.org/wiki/Republic_of_Florence)"},

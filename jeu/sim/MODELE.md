@@ -1690,7 +1690,7 @@ Luxembourg, Tyrol) ; 29 cellules partagées ; 5 lacunes avec leur raison (Bologn
 Ferrare et Ravenne ; Elbe ; Lastovo ; deux îlots du Sulcis) ; les pays plus petits
 que deux lieux, déclarés avec leur raison (Calais, Andorre, Saint-Marin, Piombino) ;
 et les villes témoins, chacune avec son pays de 1400 et sa source, que les preuves
-lisent. Une cellule partagée nomme une ville sourcée par pays, 94 en tout ; une ville
+lisent. Une cellule partagée nomme une ville sourcée par pays, 95 en tout ; une ville
 sans pays (`pays: null`) dit sa raison (Padoue aux Carrara, Mantoue aux Gonzague,
 Lucques, Rimini et Urbino, l'Arborée). Chaque lieu de la cellule va au pays de la
 ville la plus proche de sa place (`sim/places.py`), dans le plan EPSG:3035 ; à
@@ -2798,8 +2798,9 @@ hors de la carte y est nommée par un lieu qui s'y trouve.
 **Un siège** est servi `{nom, maison, x_m, y_m}` : le nom du siège de chaque
 maison du registre (`charger_registre_maisons`) placée sur la carte, quand ce
 nom n'est pas celui d'une ville de `villes-1400.json` ; la ville est déjà
-nommée par la carte. Sur la graine 0, 26 sièges, dont Biskra, Bar-le-Duc et
-Mistra. Leur position est celle de `sieges_des_maisons`. Une maison hors carte
+nommée par la carte. Sur la graine 0, 30 sièges, dont Biskra, Bar-le-Duc,
+Mistra et les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
+Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes). Leur position est celle de `sieges_des_maisons`. Une maison hors carte
 (Saraï, Venise) et les maisons plausibles, dont le siège est un identifiant
 synthétique, n'en servent aucun. Le fichier des villes ne bouge pas : y ajouter
 Biskra déplacerait des bourgs et changerait des noms de lieux.

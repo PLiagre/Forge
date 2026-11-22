@@ -36,11 +36,11 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # l'autre : chaque système a la sienne, et la CI juge sous Linux.
 # Quand le registre des personnages change, seule la clé `personnages` de
 # `World.to_dict()` diffère de l'empreinte d'avant, et la photographie est identique.
-# Les frontières de 1400 changent le registre des maisons, les maîtres de 344 lieux et, par eux, les
+# Les frontières de 1400 changent le registre des maisons, les maîtres de 345 lieux et, par eux, les
 # greniers, les convois et leurs cumuls ; aucune population ne change en un an.
 EMPREINTES_365 = {
-    "linux": ("26f373b1e54db41895241d6e872cf8ea3a3432f7edf26f08b1ac908e08612ef1",
-              "2c691166386dceabd96175aa78229212daf09a3aff64015eb038a17ec236e11d"),
+    "linux": ("7bda64df56a337f28b5e8bb665e5118b8df8888b8e656a78ac671038ca4174fc",
+              "cecbb54ff294b6c61d09b50fe382669ae5edc662fefda4630ca148e09c468781"),
 }
 
 

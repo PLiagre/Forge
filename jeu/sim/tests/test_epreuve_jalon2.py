@@ -11,6 +11,8 @@ from types import SimpleNamespace
 import pytest
 
 from sim import constants
+from sim.frontieres import puissances_des_lieux
+from sim.places import places_du_monde
 from sim.projection import projeter_epsg3035
 from sim.puissances import charger_table, puissances_depuis_monde
 from sim.villes import point_dans_geometrie
@@ -62,6 +64,17 @@ def placer(monde, point):
     return cellules[0] if cellules else None
 
 
+def puissance_du_point(monde, cid, point, vue, lieux, places):
+    """La puissance du lieu le plus proche du point dans sa cellule : celle de son lieu dans une
+    cellule partagée (`lieux`), sinon celle de la cellule. La frontière passe entre les lieux."""
+    if not lieux or not any(c == cid for c, _ in lieux):
+        return vue.get(cid)
+    x, y = projeter_epsg3035(point["lat"], point["lon"])
+    rangs = places[cid]
+    rang = min(range(len(rangs)), key=lambda r: ((rangs[r].x_m - x) ** 2 + (rangs[r].y_m - y) ** 2, r))
+    return lieux.get((cid, rang), vue.get(cid))
+
+
 def densite_region(monde, region):
     cellules = {placer(monde, {"nom": nom, "lat": lat, "lon": lon})
                 for nom, lat, lon in region["points"]} - {None}
@@ -72,8 +85,13 @@ def densite_region(monde, region):
     return densite, sorted(cellules)
 
 
-def epreuve(monde, vue, reference=None):
-    """Rend les échecs nommés ; les compteurs se dérivent des points couverts."""
+def epreuve(monde, vue, reference=None, lieux=None):
+    """Rend les échecs nommés ; les compteurs se dérivent des points couverts.
+
+    `lieux` : la puissance des lieux des cellules partagées (`frontieres.puissances_des_lieux`) ;
+    sans elle, un point a la puissance de sa cellule."""
+    lieux = {} if lieux is None else lieux
+    places = places_du_monde(monde) if lieux else {}
     reference = lire_reference(reference)
     echecs = []
     if not monde.cells:
@@ -101,7 +119,7 @@ def epreuve(monde, vue, reference=None):
             except ValueError as erreur:
                 echecs.append(str(erreur))
                 continue
-            puissance = noms_puissances.get(vue.get(cid))
+            puissance = noms_puissances.get(puissance_du_point(monde, cid, point, vue, lieux, places))
             print(f"{nom} : cellule {cid} ; puissance {puissance} ; attente {point.get('puissance')}")
             if "declare" in point:
                 print(f"{nom} déclaré {point['declare']} : {point['raison']}")
@@ -133,6 +151,11 @@ def temoin():
     return monde, puissances_depuis_monde(monde)
 
 
+@pytest.fixture(scope="module")
+def lieux(temoin):
+    return puissances_des_lieux(temoin[0])
+
+
 def test_sans_aridite(monkeypatch, temoin):
     monde, _ = temoin
     desert = lire_reference()["regions_vides"][0]
@@ -146,14 +169,18 @@ def test_sans_aridite(monkeypatch, temoin):
     assert any(desert["nom"] in e for e in echecs)
 
 
-def test_frontieres_melangees(temoin):
+def test_frontieres_melangees(temoin, lieux):
     monde, vue = temoin
     cellules = sorted(vue)
     valeurs = [vue[c] for c in cellules]
     random.Random(0).shuffle(valeurs)
     melangee = dict(zip(cellules, valeurs))
     assert any(melangee[c] != vue[c] for c in cellules), "permutation sans effet"
-    echecs = epreuve(monde, melangee)
+    # Les lieux des cellules partagées se mélangent aussi : aucun pays ne reste à sa place.
+    couples = sorted(lieux)
+    pays = [lieux[c] for c in couples]
+    random.Random(0).shuffle(pays)
+    echecs = epreuve(monde, melangee, lieux=dict(zip(couples, pays)))
     print(f"contre-épreuve des frontières mélangées : {echecs}")
     assert any("seuil des deux tiers" in e for e in echecs)
 
@@ -165,7 +192,8 @@ def test_table_reelle():
 
 @pytest.mark.parametrize("bloc,nom,champ,valeur", [
     ("points_connus", "Paris", "source", ""),
-    ("points", "Lyon", "puissance", "Bourgogne"),
+    # Une puissance absente de la table : la Bourgogne en est une, la Lotharingie non.
+    ("points", "Lyon", "puissance", "Lotharingie"),
     ("points", "Stockholm", "declare", None),
     ("points_connus", "Venise", "declare", None),
 ])
@@ -204,5 +232,10 @@ def test_epreuve_refuse_vides_et_placement_ambigu(temoin):
     assert any("Paris : plusieurs polygones" in e for e in epreuve(double, {1: vue[cid], 2: vue[cid]}))
 
 
-def test_preuve_tient(temoin):
-    assert epreuve(*temoin) == []
+def test_preuve_tient(temoin, lieux):
+    assert lieux, "échantillon vide : aucune cellule partagée"
+    assert epreuve(*temoin, lieux=lieux) == []
+    # Au grain de la cellule, Cagliari (Aragon) et Pérouse (États de l'Église) tombent dans des cellules
+    # partagées dont le bourg est sans pays : la cellule seule ne dit pas leur pays.
+    au_grain_de_la_cellule = epreuve(*temoin)
+    assert {e.split(" : ")[0] for e in au_grain_de_la_cellule} == {"Cagliari", "Pérouse"}
