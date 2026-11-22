@@ -434,8 +434,8 @@ namespace Forge.Interface.Tests
             Dessiner(10340, 77); Color teinte = carte.TeinteDe(10340).Value; Material terrain = racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial;
             partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null)); Poser(partie, "Jouables", JouablesDe(Jouable("seigneurie-42", 10340), Jouable("seigneurie-43", 9999)));
             cabinet.Afficher();
-            // La surbrillance n'est plus un maillage plat posé au-dessus du terrain, qui cachait le relief et que les montagnes
-            // auraient traversé sous une caméra inclinée : c'est le terrain lui-même qui s'éclaire, à l'or du socle.
+            // La surbrillance n'est pas un maillage plat posé au-dessus du terrain, qui cacherait le relief et que les montagnes
+            // traverseraient : c'est le terrain lui-même qui s'éclaire, à l'or du socle.
             long[] Eclairees() => new long[] { 10340, 77, 9999 }.Where(c => carte.EclatDe(c).HasValue).ToArray();
             Assert.That(Eclairees(), Is.EqualTo(new[] { 10340L }), "une surbrillance par départ conseillé dont la carte dessine le siège");
             Color or = SocleInterface.Couleur("or"); or.a = 1f; Assert.That((Color32)carte.EclatDe(10340).Value, Is.EqualTo((Color32)or));

@@ -21,15 +21,15 @@ namespace ForgeLocal3D.Captures
     //                            grisé, et son infobulle dit la raison servie.
     // Chaque scénario vérifie ce qu'il photographie et échoue sinon : aucun pays ne s'écrit « Luxembourg » ni « Évreux » ; le bouton de
     // la ville a l'état attendu. Le tick est celui que le service sert, jamais un tick écrit en dur. Le cabinet de la carte est une toile
-    // posée sur l'écran : la photo d'une caméra ne la voit pas, et chaque scénario la pose devant la caméra de la carte, qui prend toute
-    // l'image.
+    // posée sur l'écran : la photo d'une caméra ne la voit pas, et chaque scénario la pose devant la caméra de la carte, que le cabinet
+    // garde sur tout l'écran.
     static class ScenarioAccueil
     {
         const long BISKRA = 10103;
         const string ZAB = "seigneurie-6", NOM_DU_ZAB = "Émirat du Zab", FRANCE = "France";
         static readonly string[] PAYS_LUS = { "France", "Bohême", "Hongrie", "Navarre" }, MAISONS_INTERDITES = { "Luxembourg", "Évreux" };
-        // PART_DE_LA_CARTE : la largeur de l'image que la colonne de droite laisse à la carte (CabinetDeCarte, x de 0 à 0,67).
-        const float MARGE_DU_CADRE = 1.05f, ECART_DE_PLAN = 0.2f, TOLERANCE_DU_CENTRE_KM = 5f, PART_DE_LA_CARTE = 0.67f;
+        internal const float ECART_DE_PLAN = 0.2f; // l'écart de la toile devant le plan proche de la caméra
+        const float MARGE_DU_CADRE = 1.05f, TOLERANCE_DU_CENTRE_KM = 5f;
         const double STABLE_S = 2.5; // les textes du cabinet sont récrits une image après la lecture
 
         [ScenarioDeCapture("accueil", "1-accueil")]
@@ -50,13 +50,14 @@ namespace ForgeLocal3D.Captures
             // Le cadre tient chaque lettre des quatre noms, avec un corps de marge.
             var lettres = noms.SelectMany(n => n.Compose.Lettres.Select(l => (p: l.Point, c: n.Corps))).ToArray();
             Vector2 min = new Vector2(lettres.Min(l => l.p.x - l.c), lettres.Min(l => l.p.y - l.c)), max = new Vector2(lettres.Max(l => l.p.x + l.c), lettres.Max(l => l.p.y + l.c));
-            // La colonne de droite couvre le tiers de l'image : les quatre pays se cadrent dans la part de la carte qui reste à gauche.
-            float demi = Mathf.Max((max.y - min.y) / 2f, (max.x - min.x) / 2f / (carte.camera.aspect * PART_DE_LA_CARTE)) * MARGE_DU_CADRE;
-            Vector2 centre = (min + max) / 2f + new Vector2(demi * carte.camera.aspect * (1f - PART_DE_LA_CARTE), 0f);
+            // L'accueil ouvert couvre la carte à partir du bord gauche de son panneau : les quatre pays se cadrent dans la part qui reste à gauche.
+            float part = PartDeLaCarte(carte, cabinet);
+            float demi = Mathf.Max((max.y - min.y) / 2f, (max.x - min.x) / 2f / (carte.camera.aspect * part)) * MARGE_DU_CADRE;
+            Vector2 centre = (min + max) / 2f + new Vector2(demi * carte.camera.aspect * (1f - part), 0f);
             carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(centre, demi); carte.Vue.Poser(carte.camera, carte.transform); guerre.SuivreLaVue();
             for (int i = 0; i < 4; i++) yield return null;
             string hors = string.Join(", ", noms.Where(n => n.Compose.Lettres.Any(l => { Vector3 v = carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(new Vector3(l.Point.x, 0f, l.Point.y)));
-                return v.z <= 0f || v.x < 0f || v.x > PART_DE_LA_CARTE || v.y < 0f || v.y > 1f; })).Select(n => n.Texte));
+                return v.z <= 0f || v.x < 0f || v.x > part || v.y < 0f || v.y > 1f; })).Select(n => n.Texte));
             if (hors.Length > 0) throw Faux("noms hors de la carte visible : " + hors);
             string caches = string.Join(", ", noms.Where(n => n.Opacite <= 0f).Select(n => n.Texte + " (" + n.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px)"));
             if (caches.Length > 0) throw Faux("noms cachés sur le cadre de l'Europe (demi " + demi.ToString("0", CultureInfo.InvariantCulture) + " km) : " + caches);
@@ -121,8 +122,19 @@ namespace ForgeLocal3D.Captures
             yield return carte.camera;
         }
 
+        // La part de la largeur de l'image que l'accueil ouvert laisse à la carte : le bord gauche de son panneau, lu sur la caméra de la carte
+        // (la toile suit son champ, donc ce bord ne dépend ni de la taille de la fenêtre ni de l'aspect posé).
+        static float PartDeLaCarte(CarteDessinee carte, CabinetDeCarte cabinet)
+        {
+            Canvas.ForceUpdateCanvases();
+            var coins = new Vector3[4]; cabinet.Accueil.Panneau.GetWorldCorners(coins);
+            float bord = coins.Min(c => carte.camera.WorldToViewportPoint(c).x);
+            if (!(bord > 0f && bord < 1f)) throw Faux("le panneau de l'accueil ne laisse pas de carte à gauche (bord à " + bord.ToString("0.###", CultureInfo.InvariantCulture) + " de l'image)");
+            return bord;
+        }
+
         // La carte ouverte, dessinée, ses pays nommés, la partie et les pays jouables lus ; puis sa toile posée devant sa caméra.
-        static IEnumerator OuvrirLaCarte()
+        internal static IEnumerator OuvrirLaCarte()
         {
             SceneManager.LoadScene(OuvertureDeLaCarte.SCENE);
             yield return null;
@@ -132,21 +144,21 @@ namespace ForgeLocal3D.Captures
                 && (guerre = carte.GetComponent<CarteDeLaGuerre>()) != null && guerre.Terres != null && guerre.NomsDesPays.Count > 0,
                 () => "carte ou accueil non prêts (" + (cabinet == null ? "pas de cabinet" : cabinet.Partie?.Monde?.Absence ?? cabinet.Partie?.Jouables?.Absence ?? (guerre?.AbsenceDesTerres ?? "terres ou noms en attente")) + ")"); a.MoveNext();) yield return null;
             if (!cabinet.Accueil.Ouvert) throw Faux("l'accueil n'est pas ouvert à l'ouverture de la carte");
-            // La toile de l'écran, posée devant la caméra de la carte, qui prend toute l'image photographiée.
-            carte.camera.rect = new Rect(0, 0, 1, 1); carte.camera.aspect = 1600f / 900f;
+            // La toile de l'écran, posée devant la caméra de la carte ; la photo fait 1600 × 900, et le rect de la caméra est celui que le cabinet garde.
+            carte.camera.aspect = 1600f / 900f;
             var toile = cabinet.transform.Find("Cabinet").GetComponent<Canvas>();
             toile.renderMode = RenderMode.ScreenSpaceCamera; toile.worldCamera = carte.camera; toile.planeDistance = carte.camera.nearClipPlane + ECART_DE_PLAN;
             carte.Vue.Changer(carte.camera.aspect); carte.Vue.Poser(carte.camera, carte.transform);
             yield return carte.camera;
         }
 
-        static (CarteDessinee, CabinetDeCarte, CarteDeLaGuerre) Lire()
+        internal static (CarteDessinee, CabinetDeCarte, CarteDeLaGuerre) Lire()
         {
             var carte = Object.FindFirstObjectByType<CarteDessinee>() ?? throw Faux("pas de carte");
             return (carte, carte.GetComponent<CabinetDeCarte>() ?? throw Faux("pas de cabinet"), carte.GetComponent<CarteDeLaGuerre>() ?? throw Faux("pas de carte de la guerre"));
         }
 
-        static string Servie(CabinetDeCarte cabinet) => cabinet.Partie?.Monde?.Presente == true ? cabinet.Partie.Monde.Donnees.MaisonDuJoueur : null;
+        internal static string Servie(CabinetDeCarte cabinet) => cabinet.Partie?.Monde?.Presente == true ? cabinet.Partie.Monde.Donnees.MaisonDuJoueur : null;
 
         // Les pays de la carte portent leur nom de 1400, jamais celui de la maison qui les tient ; les quatre pays attendus sont écrits.
         static void VerifierLesNoms(CarteDeLaGuerre guerre)
@@ -161,7 +173,7 @@ namespace ForgeLocal3D.Captures
 
         // Les textes de l'accueil, de l'encart et du bouton de la ville ne bougent plus pendant STABLE_S ; la date et les comptes,
         // qui suivent le temps quand il file, n'en sont pas.
-        static IEnumerator Stabiliser(CabinetDeCarte cabinet)
+        internal static IEnumerator Stabiliser(CabinetDeCarte cabinet)
         {
             var racines = new[] { cabinet.Accueil.Panneau.transform, cabinet.Gestes.Panneau.transform, cabinet.Ville.Bouton.transform };
             string Etat() => string.Join("|", racines.SelectMany(r => r.GetComponentsInChildren<Text>()).Where(t => t.isActiveAndEnabled).Select(t => t.text)) + "|" + cabinet.Ville.Phrase;
