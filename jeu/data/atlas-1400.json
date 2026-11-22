@@ -159,7 +159,11 @@
     {
       "nom": "Nil",
       "trace_dans": "nil-cours-1400.json",
-      "declaration": "Le tracé du Nil reste celui de nil-cours-1400.json, une source par point : l'atlas ne le recopie pas."
+      "declaration": "Le tracé du Nil reste celui de nil-cours-1400.json, une source par point : l'atlas ne le recopie pas. Il n'ajoute que l'ordre des points le long de chacun des deux bras du delta, par les identifiants de ce fichier ; le Nil n'a pas de source ni de vallée amont sur la carte, son cours part du Caire.",
+      "bras": [
+        {"nom": "Bras de Rosette", "points": [1, 2, 4, 6, 8, 10]},
+        {"nom": "Bras de Damiette", "points": [2, 3, 5, 7, 9, 11]}
+      ]
     }
   ],
   "mers": [
