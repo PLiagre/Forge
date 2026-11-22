@@ -30,8 +30,8 @@ namespace Forge.Interface
         public AccueilDuPays Accueil => accueil;
         public BoutonDeLaVille Ville => ville;
         public PremiersGestes Gestes => premiersGestes;
-        // La demi-hauteur, en km, de la vue posée sur le siège du joueur quand sa maison apparaît : sa terre et ses voisines.
-        public const float DEMI_SUR_LE_SIEGE_KM = 220f;
+        // La demi-hauteur, en km, de la vue posée sur le siège du joueur quand sa maison apparaît : son pays et ses voisins.
+        public const float DEMI_SUR_LE_SIEGE_KM = 450f;
         CarteDessinee carte;
         HorlogeDeCarte horloge;
         FicheDeCellule fiche;

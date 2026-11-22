@@ -16,6 +16,7 @@ namespace Forge.Interface
 
         readonly Button bouton;
         readonly Infobulle bulle;
+        readonly Text texte;
         readonly Func<LecturePartie> partie;
         readonly Func<string, long, bool> entrer;
         bool maisonVue, descendu; // descendu : la ville est demandée, une seule fois
@@ -31,7 +32,7 @@ namespace Forge.Interface
             this.partie = partie; this.entrer = entrer;
             bouton = SocleInterface.Commande(bandeau, NOM, X, Y, Entrer, false, LECTURE);
             bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(LARGEUR, SocleInterface.HauteurCommande);
-            var texte = bouton.GetComponentInChildren<Text>(); texte.rectTransform.sizeDelta = new Vector2(LARGEUR, SocleInterface.HauteurCommande); texte.supportRichText = false;
+            texte = bouton.GetComponentInChildren<Text>(); texte.rectTransform.sizeDelta = new Vector2(LARGEUR, SocleInterface.HauteurCommande); texte.supportRichText = false;
             bulle = bouton.GetComponent<Infobulle>();
             bouton.gameObject.SetActive(false);
         }
@@ -51,6 +52,7 @@ namespace Forge.Interface
             if (!maisonVue) return;
             var fiche = lue?.Jouable;
             bouton.interactable = Ouvrable(fiche) && !descendu;
+            texte.color = bouton.interactable ? SocleInterface.Couleur("papier") : SocleInterface.Attenue; // grisé se lit aussi sur le bandeau sombre
             bulle.phrase = fiche == null ? LECTURE : !fiche.Ville.Batie ? AccueilDuPays.PhraseDeRaison(fiche.Ville.Raison)
                 : fiche.Siege.CellId == null ? HORS_CARTE : "Ouvre " + (fiche.Siege.Nom ?? "votre siège") + ", votre capitale.";
         }

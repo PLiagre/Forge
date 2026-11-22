@@ -42,6 +42,8 @@ namespace ForgeLocal3D
         const string Scene = "Forge.Capture.Scene";
         const string Pid = "Forge.Capture.ServicePid";
         const string Groupe = "Forge.Capture.Scenario";
+        // Ce dont le service a été lancé, pour qu'un scénario le relance à l'identique.
+        const string Graine = "Forge.Capture.Graine", Ticks = "Forge.Capture.Ticks", Travail = "Forge.Capture.Travail";
         const int Attente = 90;
         const int DELAI_SCENARIO_S = 60;
 
@@ -156,12 +158,23 @@ namespace ForgeLocal3D
             SessionState.SetString(Dossier, dossier);
             SessionState.SetString(Scene, scene);
             SessionState.SetString(Groupe, groupe);
+            SessionState.SetInt(Graine, graine); SessionState.SetInt(Ticks, ticks); SessionState.SetString(Travail, travail ?? "");
             LancerService(graine, ticks, dossier, travail);
             SessionState.SetBool(Flag, true);
             images = 0;
             debutPanneau = -1;
             EditorSceneManager.OpenScene(scene, OpenSceneMode.Single);
             EditorApplication.EnterPlaymode();
+        }
+
+        // Arrête le service et le relance comme au début de la capture (même graine, mêmes jours poussés, mêmes drapeaux) :
+        // un monde neuf, pour un scénario qui joue un geste que le monde ne défait pas, comme le choix d'un pays.
+        internal static void RelancerLeService()
+        {
+            ArreterService();
+            string travail = SessionState.GetString(Travail, "");
+            LancerService(SessionState.GetInt(Graine, GRAINE_PAR_DEFAUT), SessionState.GetInt(Ticks, TICKS_PAR_DEFAUT), SessionState.GetString(Dossier, "."), travail == "" ? null : travail);
+            if (!PortRepond()) throw new InvalidOperationException("le service relancé ne répond pas sur " + HOTE_SERVICE + ":" + PORT_SERVICE);
         }
 
         static bool PortRepond()
