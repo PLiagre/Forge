@@ -141,6 +141,26 @@ namespace Forge.Interface.Tests
             Assert.That(Gestes.Visible, Is.True, "contre-épreuve : l'état fermé ne se vide pas");
         }
 
+        // Tout panneau qui s'ouvre d'un clic se ferme par sa croix, la même, au même endroit : les feuillets, l'encart des premiers gestes et le plan du bourg.
+        [Test] public void Chaque_panneau_ouvert_d_un_clic_se_ferme_par_sa_croix_du_socle()
+        {
+            Servir("seigneurie-6", Zab); Transform toile = racine.transform.Find("Cabinet");
+            var feuillets = racine.GetComponents<Feuillet>().Where(f => f.Cadre != null).ToArray();
+            Assert.That(feuillets.Length, Is.GreaterThanOrEqualTo(3), "les feuillets ne sont pas tous lus");
+            foreach (var feuillet in feuillets)
+            {
+                var croix = SocleInterfaceTests.CroixDe(feuillet.Cadre); Assert.That(croix, Is.Not.Null, "le feuillet « " + feuillet.Cadre.name + " » n'a pas sa croix");
+                feuillet.Ouvrir(); Assert.That(feuillet.Ouvert, Is.True); croix.onClick.Invoke(); Assert.That(feuillet.Ouvert, Is.False, "la croix ne ferme pas « " + feuillet.Cadre.name + " »");
+            }
+            Assert.That(SocleInterfaceTests.CroixDe(Gestes.Panneau), Is.SameAs(Gestes.BoutonFermer), "l'encart n'a pas sa croix du socle");
+            Assert.That(Gestes.Visible, Is.True); Gestes.BoutonFermer.onClick.Invoke(); Assert.That(Gestes.Visible, Is.False, "la croix ne ferme pas l'encart");
+            var plan = (RectTransform)toile.Find("Plan du bourg"); var croixDuPlan = SocleInterfaceTests.CroixDe(plan);
+            Assert.That(croixDuPlan, Is.Not.Null, "le plan du bourg n'a pas sa croix"); Assert.That(plan.GetComponentsInChildren<Button>(true).Count(b => b.name == "Revenir à la carte"), Is.Zero);
+            plan.gameObject.SetActive(true); croixDuPlan.onClick.Invoke(); Assert.That(plan.gameObject.activeSelf, Is.False, "la croix ne ferme pas le plan du bourg");
+            var ouvrir = toile.Find("Territoire conservé").GetComponentsInChildren<Button>(true).Single(b => b.name == "Plan du bourg");
+            Assert.That(((RectTransform)ouvrir.transform).anchoredPosition.x, Is.EqualTo(316), "le bouton du plan n'a pas laissé la place de la croix de la fiche");
+        }
+
         static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
         [Test] public void L_encart_ne_recouvre_ni_les_feuillets_ni_la_bande_des_modes_ni_le_bandeau()
         {

@@ -493,11 +493,12 @@ namespace Forge.Interface.Tests
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet"); Button[] boutons = toile.GetComponentsInChildren<Button>(true);
             var attendues = new[] { "Ralentir", "Pause / Reprendre", "Accélérer", AccueilDuPays.COMMENCER, "Despotat témoin", "Prélèvement", "Ouvrir le grenier", "Préparer", "Confirmer l’ordre",
-                "Annuler / Retour", "Annuler / Retour", "Menu", "Revenir au jeu", "Puissances", "Habitants", "Autres maisons", "Plan du bourg", "Revenir à la carte", "Chantiers",
+                "Annuler / Retour", "Annuler / Retour", "Menu", "Revenir au jeu", "Puissances", "Habitants", "Autres maisons", "Plan du bourg", "Fermer", "Chantiers",
                 "Tracer une rue", "Relire le tracé", "Confirmer la rue", "Terres et comptes", "Fermer", "Fermer", "Fermer" };
-            Assert.That(attendues.Length == 26 && attendues.Distinct().Count() == 23, Is.True);
+            Assert.That(attendues.Length == 26 && attendues.Distinct().Count() == 22, Is.True);
             foreach (var nom in attendues.GroupBy(n => n)) Assert.That(boutons.Count(b => b.name == nom.Key), Is.GreaterThanOrEqualTo(nom.Count()), "commande absente du cabinet : " + nom.Key);
             Assert.That(boutons.Length, Is.GreaterThanOrEqualTo(26));
+            foreach (var fermer in boutons.Where(b => b.name == "Fermer")) Assert.That(SocleInterfaceTests.CroixDe((RectTransform)fermer.transform.parent), Is.SameAs(fermer), "« Fermer » de « " + fermer.transform.parent.name + " » n'est pas la croix du socle");
             string[] sans = CabinetDeCarte.CommandesSansPhrase(toile); Assert.That(sans, Is.Empty, "commandes sans phrase : " + string.Join(", ", sans));
             Assert.That(boutons.Single(b => b.name == "Confirmer l’ordre").GetComponent<Infobulle>().Phrase, Is.EqualTo("Envoie l'ordre préparé au monde ; il l'applique au jour suivant."));
             SocleInterface.Commande(toile, "Témoin sans phrase", 0, 0, null); Assert.That(CabinetDeCarte.CommandesSansPhrase(toile), Is.EqualTo(new[] { "Témoin sans phrase" }));
