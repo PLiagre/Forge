@@ -1,0 +1,166 @@
+{
+ "palier_atteint": false,
+ "titre": "La carte qu'on reconnaît",
+ "but": "Étape 1 de la feuille de route (CAP.md), en quatre jours : la carte de 1400 qu'on reconnaît. Les pays réels à leurs frontières, dessinées au grain du lieu ; la carte en plein écran, qu'on glisse et qu'on zoome sous la souris ; les villes, les fleuves et les mers nommés ; les modes de carte. Finie quand, la carte posée à côté d'un atlas de 1400 et de la carte politique d'Europa, le propriétaire reconnaît chaque grand pays, ne relève aucune absurdité, et trouve la carte belle.",
+ "fiches": [
+  {
+   "apres": [],
+   "hors_du_lot": "L'hommage et ses effets (qui suit qui à la guerre) ; les familles des chefs neufs ; les enclaves plus petites qu'une cellule.",
+   "joueur": "Je choisis mon pays sur une carte où chaque terre est au pays qui la tenait en 1400. Je peux prendre la tête de la Bourgogne, de la Bretagne, de la Guyenne anglaise ou du Milanais, et je vois d'un coup d'œil qui sont mes voisins.",
+   "machine": "vps",
+   "meneur": "chef",
+   "piste": "monde",
+   "preuves": [
+    "python3 -m pytest jeu/sim/tests/test_frontieres_de_1400.py -q -k ouest — fichier neuf, rouge d'abord : chaque ville témoin de la région (Paris, Rouen, Toulouse, Bordeaux, Nantes, Dijon, Bruges, Londres, Édimbourg, Dublin, Lisbonne, Séville, Pampelune, Barcelone, Grenade, Milan, Venise, Gênes, Florence, Rome, Naples, Palerme…) tombe dans une cellule du pays que la table des témoins lui donne (échantillon vide = échec) ; chaque cellule tenue de la région a un pays ou une lacune avec sa raison ; chaque pays a un nom, une capitale dans ses cellules et un chef ou une lacune déclarée ; aucun pays ne tient une cellule que la table donne à un autre",
+    "python3 -m pytest jeu/sim/tests/test_puissances.py jeu/sim/tests/test_maisons.py jeu/sim/tests/test_maisons_de_l_ia_une_fois.py jeu/sim/tests/test_carte_servie.py -q — mis à jour aussi stricts, raison dite",
+    "python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q ; le travail `chronometre` de la CI reste vert (le jour sous 100 ms)",
+    "cd jeu && python3 -m forge --ticks 1 --seed 0 --sortie /tmp/ouest --sans-chronique — carte.png regardée contre un atlas de 1400 : aucun pays de la région n'a la taille d'un autre"
+   ],
+   "regle": "Niveau 1, obligatoire, « juste dans les grandes lignes » : une cellule va au pays qui en tenait la plus grande part au 1er janvier 1400, d'après des sources publiques citées pays par pays ; niveau 2 pour la frontière à l'intérieur d'une cellule. MODELE.md « Les puissances de 1400 » (le tracé quitte le niveau 2), « Les maisons de 1400 », « Les maisons du monde » (« Le maître de chaque lieu »), « Les maisons de l'IA et leurs capitales ». Le défaut vérifié : 73 ancres pour 596 cellules, et chaque cellule va à l'ancre la plus proche ; la France n'en a que quatre (Paris, Dijon, Nantes, Bruges), d'où une Bretagne de 18 cellules. La règle : une table de données déclare le pays de 1400 de chaque cellule tenue de la région (`cell_id` → pays) ; pour ces cellules, l'ancre la plus proche ne décide plus rien. Un pays trop petit pour tenir la majorité d'une cellule se déclare en lacune avec sa raison, sauf une seigneurie de départ, qui garde ses quatre lieux. Chaque pays neuf est une maison du registre : nom du pays, nature, religion, dynastie ou absence déclarée, capitale placée dans une de ses cellules, suzerain s'il est attesté, chef sourcé dans `personnages-1400.json` (ou lacune déclarée), compétences de niveau 2 comme les autres chefs. Les petits seigneurs plausibles d'une cellule relèvent du pays de cette cellule. Chaque pays neuf joue par l'IA comme les autres, sans bonus ; le jour du monde garde son budget de 100 ms. Une table de villes témoins, sourcée, dit pour chaque ville de la région son pays de 1400 : les preuves la lisent. Les tests et les empreintes que ce monde change se mettent à jour dans la PR, en disant quelles parties du monde diffèrent.",
+   "samedi": "La France n'est plus un bloc, ni la Bretagne un géant : le domaine royal, la Bourgogne avec la Flandre, la Bretagne à sa taille, la Guyenne aux Anglais, les grands fiefs que les sources attestent (Orléans, Anjou, Berry, Bourbon, Foix, Armagnac), chacun avec son nom, sa capitale et son chef. Les Îles : l'Angleterre, l'Écosse, l'Irlande. L'Ibérie : Portugal, Castille, Navarre réduite à ses montagnes, Aragon, Grenade. L'Italie : Savoie, Milan, Venise, Gênes, Florence, les États de l'Église, Naples, Sicile. Le duché de Bar, terre de départ, a ses vrais voisins.",
+   "titre": "Les frontières de 1400 : France, Îles, Ibérie, Italie"
+  },
+  {
+   "apres": [
+    1
+   ],
+   "hors_du_lot": "Les villes libres et les seigneuries plus petites qu'une cellule ; l'Empire comme système (élection, appel des princes) ; les familles des chefs neufs.",
+   "joueur": "Je peux prendre la tête d'un prince d'Empire — l'Autriche, la Bavière, la Saxe, le Brandebourg — ou d'un royaume du Nord ou de l'Est, et chacun a sa vraie place sur la carte.",
+   "machine": "vps",
+   "meneur": "chef",
+   "piste": "monde",
+   "preuves": [
+    "python3 -m pytest jeu/sim/tests/test_frontieres_de_1400.py -q -k \"empire or nord or est\" — rouge d'abord : les villes témoins de la région (Vienne, Munich, Heidelberg, Cologne, Mayence, Trèves, Prague, Bruxelles, Lübeck, Stuttgart, Cracovie, Vilnius, Buda, Roskilde, Stockholm, Novgorod…) tombent chacune dans le pays que la table des témoins leur donne ; aucune cellule n'a pour pays le Saint-Empire ; le pays « Luxembourg » tient au plus les cellules que la table donne au duché ; chaque pays a nom, capitale et chef ou lacune",
+    "python3 -m pytest jeu/sim/tests/test_puissances.py jeu/sim/tests/test_maisons.py jeu/sim/tests/test_seigneuries.py jeu/sim/tests/test_maisons_de_l_ia_une_fois.py -q",
+    "python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q ; le travail `chronometre` de la CI reste vert",
+    "cd jeu && python3 -m forge --ticks 1 --seed 0 --sortie /tmp/empire --sans-chronique — carte.png regardée : l'Allemagne est une mosaïque de princes nommés"
+   ],
+   "regle": "Niveau 1 dans les grandes lignes, même règle et même table que le lot des frontières de l'Ouest, étendues à l'Empire, au Nord et à l'Est ; niveau 2 pour les frontières dans une cellule ; niveau 3, pas simulé : l'élection, la diète, le lien d'Empire. MODELE.md « Les puissances de 1400 », « Les maisons de 1400 » (le paragraphe « Luxembourg tient le Saint-Empire, mais aucune de ses cellules » se réécrit), « Les seigneuries de départ ». Le Saint-Empire ne tient plus aucune cellule : chacune va au prince qui la tenait. Les princes d'Empire sont des pays sans suzerain simulé ; le Wurtemberg relève de l'Empire, ce que sa fiche dit sans lien de suzeraineté. La Pologne et la Lituanie se séparent si les sources donnent à chacune son chef au 1er janvier 1400. Les anomalies que MODELE.md acceptait dans la région (Innsbruck, Linz, Besançon) se corrigent ou se redéclarent une à une.",
+   "samedi": "Le Saint-Empire n'est plus un seul pays de la taille de l'Allemagne : on y lit ses princes. L'Autriche des Habsbourg, la Bavière et le Palatinat des Wittelsbach, la Saxe, le Brandebourg, le Brabant, la Hollande et le Hainaut, la Lorraine, le Luxembourg (un duché, à sa taille), les archevêchés de Cologne, Mayence et Trèves, les cantons suisses, la Bohême avec ses terres. Au nord, l'Union de Kalmar ; à l'est, l'Ordre teutonique, la Pologne, la Lituanie, la Hongrie, Novgorod et Pskov. Le comté de Wurtemberg, terre de départ, a ses vrais voisins. Plus aucune cellule ne porte le nom « Saint-Empire ».",
+   "titre": "Les frontières de 1400 : l'Empire, le Nord et l'Est"
+  },
+  {
+   "apres": [
+    2
+   ],
+   "hors_du_lot": "Les beyliks, tributs et suzerainetés que MODELE.md laisse au niveau 3 ; les familles des chefs neufs.",
+   "joueur": "Depuis l'émirat du Zab, la Morée ou la terre des Branković, je vois mes vrais voisins de 1400 et je choisis contre qui me garder.",
+   "machine": "vps",
+   "meneur": "chef",
+   "piste": "monde",
+   "preuves": [
+    "python3 -m pytest jeu/sim/tests/test_frontieres_de_1400.py -q — rouge d'abord pour la région : les villes témoins (Constantinople, Edirne, Mistra, Kruševac, Bobovac, Târgoviște, Suceava, Candie, Rhodes, Nicosie, Le Caire, Alexandrie, Tunis, Tlemcen, Fès…) tombent dans le pays de leur table ; sur toute la carte, chaque cellule tenue a un pays de la table ou une lacune avec sa raison, et plus aucune ne doit le sien à l'ancre la plus proche",
+    "python3 -m pytest jeu/sim/tests/test_guerre.py -q -k \"place or portee\" — depuis Biskra, une place d'un autre maître reste à portée de marche (référence lue dans le monde)",
+    "python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q ; le travail `chronometre` de la CI reste vert",
+    "cd jeu && python3 -m forge --ticks 1 --seed 0 --sortie /tmp/orient --sans-chronique — carte.png regardée : toute la carte de 1400, pays par pays"
+   ],
+   "regle": "Niveau 1 dans les grandes lignes, même règle et même table que les deux lots des frontières d'avant, étendues aux Balkans, à l'Orient et au Maghreb ; niveau 2 dans une cellule et pour les maîtres des terres du désert que l'histoire ne nomme pas. MODELE.md « Les puissances de 1400 » (les anomalies acceptées de Rhodes et de Mistra se corrigent), « Les maisons du monde ». À la fin de ce lot, toute cellule tenue de la carte a son pays dans la table ou une lacune déclarée, et l'ancre la plus proche ne trace plus aucune frontière. Le voisinage du Zab change : la PR dit quelle place voisine reste à portée de marche de Biskra et à qui elle est, car le parcours de l'étape 0 s'y joue.",
+   "samedi": "Byzance réduite à Constantinople et à ce qu'elle tient encore, la Morée à part, les Ottomans des deux côtés des Détroits, la Serbie, la Bosnie, la Valachie, la Moldavie ; Venise en Crète et dans ses îles, Rhodes seule aux Hospitaliers, Chypre ; les Mamelouks d'Égypte et de Syrie ; les Hafsides, les Zayyanides et les Mérinides, et autour du Zab les terres de ses vrais voisins. Les anomalies d'hier (les Hospitaliers en Crète, Byzance en Attique et dans les îles Ioniennes) ont disparu.",
+   "titre": "Les frontières de 1400 : Balkans, Orient, Maghreb"
+  },
+  {
+   "titre": "La forme des lieux",
+   "piste": "monde",
+   "machine": "vps",
+   "meneur": "chef",
+   "apres": [],
+   "joueur": "Chaque lieu que je possède ou que j'assiège a une forme sur la carte : une province que je reconnais, pas un point dans un nid d'abeille. Je vois où passe ma frontière, le long d'une côte ou d'un fleuve.",
+   "samedi": "Le service du monde donne à chaque lieu son contour. Dans une cellule, les contours de ses lieux se touchent sans trou ni recouvrement, suivent la côte, et s'appuient sur les fleuves quand la cellule en a un. La carte dessinée par la commande de bout en bout montre des frontières dix fois plus fines qu'aujourd'hui.",
+   "regle": "Niveau 2 : le contour d'un lieu est plausible, jamais sourcé ; il se dérive de la cellule, de ses lieux, de la côte et des fleuves, de façon déterministe. `cell_id` reste la seule clé spatiale : le contour se calcule et se sert, il ne se stocke pas comme une seconde clé, et le moteur ne change aucune règle. Section de MODELE.md : les lieux et ce que la carte sert. Le lot commence par sa preuve sur vingt cellules (France, Italie, Empire, Balkans, Maghreb), regardées contre un atlas : si le découpage ne donne pas des provinces qu'on reconnaît, le chef pose la question au CTO avec une autre maille avant d'aller plus loin.",
+   "preuves": [
+    "python3 -m pytest jeu/sim/tests/test_forme_des_lieux.py -q — fichier neuf, rouge d'abord : pour chaque cellule tenue, les contours de ses lieux couvrent la cellule sans trou ni recouvrement (échantillon vide = échec) ; aucun contour ne sort en mer ; deux générations donnent les mêmes contours ; un lieu garde son contour quand il change de maître",
+    "python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q ; le travail `chronometre` de la CI reste vert : les contours se calculent une fois, pas à chaque jour du monde",
+    "cd jeu && python3 -m forge --ticks 1 --seed 0 --sortie /tmp/lieux --sans-chronique — carte.png regardée : vingt cellules témoins, posées à côté de l'atlas dans le compte rendu"
+   ],
+   "hors_du_lot": "Dessiner ces frontières dans Unity : c'est le lot « Les frontières au grain du lieu ». Changer le nombre de lieux ou la maille des cellules. Dossiers : `jeu/sim/`, `jeu/data/`, `jeu/vues/`."
+  },
+  {
+   "titre": "Les noms de l'atlas",
+   "piste": "monde",
+   "machine": "vps",
+   "meneur": "developpeur",
+   "apres": [],
+   "joueur": "Je me repère sur la carte comme sur un atlas : les grandes villes, les fleuves, les mers et les régions portent leur nom, à leur place.",
+   "samedi": "Le service du monde sert, avec leur position, les villes de 1400 (dont Biskra, qui n'a pas de nom aujourd'hui), les grands fleuves (Loire, Rhin, Danube, Pô, Èbre, Vistule, Nil…), les mers (Méditerranée, mer du Nord, Baltique, mer Noire, Adriatique…) et les grandes régions (Aquitaine, Lombardie, Bohême, Anatolie…).",
+   "regle": "Niveau 1 : des noms et des places justes dans les grandes lignes, d'après des sources publiques citées dans le fichier de données. Rien ne change dans le moteur : ce sont des données lues par la carte. Section de MODELE.md : ce que la carte sert.",
+   "preuves": [
+    "python3 -m pytest jeu/sim/tests/test_noms_de_l_atlas.py -q — fichier neuf, rouge d'abord : chaque ville témoin tombe dans la cellule que la table des témoins lui donne ; chaque fleuve nommé suit des cellules qui se touchent, de sa source à sa mer ; chaque mer nommée ne couvre que de l'eau ; aucun nom en double ; un échantillon vide échoue",
+    "python3 -m pytest jeu/sim/tests/test_no_hardcoded.py jeu/sim/tests/test_write_coverage.py -q"
+   ],
+   "hors_du_lot": "Écrire ces noms sur la carte dans Unity : c'est le lot « Les pays et leurs noms sur la carte ». Dossiers : `jeu/data/`, `jeu/sim/` (le service)."
+  },
+  {
+   "titre": "La carte en plein écran",
+   "piste": "interface",
+   "machine": "pc",
+   "meneur": "chef",
+   "apres": [],
+   "joueur": "Je joue sur une carte qui prend tout l'écran, vue de dessus. Je la fais glisser à la souris, je zoome là où est ma souris, du continent jusqu'à la province, et je reviens à ma capitale d'un bouton. Les panneaux s'ouvrent quand je clique et se ferment quand j'ai fini.",
+   "samedi": "La colonne de feuillets qui mangeait le tiers droit de l'écran a disparu : la carte va d'un bord à l'autre. Elle est vue de dessus, droite, sans cadre penché. Glisser déplace la carte sous la main ; un cran de molette zoome sous la souris ; au plus loin on voit l'Europe entière, au plus près une province et ses lieux. Un clic sur une terre ouvre sa fiche sur le côté, avec une croix pour la fermer. Un bouton recentre sur ma capitale.",
+   "regle": "Sans objet : un écran. Il lit ce que le service sert déjà et ne décide aucun nombre. Le défaut vérifié par le CTO le 22 novembre : `CabinetDeCarte` donne à la carte 67 % de la largeur. La direction artistique reste celle de `docs/interface/DA.md`, qui demande déjà la carte plein cadre ; les tests du cabinet que le changement rend faux se réécrivent aussi stricts.",
+   "preuves": [
+    "& $unity -batchmode -projectPath 3d\\unity -runTests -testPlatform EditMode -assemblyNames \"Forge.Pont.Tests;Forge.Interface.Tests\" -testResults $xml -logFile $journal — rouge d'abord : la caméra de la carte couvre tout l'écran ; le point du sol sous la souris reste sous la souris après un cran de molette, où qu'elle soit ; glisser de cent pixels déplace le sol de cent pixels ; le bouton de la capitale recentre",
+    "les captures regardées en 1920 × 1080, posées à côté de la carte politique d'Europa Universalis IV dans le compte rendu : l'Europe entière ; la France ; une province",
+    "le build d'un worktree, construit, pour que le propriétaire le joue"
+   ],
+   "hors_du_lot": "La barre du haut d'un Europa, le panneau de province et le panneau du pays : c'est l'étape 2. Le dessin des frontières et des noms : les deux lots suivants. Dossiers : `3d/unity/Assets/Interface/` (le cabinet, la caméra) ; jamais le maillage ni le shader de la carte."
+  },
+  {
+   "titre": "Les frontières au grain du lieu",
+   "piste": "interface",
+   "machine": "pc",
+   "meneur": "chef",
+   "apres": [
+    4
+   ],
+   "joueur": "Je lis sur la carte où finit ma terre : la frontière suit la côte, le fleuve, le contour de mes lieux, pas les côtés d'un hexagone.",
+   "samedi": "Les nids d'abeille ont disparu. Les frontières des pays suivent le contour des lieux, dix fois plus fines qu'aujourd'hui ; de près, on distingue chaque lieu d'une cellule par un trait léger. Un lieu pris change de couleur seul, sans entraîner sa cellule.",
+   "regle": "Sans objet : un écran. Il dessine les contours que le lot « La forme des lieux » sert, sans en calculer aucun.",
+   "preuves": [
+    "& $unity -batchmode -projectPath 3d\\unity -runTests -testPlatform EditMode -assemblyNames \"Forge.Pont.Tests;Forge.Interface.Tests\" -testResults $xml -logFile $journal — rouge d'abord : aucun segment de frontière dessiné ne suit le côté d'une cellule là où le service donne un contour de lieu ; un lieu qui change de maître change seul de couleur ; le shader de la carte compile",
+    "les captures regardées, posées à côté de la même vue d'Europa : la France et ses voisins ; l'Italie ; les Balkans ; une province de près",
+    "le nombre d'images par seconde de la carte, relevé avant et après sur le build, reste au-dessus de 60"
+   ],
+   "hors_du_lot": "Les couleurs et les noms des pays : le lot suivant. Dossiers : le maillage et le shader de la carte, le pont ; jamais `Assets/Interface/` (le cabinet), que « La carte en plein écran » tient en même temps."
+  },
+  {
+   "titre": "Les pays et leurs noms sur la carte",
+   "piste": "interface",
+   "machine": "pc",
+   "meneur": "chef",
+   "apres": [
+    3,
+    5,
+    7
+   ],
+   "joueur": "Je reconnais l'Europe de 1400 d'un coup d'œil : chaque pays a sa couleur, son nom couché sur son territoire, sa capitale ; je lis les villes, les fleuves et les mers.",
+   "samedi": "Les pays réels, chacun sa couleur, qu'on ne confond pas avec celle du voisin ; le nom du pays couché sur son territoire, à sa taille, la maison en petit dessous quand on s'approche. Le Saint-Empire est un ensemble de princes sous un même liseré ; un vassal garde la teinte de son suzerain, plus claire. Les capitales ont leur marque, les grandes villes leur nom, les fleuves et les mers le leur, en italique comme sur un atlas. De loin on lit les pays, de près les villes.",
+   "regle": "Sans objet : un écran. Il lit les pays des lots des frontières et les noms du lot « Les noms de l'atlas » ; il ne décide ni un nom ni une frontière.",
+   "preuves": [
+    "& $unity -batchmode -projectPath 3d\\unity -runTests -testPlatform EditMode -assemblyNames \"Forge.Pont.Tests;Forge.Interface.Tests\" -testResults $xml -logFile $journal — rouge d'abord : chaque pays servi a un nom dessiné et une couleur ; deux pays voisins n'ont pas la même couleur ; aucun nom de pays dessiné n'est celui d'une dynastie ; un vassal a la teinte de son suzerain",
+    "les captures regardées, posées à côté d'un atlas de 1400 et de la carte politique d'Europa : l'Europe entière ; la France et les Îles ; l'Empire ; l'Italie ; les Balkans et l'Orient"
+   ],
+   "hors_du_lot": "Les modes de carte : le lot suivant. Dossiers : le dessin de la carte (noms, couleurs), le pont."
+  },
+  {
+   "titre": "Les modes de carte, et la carte à côté de l'atlas",
+   "piste": "interface",
+   "machine": "pc",
+   "meneur": "chef",
+   "apres": [
+    6,
+    8
+   ],
+   "joueur": "Je change de carte d'un clic : politique, relief, population, vivres, guerres. Chacune se lit sans légende à déchiffrer.",
+   "samedi": "Cinq boutons à icône, en bas de la carte, le mode en cours enfoncé. Politique : les pays. Relief : le terrain nu. Population : du clair au foncé, avec son échelle. Vivres : qui a du grain, qui en manque. Guerres : les pays en guerre, leurs armées et leurs sièges. Et la preuve de l'étape : la carte politique du jeu, posée à côté d'un atlas de 1400 et de la carte d'Europa, dans le compte rendu et dans le build.",
+   "regle": "Sans objet : un écran. Chaque mode lit une grandeur que le service sert déjà.",
+   "preuves": [
+    "& $unity -batchmode -projectPath 3d\\unity -runTests -testPlatform EditMode -assemblyNames \"Forge.Pont.Tests;Forge.Interface.Tests\" -testResults $xml -logFile $journal — rouge d'abord : chaque mode a un bouton, une icône et une infobulle ; changer de mode ne change ni la caméra ni la sélection ; la légende d'un mode dit son unité",
+    "une capture par mode, en 1920 × 1080, et la planche de l'étape : la carte politique du jeu à côté de l'atlas et de la carte d'Europa, pour la France, l'Empire, l'Italie et les Balkans",
+    "le build figé de l'étape se joue d'un trait à la souris : choisir un pays, glisser, zoomer jusqu'à une province, changer de mode ; les clics à faire sont dans le compte rendu"
+   ],
+   "hors_du_lot": "La barre du haut et les panneaux d'un Europa : c'est l'étape 2."
+  }
+ ],
+ "note": "Préparée le 22 novembre 2026, avant que l'étape 0 soit jouée : à corriger de ce que le propriétaire en aura dit et de ce que le code sera devenu. Les trois lots des frontières sont ceux que le CTO avait écrits le 22 novembre, après vérification dans le code. Ce qui part ensemble : sur le VPS, la file des frontières (1, 2, 3) et, à côté, la forme des lieux puis les noms de l'atlas ; sur le PC, la carte en plein écran et, dès que les lieux ont leur forme, les frontières au grain du lieu. Le plus long enchaînement : les trois lots des frontières, puis les pays et leurs noms, puis les modes de carte."
+}

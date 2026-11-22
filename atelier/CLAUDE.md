@@ -44,9 +44,9 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
   dictés, aucun quota dépensé.
 - **Un test n'écrit jamais dans le vrai `~/.atelier`** : il reçoit son
   journal et ses verrous dans un dossier temporaire.
-- **Sur le PC**, les sept tests des verrous sont sautés (`flock` est fait
-  pour Linux) : la CI les joue. Lancer pytest avec `PYTHONUTF8=1`,
-  `--basetemp=<dossier>` et `-p no:cacheprovider`.
+- **Sur le PC**, lancer pytest avec `PYTHONUTF8=1`, `--basetemp=<dossier>`
+  et `-p no:cacheprovider`. Les verrous y tiennent par `msvcrt`, sous Linux
+  par `flock` : leurs tests se jouent sur les deux.
 
 ## Les machines
 
@@ -63,10 +63,20 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
 - **Le `gh` du VPS est ancien** (2.45) : toujours lire en JSON (`--json`).
 - **Le PC ne travaille qu'allumé.** Le pilote lui envoie un passage par
   `workflow_dispatch` (`lot-pc.yml`) ; le runner répond toujours sur la PR,
-  par un compte rendu ou une attente. La variable `PC_ACTIF = non` le met en
-  pause sans que ce soit une panne.
+  par un compte rendu ou une attente, et une attente est renvoyée au bout
+  d'un quart d'heure. La variable `PC_ACTIF = non` le met en pause sans que
+  ce soit une panne.
+- **Le PC mène `[machines] pc` lots Unity à la fois, un par chantier**
+  (`.atelier/chantiers/pc`, `pc-2`…). Le pilote nomme le chantier à l'envoi
+  (la marque `envoye` le porte) et le lot le garde. Un chantier ne porte
+  qu'un passage à la fois (verrou `chantier-<nom>`), et les passages se
+  partagent les verrous `git` et `captures`. Deux lots n'avancent vraiment
+  ensemble que si le PC a deux runners.
 - **Une session d'agent ne se reprend que sur sa machine, dans le dossier
-  du lot** : un lot ne change pas de machine en cours de route.
+  du lot** : un lot ne change ni de machine ni de chantier en cours de route.
+- **La démo ne suit pas la semaine** : le cron regarde toutes les dix
+  minutes (`demo`), et elle part quand l'étape n'a plus de lot ouvert. Le
+  tour suivant fait proposer l'étape d'après au CTO, d'avance.
 
 ## Les pièges
 

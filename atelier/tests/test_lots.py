@@ -347,10 +347,20 @@ def test_un_travail_parti_sur_le_pc_attend_sa_reponse_un_jour_puis_repart():
     assert ensuite([PLAN, ENVOYE], heures_depuis_envoi_pc=23.5).nom == "attendre_pc"
     assert ensuite([PLAN, ENVOYE], heures_depuis_envoi_pc=24.5).nom == "relancer_pc"
     assert ensuite([PLAN, ENVOYE, etape(1)], heures_depuis_envoi_pc=30) == Action("etape", essai=2), "le PC a répondu"
-    # Aucun agent du PC n'a pu répondre : le travail n'est renvoyé qu'au bout d'une heure.
+    # Aucun agent du PC n'a pu répondre : le travail est renvoyé au bout d'un quart d'heure, pas d'une heure.
     attente = {"role": "chef", "etat": "attente"}
-    assert ensuite([PLAN, attente], heures_depuis_attente_pc=0.5).nom == "attendre_pc"
-    assert ensuite([PLAN, attente], heures_depuis_attente_pc=1.5) == Action("etape", essai=1)
+    assert ensuite([PLAN, attente], heures_depuis_attente_pc=0.2).nom == "attendre_pc"
+    assert ensuite([PLAN, attente], heures_depuis_attente_pc=0.3) == Action("etape", essai=1)
+
+
+def test_un_lot_garde_son_chantier_du_pc_et_un_lot_neuf_prend_le_premier_libre():
+    assert lots.chantiers_pc(1) == ["pc"] and lots.chantiers_pc(3) == ["pc", "pc-2", "pc-3"]
+    assert lots.chantier_du_lot([PLAN]) is None, "jamais parti sur le PC"
+    assert lots.chantier_du_lot([ENVOYE]) == "pc", "un envoi d'avant les chantiers est allé au premier"
+    assert lots.chantier_du_lot([ENVOYE | {"chantier": "pc-2"}, etape(1)]) == "pc-2"
+    assert lots.chantier_libre(set(), 2) == "pc"
+    assert lots.chantier_libre({"pc"}, 2) == "pc-2"
+    assert lots.chantier_libre({"pc", "pc-2"}, 2) == "pc", "tous tenus : les passages se suivent sur le premier"
 
 
 # ----------------------------------------------- les rouges qui ne sont pas au lot

@@ -8,9 +8,11 @@
 # qu'un agent, et un tour qui tourne encore fait passer le suivant (verrou).
 # Un tour sans agent ne coûte que quelques lectures de GitHub ; à dix
 # minutes, chaque étape d'un lot en attendait cinq en moyenne.
-# Le journal s'écrit à 07:15 ; la démo se fige le vendredi à 18:15 ; la veille
-# regarde les outils à 06:45, avant tout le monde. Ces minutes sont impaires :
-# elles ne tombent jamais sur un tour du pilote.
+# Le journal s'écrit à 07:15 ; la veille regarde les outils à 06:45, avant
+# tout le monde. La démo se regarde toutes les dix minutes, jour et nuit :
+# elle ne part que si l'étape n'a plus aucun lot ouvert et n'a pas encore sa
+# note, et une étape finie un mardi se joue donc le mardi. Ces minutes sont
+# impaires : elles ne tombent jamais sur un tour du pilote.
 
 PAS_DU_PILOTE=2
 
@@ -20,7 +22,7 @@ roles_du_moment() {
   [[ "$minute" =~ ^[0-9]+$ ]] || return 0
   [[ "$quand" == "06:45" ]] && printf 'veille\n'
   [[ "$quand" == "07:15" ]] && printf 'journal\n'
-  [[ "$quand" == "18:15" && "$(date +%u)" == "5" ]] && printf 'vendredi\n'
+  (( 10#$minute % 10 == 3 )) && printf 'demo\n'
   (( 10#$minute % PAS_DU_PILOTE == 0 )) && printf 'pilote\n'
   # Une minute sans réveil n'est pas une erreur : sans ce `return`, la
   # fonction rendrait le code du dernier test.

@@ -25,6 +25,10 @@ on:
       issue:
         description: "l'issue du lot"
         required: true
+      chantier:
+        description: "le chantier du PC où vit le lot (pc, pc-2…)"
+        required: false
+        default: pc
 
 permissions:
   contents: read
@@ -38,6 +42,7 @@ jobs:
         shell: powershell
         env:
           ISSUE: ${{ inputs.issue }}
+          CHANTIER: ${{ inputs.chantier || 'pc' }}
         run: |
           $ErrorActionPreference = 'Stop'
           # Le service ne voit pas le PATH de la session : on y remet les agents
@@ -49,7 +54,7 @@ jobs:
           if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
           git -C $atelier checkout --quiet --force --detach origin/master
           $env:PYTHONPATH = $atelier
-          py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE `
+          py -m atelier --projet $atelier pc --depot-local D:\Forge --issue $env:ISSUE --chantier $env:CHANTIER `
             --vendor D:\Forge\3d\unity\Assets\Vendor
 
   repondre:

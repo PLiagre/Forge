@@ -22,7 +22,7 @@ transporte et se mange —, dans **un seul monde**.
 | ce que le jeu doit devenir | [docs/VISION.md](docs/VISION.md) |
 | comment le monde fonctionne | [jeu/sim/MODELE.md](jeu/sim/MODELE.md) |
 | les règles, en une page | [AGENTS.md](AGENTS.md) |
-| la semaine, les rôles, le chemin d'un lot | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
+| l'étape, les rôles, le chemin d'un lot | [docs/WORKFLOW.md](docs/WORKFLOW.md) |
 | tester et lancer le jeu | [CLAUDE.md](CLAUDE.md) |
 
 ## Essayer en une minute
@@ -71,15 +71,18 @@ les tests du jeu et vérifie les lanceurs.
 
 ## Comment le travail avance
 
-- **La chaîne** fait le travail de la semaine : le samedi, le propriétaire
-  joue la démo et dit ce qu'il veut ; le CTO en tire les lots du palier, un
-  par piste au moins ; un chef de lot conçoit et construit chacun, dans une
-  seule session, avec un développeur pour les tâches bornées ; un relecteur
-  qui ne l'a pas écrit rend son verdict, et `ACCEPTE` fusionne tout seul. La
-  table des rôles et de leurs modèles : `python3 -m atelier agents`. Détail :
+- **La chaîne** fait le travail d'une étape, comptée en jours : le
+  propriétaire répond « oui » à l'étape proposée ; un chef de lot conçoit et
+  construit chaque lot, dans une seule session, avec un développeur pour les
+  tâches bornées ; un relecteur qui ne l'a pas écrit rend son verdict, et
+  `ACCEPTE` fusionne tout seul. Les lots avancent ensemble, deux par machine.
+  Le dernier lot fermé, le PC fige un build, le CTO pose sa note et propose
+  l'étape suivante ; le propriétaire joue, et son « oui » l'ouvre. La table
+  des rôles et de leurs modèles : `python3 -m atelier agents`. Détail :
   [docs/WORKFLOW.md](docs/WORKFLOW.md).
-- **Le mode direct** ne sert qu'à refondre et à réparer, quand le
-  propriétaire ouvre un agent dans `D:\Forge` ou `~/Forge` : une branche
+- **Le mode direct** sert à réparer, à retoucher ce que le propriétaire
+  vient de voir en jouant, et à changer la chaîne, quand il ouvre un agent
+  dans `D:\Forge` ou `~/Forge` : une branche
   `direct/<sujet>`, une PR, fusion automatique sur CI verte. Voir
   [AGENTS.md](AGENTS.md).
 

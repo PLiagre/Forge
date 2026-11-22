@@ -6,7 +6,7 @@
     tour       un tour du pilote (--a-sec : lire et dire, sans rien faire ;
                --lot N : ne faire avancer que ce lot)
     journal    le journal du matin, dans sa propre issue « Journal du JJ/MM/AAAA »
-    vendredi   la démo : le build figé du palier et la note du CTO
+    demo       la démo : le build figé de l'étape et la note du CTO, dès qu'elle n'a plus de lot ouvert
     couts      ce que le palier en cours a coûté, par rôle et par lot
     pc         un pas du meneur d'un lot « pc » (appelé par lot-pc.yml)
     marquer-attente
@@ -149,9 +149,10 @@ def _cmd_journal(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_vendredi(args: argparse.Namespace) -> int:
+def _cmd_demo(args: argparse.Namespace) -> int:
     from . import palier
-    print(palier.vendredi(_pilote(args), publication=not args.sans_publier))
+    poser = palier.demo if args.maintenant else palier.demo_si_videe
+    print(poser(_pilote(args), publication=not args.sans_publier))
     return 0
 
 
@@ -167,9 +168,15 @@ def _cmd_couts(args: argparse.Namespace) -> int:
 
 def _cmd_pc(args: argparse.Namespace) -> int:
     from . import pc
+    from .verrous import Verrous
     projet = charger(_racine(args))
-    lignes = pc.travailler(projet, GitHub(projet.depot), Depot(Path(args.depot_local).resolve(), projet.branche_base),
-                           issue=args.issue, journal=journal_local(),
+    # Deux passages peuvent tourner ensemble sur le PC, chacun dans son
+    # chantier : ils se partagent le dépôt, la branche des captures et les
+    # places des agents.
+    verrous = Verrous()
+    lignes = pc.travailler(projet, GitHub(projet.depot),
+                           Depot(Path(args.depot_local).resolve(), projet.branche_base, verrous=verrous),
+                           issue=args.issue, journal=journal_local(), chantier=args.chantier, verrous=verrous,
                            vendor=Path(args.vendor) if args.vendor else None)
     for ligne in lignes:
         print(ligne)
@@ -204,16 +211,20 @@ def main(argv: list[str] | None = None) -> int:
     tour.add_argument("--a-sec", action="store_true", help="lire et dire, sans rien écrire ni invoquer")
     tour.add_argument("--lot", type=int, help="ne faire avancer que ce lot, quel que soit son palier")
     tour.set_defaults(f=_cmd_tour)
-    for nom, f in (("journal", _cmd_journal), ("vendredi", _cmd_vendredi)):
+    for nom, f in (("journal", _cmd_journal), ("demo", _cmd_demo)):
         p = sous.add_parser(nom)
         p.add_argument("--sans-publier", action="store_true")
         p.set_defaults(f=f)
+        if nom == "demo":
+            p.add_argument("--maintenant", action="store_true",
+                           help="figer et noter tout de suite, même si l'étape a encore des lots ouverts")
     couts = sous.add_parser("couts", help="ce que la chaîne a coûté, par rôle et par lot")
     couts.add_argument("--lot", type=int, action="append", help="ces lots seulement (répétable)")
     couts.set_defaults(f=_cmd_couts)
     pc = sous.add_parser("pc", help="un pas du meneur d'un lot « pc »")
     pc.add_argument("--depot-local", required=True, help="le dépôt du PC (D:\\Forge)")
     pc.add_argument("--issue", type=int, required=True)
+    pc.add_argument("--chantier", default="pc", help="le chantier du PC où vit le lot (pc, pc-2…)")
     pc.add_argument("--vendor", help="les packs de l'Asset Store à relier (D:\\Forge\\3d\\unity\\Assets\\Vendor)")
     pc.set_defaults(f=_cmd_pc)
     attente = sous.add_parser("marquer-attente", help="la réponse d'un passage du PC tombé sans répondre")

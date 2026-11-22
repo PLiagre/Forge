@@ -35,9 +35,9 @@ deblocages_max = 2
 # `--effort` (low, medium, high, xhigh, max). Quand le quota manque, le lot
 # attend : il n'échoue pas.
 [agents]
-# Le samedi, il tire les lots du palier. En semaine, il tranche, débloque,
-# redécoupe, relit le cœur du moteur, et écrit la note du vendredi. Il ne
-# code pas : il est appelé en lecture seule.
+# Quand une étape n'a plus de lot ouvert, il écrit sa note de démo et propose
+# l'étape suivante d'avance. Pendant l'étape, il tranche, débloque, redécoupe
+# et relit le cœur du moteur. Il ne code pas : il est appelé en lecture seule.
 cto         = "claude/claude-fable-5-2@high"
 # Il conçoit le lot, écrit son plan, code le difficile et confie le reste,
 # dans une seule session reprise jusqu'à la fusion.
@@ -51,10 +51,14 @@ relecteur   = "claude/claude-opus-5-5@high"
 lecteur     = "claude/claude-haiku-5-5@medium"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS n'a que
-# deux processeurs ; le PC n'a qu'un Unity.
+# deux processeurs. Le PC mène deux lots Unity, chacun dans son chantier
+# (`.atelier/chantiers/pc` et `pc-2`, 3,4 Go de `Library` chacun) : deux Unity
+# ensemble y jouent les 1 364 tests EditMode en 189 et 196 s, contre 187 s
+# pour un seul. Les deux lots n'avancent vraiment ensemble que si le PC a
+# deux runners ; avec un seul, leurs passages se suivent, sans rien casser.
 [machines]
 vps = 2
-pc = 1
+pc = 2
 
 # Combien d'agents tournent ensemble sur l'abonnement.
 [outils]

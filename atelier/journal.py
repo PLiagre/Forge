@@ -2,7 +2,7 @@
 
 Les faits se relèvent en Python, sur GitHub : ce que chaque lot livré donne
 au joueur (sa fiche), où en est chaque lot en cours, ce qui est arrêté et
-pourquoi, ce que le CTO a décidé seul (« à revoir samedi »), ce que le
+pourquoi, ce que le CTO a décidé seul (« à revoir à la démo »), ce que le
 propriétaire doit faire lui-même, et ce que les appels ont coûté. Le lecteur
 en fait un récit court, en mots de joueur ; il ne juge rien. S'il se tait ou
 sort du gabarit, le pilote écrit le journal seul, à partir des mêmes faits :
@@ -188,7 +188,7 @@ class Releve:
 
 
 def a_revoir_samedi(numero: int, titre: str, commentaires: list[dict]) -> list[str]:
-    """Les choix que le CTO a pris seul sur ce lot, à revoir samedi."""
+    """Les choix que le CTO a pris seul sur ce lot, à revoir à la démo."""
     return [f"#{numero} {titre} : {m['a_revoir']}" for m in lots.marques(commentaires)
             if m.get("role") == CTO and m.get("etat") == lots.DECISION and (m.get("a_revoir") or "").strip()]
 
@@ -214,9 +214,9 @@ def ou_en_est(liste: list[dict], etat_ci: str = "") -> str:
 
 def palier_vide(palier, ouverts: list[Lot], fermees: list[dict]) -> str:
     """Ce que le journal dit au propriétaire quand le palier en cours a eu
-    des lots et n'en a plus aucun d'ouvert : la chaîne tourne à vide jusqu'à
-    ce qu'il réponde. Vide tant qu'un lot du palier est ouvert, ou qu'il n'en
-    a jamais eu."""
+    des lots et n'en a plus aucun d'ouvert : l'étape attend qu'il la joue,
+    et la chaîne tourne à vide jusqu'à ce qu'il réponde. Vide tant qu'un lot
+    du palier est ouvert, ou qu'il n'en a jamais eu."""
     if palier is None or any(l.palier == palier.numero for l in ouverts):
         return ""
     siens = [i for i in fermees if Lot.de(i).est_un_lot and Lot.de(i).palier == palier.numero]
@@ -225,7 +225,8 @@ def palier_vide(palier, ouverts: list[Lot], fermees: list[dict]) -> str:
     dernier = max((d for d in (_date(i.get("closedAt")) for i in siens) if d is not None), default=None)
     depuis = f" depuis le {dernier:%d/%m}" if dernier else ""
     return (f"le palier « {palier.titre} » n'a plus aucun lot ouvert{depuis} : la chaîne n'a plus rien à faire. "
-            "Sur l'issue du palier, réponds à la suite que le CTO propose, ou écris ce que tu veux")
+            "Son build figé et sa note de démo arrivent sur son issue : joue-le, puis réponds « oui » à l'étape "
+            "suivante que le CTO y propose, ou écris ce qu'il faut changer")
 
 
 def fusionnees_depuis(gh: GitHub, depuis: datetime) -> list[dict]:
@@ -257,10 +258,10 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
         titres[numero] = lot.titre
         r.livres.append({"numero": numero, "titre": lot.titre, "url": p.get("url", ""),
                          "joueur": section(lot.corps, "Ce que je joue de plus"),
-                         "samedi": section(lot.corps, "Ce que je vois samedi")})
+                         "samedi": section(lot.corps, "Ce que je vois à la démo")})
         lignes += [f"- #{numero} « {lot.titre} » — {p.get('url', '')} (piste : {lot.piste(projet.pistes) or '—'})",
                    f"  Ce que je joue de plus : {r.livres[-1]['joueur'] or '(non dit)'}",
-                   f"  Ce que je vois samedi : {r.livres[-1]['samedi'] or '(non dit)'}"]
+                   f"  Ce que je vois à la démo : {r.livres[-1]['samedi'] or '(non dit)'}"]
         r.a_revoir += a_revoir_samedi(numero, lot.titre, issue.get("comments") or [])
     lignes += ["", "LOTS EN COURS :"]
     for lot in des_lots:
@@ -284,7 +285,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
         trouve = lots.dernier_blocage(commentaires)
         raison = (trouve[1].get("raison") if trouve else "") or "sans raison écrite"
         decisions = [m for m in lots.marques(commentaires) if m.get("role") == CTO and m.get("etat") == lots.DECISION]
-        suite = {"reporter": "reporté à samedi par le CTO", "proprietaire": "il attend le propriétaire"}.get(
+        suite = {"reporter": "reporté à la démo par le CTO", "proprietaire": "il attend le propriétaire"}.get(
             decisions[-1].get("decision") if decisions else "", "le CTO le regarde")
         r.arretes.append(f"#{lot.numero} « {lot.titre} » : {raison} — {suite}")
         if decisions and decisions[-1].get("decision") == "proprietaire":
@@ -297,7 +298,7 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
         r.pour_toi.append(vide)
     if not gh.pc_actif():
         r.pour_toi.append(f"le PC est en pause ({VARIABLE_PC} = non) : les lots de la ville et de l'interface attendent")
-    lignes += ["", "À REVOIR SAMEDI (les choix que le CTO a pris seul) :"] + ([f"- {l}" for l in r.a_revoir] or ["- (rien)"])
+    lignes += ["", "À REVOIR À LA DÉMO (les choix que le CTO a pris seul) :"] + ([f"- {l}" for l in r.a_revoir] or ["- (rien)"])
     lignes += ["", "POUR LE PROPRIÉTAIRE :"] + ([f"- {l}" for l in r.pour_toi] or ["- (rien)"])
     hors_lot = issues_hors_lot(gh)
     mesures = [m for m in mesures_des_lots(gh, projet, sorted({*comptes, *hors_lot}))
@@ -350,7 +351,7 @@ def redaction_du_pilote(r: Releve) -> str:
     if not r.livres:
         lignes.append("Aucun lot livré depuis hier.")
     lignes += ["", "### En route"] + ([f"- {l}" for l in r.en_cours] or ["- rien"])
-    lignes += ["", "### À revoir samedi"] + ([f"- {l}" for l in r.a_revoir] or ["- rien"])
+    lignes += ["", "### À revoir à la démo"] + ([f"- {l}" for l in r.a_revoir] or ["- rien"])
     return "\n".join(lignes)
 
 

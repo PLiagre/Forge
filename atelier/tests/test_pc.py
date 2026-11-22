@@ -14,10 +14,11 @@ import pytest
 
 from atelier import lots, pc
 from atelier.depot import DepotErreur
+from atelier.verrous import Verrous
 
 from conftest import Agents
 
-FICHE = "## Ce que je joue de plus\nJe bâtis une caserne.\n\n## Ce que je vois samedi\nLa caserne dans la ville.\n"
+FICHE = "## Ce que je joue de plus\nJe bâtis une caserne.\n\n## Ce que je vois à la démo\nLa caserne dans la ville.\n"
 ETAPES = [{"titre": "Le bâtiment", "quoi": "Caserne.cs", "qui": "chef", "tests": "Forge.Pont.Tests"},
           {"titre": "La capture", "quoi": "ScenarioCaserne.cs", "qui": "chef", "tests": "Forge.Pont.Tests"}]
 PLAN = {"sortie": {"decision": "plan", "resume": "La caserne, puis sa capture.", "etapes": ETAPES}}
@@ -70,10 +71,10 @@ def _etape(k):
     return lots.marque(role="chef", etat=lots.ETAPE, etape=k, fini=True, machine="pc")
 
 
-def _travailler(projet, gh, depot, tmp_path, agents, *, unity=None, tests=_tests_verts, publier=publier_tout):
+def _travailler(projet, gh, depot, tmp_path, agents, *, unity=None, tests=_tests_verts, publier=publier_tout, **plus):
     depot.gh = gh
     return pc.travailler(projet, gh, depot, issue=10, journal=tmp_path / "journal.jsonl", executeur_agents=agents,
-                         unity=unity or FauxUnity(), tests=tests, publier=publier)
+                         unity=unity or FauxUnity(), tests=tests, publier=publier, **plus)
 
 
 def _marques(gh, numero=50, *, pr=True):
@@ -97,6 +98,29 @@ def test_un_lot_pc_sans_pr_recoit_son_plan_sur_le_pc(projet, gh, depot, tmp_path
     assert agents.appels[0]["cwd"] == depot.racine / "chantiers" / "pc", "le chantier du PC, pas celui du lot"
     assert "scénario de capture" in agents.appels[0]["consigne"]
     assert lignes[-1].startswith("#10 plan écrit") and (tmp_path / "journal.jsonl").is_file()
+
+
+def test_le_lot_travaille_dans_le_chantier_que_l_envoi_nomme(projet, gh, depot, tmp_path):
+    """Deux lots Unity menés ensemble ont chacun leur dossier : le second n'écrase pas le premier."""
+    _lot_pc(gh)
+    agents = Agents(PLAN)
+    _travailler(projet, gh, depot, tmp_path, agents, chantier="pc-2")
+    assert agents.appels[0]["cwd"] == depot.racine / "chantiers" / "pc-2"
+
+
+def test_un_chantier_deja_tenu_fait_attendre_le_lot_sans_y_toucher(projet, gh, depot, tmp_path):
+    """Deux passages dans le même dossier s'écraseraient : le second répond par une attente."""
+    _lot_pc(gh)
+    autre, siens = Verrous(tmp_path / "verrous"), Verrous(tmp_path / "verrous")
+    assert autre.prendre("chantier-pc")
+    agents = Agents(PLAN)
+    _travailler(projet, gh, depot, tmp_path, agents, verrous=siens)
+    attente = _marques(gh, 10, pr=False)[-1]
+    assert attente["etat"] == lots.ATTENTE and not agents.appels
+    assert "chantier « pc »" in gh.issues_[10]["comments"][-1]["body"]
+    autre.lacher("chantier-pc")
+    _travailler(projet, gh, depot, tmp_path, agents, verrous=siens)
+    assert agents.appels and not siens.pris_ailleurs("chantier-pc"), "le chantier est rendu à la fin du passage"
 
 
 def test_le_pc_fait_l_etape_attendue_dans_sa_session(projet, gh, depot, tmp_path):

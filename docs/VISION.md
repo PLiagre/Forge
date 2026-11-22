@@ -2,7 +2,7 @@
 
 > Ce fichier dit **qui joue, à quoi, dans quel monde, et selon quels
 > principes**. Il prime sur tout autre document en cas de conflit, et il est
-> fait pour être corrigé : changer une phrase ici déplace les paliers de
+> fait pour être corrigé : changer une phrase ici déplace les étapes de
 > [CAP.md](../CAP.md), qui dit dans quel ordre on construit. Comment le monde
 > fonctionne aujourd'hui, formule par formule :
 > [jeu/sim/MODELE.md](../jeu/sim/MODELE.md).
@@ -174,7 +174,7 @@ modificateurs.
 | l'argent | frapper, emprunter, mettre en gage, dévaluer, acheter une terre |
 | le gouvernement | inféoder, nommer des intendants, passer une loi, choisir une idée |
 
-L'ordre dans lequel ils arrivent est celui des paliers de
+L'ordre dans lequel ils arrivent est celui des étapes de
 [CAP.md](../CAP.md).
 
 Chaque geste existe aussi pour l'IA, par le même chemin, avec les mêmes
@@ -411,8 +411,8 @@ tour.
 | combien de lieux dans une cellule | un lieu pour 1 000 km² aujourd'hui (6 619 lieux) ; une terre de départ en tient quatre, un seigneur plausible trois (niveau 2) ; à revoir contre le budget du tick |
 | la capitale peut-elle changer de ville | rien n'est décidé |
 | quels pays sont jouables | tous ceux qui tiennent de la terre, vassaux compris (décision 26) ; reste à dire si un vassal joué peut refuser l'hommage dès le départ |
-| quand la bataille et le siège en 3D reviennent | plus tard (décision 42) : un samedi le dira ; Citadelle-Guerre attend dans les archives |
-| le décor d'Occident de la ville | le kit du désert d'abord (décision 48) ; il se décidera un samedi |
+| quand la bataille et le siège en 3D reviennent | plus tard (décision 42), à l'étape 5 de CAP.md ; Citadelle-Guerre attend dans les archives |
+| le décor d'Occident de la ville | le kit du désert d'abord (décision 48) ; il se décide à la fin de l'étape de l'interface (décision 54) |
 | un bâtiment de la ville reste-t-il commandable depuis la carte | oui aujourd'hui (décision 27) ; la caserne du palier 1 le dira |
 | quels événements à choix, et lesquels d'abord | ils naissent d'une cause du monde et posent des modificateurs ou dépensent une jauge (décision 41) ; leur liste et leurs choix restent à écrire, dans les fichiers de données |
 | les valeurs des modificateurs et des bâtiments | niveau 2, dans `jeu/data/` ; un réel sourcé (un moulin de 1400, ce qu'il rendait) les remplace quand on le sait |
@@ -508,11 +508,11 @@ et sur tout autre fichier du dépôt.
 |---|---|---|
 | 42 | la vision à long terme reste : la carte à la manière d'Europa Universalis, la ville bâtie à la main à la manière de Manor Lords, la bataille à la manière de Total War plus tard (révise la décision 27 ; précise les décisions 24 et 29) | une ville qui ne serait qu'une vue ; un jeu de carte seul |
 | 43 | on avance par paliers jouables d'une semaine ; chaque palier fait une avancée majeure sur trois pistes : le monde (carte et simulation), la ville 3D, l'interface ; chaque samedi le propriétaire joue la démo et réoriente ; un palier est atteint quand il l'a joué et qu'il dit oui (remplace les jalons : décisions 23 et 33 ; **révisée** par les décisions 51 et 52) | neuf jalons longs ; un jalon atteint par une preuve seule |
-| 44 | la chaîne d'agents reste : c'est elle qui fait le travail pendant la semaine ; le mode direct ne sert qu'à la refonte, puis aux réparations quand le propriétaire est là | tout faire en mode direct ; une chaîne que le mode direct double |
+| 44 | la chaîne d'agents reste : c'est elle qui fait le travail pendant la semaine ; le mode direct ne sert qu'à la refonte, puis aux réparations quand le propriétaire est là (**révisée** par la décision 58) | tout faire en mode direct ; une chaîne que le mode direct double |
 | 45 | la chaîne se répartit par niveau de jugement, pas par étape, et celui qui conçoit un lot le construit : le CTO (Fable) tire les lots, tranche, débloque et répond de la démo ; le chef de lot (Opus) conçoit, code le difficile et tient la PR ; le développeur (Sonnet) fait les tâches bornées ; le relecteur (Opus, autre session) rend un verdict ; le lecteur (Haiku) résume et ne juge jamais ; changer un rôle de modèle reste une ligne de `atelier.toml` | un rôle par étape ; un brief écrit à froid par un agent pour un autre |
 | 46 | plus de plafond de taille : un lot est l'avancée d'une piste pour un palier | les petits lots ; un lot qui code et un lot qui prouve |
 | 47 | un changement du monde met à jour les tests qu'il touche, dans la même PR, en disant pourquoi ; les longues preuves (un an, dix ans) tournent la nuit et ne bloquent plus une fusion (réécrit le principe 8) | « un test existant ne s'assouplit jamais », qui faisait de chaque test touché une question au propriétaire |
-| 48 | la ville avance d'abord sur le kit du désert ; le décor d'Occident se décidera un samedi (révise les décisions 32 et 40) | attendre un kit d'Occident pour faire avancer la ville |
+| 48 | la ville avance d'abord sur le kit du désert ; le décor d'Occident se décidera plus tard (révise les décisions 32 et 40 ; **précisée** par la décision 54) | attendre un kit d'Occident pour faire avancer la ville |
 | 49 | plus aucun reliquat des anciens lots dans le dépôt : ni brief, ni rapport, ni commentaire qui raconte un lot ; les tests sont gardés comme filet | un dépôt qui porte son histoire dans ses fichiers |
 | 50 | le quota de l'abonnement n'est plus le premier frein, mais il se mesure : chaque appel relève ce qu'il coûte, par rôle et par lot | une organisation dont on ne sait pas ce qu'elle consomme |
 
@@ -527,6 +527,22 @@ qu'elles contredisent.
 | # | décision | ce qu'elle a écarté |
 |---|---|---|
 | 51 | la qualité avant l'étendue, un front à la fois : la carte et son interface d'abord, puis une guerre crédible, puis la ville, entière ; aucune règle neuve (paix, argent, dynastie) tant que la carte et son interface ne sont pas au niveau (révise la décision 43) | une avancée sur trois pistes chaque semaine ; un geste de plus sur un écran qui n'est pas au niveau |
-| 52 | une étape dure le temps qu'il faut et se juge à l'œil, une image du jeu à côté de la même vue d'Europa Universalis IV ou de Manor Lords ; elle n'est finie que si le propriétaire a joué seul, sans guide ni touche à connaître, et qu'il dit oui ; le samedi reste le jour où il joue et corrige la route (révise la décision 43) | un palier d'une semaine fait quand un parcours réussit par script |
+| 52 | une étape dure le temps qu'il faut et se juge à l'œil, une image du jeu à côté de la même vue d'Europa Universalis IV ou de Manor Lords ; elle n'est finie que si le propriétaire a joué seul, sans guide ni touche à connaître, et qu'il dit oui ; le samedi reste le jour où il joue et corrige la route (révise la décision 43 ; **révisée** par la décision 55 : plus de samedi, des jours) | un palier d'une semaine fait quand un parcours réussit par script |
 | 53 | la carte dessine et nomme les pays réels de 1400, la maison en second, avec des frontières au grain du lieu ; `cell_id` reste la seule clé | une carte des dynasties ; des frontières au grain de la cellule |
 | 54 | le décor de la ville (le désert, ou un village d'Occident) se décide à la fin de l'étape de l'interface (précise la décision 48) | — |
+
+## Les décisions du 22 novembre 2026, sur le rythme
+
+Le propriétaire juge le rythme inacceptable : l'étape 0, quatre lots, ne
+prend pas une semaine mais un jour, deux au plus, et toutes les étapes se
+recalent de la même façon. La décision 55 est la sienne ; les décisions 56 à
+58 sont la manière de la tenir, tirée de la mesure du palier 1 (six heures de
+travail pour dix-neuf heures d'attente), et il les corrige s'il le veut. Les
+décisions 51 à 54 restent : seules leurs durées changent.
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 55 | les étapes se comptent en jours, l'étape 0 en un jour, deux au plus ; une étape s'enchaîne dès que la précédente est jouée, quel que soit le jour ; elle reste finie seulement quand le propriétaire l'a jouée seul et dit oui (révise les décisions 43 et 52) | des étapes d'une à dix semaines ; le samedi comme seul jour où la route se corrige |
+| 56 | dès qu'une étape n'a plus de lot ouvert, son build est figé et sa note de démo posée, à toute heure, et le CTO propose aussitôt l'étape suivante, d'avance : un seul « oui » du propriétaire, quand il a joué, l'ouvre | un build figé le vendredi soir ; une étape suivante proposée seulement après la note du propriétaire ; une chaîne qui attend quatre jours à vide |
+| 57 | tout lot prêt part : deux à la fois sur le VPS, deux lots Unity à la fois sur le PC, chacun dans son chantier ; un lot n'attend que ce dont il dépend vraiment, et ce qui touche les mêmes fichiers va dans le même lot | des lots mis à la file pour un seul Unity ; des dépendances posées pour ranger |
+| 58 | le mode direct sert aussi aux retouches que le propriétaire voit en jouant : une retouche qui tient en une PR entre dans la journée ; un système complet reste un lot de la chaîne (révise la décision 44) | une retouche d'un bouton qui attend un lot, sa relecture et l'étape suivante |
