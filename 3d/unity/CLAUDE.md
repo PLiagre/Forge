@@ -22,8 +22,10 @@ outils d'éditeur. Unity ne tourne que sur le PC.
 
 ## Lancer Unity sans écran
 
-- **Une seule instance à la fois** sur un projet, et une seule session Unity
-  utile à la fois sur le PC.
+- **Une seule instance à la fois sur un dossier de projet.** Deux worktrees
+  ont chacun leur projet et leur `Library` (3,4 Go) : deux Unity y tournent
+  ensemble sans se gêner (les tests EditMode en 189 et 196 s à deux, 187 s
+  seul). La chaîne s'en sert pour mener deux lots à la fois.
 - **Unity peut pendre à « Cleanup mono »** après avoir fini. Le lancer par
   `Start-Process -PassThru`, attendre avec une borne (`WaitForExit(ms)`), le
   tuer au-delà, et lire le résultat dans le XML ou le journal, pas dans le

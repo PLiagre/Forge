@@ -7,10 +7,13 @@ jamais par `pull_request` : une fourche ne lance rien sur le PC. Le runner
 appelle `python -m atelier pc`, qui relit GitHub, fait le pas que le lot
 attend, et répond toujours : un compte rendu, ou une attente.
 
-Le lot travaille dans le worktree persistant de D:\\Forge,
-`.atelier/chantiers/pc` : sa `Library` Unity y reste chaude d'un lot à
-l'autre ; les packs de l'Asset Store y sont reliés par une jonction, jamais
-copiés dans git.
+Le lot travaille dans un worktree persistant de D:\\Forge, son chantier
+(`.atelier/chantiers/pc`, puis `pc-2`… quand le PC mène plusieurs lots à la
+fois) : le pilote le nomme à l'envoi, et le lot le garde, car la session de
+son meneur ne se reprend que dans ce dossier. La `Library` Unity d'un
+chantier reste chaude d'un lot à l'autre ; les packs de l'Asset Store y sont
+reliés par une jonction, jamais copiés dans git. Deux Unity tournent en même
+temps sur deux chantiers ; un chantier, lui, ne porte qu'un passage à la fois.
 
 Quand le plan est fini, Unity juge la révision poussée : le projet
 compile-t-il, ses tests EditMode passent-ils, et que montre la scène ? Ce
@@ -33,13 +36,13 @@ from .github import GitHub, etat_des_controles
 from .lots import Lot
 from .pilote import Photos, Pilote
 from .projet import Projet
+from .verrous import AucunVerrou
 
 PROJET_UNITY = Path("3d") / "unity"
 METHODE_CAPTURE = "ForgeLocal3D.Capture.Photographier"
 # Les assemblies de tests EditMode du projet. La liste se sépare par « ; » :
 # avec une virgule, Unity ne joue aucun cas et sort 0.
 ASSEMBLIES_DE_TESTS = "Forge.Pont.Tests;Forge.Interface.Tests"
-CHANTIER = "pc"
 
 
 def unity_de(projet_unity: Path) -> Path:
@@ -156,6 +159,7 @@ def regarder_avec_unity(chantier: Path, numero: int, sha: str, date: str, *, tes
 
 
 def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, journal: Path, vendor: Path | None = None,
+               chantier: str = lots.CHANTIER_PC, verrous=None,
                executeur_agents: agents_mod.Executeur = agents_mod.executer,
                unity=compiler_et_photographier, tests=jouer_les_tests, publier=captures.publier) -> list[str]:
     """Un pas du meneur sur le PC ; il répond toujours au pilote du VPS.
@@ -163,8 +167,13 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, journal:
     Le pas se relit sur GitHub : le plan si le lot n'a pas de PR, sinon
     l'étape, la correction ou le conflit que le lot attend. Tout ce qui casse
     avant la réponse est une attente : ni le meneur ni le lot n'y sont pour
-    rien, et sans marque le VPS attendrait un jour."""
-    pilote = Pilote(projet, gh, depot, journal=journal, executeur_agents=executeur_agents, machine="pc")
+    rien, et sans marque le VPS attendrait un jour. Un chantier qu'un autre
+    passage tient encore est une attente lui aussi : deux lots dans le même
+    dossier s'écraseraient."""
+    verrous = verrous or AucunVerrou()
+    pilote = Pilote(projet, gh, depot, journal=journal, executeur_agents=executeur_agents, machine="pc",
+                    verrous=verrous)
+    verrou = f"chantier-{chantier}"
     date = f"{pilote.maintenant():%Y-%m-%d}"
     numero_pr: int | None = None
     lot: Lot | None = None
@@ -178,13 +187,17 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, journal:
         depot.fetch()
         branche = lot.branche(projet.prefixe_branche)
         resume = gh.pr_de_branche(branche)
+        numero_pr = resume["number"] if resume else None
+        if not verrous.prendre(verrou):
+            pilote.marquer_attente(lot, numero_pr, f"le chantier « {chantier} » du PC porte encore le passage d'un "
+                                                   "autre lot")
+            return pilote.lignes
         if resume is None:
-            chemin = depot.preparer(CHANTIER, branche)
+            chemin = depot.preparer(chantier, branche)
             if vendor is not None:
                 lier_vendor(chemin, vendor)
-            pilote._planifier(lot, chantier=CHANTIER, marquer_attente=True)
+            pilote._planifier(lot, chantier=chantier, marquer_attente=True)
             return pilote.lignes
-        numero_pr = resume["number"]
         pr = gh.pr(numero_pr)
         # L'envoi auquel on répond ne compte pas : le pas se décide sans lui.
         liste = [m for m in lots.marques(pr.get("comments") or []) if m.get("etat") != lots.ENVOYE]
@@ -194,10 +207,10 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, journal:
             # Le lot n'attend plus le PC : la marque le dit, et le VPS reprend la main.
             pilote.marquer_attente(lot, numero_pr, f"le lot n'attend pas un passage du meneur ({action.nom})")
             return pilote.lignes
-        chemin = depot.preparer(CHANTIER, branche)
+        chemin = depot.preparer(chantier, branche)
         if vendor is not None:
             lier_vendor(chemin, vendor)
-        pilote.passage(lot, pr, action, liste, chantier=CHANTIER, photographe=photographe, marquer_attente=True)
+        pilote.passage(lot, pr, action, liste, chantier=chantier, photographe=photographe, marquer_attente=True)
     except Exception as e:
         try:
             if lot is not None:
@@ -206,6 +219,8 @@ def travailler(projet: Projet, gh: GitHub, depot: Depot, *, issue: int, journal:
         except Exception:  # noqa: BLE001 — GitHub injoignable : le VPS renverra au bout d'un jour
             pass
         raise
+    finally:
+        verrous.lacher(verrou)
     return pilote.lignes
 
 

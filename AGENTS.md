@@ -4,17 +4,19 @@ Forge est un jeu de grande stratégie sur l'Europe de 1400 : une carte à la
 manière d'Europa Universalis, une ville bâtie à la main à la manière de Manor
 Lords, et plus tard la bataille à la manière de Total War, dans **une seule
 simulation** ([docs/VISION.md](docs/VISION.md)). On avance par **étapes
-jugées à l'œil contre leur modèle**, la carte et son interface d'abord, la
-ville ensuite ([CAP.md](CAP.md)). Tout s'écrit en **français clair**.
+comptées en jours, jugées à l'œil contre leur modèle**, la carte et son
+interface d'abord, la ville ensuite ; une étape s'enchaîne dès que le
+propriétaire a joué la précédente ([CAP.md](CAP.md)). Tout s'écrit en
+**français clair**.
 
-## 1. La chaîne — elle fait le travail de la semaine
+## 1. La chaîne — elle fait le travail d'une étape
 
 Cinq rôles, répartis par niveau de jugement. Celui qui conçoit un lot le
 construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 | rôle | modèle | il fait | il ne fait jamais |
 |---|---|---|---|
-| **le CTO** | Fable | le samedi, tire les lots du palier de ce que le propriétaire a dit ; en semaine, tranche les questions, débloque ou redécoupe un lot, relit après le relecteur ce qui touche le cœur du moteur, répond de la démo du vendredi. Appelé à ces moments, il ne surveille pas. | coder |
+| **le CTO** | Fable | quand une étape n'a plus de lot ouvert, écrit sa note de démo et propose l'étape suivante d'avance ; quand le propriétaire a joué, la refait d'après ce qu'il a dit ; pendant l'étape, tranche les questions, débloque ou redécoupe un lot, relit après le relecteur ce qui touche le cœur du moteur. Appelé à ces moments, il ne surveille pas. | coder |
 | **le chef de lot** | Opus | conçoit, écrit le plan dans la PR, code le difficile, confie le reste, tient la PR jusqu'à la fusion ; mène aussi les lots de la ville 3D | relire son propre lot |
 | **le développeur** | Sonnet | les tâches bornées que le chef lui confie, dans la session du chef ; mène seul les lots simples (données, écran courant) | décider d'une règle du monde |
 | **le relecteur** | Opus, autre session, lecture seule | lit la fiche et le diff, rejoue des tests, rend un verdict | écrire |
@@ -27,20 +29,26 @@ construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
   (`python3 -m atelier tour`, sur le VPS).
 - **Un lot ne touche jamais** `atelier/`, `.github/`, `atelier.toml`,
   `AGENTS.md`, `CLAUDE.md`, `CAP.md` : le pilote retire ces changements.
-- **Aucune question n'attend le propriétaire pendant la semaine.** Le CTO
-  prend le choix réversible, le note dans « à revoir samedi », et le lot
+- **Les lots partent ensemble** : deux sur le VPS, deux sur le PC, tout ce
+  qui est prêt. Un lot n'attend que ce dont il dépend vraiment ; ce qui
+  touche les mêmes fichiers va dans le même lot.
+- **Aucune question n'attend le propriétaire pendant une étape.** Le CTO
+  prend le choix réversible, le note dans « à revoir à la démo », et le lot
   continue. Seuls l'irréversible, l'argent et les droits lui arrivent tout de
   suite.
+- **Une étape n'est finie que quand le propriétaire l'a jouée seul et dit
+  oui.** Aller vite ne change pas ce critère.
 - **Ce que le propriétaire écrit sur une issue suit le lot** : le chef et le
   relecteur le reçoivent comme une consigne, avec ses raisons.
 - Les rôles, leurs modèles et leurs délais : `python3 -m atelier agents`.
   Changer un rôle de modèle, c'est changer une ligne de
   [`atelier.toml`](atelier.toml).
 
-## 2. Le mode direct — la refonte, puis les réparations
+## 2. Le mode direct — réparer, retoucher, changer la chaîne
 
 Quand le propriétaire ouvre un agent dans `D:\Forge` (PC) ou `~/Forge` (VPS)
-pour refondre ou réparer, l'agent modifie directement :
+pour réparer, pour retoucher ce qu'il vient de voir en jouant, ou pour changer
+la chaîne, l'agent modifie directement, et la PR entre dans la journée :
 
 1. une branche `direct/<sujet>` partie de `origin/master`, dans un worktree
    (`git worktree add .atelier/direct/<sujet> -b direct/<sujet> origin/master`) :
@@ -50,7 +58,8 @@ pour refondre ou réparer, l'agent modifie directement :
    (`gh pr list --search "head:lot/"`) et prévient si l'un touche les mêmes
    fichiers.
 
-Le travail du jeu passe par la chaîne. Seul le mode direct touche `atelier/`,
+Un système complet du jeu passe par la chaîne ; une retouche qui tient en
+une PR se fait en mode direct. Seul le mode direct touche `atelier/`,
 `.github/`, `atelier.toml`, `AGENTS.md`, `CLAUDE.md` et `CAP.md`.
 
 ## 3. Les principes du jeu, non négociables
@@ -80,7 +89,8 @@ Leur raison est dans [docs/VISION.md](docs/VISION.md), dans le même ordre.
    les tests qu'il touche, dans la même PR, en disant pourquoi** : un test
    juge le monde livré, jamais un « monde d'avant » gardé pour lui. Les
    longues preuves (un an, dix ans) tournent la nuit et ne bloquent pas une
-   fusion.
+   fusion. Un parcours réussi par script prouve que le chemin existe, pas
+   qu'un joueur le trouve.
 
 `cell_id` est la seule clé spatiale ; ce qui s'en dérive (province, bourg,
 lieu) ne se stocke pas comme une seconde clé ([jeu/sim/MODELE.md](jeu/sim/MODELE.md)).

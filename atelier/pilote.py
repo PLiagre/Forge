@@ -1,7 +1,7 @@
 """Le pilote : un tour de la chaîne.
 
 Un tour relit GitHub, fait avancer d'un pas les lots en cours, puis, si
-aucun agent n'est parti, regarde master, un lot bloqué, le palier du samedi,
+aucun agent n'est parti, regarde master, un lot bloqué, l'étape à proposer,
 et prend le lot suivant quand une machine a de la place. Il invoque au plus
 UN agent : un tour reste court à lire. Plusieurs tours tournent en même temps
 — le cron en lance un toutes les deux minutes —, et des verrous (`verrous.py`)
@@ -230,15 +230,16 @@ class Pilote:
         return bool(parti) and not (appels and appels == self.attentes - attentes)
 
     def _palier(self, vue: "_Vue") -> bool:
-        """Le samedi, ou la suite d'un palier vidé. Un seul tour à la fois :
-        le CTO y travaille de longues minutes, et un tour parti entre-temps
-        relirait la même issue, sans sa réponse, et l'appellerait de nouveau."""
+        """La parole du propriétaire sur l'issue de l'étape, ou l'étape
+        suivante proposée d'avance. Un seul tour à la fois : le CTO y
+        travaille de longues minutes, et un tour parti entre-temps relirait la
+        même issue, sans sa réponse, et l'appellerait de nouveau."""
         from . import palier
         if not self.verrous.prendre("palier"):
             return False
         try:
-            return (palier.samedi(self, vue.palier, vue.ouvertes, vue.fermes)
-                    or palier.suite(self, vue.palier, vue.ouvertes, vue.fermes))
+            return (palier.reponse(self, vue.palier, vue.ouvertes, vue.fermes)
+                    or palier.d_avance(self, vue.palier, vue.ouvertes, vue.fermes))
         finally:
             self.verrous.lacher("palier")
 
@@ -486,10 +487,13 @@ class Pilote:
         if not self.gh.pc_actif():
             self.noter(lot.numero, "attente", f"PC en pause ({VARIABLE_PC} = non) : {action} part à la reprise")
             return False
-        self.gh.lancer_workflow("lot-pc.yml", self.projet.branche_base, {"issue": str(lot.numero)})
+        chantier = self._chantier_pc(lot, pr)
+        self.gh.lancer_workflow("lot-pc.yml", self.projet.branche_base,
+                                {"issue": str(lot.numero), "chantier": chantier})
         quand = self.maintenant().isoformat(timespec="seconds")
         texte = (f"🤖 **pilote** : travail envoyé au PC ({action}). Il part quand le PC est allumé ; sans réponse en "
-                 f"24 h, il est renvoyé.\n\n{marque(role=lot.meneur, etat=lots.ENVOYE, action=action, quand=quand)}")
+                 f"24 h, il est renvoyé.\n\n"
+                 f"{marque(role=lot.meneur, etat=lots.ENVOYE, action=action, quand=quand, chantier=chantier)}")
         if pr is None:
             self.gh.commenter_issue(lot.numero, texte)
         else:
@@ -497,12 +501,33 @@ class Pilote:
         self.noter(lot.numero, "envoyé au PC", action)
         return False
 
+    def _chantier_pc(self, lot: Lot, pr: dict | None) -> str:
+        """Le chantier du PC où part le lot : celui où vit déjà sa session,
+        sinon le premier qu'aucun autre lot ouvert n'a pris. La session d'un
+        meneur ne se reprend que dans son dossier : un lot garde son chantier."""
+        def envois(numero: int, sa_pr: dict | None) -> list[dict]:
+            return lots.marques((self.gh.issue(numero).get("comments") or []) + ((sa_pr or {}).get("comments") or []))
+
+        sien = lots.chantier_du_lot(envois(lot.numero, pr))
+        capacite = self.projet.capacite("pc")
+        if sien or capacite < 2:
+            return sien or lots.CHANTIER_PC
+        tenus = set()
+        for autre in (Lot.de(i) for i in self.gh.issues("open")):
+            if autre.numero == lot.numero or not autre.est_un_lot or autre.machine != "pc":
+                continue
+            resume = self.gh.pr_de_branche(autre.branche(self.projet.prefixe_branche))
+            pris = lots.chantier_du_lot(envois(autre.numero, self.gh.pr(resume["number"]) if resume else None))
+            if pris:
+                tenus.add(pris)
+        return lots.chantier_libre(tenus, capacite)
+
     def marquer_attente(self, lot: Lot, numero_pr: int | None, raison: str) -> None:
         """Le PC n'a pas pu travailler : la marque répond à l'envoi sans compter
-        comme un passage du meneur, et le pilote renvoie dans l'heure."""
+        comme un passage du meneur, et le pilote renvoie au quart d'heure."""
         quand = self.maintenant().isoformat(timespec="seconds")
         texte = (f"🤖 **{NOMS[lot.meneur]}** (PC) : le lot attend — {raison}\n\nAucun essai n'est compté ; le pilote "
-                 f"renvoie le travail dans une heure.\n\n{marque(role=lot.meneur, etat=lots.ATTENTE, quand=quand)}")
+                 f"renvoie le travail dans un quart d'heure.\n\n{marque(role=lot.meneur, etat=lots.ATTENTE, quand=quand)}")
         if numero_pr is None:
             self.gh.commenter_issue(lot.numero, texte)
         else:
@@ -1019,6 +1044,15 @@ class Pilote:
             lfs_lisibles=tuple(lisibles), lfs_illisibles=tuple(illisibles), decisions=decisions, cto=role == CTO,
             captures_lisibles=tuple(images), captures_illisibles=tuple(sans_image), coeur=du_coeur,
             deja_relu=deja_relu)
+        # Une relecture coupée par son délai ne rend rien et repart de zéro :
+        # le relecteur sait donc le temps qu'il a, et qu'il a déjà été perdu une fois.
+        minutes = self.projet.delai(role) // 60
+        consigne += (f"\n\nTu as {minutes} minutes : passé ce délai, ta relecture est coupée et rien n'en reste. "
+                     f"Rends ton verdict avant la {max(minutes - 5, 1)}e minute, et dis dans tes constats ce que tu "
+                     "n'as pas eu le temps de relire.")
+        if echecs:
+            consigne += (" Une relecture de cette révision n'a déjà rien rendu : commence par le diff et les "
+                         f"preuves, et rends ton verdict avant la {max(minutes // 2, 1)}e minute.")
         appel = agents_mod.Appel(role=role, lecture_seule=True, consigne=consigne,
                                  schema=consignes.SCHEMA_RELECTURE, jours_max=self.projet.jours_max)
         res = self._invoquer(role, appel, chemin, lot=lot.numero)
@@ -1134,7 +1168,7 @@ class Pilote:
 
     def _debloquer(self, lot: Lot, commentaires: list[dict]) -> bool:
         """Le CTO lit le lot arrêté et décide : trancher la question, relancer
-        avec une consigne, redécouper, reporter à samedi, ou, pour
+        avec une consigne, redécouper, reporter à la démo, ou, pour
         l'irréversible, l'argent et les droits seulement, prévenir le
         propriétaire. Sa décision est écrite en entier — la réponse, ses
         raisons, ses bornes — et suit le lot."""
@@ -1166,7 +1200,7 @@ class Pilote:
         a_revoir = (sortie.get("a_revoir_samedi") or "").strip()
         numero_pr = pr["number"] if pr else None
         suite = ((f"\n\nPourquoi : {pourquoi}" if pourquoi else "") + (f"\n\nBornes : {bornes}" if bornes else "")
-                 + (f"\n\n**À revoir samedi** : {a_revoir}" if a_revoir else ""))
+                 + (f"\n\n**À revoir à la démo** : {a_revoir}" if a_revoir else ""))
         champs = {"etat": lots.DECISION, "pourquoi": pourquoi, "bornes": bornes, "a_revoir": a_revoir}
         retirer = [int(n) for n in sortie.get("dependances_a_retirer") or [] if isinstance(n, int)]
 
@@ -1216,12 +1250,12 @@ class Pilote:
         elif decision == "reporter" or decision in ("relancer", "trancher", "redecouper"):
             # Une décision que le lot ne peut pas recevoir (une lettre que la
             # question ne propose pas, une relance de trop, une découpe sans
-            # fiche) vaut report : rien n'attend le propriétaire en semaine.
-            dit = a_revoir or pourquoi or "le lot ne peut pas aboutir cette semaine"
-            self.gh.commenter_issue(lot.numero, f"🤖 **CTO** ({res.agent}) reporte le lot à samedi.{suite}\n\n"
+            # fiche) vaut report : rien n'attend le propriétaire pendant une étape.
+            dit = a_revoir or pourquoi or "le lot ne peut pas aboutir dans cette étape"
+            self.gh.commenter_issue(lot.numero, f"🤖 **CTO** ({res.agent}) reporte le lot à la démo.{suite}\n\n"
                                     + marque(**self._champs(CTO, res, decision="reporter", par=CTO,
                                                             **(champs | {"a_revoir": dit}))))
-            self.noter(lot.numero, "reporté à samedi par le CTO", dit[:160], str(res.agent))
+            self.noter(lot.numero, "reporté à la démo par le CTO", dit[:160], str(res.agent))
         else:
             raison = ("coupé par son délai" if res.coupe else f"code {res.code}" if not res.reussi
                       else "décision illisible")

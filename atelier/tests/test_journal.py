@@ -20,13 +20,13 @@ from conftest import MAINTENANT, PALIER, Agents, piloter
 FICHE = """## Ce que je joue de plus
 Je lève une armée.
 
-## Ce que je vois samedi
+## Ce que je vois à la démo
 Une armée sur la carte.
 
 ## La règle du monde
 Les soldats sont des habitants. Niveau 2.
 """
-FORMULAIRE = "### Ce que je joue de plus\n\nJe trace une route.\n\n### Ce que je vois samedi\n\nUne route sur la carte.\n"
+FORMULAIRE = "### Ce que je joue de plus\n\nJe trace une route.\n\n### Ce que je vois à la démo\n\nUne route sur la carte.\n"
 MATIN = MAINTENANT + timedelta(hours=1)
 CE_MATIN = "2026-11-16T08:00:00Z"
 PLAN = {"sortie": {"decision": "plan", "resume": "La levée.", "etapes": [
@@ -43,7 +43,7 @@ Le lot #10 donne la levée : une armée paraît sur la carte.
 ### En route
 - rien
 
-### À revoir samedi
+### À revoir à la démo
 - rien"""
 
 
@@ -78,7 +78,7 @@ def _arrete(gh, *marques_du_cto):
 def test_une_section_se_lit_dans_la_fiche_comme_dans_le_formulaire():
     assert journal.section(FICHE, "Ce que je joue de plus") == "Je lève une armée."
     assert journal.section(FICHE, "La règle du monde") == "Les soldats sont des habitants. Niveau 2."
-    assert journal.section(FORMULAIRE, "Ce que je vois samedi") == "Une route sur la carte."
+    assert journal.section(FORMULAIRE, "Ce que je vois à la démo") == "Une route sur la carte."
     assert journal.section(FORMULAIRE.replace("\n", "\r\n"), "Ce que je joue de plus") == "Je trace une route."
 
 
@@ -191,7 +191,7 @@ def test_a_revoir_samedi_ne_garde_que_les_choix_que_le_cto_a_pris_seul():
                     {"body": lots.marque(role="cto", etat="decision", decision="relancer", a_revoir="  ")},
                     {"body": lots.marque(role="cto", etat="arbitrage", a_revoir="un arbitrage n'est pas un choix")},
                     {"body": lots.marque(role="chef", etat="decision", a_revoir="le chef ne décide pas")},
-                    {"body": "à revoir samedi : un mot du propriétaire"}]
+                    {"body": "à revoir à la démo : un mot du propriétaire"}]
     assert journal.a_revoir_samedi(10, "Lever une armée", commentaires) == ["#10 Lever une armée : un homme pour dix foyers"]
 
 
@@ -220,7 +220,7 @@ def test_le_releve_donne_la_fiche_d_un_lot_livre(projet, gh):
                          "joueur": "Je lève une armée.", "samedi": "Une armée sur la carte."}]
     for attendu in ("LE PALIER EN COURS : " + PALIER, "LOTS LIVRÉS DEPUIS 2026-11-15 11:00 UTC (1) :",
                     "- #10 « Lever une armée » — https://x/pull/50 (piste : monde)",
-                    "  Ce que je joue de plus : Je lève une armée.", "  Ce que je vois samedi : Une armée sur la carte."):
+                    "  Ce que je joue de plus : Je lève une armée.", "  Ce que je vois à la démo : Une armée sur la carte."):
         assert attendu in r.texte.splitlines()
 
 
@@ -267,8 +267,9 @@ def test_un_palier_sans_lot_ouvert_est_dit_au_proprietaire(projet, gh):
     gh.issues_[10]["closedAt"], gh.issues_[11]["closedAt"] = "2026-11-15T12:58:00Z", "2026-11-16T10:02:00Z"
     r = journal.releve(gh, projet, MATIN)
     assert r.pour_toi == ["le palier « Palier 1 — La première guerre » n'a plus aucun lot ouvert depuis le 16/11 : "
-                          "la chaîne n'a plus rien à faire. Sur l'issue du palier, réponds à la suite que le CTO "
-                          "propose, ou écris ce que tu veux"]
+                          "la chaîne n'a plus rien à faire. Son build figé et sa note de démo arrivent sur son "
+                          "issue : joue-le, puis réponds « oui » à l'étape suivante que le CTO y propose, ou écris "
+                          "ce qu'il faut changer"]
     assert "POUR LE PROPRIÉTAIRE :\n- le palier « Palier 1 — La première guerre » n'a plus aucun lot ouvert" in r.texte
 
 
@@ -289,8 +290,8 @@ def test_le_releve_rassemble_les_choix_du_cto_a_revoir_samedi(projet, gh):
     r = journal.releve(gh, projet, MATIN)
     assert r.a_revoir == ["#10 Lever une armée : un homme pour dix foyers", "#11 Les frontières : les frontières en gris",
                           "#12 La caserne : la caserne attend le kit"]
-    assert r.arretes == ["#12 « La caserne » : il faut une licence — reporté à samedi par le CTO"] and r.pour_toi == []
-    assert "À REVOIR SAMEDI (les choix que le CTO a pris seul) :\n- #10 Lever une armée : un homme pour dix foyers" in r.texte
+    assert r.arretes == ["#12 « La caserne » : il faut une licence — reporté à la démo par le CTO"] and r.pour_toi == []
+    assert "À REVOIR À LA DÉMO (les choix que le CTO a pris seul) :\n- #10 Lever une armée : un homme pour dix foyers" in r.texte
 
 
 def test_le_releve_porte_la_table_des_couts_depuis_hier(projet, gh):
@@ -334,7 +335,7 @@ def test_la_redaction_du_pilote_tient_dans_le_gabarit(projet, gh):
                     "> **Pour toi** : #12 « La caserne » : le CTO te laisse la décision",
                     "**[Lever une armée](https://x/pull/50)**\nJe lève une armée.\nUne armée sur la carte.",
                     "### En route\n- #11 « Les frontières » (interface) : son plan s'écrit",
-                    "### À revoir samedi\n- #12 La caserne : la caserne attend sa licence"):
+                    "### À revoir à la démo\n- #12 La caserne : la caserne attend sa licence"):
         assert attendu in redaction
 
 

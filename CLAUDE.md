@@ -33,8 +33,9 @@ cd jeu && py -m pytest . -q -n 8 -m "not chronometre and not longue"
 La suite entière (`python3 -m pytest jeu -q`) reste le travail de la nuit : sur
 le VPS elle prend des heures et gêne tout le reste.
 
-Unity, sur le PC seulement, une instance à la fois (détail et pièges dans
-`3d/unity/CLAUDE.md`) :
+Unity, sur le PC seulement, une instance par dossier de projet : deux
+worktrees ont chacun la leur, et elles tournent ensemble (détail et pièges
+dans `3d/unity/CLAUDE.md`) :
 
 ```powershell
 # les tests EditMode ; la liste se sépare par « ; », et on lit testcasecount dans le XML

@@ -160,7 +160,7 @@ def test_le_delai_la_capacite_et_le_plafond_se_lisent_ou_prennent_leur_defaut(pr
     assert all(projet.delai(role) == 1800 for role in ROLES), "sans [delais], trente minutes"
     assert (projet.capacite("vps"), projet.capacite("pc"), projet.plafond("claude")) == (1, 1, None)
     assert (vrai.delai("chef"), vrai.delai("lecteur")) == (3600, 600)
-    assert (vrai.capacite("vps"), vrai.capacite("pc"), vrai.plafond("claude")) == (2, 1, 4)
+    assert (vrai.capacite("vps"), vrai.capacite("pc"), vrai.plafond("claude")) == (2, 2, 4)
     with pytest.raises(ProjetIncomplet, match="depanneur"):
         projet.agent("depanneur")
 
@@ -170,7 +170,7 @@ def test_la_table_des_roles_a_cinq_lignes_et_dit_le_parallelisme(projet, vrai):
     assert [l.split()[0] for l in lignes[1:6]] == list(ROLES) and lignes[6] == ""
     assert lignes[1].split() == ["cto", "claude-fable-5-2", "high", "1800", "s"]
     assert lignes[5].split() == ["lecteur", "claude-haiku-5-5", "medium", "600", "s"]
-    assert lignes[-2:] == ["lots en même temps : vps 2, pc 1", "agents en même temps : claude 4"]
+    assert lignes[-2:] == ["lots en même temps : vps 2, pc 2", "agents en même temps : claude 4"]
     assert table_des_roles(projet).splitlines()[-2:] == ["lots en même temps : vps 1, pc 1",
                                                          "agents en même temps : sans plafond"]
 

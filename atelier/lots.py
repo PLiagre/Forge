@@ -278,8 +278,33 @@ class Action:
 
 # Ce que le PC répond à un envoi : une étape faite, un échec, une coupure, ou
 # une attente (aucun de ses agents n'a pu répondre : ce n'est pas un passage).
-HEURES_ATTENTE_PC = 1
+# Une attente se renvoie au bout d'un quart d'heure : un renvoi qui retrouve
+# le quota vide ne coûte qu'un passage de quelques secondes, et un passage
+# tombé repart sans faire perdre une heure au lot.
+HEURES_ATTENTE_PC = 0.25
 HEURES_SILENCE_PC = 24
+# Les chantiers du PC : un dossier par lot mené en même temps, chacun avec
+# sa `Library` Unity. Le premier garde le nom du chantier unique d'avant.
+CHANTIER_PC = "pc"
+
+
+def chantiers_pc(capacite: int) -> list[str]:
+    """Les chantiers du PC, dans l'ordre où ils se prennent : `pc`, `pc-2`…"""
+    return [CHANTIER_PC] + [f"{CHANTIER_PC}-{i}" for i in range(2, max(capacite, 1) + 1)]
+
+
+def chantier_du_lot(liste: list[dict]) -> str | None:
+    """Le chantier du PC où vit la session du lot : celui de son dernier
+    envoi. Un envoi d'avant les chantiers est allé au premier. None : le lot
+    n'est jamais parti sur le PC."""
+    envois = [m for m in liste if m.get("etat") == ENVOYE]
+    return (envois[-1].get("chantier") or CHANTIER_PC) if envois else None
+
+
+def chantier_libre(tenus: set[str], capacite: int) -> str:
+    """Le premier chantier du PC qu'aucun autre lot ne tient. Tous tenus :
+    le premier, où les passages se suivent sur le même dossier."""
+    return next((c for c in chantiers_pc(capacite) if c not in tenus), CHANTIER_PC)
 # Les marques d'un passage du meneur.
 PLAN, ETAPE, CORRECTION, REPONSE, COUPE, ECHEC, ENVOYE, ATTENTE = (
     "plan", "etape", "correction", "reponse", "coupe", "echec", "envoye", "attente")
@@ -359,7 +384,7 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *, correct
         return Action("attendre_pc", "le travail est parti sur le PC")
     if (siens and siens[-1].get("etat") == ATTENTE and heures_depuis_attente_pc is not None
             and heures_depuis_attente_pc < HEURES_ATTENTE_PC):
-        return Action("attendre_pc", "aucun agent du PC n'a pu répondre : renvoi au bout d'une heure")
+        return Action("attendre_pc", "aucun agent du PC n'a pu répondre : renvoi au bout d'un quart d'heure")
 
     passages = [m for m in siens if m.get("etat") in _PASSAGES]
     if _de_suite(passages, COUPE) >= coupures_max:

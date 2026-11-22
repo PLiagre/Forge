@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Un tour d'un rôle : un verrou, la base à jour, Python, puis on sort.
 #
-# Rôles : pilote (un tour de la chaîne), journal, vendredi (la démo), veille.
+# Rôles : pilote (un tour de la chaîne), journal, demo (le build figé et la
+# note d'une étape vidée), veille.
 # Pour le journal, la démo et la veille, un tour qui tourne encore fait passer
 # le suivant : le verrou est par rôle. Les tours du pilote, eux, tournent en
 # même temps — un par lot en cours, chacun avec son agent — et se partagent
@@ -22,8 +23,8 @@ atelier_pythonpath
 
 role="${1:-}"
 case "$role" in
-  pilote|journal|vendredi|veille) : ;;
-  *) dire "usage : tour.sh <pilote|journal|vendredi|veille>"; exit 2 ;;
+  pilote|journal|demo|veille) : ;;
+  *) dire "usage : tour.sh <pilote|journal|demo|veille>"; exit 2 ;;
 esac
 
 mkdir -p "$ATELIER_VERROUS"
@@ -59,7 +60,7 @@ case "$role" in
   pilote)   sans_cles timeout -k 30 10800 python3 -m atelier --projet "$ATELIER_PROJET" tour || code=$? ;;
   journal)  sans_cles timeout -k 30 1800 python3 -m atelier --projet "$ATELIER_PROJET" journal || code=$? ;;
   # La démo attend le build figé (50 minutes au plus), puis le CTO écrit sa note.
-  vendredi) sans_cles timeout -k 30 6000 python3 -m atelier --projet "$ATELIER_PROJET" vendredi || code=$? ;;
+  demo)     sans_cles timeout -k 30 6000 python3 -m atelier --projet "$ATELIER_PROJET" demo || code=$? ;;
   veille)   sans_cles timeout -k 30 600 python3 -m atelier --projet "$ATELIER_PROJET" veille \
               | tee "${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" || code=$? ;;
 esac

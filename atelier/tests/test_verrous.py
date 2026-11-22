@@ -9,7 +9,6 @@ import pytest
 
 from atelier.verrous import AucunVerrou, VerrouOccupe, Verrous
 
-pytestmark = pytest.mark.skipif(sys.platform.startswith("win"), reason="flock : le pilote ne tourne que sur le VPS")
 
 
 def test_un_verrou_pris_par_un_tour_ne_se_prend_pas_ailleurs(tmp_path):

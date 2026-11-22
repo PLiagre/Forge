@@ -6,15 +6,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        Un lot est l'avancée d'une piste pour un palier
-        ([CAP.md](../blob/master/CAP.md)). Le samedi, c'est le CTO qui écrit
-        les fiches ; ce formulaire sert à en ajouter une à la main.
+        Un lot est un système complet du jeu, dans une étape
+        ([CAP.md](../blob/master/CAP.md)). C'est le CTO qui écrit les fiches
+        d'une étape ; ce formulaire sert à en ajouter une à la main.
 
         Après l'avoir créée, range l'issue dans le jalon de son palier
         (« Palier n — … ») et pose ses étiquettes : sa piste (`monde`,
         `ville` ou `interface`), `pc` si elle demande Unity ou Blender,
         `simple` si le développeur peut la mener seul. La chaîne prend les
-        lots `pret` du palier en cours, au plus petit numéro d'abord.
+        lots `pret` du palier en cours, deux par machine, au plus petit
+        numéro d'abord.
   - type: textarea
     id: joueur
     attributes:
@@ -25,7 +26,7 @@ body:
   - type: textarea
     id: samedi
     attributes:
-      label: Ce que je vois samedi
+      label: Ce que je vois à la démo
       description: L'écran, en mots de joueur.
     validations:
       required: true

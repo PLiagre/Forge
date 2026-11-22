@@ -8,6 +8,8 @@ arrivée sans ses raisons, un test changé sans raison, une relecture réduite
 
 from __future__ import annotations
 
+import dataclasses
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from conftest import Agents, piloter
 FICHE = """## Ce que je joue de plus
 Je lève une armée.
 
-## Ce que je vois samedi
+## Ce que je vois à la démo
 Une armée sur la carte.
 
 ## La règle du monde
@@ -382,6 +384,20 @@ def test_le_coeur_du_moteur_est_relu_par_le_relecteur_puis_par_le_cto(projet, gh
     assert ("fusion_auto", numero_pr) in gh.gestes
 
 
+def test_le_relecteur_sait_le_temps_qu_il_a_et_qu_une_relecture_a_deja_ete_perdue(projet, gh, depot, tmp_path):
+    """Le défaut : deux relectures coupées à trente minutes, sans rien rendre, ont coûté une heure à un lot
+    qu'une relecture bornée a accepté en deux minutes."""
+    depot.fichiers_ = ["jeu/sim/armees.py"]
+    pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, {"coupe": True}, ACCEPTE)
+    pilote.tour()
+    premiere = agents.appels[-1]["consigne"]
+    assert "Tu as 30 minutes" in premiere and "avant la 25e minute" in premiere and "déjà rien rendu" not in premiere
+    pilote.tour()
+    seconde = agents.appels[-1]["consigne"]
+    assert "n'a déjà rien rendu" in seconde and "avant la 15e minute" in seconde
+    assert _marques(gh, numero_pr, pr=True)[-1]["verdict"] == "ACCEPTE"
+
+
 def test_hors_du_coeur_le_relecteur_suffit(projet, gh, depot, tmp_path):
     depot.fichiers_ = ["jeu/sim/armees.py"]
     pilote, agents, numero_pr = _jusqu_a_la_relecture(projet, gh, depot, tmp_path, ACCEPTE)
@@ -478,7 +494,7 @@ def test_deux_corrections_puis_le_cto_regarde(projet, gh, depot, tmp_path):
     assert "relecture « CORRIGER » après 2 correction(s)" in gh.dits(10)
     pilote.tour()
     assert agents.modeles()[-1] == "fable" and "bloque" in gh.etiquettes(10)
-    assert "reporte le lot à samedi" in gh.dits(10)
+    assert "reporte le lot à la démo" in gh.dits(10)
     assert pilote.tour() == ["RIEN"], "un lot reporté n'est pas regardé une seconde fois"
     # Ce que le propriétaire écrit le fait repartir, et suit le lot.
     gh.commentaire_humain(10, "Garde la levée, mais un homme pour vingt foyers.")
@@ -555,10 +571,29 @@ def test_un_lot_pc_part_sur_le_pc_et_y_reste(projet, gh, depot, tmp_path):
     agents = Agents()
     pilote = piloter(projet, gh, depot, agents, tmp_path)
     pilote.tour()
-    assert ("lancer_workflow", "lot-pc.yml", {"issue": "10"}) in gh.gestes
+    assert ("lancer_workflow", "lot-pc.yml", {"issue": "10", "chantier": "pc"}) in gh.gestes
     assert _marques(gh, 10)[-1]["etat"] == lots.ENVOYE and not agents.appels
     assert pilote.tour() == ["#10 attendre_pc — le plan est parti sur le PC"]
     assert len([g for g in gh.gestes if g[0] == "lancer_workflow"]) == 1
+
+
+def test_deux_lots_pc_partent_ensemble_chacun_dans_son_chantier(projet, gh, depot, tmp_path):
+    """Le défaut : un seul chantier sur le PC, et le second lot Unity a attendu dix-neuf heures que le premier
+    soit fusionné. Avec deux places, chacun part dans son dossier, et le garde à chaque envoi."""
+    projet = dataclasses.replace(projet, machines={"vps": 1, "pc": 2})
+    gh.ajouter_issue(10, "L'accueil", ("lot", "pret", "interface", "pc"), corps=FICHE)
+    gh.ajouter_issue(11, "Les outils de la ville", ("lot", "pret", "ville", "pc"), corps=FICHE)
+    pilote = piloter(projet, gh, depot, Agents(), tmp_path)
+    pilote.tour()
+    pilote.tour()
+    envois = [g[2] for g in gh.gestes if g[0] == "lancer_workflow"]
+    assert envois == [{"issue": "10", "chantier": "pc"}, {"issue": "11", "chantier": "pc-2"}]
+    assert _marques(gh, 11)[-1]["chantier"] == "pc-2"
+    # Le PC a répondu par une attente : le renvoi repart dans le même chantier, où vit la session du lot.
+    gh.commenter_issue(11, lots.marque(role="chef", etat=lots.ATTENTE, quand="2026-11-16T10:00:00+00:00"))
+    pilote.maintenant = lambda: datetime(2026, 11, 16, 11, 0, tzinfo=timezone.utc)
+    pilote.tour()
+    assert [g[2] for g in gh.gestes if g[0] == "lancer_workflow"][-1] == {"issue": "11", "chantier": "pc-2"}
 
 
 def test_un_pc_en_pause_ne_recoit_rien(projet, gh, depot, tmp_path):

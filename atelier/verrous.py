@@ -3,8 +3,9 @@
 Le cron lance un tour toutes les deux minutes, qu'un autre tourne encore ou
 non : plusieurs lots avancent donc en même temps, chacun dans son worktree,
 et chaque tour n'invoque toujours qu'un agent. Ce qui ne doit se faire
-qu'une fois se tient par un verrou de fichier (flock), que le système rend
-seul quand le processus meurt :
+qu'une fois se tient par un verrou de fichier, que le système rend seul
+quand le processus meurt. Les passages du PC, quand il mène plusieurs lots
+à la fois, se partagent les mêmes verrous, plus un par chantier :
 
 - `lot-<n>` : un lot n'avance que dans un tour à la fois ;
 - `decider` : relire GitHub, ranger, reprendre, livrer et choisir le lot
@@ -13,6 +14,7 @@ seul quand le processus meurt :
   poussées) ;
 - `captures` : une publication à la fois sur la branche `journal` ;
 - `meca` : un mécanicien de master à la fois ;
+- `chantier-<nom>` : un chantier du PC ne porte qu'un passage à la fois ;
 - `palier` : un seul tour à la fois fait proposer un palier ou sa suite au
   CTO, qui y travaille plus longtemps que l'écart entre deux tours ;
 - `outil-<outil>-<i>` : les places d'un outil, jusqu'à son plafond
@@ -35,6 +37,32 @@ from typing import IO, Iterator
 
 class VerrouOccupe(RuntimeError):
     """Un verrou attendu trop longtemps : un tour bloqué le tient."""
+
+
+def _verrouiller(f: IO) -> bool:
+    """Prend le fichier sans attendre. Le système rend le verrou seul quand
+    le processus meurt, sous Linux (flock) comme sous Windows (msvcrt)."""
+    try:
+        if os.name == "nt":
+            import msvcrt
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
+def _deverrouiller(f: IO) -> None:
+    if os.name == "nt":
+        import msvcrt
+        f.seek(0)
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def dossier_par_defaut() -> Path:
@@ -78,26 +106,20 @@ class Verrous(AucunVerrou):
 
     def prendre(self, nom: str) -> bool:
         """Sans attendre : vrai si ce tour tient `nom` (déjà, ou désormais)."""
-        import fcntl  # POSIX : le pilote ne tourne que sur le VPS
-
         if nom in self._tenus:
             return True
         self.dossier.mkdir(parents=True, exist_ok=True)
         f = open(self._fichier(nom), "a+")
-        try:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
+        if not _verrouiller(f):
             f.close()
             return False
         self._tenus[nom] = f
         return True
 
     def lacher(self, nom: str) -> None:
-        import fcntl
-
         f = self._tenus.pop(nom, None)
         if f is not None:
-            fcntl.flock(f, fcntl.LOCK_UN)
+            _deverrouiller(f)
             f.close()
 
     def pris_ailleurs(self, nom: str) -> bool:

@@ -111,7 +111,7 @@ def schema_fiche(projet: Projet) -> dict:
         "machine": {"type": "string", "enum": ["vps", "pc"]},
         "meneur": {"type": "string", "enum": ["chef", "developpeur"]},
         "joueur": _chaine("ce que je joue de plus : le geste, et ce qu'il décide"),
-        "samedi": _chaine("ce que je vois samedi, en mots de joueur"),
+        "samedi": _chaine("ce que je vois à la démo, en mots de joueur"),
         "regle": _chaine("la règle du monde, son niveau de fidélité, la section de MODELE.md ; « sans objet » "
                          "pour un écran"),
         "preuves": _liste(_chaine("une commande qui peut échouer, ou la capture qu'on regarde")),
@@ -127,7 +127,7 @@ def schema_deblocage(projet: Projet) -> dict:
         "consigne": _chaine("pour « relancer » : ce que le meneur et le relecteur doivent faire, et où"),
         "reponse": _chaine("pour « trancher » : la lettre choisie"),
         "bornes": _chaine("ce que la décision n'autorise pas"),
-        "a_revoir_samedi": _chaine("une phrase pour le propriétaire, s'il doit revoir ce choix samedi"),
+        "a_revoir_samedi": _chaine("une phrase pour le propriétaire, s'il doit revoir ce choix à la démo"),
         "fiches": _liste(schema_fiche(projet)),
         "dependances_a_retirer": _liste({"type": "integer"}),
     }, ("decision", "pourquoi"))
@@ -137,7 +137,7 @@ def schema_palier(projet: Projet) -> dict:
     return _objet({
         "palier_atteint": {"type": "boolean", "description": "le propriétaire dit-il que le palier joué est atteint ?"},
         "titre": _chaine("le titre du palier suivant, en trois à cinq mots"),
-        "but": _chaine("ce que le joueur saura faire à la fin de la semaine"),
+        "but": _chaine("ce que le joueur saura faire à la fin de l'étape"),
         "fiches": _liste(schema_fiche(projet)),
         "note": _chaine("ce que tu as fait de chaque demande du propriétaire, et ce que tu reportes"),
     }, ("palier_atteint", "titre", "but", "fiches", "note"))
@@ -163,7 +163,7 @@ def corps_de_fiche(fiche: dict, *, depend_de: list[int] = (), decoupe_de: int | 
     preuves = "\n".join(f"- {p}" for p in fiche.get("preuves") or []) or "- (à écrire par le chef de lot)"
     morceaux = [
         "## Ce que je joue de plus", fiche.get("joueur", "").strip(), "",
-        "## Ce que je vois samedi", fiche.get("samedi", "").strip(), "",
+        "## Ce que je vois à la démo", fiche.get("samedi", "").strip(), "",
         "## La règle du monde", fiche.get("regle", "").strip() or "sans objet", "",
         "## Les preuves", preuves, "",
     ]
@@ -405,11 +405,11 @@ Ce qui s'est dit sur la PR, du plus ancien au plus récent :
 {pr.strip()[-16000:] or "(pas de PR)"}
 -----
 {ci}
-Pendant la semaine, aucune question n'attend le propriétaire. Décide :
+Pendant une étape, aucune question n'attend le propriétaire. Décide :
 - `trancher` : pour une question. Choisis une des lettres proposées (`reponse`) quand `docs/VISION.md`, `CAP.md` ou une décision déjà écrite la donnent, ou quand le choix est réversible (un seuil, une durée, une donnée de `jeu/data/`, un ordre, une formulation). Dis pourquoi, et pose les bornes : ce que ta réponse n'autorise pas. Si le propriétaire doit revoir ce choix, écris-le en une phrase dans `a_revoir_samedi`.
 - `relancer` : le lot repart, avec ta `consigne` au meneur et au relecteur : le fichier, la fonction, ce qu'il faut changer et pourquoi ; et ses `bornes`.
 - `redecouper` : le lot est trop gros ou mal posé. Écris les fiches qui le remplacent (`fiches`), chacune jouable et prouvée seule ; le pilote ferme ce lot et sa PR, et ouvre les tiennes.
-- `reporter` : le lot ne peut pas aboutir cette semaine. Il reste arrêté jusqu'à samedi ; dis pourquoi dans `a_revoir_samedi`.
+- `reporter` : le lot ne peut pas aboutir dans cette étape. Il reste arrêté jusqu'à la démo ; dis pourquoi dans `a_revoir_samedi`.
 - `proprietaire` : seulement pour l'irréversible, l'argent et les droits (une dépense, une licence, un secret, un réglage de GitHub ou d'une machine, une donnée figée qu'on ne retrouverait pas). Le propriétaire est prévenu tout de suite.
 Jamais une décision qui touche {_interdits(projet)}, ni qui fait dire à un test le contraire de ce que le monde livré fait. {_FRONTIERE}"""
 
@@ -435,14 +435,18 @@ Rends `meneur` s'il a raison sur tous les constats bloquants qu'il conteste : le
 
 
 def palier(projet: Projet, *, numero: int, note_du_proprietaire: str, etat_du_palier: str, a_revoir: str,
-           proposition: str = "", remarques: str = "") -> str:
-    """Le CTO, le samedi : tirer les lots du palier suivant de ce que le propriétaire a dit."""
+           proposition: str = "", remarques: str = "", d_avance: bool = False) -> str:
+    """Le CTO, quand une étape est finie : tirer les lots de l'étape suivante, d'après `CAP.md` et ce que le
+    propriétaire a dit ; `d_avance`, avant qu'il ait joué."""
     reprise = (f"\nTa proposition précédente :\n-----\n{proposition.strip()[:8000]}\n-----\n"
                f"Ce que le propriétaire en a dit :\n-----\n{remarques.strip()[:4000]}\n-----\nRefais-la en en tenant compte.\n"
                if proposition.strip() else "")
+    moment = (f"Les lots du palier {numero} sont tous fermés, son build est figé et sa note de démo est posée. Le propriétaire n'a pas encore joué. Propose d'avance le palier {numero + 1} : l'étape suivante de `CAP.md`, pour qu'un « oui » l'ouvre dès qu'il aura joué."
+              if d_avance else
+              f"Le propriétaire a joué la démo du palier {numero} et a écrit ce qu'il veut. Tire de sa note et de `CAP.md` le palier {numero + 1}.")
     return f"""{_contexte_cto(projet)}
 
-C'est samedi. Le propriétaire a joué la démo du palier {numero} et a écrit ce qu'il veut. Tire de sa note le palier {numero + 1} : les lots de la semaine.
+{moment}
 
 Ce que le propriétaire a écrit :
 -----
@@ -452,53 +456,27 @@ Où en est le palier {numero} (lots livrés, en cours, arrêtés) :
 -----
 {etat_du_palier.strip()[:8000] or "(rien)"}
 -----
-Ce que tu avais décidé seul pendant la semaine, « à revoir samedi » :
+Ce que tu avais décidé seul pendant l'étape, « à revoir à la démo » :
 -----
 {a_revoir.strip()[:4000] or "(rien)"}
 -----
 {reprise}
-La règle d'un palier et d'un lot est dans `CAP.md`. Regarde le code avant d'écrire : une fiche promet ce que le jeu peut vraiment recevoir en une semaine.
-- Un palier est une seule grande avancée du jeu, sur une semaine entière. Un lot par piste au moins ({", ".join(projet.pistes)}), et autant de lots que la semaine en porte : un palier de trois lots s'est fait en un jour et demi, et la chaîne est restée sans travail le reste de la semaine. Plusieurs lots par piste, enchaînés par `apres`, remplissent la semaine ; la piste du monde (le VPS, deux lots à la fois) en porte plus que les deux pistes du PC (un seul Unity, allumé le jour). Un lot est l'avancée d'une piste pour le palier, sans plafond de taille : ne le coupe pas en morceaux invisibles.
-- Les lots s'emboîtent : si un geste du palier exige ce qu'un autre lot bâtit, une fiche dit comment chaque maison de départ y arrive. La dernière fiche porte la preuve du palier : son scénario joué d'un trait dans le build, depuis une maison de départ que tu nommes.
-- Chaque fiche dit ce que je joue de plus, ce que je vois samedi, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste, la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant).
-- `apres` : les rangs, dans ta liste, des fiches qu'une fiche attend vraiment (l'écran attend la règle). Jamais de boucle.
+Les étapes, leur ordre, leur durée en jours et la règle d'un lot sont dans `CAP.md` ; les fiches déjà préparées d'une étape sont dans `docs/etapes/`. Regarde le code avant d'écrire : une fiche promet ce que le jeu peut vraiment recevoir.
+- Un palier est une étape de `CAP.md`, ou la tranche d'une étape qui se joue seule : elle se compte en jours, pas en semaines. Si le propriétaire dit que l'étape jouée n'est pas au niveau, le palier suivant la corrige d'abord ; sinon c'est l'étape d'après, dans l'ordre de `CAP.md`. Reprends les fiches de `docs/etapes/` quand elles existent, corrigées de ce que le code est devenu.
+- Un lot est un système complet du jeu, qui se joue seul, sans plafond de taille. Ce qui touche les mêmes fichiers va dans le même lot plutôt que dans deux lots qui s'attendent : chaque lot de plus coûte un plan, une CI et une relecture.
+- Tout part en parallèle, sauf ce qui dépend vraiment d'un autre lot. Le VPS mène {projet.capacite("vps")} lots à la fois, le PC {projet.capacite("pc")} (Unity) ; deux lots du PC menés ensemble ne touchent ni la même scène, ni le même prefab, ni le même écran. `apres` ne porte que les fiches qu'une fiche attend vraiment (l'écran attend la donnée qu'il affiche) ; jamais « après » pour ranger. Jamais de boucle.
+- Le chemin le plus long, de la première fiche à la dernière en suivant `apres`, tient dans la durée que `CAP.md` donne à l'étape, à raison de deux à quatre heures par lot. S'il ne tient pas, regroupe ou retire des dépendances.
+- La dernière fiche du chemin porte la preuve de l'étape : son critère de fin dans `CAP.md`, joué d'un trait dans le build, sans touche à connaître.
+- Chaque fiche dit ce que je joue de plus, ce que je vois à la démo, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste ({", ".join(projet.pistes)}), la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant). Dans `hors_du_lot`, les dossiers que le lot touche et ce qu'il laisse à un autre.
 - Ce qui reste du palier {numero} et que le propriétaire veut encore, reprends-le dans une fiche ; ce qu'il écarte, laisse-le.
-- `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, et ce que tu reportes. {_FRONTIERE}"""
-
-
-def suite_du_palier(projet: Projet, *, numero: int, etat_du_palier: str, a_revoir: str, proposition: str = "",
-                    remarques: str = "") -> str:
-    """Le CTO, en semaine : le palier n'a plus de lot ouvert avant sa démo, il en propose la suite."""
-    reprise = (f"\nTa proposition précédente :\n-----\n{proposition.strip()[:8000]}\n-----\n"
-               f"Ce que le propriétaire en a dit :\n-----\n{remarques.strip()[:4000]}\n-----\nRefais-la en en tenant "
-               "compte. S'il dit d'attendre la démo, ne rends aucune fiche.\n" if proposition.strip() else "")
-    return f"""{_contexte_cto(projet)}
-
-Tous les lots du palier {numero} sont fermés et sa démo n'a pas encore eu lieu : la chaîne n'a plus rien à faire. Propose la suite du palier {numero} : les lots qui le rendent plus jouable d'ici la démo. Le propriétaire les ouvrira d'un « oui ».
-
-Où en est le palier {numero} :
------
-{etat_du_palier.strip()[:8000] or "(rien)"}
------
-Ce que tu avais décidé seul, « à revoir samedi » :
------
-{a_revoir.strip()[:4000] or "(rien)"}
------
-{reprise}
-La règle d'un palier et d'un lot est dans `CAP.md`. Regarde le code livré avant d'écrire : cherche ce qui manque pour que le palier se joue d'un trait.
-- Reste dans le palier {numero} : ce que ses lots ont laissé (un geste que seule une maison peut faire, un écran qui ne propose pas ce que le monde accepte, une règle mal calibrée, le scénario du palier jamais joué d'un trait dans le build). Le palier suivant se décide le samedi, pas ici : n'en ouvre pas le thème.
-- Ne prends que des choix réversibles. Ce qui change une règle que le propriétaire a demandée attend samedi : dis-le dans `note`.
-- Chaque fiche dit ce que je joue de plus, ce que je vois samedi, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste, la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant).
-- `apres` : les rangs, dans ta liste, des fiches qu'une fiche attend vraiment. Jamais de boucle.
-- Si rien ne mérite un lot avant la démo, rends une liste de fiches vide et dis pourquoi dans `note`.
-- `titre` : ce que la suite apporte, en trois à cinq mots. `but` : ce que le joueur saura faire de plus à la démo. `palier_atteint` : faux, le propriétaire n'a pas joué. `note` : ce que tu laisses pour samedi, et pourquoi. {_FRONTIERE}"""
+- `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, ce que tu reportes, et ce qui part en parallèle. {_FRONTIERE}"""
 
 
 def note_de_demo(projet: Projet, *, numero: int, titre: str, faits: str) -> str:
-    """Le CTO, le vendredi soir : la note d'une page qui accompagne le build figé."""
+    """Le CTO, quand l'étape n'a plus de lot ouvert : la note d'une page qui accompagne le build figé."""
     return f"""{_contexte_cto(projet)}
 
-C'est vendredi soir. Le build du palier {numero} « {titre} » est figé. Écris la note d'une page que le propriétaire lira avant de jouer samedi. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes. Les faits disent si le build a été construit ce soir : s'il ne l'a pas été, dis-le en tête de « Ce qui manque ».
+Tous les lots du palier {numero} « {titre} » sont fermés, et son build est figé. Écris la note d'une page que le propriétaire lira avant de le jouer, seul et sans guide. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes. Les faits disent si le build a été construit : s'il ne l'a pas été, dis-le en tête de « Ce qui manque ».
 
 Les faits, relevés par le pilote sur GitHub :
 -----
@@ -508,18 +486,18 @@ Les faits, relevés par le pilote sur GitHub :
 Écris en français simple, en mots de joueur, sans jargon de code ni de chaîne, exactement ces parties :
 
 ## Quoi essayer
-Les gestes à faire, dans l'ordre, pour voir le palier : où cliquer, quoi attendre.
+Les gestes à faire, dans l'ordre, pour voir l'étape : où cliquer, quoi attendre. Dis aussi ce que l'écran n'explique pas encore : une touche à connaître, un endroit où cliquer qu'on ne devine pas.
 
 ## Ce qui marche
-Ce que chaque piste a vraiment livré cette semaine.
+Ce que chaque lot a vraiment livré.
 
 ## Ce qui manque
 Ce qui était promis et n'y est pas, et pourquoi, sans l'adoucir.
 
-## À revoir samedi
-Les choix que tu as pris seul pendant la semaine, chacun en une ligne, avec ce qu'il faudrait changer s'il ne convient pas.
+## À revoir à la démo
+Les choix que tu as pris seul pendant l'étape, chacun en une ligne, avec ce qu'il faudrait changer s'il ne convient pas.
 
-## Ce que la semaine a coûté
+## Ce que l'étape a coûté
 Le tableau des coûts des faits, tel quel.
 
 Rien d'autre que ces parties."""
@@ -555,7 +533,7 @@ Pour chaque lot livré : son titre en gras avec le lien de sa PR, puis deux phra
 ### En route
 Une ligne par lot en cours : où il en est.
 
-### À revoir samedi
+### À revoir à la démo
 Les choix que le CTO a pris seul, un par ligne, tels que les faits les donnent.
 
 Interdits : les noms de fichiers et de fonctions, les mots de la chaîne (PR ouverte, session, marque, verdict), les noms de modèles. Le pilote ajoute lui-même les coûts : ne les écris pas. Rien d'autre que ces parties."""
