@@ -1,0 +1,261 @@
+{
+  "date": "1400-01-01",
+  "projection": "EPSG:3035",
+  "reference": "EPSG:4326",
+  "unite": "Latitudes et longitudes en degrés décimaux, WGS84 ; la conversion en mètres EPSG:3035 se fait au chargement.",
+  "description": "Les noms et les places de l'atlas : les grands fleuves de leur source à leur mer, les mers et les grandes régions, un point de lecture chacun, une source publique par ligne.",
+  "fidelite": "Niveau 1 : des noms et des places justes dans les grandes lignes, d'après les coordonnées publiques des articles cités, sans prétendre restituer un tracé de 1400. Niveau 2 : le cours d'un fleuve joint des lieux de ses rives par des segments droits, les bras, les méandres et les déplacements du lit depuis 1400 n'y sont pas ; le point d'une mer ou d'une région est un point de lecture du nom, jamais une frontière.",
+  "fleuves": [
+    {
+      "nom": "Loire",
+      "points": [
+        {"nom": "Mont Gerbier de Jonc", "lat": 44.84444, "lon": 4.22, "source": "Wikipédia (en), article Mont Gerbier de Jonc, coordonnées de l'article : https://en.wikipedia.org/wiki/Mont_Gerbier_de_Jonc"},
+        {"nom": "Le Puy-en-Velay", "lat": 45.04444, "lon": 3.88472, "source": "Wikipédia (en), article Le Puy-en-Velay, coordonnées de l'article : https://en.wikipedia.org/wiki/Le_Puy-en-Velay"},
+        {"nom": "Roanne", "lat": 46.0367, "lon": 4.0689, "source": "Wikipédia (en), article Roanne, coordonnées de l'article : https://en.wikipedia.org/wiki/Roanne"},
+        {"nom": "Nevers", "lat": 46.9933, "lon": 3.1572, "source": "Wikipédia (en), article Nevers, coordonnées de l'article : https://en.wikipedia.org/wiki/Nevers"},
+        {"nom": "Orléans", "lat": 47.9025, "lon": 1.909, "source": "Wikipédia (en), article Orléans, coordonnées de l'article : https://en.wikipedia.org/wiki/Orléans"},
+        {"nom": "Blois", "lat": 47.5939, "lon": 1.3281, "source": "Wikipédia (en), article Blois, coordonnées de l'article : https://en.wikipedia.org/wiki/Blois"},
+        {"nom": "Tours", "lat": 47.39361, "lon": 0.68917, "source": "Wikipédia (en), article Tours, coordonnées de l'article : https://en.wikipedia.org/wiki/Tours"},
+        {"nom": "Angers", "lat": 47.47111, "lon": -0.55194, "source": "Wikipédia (en), article Angers, coordonnées de l'article : https://en.wikipedia.org/wiki/Angers"},
+        {"nom": "Nantes", "lat": 47.2181, "lon": -1.5528, "source": "Wikipédia (en), article Nantes, coordonnées de l'article : https://en.wikipedia.org/wiki/Nantes"},
+        {"nom": "Saint-Nazaire", "lat": 47.27361, "lon": -2.21389, "source": "Wikipédia (en), article Saint-Nazaire, coordonnées de l'article : https://en.wikipedia.org/wiki/Saint-Nazaire"}
+      ]
+    },
+    {
+      "nom": "Seine",
+      "points": [
+        {"nom": "Source-Seine", "lat": 47.5007, "lon": 4.6967, "source": "Wikipédia (en), article Source-Seine, coordonnées de l'article : https://en.wikipedia.org/wiki/Source-Seine"},
+        {"nom": "Troyes", "lat": 48.2997, "lon": 4.0792, "source": "Wikipédia (en), article Troyes, coordonnées de l'article : https://en.wikipedia.org/wiki/Troyes"},
+        {"nom": "Melun", "lat": 48.5406, "lon": 2.66, "source": "Wikipédia (en), article Melun, coordonnées de l'article : https://en.wikipedia.org/wiki/Melun"},
+        {"nom": "Paris", "lat": 48.8567, "lon": 2.3522, "source": "Wikipédia (en), article Paris, coordonnées de l'article : https://en.wikipedia.org/wiki/Paris"},
+        {"nom": "Rouen", "lat": 49.44278, "lon": 1.08861, "source": "Wikipédia (en), article Rouen, coordonnées de l'article : https://en.wikipedia.org/wiki/Rouen"},
+        {"nom": "Honfleur", "lat": 49.4194, "lon": 0.2325, "source": "Wikipédia (en), article Honfleur, coordonnées de l'article : https://en.wikipedia.org/wiki/Honfleur"},
+        {"nom": "Le Havre", "lat": 49.49, "lon": 0.1, "source": "Wikipédia (en), article Le Havre, coordonnées de l'article : https://en.wikipedia.org/wiki/Le_Havre"}
+      ]
+    },
+    {
+      "nom": "Rhône",
+      "points": [
+        {"nom": "Glacier du Rhône", "lat": 46.572, "lon": 8.37633, "source": "Wikipédia (en), article Rhône Glacier, coordonnées de l'article : https://en.wikipedia.org/wiki/Rhône_Glacier"},
+        {"nom": "Genève", "lat": 46.20167, "lon": 6.14694, "source": "Wikipédia (en), article Geneva, coordonnées de l'article : https://en.wikipedia.org/wiki/Geneva"},
+        {"nom": "Lyon", "lat": 45.7675, "lon": 4.835, "source": "Wikipédia (en), article Lyon, coordonnées de l'article : https://en.wikipedia.org/wiki/Lyon"},
+        {"nom": "Valence", "lat": 44.9333, "lon": 4.8917, "source": "Wikipédia (en), article Valence, Drôme, coordonnées de l'article : https://en.wikipedia.org/wiki/Valence,_Drôme"},
+        {"nom": "Avignon", "lat": 43.95, "lon": 4.8075, "source": "Wikipédia (en), article Avignon, coordonnées de l'article : https://en.wikipedia.org/wiki/Avignon"},
+        {"nom": "Arles", "lat": 43.6767, "lon": 4.6278, "source": "Wikipédia (en), article Arles, coordonnées de l'article : https://en.wikipedia.org/wiki/Arles"},
+        {"nom": "Port-Saint-Louis-du-Rhône", "lat": 43.3875, "lon": 4.804, "source": "Wikipédia (en), article Port-Saint-Louis-du-Rhône, coordonnées de l'article : https://en.wikipedia.org/wiki/Port-Saint-Louis-du-Rhône"}
+      ]
+    },
+    {
+      "nom": "Rhin",
+      "points": [
+        {"nom": "Lac de Toma", "lat": 46.6325, "lon": 8.67222, "source": "Wikipédia (en), article Tomasee, coordonnées de l'article : https://en.wikipedia.org/wiki/Tomasee"},
+        {"nom": "Coire", "lat": 46.85, "lon": 9.53333, "source": "Wikipédia (en), article Chur, coordonnées de l'article : https://en.wikipedia.org/wiki/Chur"},
+        {"nom": "Bâle", "lat": 47.55806, "lon": 7.58778, "source": "Wikipédia (en), article Basel, coordonnées de l'article : https://en.wikipedia.org/wiki/Basel"},
+        {"nom": "Strasbourg", "lat": 48.58333, "lon": 7.74583, "source": "Wikipédia (en), article Strasbourg, coordonnées de l'article : https://en.wikipedia.org/wiki/Strasbourg"},
+        {"nom": "Mayence", "lat": 49.99944, "lon": 8.27361, "source": "Wikipédia (en), article Mainz, coordonnées de l'article : https://en.wikipedia.org/wiki/Mainz"},
+        {"nom": "Coblence", "lat": 50.35972, "lon": 7.59778, "source": "Wikipédia (en), article Koblenz, coordonnées de l'article : https://en.wikipedia.org/wiki/Koblenz"},
+        {"nom": "Cologne", "lat": 50.93639, "lon": 6.95278, "source": "Wikipédia (en), article Cologne, coordonnées de l'article : https://en.wikipedia.org/wiki/Cologne"},
+        {"nom": "Duisburg", "lat": 51.43472, "lon": 6.7625, "source": "Wikipédia (en), article Duisburg, coordonnées de l'article : https://en.wikipedia.org/wiki/Duisburg"},
+        {"nom": "Nimègue", "lat": 51.8475, "lon": 5.8625, "source": "Wikipédia (en), article Nijmegen, coordonnées de l'article : https://en.wikipedia.org/wiki/Nijmegen"},
+        {"nom": "Rotterdam", "lat": 51.92, "lon": 4.48, "source": "Wikipédia (en), article Rotterdam, coordonnées de l'article : https://en.wikipedia.org/wiki/Rotterdam"},
+        {"nom": "Hoek van Holland", "lat": 51.98111, "lon": 4.12861, "source": "Wikipédia (en), article Hook of Holland, coordonnées de l'article : https://en.wikipedia.org/wiki/Hook_of_Holland"}
+      ]
+    },
+    {
+      "nom": "Danube",
+      "points": [
+        {"nom": "Donaueschingen", "lat": 47.95306, "lon": 8.50333, "source": "Wikipédia (en), article Donaueschingen, coordonnées de l'article : https://en.wikipedia.org/wiki/Donaueschingen"},
+        {"nom": "Ulm", "lat": 48.39861, "lon": 9.99111, "source": "Wikipédia (en), article Ulm, coordonnées de l'article : https://en.wikipedia.org/wiki/Ulm"},
+        {"nom": "Ratisbonne", "lat": 49.01667, "lon": 12.08333, "source": "Wikipédia (en), article Regensburg, coordonnées de l'article : https://en.wikipedia.org/wiki/Regensburg"},
+        {"nom": "Passau", "lat": 48.57444, "lon": 13.46472, "source": "Wikipédia (en), article Passau, coordonnées de l'article : https://en.wikipedia.org/wiki/Passau"},
+        {"nom": "Vienne", "lat": 48.2083, "lon": 16.3725, "source": "Wikipédia (en), article Vienna, coordonnées de l'article : https://en.wikipedia.org/wiki/Vienna"},
+        {"nom": "Bratislava", "lat": 48.14389, "lon": 17.10972, "source": "Wikipédia (en), article Bratislava, coordonnées de l'article : https://en.wikipedia.org/wiki/Bratislava"},
+        {"nom": "Budapest", "lat": 47.4925, "lon": 19.05139, "source": "Wikipédia (en), article Budapest, coordonnées de l'article : https://en.wikipedia.org/wiki/Budapest"},
+        {"nom": "Belgrade", "lat": 44.81778, "lon": 20.45694, "source": "Wikipédia (en), article Belgrade, coordonnées de l'article : https://en.wikipedia.org/wiki/Belgrade"},
+        {"nom": "Vidin", "lat": 43.99306, "lon": 22.87222, "source": "Wikipédia (en), article Vidin, coordonnées de l'article : https://en.wikipedia.org/wiki/Vidin"},
+        {"nom": "Roussé", "lat": 43.82306, "lon": 25.95389, "source": "Wikipédia (en), article Ruse, Bulgaria, coordonnées de l'article : https://en.wikipedia.org/wiki/Ruse,_Bulgaria"},
+        {"nom": "Galați", "lat": 45.43361, "lon": 28.05528, "source": "Wikipédia (en), article Galați, coordonnées de l'article : https://en.wikipedia.org/wiki/Galați"},
+        {"nom": "Tulcea", "lat": 45.1775, "lon": 28.8036, "source": "Wikipédia (en), article Tulcea, coordonnées de l'article : https://en.wikipedia.org/wiki/Tulcea"},
+        {"nom": "Sulina", "lat": 45.15944, "lon": 29.65278, "source": "Wikipédia (en), article Sulina, coordonnées de l'article : https://en.wikipedia.org/wiki/Sulina"}
+      ]
+    },
+    {
+      "nom": "Elbe",
+      "points": [
+        {"nom": "Špindlerův Mlýn", "lat": 50.72528, "lon": 15.60833, "source": "Wikipédia (en), article Špindlerův Mlýn, coordonnées de l'article : https://en.wikipedia.org/wiki/Špindlerův_Mlýn"},
+        {"nom": "Pardubice", "lat": 50.03861, "lon": 15.77917, "source": "Wikipédia (en), article Pardubice, coordonnées de l'article : https://en.wikipedia.org/wiki/Pardubice"},
+        {"nom": "Mělník", "lat": 50.35194, "lon": 14.475, "source": "Wikipédia (en), article Mělník, coordonnées de l'article : https://en.wikipedia.org/wiki/Mělník"},
+        {"nom": "Dresde", "lat": 51.05, "lon": 13.74, "source": "Wikipédia (en), article Dresden, coordonnées de l'article : https://en.wikipedia.org/wiki/Dresden"},
+        {"nom": "Magdebourg", "lat": 52.13167, "lon": 11.63917, "source": "Wikipédia (en), article Magdeburg, coordonnées de l'article : https://en.wikipedia.org/wiki/Magdeburg"},
+        {"nom": "Hambourg", "lat": 53.55, "lon": 10, "source": "Wikipédia (en), article Hamburg, coordonnées de l'article : https://en.wikipedia.org/wiki/Hamburg"},
+        {"nom": "Cuxhaven", "lat": 53.86111, "lon": 8.69444, "source": "Wikipédia (en), article Cuxhaven, coordonnées de l'article : https://en.wikipedia.org/wiki/Cuxhaven"}
+      ]
+    },
+    {
+      "nom": "Pô",
+      "points": [
+        {"nom": "Crissolo", "lat": 44.7, "lon": 7.16667, "source": "Wikipédia (en), article Crissolo, coordonnées de l'article : https://en.wikipedia.org/wiki/Crissolo"},
+        {"nom": "Turin", "lat": 45.07917, "lon": 7.67611, "source": "Wikipédia (en), article Turin, coordonnées de l'article : https://en.wikipedia.org/wiki/Turin"},
+        {"nom": "Casale Monferrato", "lat": 45.13333, "lon": 8.45, "source": "Wikipédia (en), article Casale Monferrato, coordonnées de l'article : https://en.wikipedia.org/wiki/Casale_Monferrato"},
+        {"nom": "Plaisance", "lat": 45.04778, "lon": 9.70056, "source": "Wikipédia (en), article Piacenza, coordonnées de l'article : https://en.wikipedia.org/wiki/Piacenza"},
+        {"nom": "Crémone", "lat": 45.13333, "lon": 10.02472, "source": "Wikipédia (en), article Cremona, coordonnées de l'article : https://en.wikipedia.org/wiki/Cremona"},
+        {"nom": "Ostiglia", "lat": 45.06667, "lon": 11.13333, "source": "Wikipédia (en), article Ostiglia, coordonnées de l'article : https://en.wikipedia.org/wiki/Ostiglia"},
+        {"nom": "Porto Tolle", "lat": 44.95, "lon": 12.31667, "source": "Wikipédia (en), article Porto Tolle, coordonnées de l'article : https://en.wikipedia.org/wiki/Porto_Tolle"}
+      ]
+    },
+    {
+      "nom": "Èbre",
+      "points": [
+        {"nom": "Fontibre", "lat": 43.01778, "lon": -4.18861, "source": "Wikipédia (en), article Fontibre, coordonnées de l'article : https://en.wikipedia.org/wiki/Fontibre"},
+        {"nom": "Haro", "lat": 42.58333, "lon": -2.85, "source": "Wikipédia (en), article Haro, La Rioja, coordonnées de l'article : https://en.wikipedia.org/wiki/Haro,_La_Rioja"},
+        {"nom": "Logroño", "lat": 42.465, "lon": -2.44556, "source": "Wikipédia (en), article Logroño, coordonnées de l'article : https://en.wikipedia.org/wiki/Logroño"},
+        {"nom": "Tudela", "lat": 42.06528, "lon": -1.60667, "source": "Wikipédia (en), article Tudela, coordonnées de l'article : https://en.wikipedia.org/wiki/Tudela"},
+        {"nom": "Saragosse", "lat": 41.65, "lon": -0.88333, "source": "Wikipédia (en), article Zaragoza, coordonnées de l'article : https://en.wikipedia.org/wiki/Zaragoza"},
+        {"nom": "Mequinenza", "lat": 41.36667, "lon": 0.3, "source": "Wikipédia (en), article Mequinenza, coordonnées de l'article : https://en.wikipedia.org/wiki/Mequinenza"},
+        {"nom": "Amposta", "lat": 40.71056, "lon": 0.58083, "source": "Wikipédia (en), article Amposta, coordonnées de l'article : https://en.wikipedia.org/wiki/Amposta"},
+        {"nom": "Embouchure de l'Èbre", "lat": 40.72, "lon": 0.86306, "source": "Wikipédia (en), article Ebro, coordonnées de l'article : https://en.wikipedia.org/wiki/Ebro"}
+      ]
+    },
+    {
+      "nom": "Tage",
+      "points": [
+        {"nom": "Albarracín", "lat": 40.40833, "lon": -1.43944, "source": "Wikipédia (en), article Albarracín, coordonnées de l'article : https://en.wikipedia.org/wiki/Albarracín"},
+        {"nom": "Aranjuez", "lat": 40.03333, "lon": -3.60278, "source": "Wikipédia (en), article Aranjuez, coordonnées de l'article : https://en.wikipedia.org/wiki/Aranjuez"},
+        {"nom": "Tolède", "lat": 39.85667, "lon": -4.02444, "source": "Wikipédia (en), article Toledo, Spain, coordonnées de l'article : https://en.wikipedia.org/wiki/Toledo,_Spain"},
+        {"nom": "Talavera de la Reina", "lat": 39.95833, "lon": -4.83278, "source": "Wikipédia (en), article Talavera de la Reina, coordonnées de l'article : https://en.wikipedia.org/wiki/Talavera_de_la_Reina"},
+        {"nom": "Garrovillas de Alconétar", "lat": 39.7, "lon": -6.55, "source": "Wikipédia (en), article Garrovillas de Alconétar, coordonnées de l'article : https://en.wikipedia.org/wiki/Garrovillas_de_Alconétar"},
+        {"nom": "Santarém", "lat": 39.23389, "lon": -8.68611, "source": "Wikipédia (en), article Santarém, Portugal, coordonnées de l'article : https://en.wikipedia.org/wiki/Santarém,_Portugal"},
+        {"nom": "Lisbonne", "lat": 38.72528, "lon": -9.15, "source": "Wikipédia (en), article Lisbon, coordonnées de l'article : https://en.wikipedia.org/wiki/Lisbon"}
+      ]
+    },
+    {
+      "nom": "Vistule",
+      "points": [
+        {"nom": "Wisła", "lat": 49.65083, "lon": 18.86861, "source": "Wikipédia (en), article Wisła, coordonnées de l'article : https://en.wikipedia.org/wiki/Wisła"},
+        {"nom": "Cracovie", "lat": 50.06139, "lon": 19.93722, "source": "Wikipédia (en), article Kraków, coordonnées de l'article : https://en.wikipedia.org/wiki/Kraków"},
+        {"nom": "Sandomierz", "lat": 50.68333, "lon": 21.75, "source": "Wikipédia (en), article Sandomierz, coordonnées de l'article : https://en.wikipedia.org/wiki/Sandomierz"},
+        {"nom": "Varsovie", "lat": 52.23, "lon": 21.01111, "source": "Wikipédia (en), article Warsaw, coordonnées de l'article : https://en.wikipedia.org/wiki/Warsaw"},
+        {"nom": "Płock", "lat": 52.55, "lon": 19.7, "source": "Wikipédia (en), article Płock, coordonnées de l'article : https://en.wikipedia.org/wiki/Płock"},
+        {"nom": "Toruń", "lat": 53.02222, "lon": 18.61111, "source": "Wikipédia (en), article Toruń, coordonnées de l'article : https://en.wikipedia.org/wiki/Toruń"},
+        {"nom": "Grudziądz", "lat": 53.4875, "lon": 18.755, "source": "Wikipédia (en), article Grudziądz, coordonnées de l'article : https://en.wikipedia.org/wiki/Grudziądz"},
+        {"nom": "Gdańsk", "lat": 54.3475, "lon": 18.64528, "source": "Wikipédia (en), article Gdańsk, coordonnées de l'article : https://en.wikipedia.org/wiki/Gdańsk"}
+      ]
+    },
+    {
+      "nom": "Dniepr",
+      "points": [
+        {"nom": "Smolensk", "lat": 54.78278, "lon": 32.04528, "source": "Wikipédia (en), article Smolensk, coordonnées de l'article : https://en.wikipedia.org/wiki/Smolensk"},
+        {"nom": "Orcha", "lat": 54.50917, "lon": 30.42583, "source": "Wikipédia (en), article Orsha, coordonnées de l'article : https://en.wikipedia.org/wiki/Orsha"},
+        {"nom": "Moguilev", "lat": 53.91667, "lon": 30.35, "source": "Wikipédia (en), article Mogilev, coordonnées de l'article : https://en.wikipedia.org/wiki/Mogilev"},
+        {"nom": "Kiev", "lat": 50.45, "lon": 30.52333, "source": "Wikipédia (en), article Kyiv, coordonnées de l'article : https://en.wikipedia.org/wiki/Kyiv"},
+        {"nom": "Tcherkassy", "lat": 49.44444, "lon": 32.05972, "source": "Wikipédia (en), article Cherkasy, coordonnées de l'article : https://en.wikipedia.org/wiki/Cherkasy"},
+        {"nom": "Krementchouk", "lat": 49.06306, "lon": 33.40389, "source": "Wikipédia (en), article Kremenchuk, coordonnées de l'article : https://en.wikipedia.org/wiki/Kremenchuk"},
+        {"nom": "Dnipro", "lat": 48.4675, "lon": 35.04, "source": "Wikipédia (en), article Dnipro, coordonnées de l'article : https://en.wikipedia.org/wiki/Dnipro"},
+        {"nom": "Zaporijjia", "lat": 47.85, "lon": 35.1175, "source": "Wikipédia (en), article Zaporizhzhia, coordonnées de l'article : https://en.wikipedia.org/wiki/Zaporizhzhia"},
+        {"nom": "Kherson", "lat": 46.6425, "lon": 32.625, "source": "Wikipédia (en), article Kherson, coordonnées de l'article : https://en.wikipedia.org/wiki/Kherson"},
+        {"nom": "Presqu'île de Kinbourn", "lat": 46.5075, "lon": 31.7789, "source": "Wikipédia (en), article Kinburn Peninsula, coordonnées de l'article : https://en.wikipedia.org/wiki/Kinburn_Peninsula"}
+      ]
+    },
+    {
+      "nom": "Nil",
+      "trace_dans": "nil-cours-1400.json",
+      "declaration": "Le tracé du Nil reste celui de nil-cours-1400.json, une source par point : l'atlas ne le recopie pas."
+    }
+  ],
+  "mers": [
+    {"nom": "Méditerranée", "lat": 35, "lon": 18, "source": "Wikipédia (en), article Mediterranean Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Mediterranean_Sea"},
+    {"nom": "Atlantique", "lat": 0, "lon": -25, "source": "Wikipédia (en), article Atlantic Ocean, coordonnées de l'article : https://en.wikipedia.org/wiki/Atlantic_Ocean"},
+    {"nom": "Mer du Nord", "lat": 56, "lon": 3, "source": "Wikipédia (en), article North Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/North_Sea"},
+    {"nom": "Baltique", "lat": 58, "lon": 20, "source": "Wikipédia (en), article Baltic Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Baltic_Sea"},
+    {"nom": "Mer Noire", "lat": 44, "lon": 35, "source": "Wikipédia (en), article Black Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Black_Sea"},
+    {"nom": "Adriatique", "lat": 43, "lon": 15, "source": "Wikipédia (en), article Adriatic Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Adriatic_Sea"},
+    {"nom": "Mer Égée", "lat": 39, "lon": 25, "source": "Wikipédia (en), article Aegean Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Aegean_Sea"},
+    {"nom": "Mer Tyrrhénienne", "lat": 40, "lon": 12, "source": "Wikipédia (en), article Tyrrhenian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Tyrrhenian_Sea"},
+    {"nom": "Mer Ionienne", "lat": 38, "lon": 19, "source": "Wikipédia (en), article Ionian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Ionian_Sea"},
+    {"nom": "Golfe de Gascogne", "lat": 45.5, "lon": -4.4, "source": "Wikipédia (en), article Bay of Biscay, coordonnées de l'article : https://en.wikipedia.org/wiki/Bay_of_Biscay"},
+    {"nom": "Manche", "lat": 50.2, "lon": -2, "source": "Wikipédia (en), article English Channel, coordonnées de l'article : https://en.wikipedia.org/wiki/English_Channel"},
+    {"nom": "Mer d'Irlande", "lat": 53.5, "lon": -5, "source": "Wikipédia (en), article Irish Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Irish_Sea"},
+    {"nom": "Mer Ligure", "lat": 43.5, "lon": 9, "source": "Wikipédia (en), article Ligurian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Ligurian_Sea"},
+    {"nom": "Mer d'Azov", "lat": 46, "lon": 37, "source": "Wikipédia (en), article Sea of Azov, coordonnées de l'article : https://en.wikipedia.org/wiki/Sea_of_Azov"},
+    {"nom": "Mer de Marmara", "lat": 40.66667, "lon": 28, "source": "Wikipédia (en), article Sea of Marmara, coordonnées de l'article : https://en.wikipedia.org/wiki/Sea_of_Marmara"},
+    {"nom": "Mer de Norvège", "lat": 69, "lon": 2, "source": "Wikipédia (en), article Norwegian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Norwegian_Sea"},
+    {"nom": "Golfe de Botnie", "lat": 63, "lon": 20, "source": "Wikipédia (en), article Gulf of Bothnia, coordonnées de l'article : https://en.wikipedia.org/wiki/Gulf_of_Bothnia"},
+    {"nom": "Golfe de Finlande", "lat": 59.83333, "lon": 26, "source": "Wikipédia (en), article Gulf of Finland, coordonnées de l'article : https://en.wikipedia.org/wiki/Gulf_of_Finland"},
+    {"nom": "Mer d'Alboran", "lat": 36, "lon": -3, "source": "Wikipédia (en), article Alboran Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Alboran_Sea"},
+    {"nom": "Mer Caspienne", "lat": 42, "lon": 50.5, "source": "Wikipédia (en), article Caspian Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Caspian_Sea"},
+    {"nom": "Mer Rouge", "lat": 22, "lon": 38, "source": "Wikipédia (en), article Red Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Red_Sea"},
+    {"nom": "Mer Levantine", "lat": 34, "lon": 34, "source": "Wikipédia (en), article Levantine Sea, coordonnées de l'article : https://en.wikipedia.org/wiki/Levantine_Sea"}
+  ],
+  "regions": [
+    {"nom": "Aquitaine", "lat": 44.6, "lon": 0, "source": "Wikipédia (en), article Aquitaine, coordonnées de l'article : https://en.wikipedia.org/wiki/Aquitaine"},
+    {"nom": "Lombardie", "lat": 45.58333, "lon": 9.91667, "source": "Wikipédia (en), article Lombardy, coordonnées de l'article : https://en.wikipedia.org/wiki/Lombardy"},
+    {"nom": "Bohême", "lat": 50, "lon": 15, "source": "Wikipédia (en), article Bohemia, coordonnées de l'article : https://en.wikipedia.org/wiki/Bohemia"},
+    {"nom": "Anatolie", "lat": 39, "lon": 33, "source": "Wikipédia (en), article Central Anatolia region, coordonnées de l'article : https://en.wikipedia.org/wiki/Central_Anatolia_region"},
+    {"nom": "Normandie", "lat": 48.88, "lon": 0.17, "source": "Wikipédia (en), article Normandy, coordonnées de l'article : https://en.wikipedia.org/wiki/Normandy"},
+    {"nom": "Bretagne", "lat": 48, "lon": -3, "source": "Wikipédia (en), article Brittany, coordonnées de l'article : https://en.wikipedia.org/wiki/Brittany"},
+    {"nom": "Bourgogne", "lat": 47, "lon": 4.5, "source": "Wikipédia (en), article Burgundy, coordonnées de l'article : https://en.wikipedia.org/wiki/Burgundy"},
+    {"nom": "Catalogne", "lat": 41.85, "lon": 1.56667, "source": "Wikipédia (en), article Catalonia, coordonnées de l'article : https://en.wikipedia.org/wiki/Catalonia"},
+    {"nom": "Castille", "lat": 41.645, "lon": -4.7425, "source": "Wikipédia (en), article Castile and León, coordonnées de l'article : https://en.wikipedia.org/wiki/Castile_and_León"},
+    {"nom": "Andalousie", "lat": 37.3, "lon": -4.6, "source": "Wikipédia (en), article Andalusia, coordonnées de l'article : https://en.wikipedia.org/wiki/Andalusia"},
+    {"nom": "Bavière", "lat": 49, "lon": 11.5, "source": "Wikipédia (en), article Bavaria, coordonnées de l'article : https://en.wikipedia.org/wiki/Bavaria"},
+    {"nom": "Saxe", "lat": 51.16667, "lon": 13.48333, "source": "Wikipédia (en), article Meissen, coordonnées de l'article : https://en.wikipedia.org/wiki/Meissen"},
+    {"nom": "Silésie", "lat": 51.6, "lon": 17.2, "source": "Wikipédia (en), article Silesia, coordonnées de l'article : https://en.wikipedia.org/wiki/Silesia"},
+    {"nom": "Transylvanie", "lat": 46.5, "lon": 24.5, "source": "Wikipédia (en), article Transylvania, coordonnées de l'article : https://en.wikipedia.org/wiki/Transylvania"},
+    {"nom": "Valachie", "lat": 44.43, "lon": 26.1, "source": "Wikipédia (en), article Wallachia, coordonnées de l'article : https://en.wikipedia.org/wiki/Wallachia"},
+    {"nom": "Moldavie", "lat": 47.65139, "lon": 26.25556, "source": "Wikipédia (en), article Suceava, coordonnées de l'article : https://en.wikipedia.org/wiki/Suceava"},
+    {"nom": "Thrace", "lat": 42, "lon": 26, "source": "Wikipédia (en), article Thrace, coordonnées de l'article : https://en.wikipedia.org/wiki/Thrace"},
+    {"nom": "Macédoine", "lat": 41, "lon": 22, "source": "Wikipédia (en), article Macedonia (region), coordonnées de l'article : https://en.wikipedia.org/wiki/Macedonia_(region)"},
+    {"nom": "Péloponnèse", "lat": 37.4, "lon": 22.3, "source": "Wikipédia (en), article Peloponnese, coordonnées de l'article : https://en.wikipedia.org/wiki/Peloponnese"},
+    {"nom": "Écosse", "lat": 57, "lon": -4, "source": "Wikipédia (en), article Scotland, coordonnées de l'article : https://en.wikipedia.org/wiki/Scotland"},
+    {"nom": "Toscane", "lat": 43.45, "lon": 11.2, "source": "Wikipédia (en), article Tuscany, coordonnées de l'article : https://en.wikipedia.org/wiki/Tuscany"},
+    {"nom": "Provence", "lat": 43.5, "lon": 5.5, "source": "Wikipédia (en), article Provence, coordonnées de l'article : https://en.wikipedia.org/wiki/Provence"},
+    {"nom": "Languedoc", "lat": 43.66667, "lon": 3.16667, "source": "Wikipédia (en), article Languedoc-Roussillon, coordonnées de l'article : https://en.wikipedia.org/wiki/Languedoc-Roussillon"},
+    {"nom": "Flandre", "lat": 51, "lon": 4.5, "source": "Wikipédia (en), article Flanders, coordonnées de l'article : https://en.wikipedia.org/wiki/Flanders"},
+    {"nom": "Aragon", "lat": 41, "lon": -1, "source": "Wikipédia (en), article Aragon, coordonnées de l'article : https://en.wikipedia.org/wiki/Aragon"},
+    {"nom": "Portugal", "lat": 39, "lon": -8, "source": "Wikipédia (en), article Portugal, coordonnées de l'article : https://en.wikipedia.org/wiki/Portugal"},
+    {"nom": "Pologne", "lat": 52, "lon": 20, "source": "Wikipédia (en), article Poland, coordonnées de l'article : https://en.wikipedia.org/wiki/Poland"},
+    {"nom": "Lituanie", "lat": 55, "lon": 24, "source": "Wikipédia (en), article Lithuania, coordonnées de l'article : https://en.wikipedia.org/wiki/Lithuania"},
+    {"nom": "Prusse", "lat": 54.03333, "lon": 19.03333, "source": "Wikipédia (en), article Malbork, coordonnées de l'article : https://en.wikipedia.org/wiki/Malbork"},
+    {"nom": "Poméranie", "lat": 54.29, "lon": 18.15, "source": "Wikipédia (en), article Pomerania, coordonnées de l'article : https://en.wikipedia.org/wiki/Pomerania"},
+    {"nom": "Brandebourg", "lat": 52.36194, "lon": 13.00806, "source": "Wikipédia (en), article Brandenburg, coordonnées de l'article : https://en.wikipedia.org/wiki/Brandenburg"},
+    {"nom": "Souabe", "lat": 48.5, "lon": 10.5, "source": "Wikipédia (en), article Swabia (Bavaria), coordonnées de l'article : https://en.wikipedia.org/wiki/Swabia_(Bavaria)"},
+    {"nom": "Franconie", "lat": 49.816, "lon": 10.865, "source": "Wikipédia (en), article Franconia, coordonnées de l'article : https://en.wikipedia.org/wiki/Franconia"},
+    {"nom": "Autriche", "lat": 47.33333, "lon": 13.33333, "source": "Wikipédia (en), article Austria, coordonnées de l'article : https://en.wikipedia.org/wiki/Austria"},
+    {"nom": "Carinthie", "lat": 46.761, "lon": 13.819, "source": "Wikipédia (en), article Carinthia, coordonnées de l'article : https://en.wikipedia.org/wiki/Carinthia"},
+    {"nom": "Croatie", "lat": 45.16667, "lon": 15.5, "source": "Wikipédia (en), article Croatia, coordonnées de l'article : https://en.wikipedia.org/wiki/Croatia"},
+    {"nom": "Bosnie", "lat": 44, "lon": 18, "source": "Wikipédia (en), article Bosnia and Herzegovina, coordonnées de l'article : https://en.wikipedia.org/wiki/Bosnia_and_Herzegovina"},
+    {"nom": "Serbie", "lat": 44, "lon": 21, "source": "Wikipédia (en), article Serbia, coordonnées de l'article : https://en.wikipedia.org/wiki/Serbia"},
+    {"nom": "Bulgarie", "lat": 43, "lon": 25, "source": "Wikipédia (en), article Bulgaria, coordonnées de l'article : https://en.wikipedia.org/wiki/Bulgaria"},
+    {"nom": "Dalmatie", "lat": 43.73417, "lon": 15.89444, "source": "Wikipédia (en), article Šibenik, coordonnées de l'article : https://en.wikipedia.org/wiki/Šibenik"},
+    {"nom": "Pouilles", "lat": 41, "lon": 16, "source": "Wikipédia (en), article Apulia, coordonnées de l'article : https://en.wikipedia.org/wiki/Apulia"},
+    {"nom": "Sicile", "lat": 37.5, "lon": 14, "source": "Wikipédia (en), article Sicily, coordonnées de l'article : https://en.wikipedia.org/wiki/Sicily"},
+    {"nom": "Sardaigne", "lat": 40, "lon": 9, "source": "Wikipédia (en), article Sardinia, coordonnées de l'article : https://en.wikipedia.org/wiki/Sardinia"},
+    {"nom": "Corse", "lat": 42, "lon": 9, "source": "Wikipédia (en), article Corsica, coordonnées de l'article : https://en.wikipedia.org/wiki/Corsica"},
+    {"nom": "Galice", "lat": 42.8, "lon": -7.9, "source": "Wikipédia (en), article Galicia (Spain), coordonnées de l'article : https://en.wikipedia.org/wiki/Galicia_(Spain)"},
+    {"nom": "Navarre", "lat": 42.81667, "lon": -1.65, "source": "Wikipédia (en), article Navarre, coordonnées de l'article : https://en.wikipedia.org/wiki/Navarre"},
+    {"nom": "León", "lat": 42.46349, "lon": -6.06171, "source": "Wikipédia (en), article Region of León, coordonnées de l'article : https://en.wikipedia.org/wiki/Region_of_León"},
+    {"nom": "Hollande", "lat": 52.25, "lon": 4.667, "source": "Wikipédia (en), article Holland, coordonnées de l'article : https://en.wikipedia.org/wiki/Holland"},
+    {"nom": "Brabant", "lat": 50.78333, "lon": 4.63333, "source": "Wikipédia (en), article Province of Brabant, coordonnées de l'article : https://en.wikipedia.org/wiki/Province_of_Brabant"},
+    {"nom": "Lorraine", "lat": 49, "lon": 6, "source": "Wikipédia (en), article Lorraine, coordonnées de l'article : https://en.wikipedia.org/wiki/Lorraine"},
+    {"nom": "Champagne", "lat": 49, "lon": 4, "source": "Wikipédia (en), article Champagne (province), coordonnées de l'article : https://en.wikipedia.org/wiki/Champagne_(province)"},
+    {"nom": "Auvergne", "lat": 45.33333, "lon": 3, "source": "Wikipédia (en), article Auvergne, coordonnées de l'article : https://en.wikipedia.org/wiki/Auvergne"},
+    {"nom": "Savoie", "lat": 45.58333, "lon": 6.33333, "source": "Wikipédia (en), article Savoie, coordonnées de l'article : https://en.wikipedia.org/wiki/Savoie"},
+    {"nom": "Piémont", "lat": 45.06667, "lon": 7.7, "source": "Wikipédia (en), article Piedmont, coordonnées de l'article : https://en.wikipedia.org/wiki/Piedmont"},
+    {"nom": "Vénétie", "lat": 45.73333, "lon": 11.85, "source": "Wikipédia (en), article Veneto, coordonnées de l'article : https://en.wikipedia.org/wiki/Veneto"},
+    {"nom": "Irlande", "lat": 53.44944, "lon": -7.50306, "source": "Wikipédia (en), article Ireland, coordonnées de l'article : https://en.wikipedia.org/wiki/Ireland"},
+    {"nom": "Pays de Galles", "lat": 52.3, "lon": -3.8, "source": "Wikipédia (en), article Wales, coordonnées de l'article : https://en.wikipedia.org/wiki/Wales"},
+    {"nom": "Crimée", "lat": 45.3, "lon": 34.4, "source": "Wikipédia (en), article Crimea, coordonnées de l'article : https://en.wikipedia.org/wiki/Crimea"},
+    {"nom": "Grèce", "lat": 39, "lon": 22, "source": "Wikipédia (en), article Greece, coordonnées de l'article : https://en.wikipedia.org/wiki/Greece"},
+    {"nom": "Albanie", "lat": 41, "lon": 20, "source": "Wikipédia (en), article Albania, coordonnées de l'article : https://en.wikipedia.org/wiki/Albania"},
+    {"nom": "Épire", "lat": 39.6, "lon": 20.8, "source": "Wikipédia (en), article Epirus (region), coordonnées de l'article : https://en.wikipedia.org/wiki/Epirus_(region)"},
+    {"nom": "Thessalie", "lat": 39.6, "lon": 22.2, "source": "Wikipédia (en), article Thessaly, coordonnées de l'article : https://en.wikipedia.org/wiki/Thessaly"},
+    {"nom": "Égypte", "lat": 30.9, "lon": 31.11667, "source": "Wikipédia (en), article Nile Delta, coordonnées de l'article : https://en.wikipedia.org/wiki/Nile_Delta"},
+    {"nom": "Scanie", "lat": 55.8, "lon": 13.61667, "source": "Wikipédia (en), article Scania, coordonnées de l'article : https://en.wikipedia.org/wiki/Scania"},
+    {"nom": "Danemark", "lat": 56, "lon": 10, "source": "Wikipédia (en), article Denmark, coordonnées de l'article : https://en.wikipedia.org/wiki/Denmark"},
+    {"nom": "Norvège", "lat": 61, "lon": 8, "source": "Wikipédia (en), article Norway, coordonnées de l'article : https://en.wikipedia.org/wiki/Norway"},
+    {"nom": "Jutland", "lat": 55, "lon": 9, "source": "Wikipédia (en), article Jutland, coordonnées de l'article : https://en.wikipedia.org/wiki/Jutland"},
+    {"nom": "Livonie", "lat": 57, "lon": 25, "source": "Wikipédia (en), article Latvia, coordonnées de l'article : https://en.wikipedia.org/wiki/Latvia"},
+    {"nom": "Lusace", "lat": 51.54507, "lon": 14.72614, "source": "Wikipédia (en), article Lusatia, coordonnées de l'article : https://en.wikipedia.org/wiki/Lusatia"},
+    {"nom": "Estonie", "lat": 59, "lon": 26, "source": "Wikipédia (en), article Estonia, coordonnées de l'article : https://en.wikipedia.org/wiki/Estonia"}
+  ]
+}
