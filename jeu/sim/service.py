@@ -41,6 +41,7 @@ from sim.maisons_servies import (
     MaisonInconnue, MatiereMaisons, document_de_maison, liste_des_maisons, matiere_des_maisons,
 )
 from sim.noms import noms_depuis_monde, sources_des_noms
+from sim.atlas import document_de_l_atlas
 from sim.flux import flux_des_lieux
 from sim.formes import FormesInvalides, document_des_formes
 from sim.model import copier_panier, lire_habitants_par_metier, lire_stock_marchandise, ecrire_stock_marchandise
@@ -382,6 +383,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
         self.verrou_formes = threading.Lock()
+        self.verrou_atlas = threading.Lock()
         self.verrou_base = threading.Lock()
         self.verrou_maisons = threading.Lock()
         self._bases = {}
@@ -389,6 +391,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._occupations_base = {}
         self._carte_figee = None
         self._formes_figees = None  # les octets de `/formes`, calculés à la première lecture
+        self._atlas_figee = None  # les octets de `/atlas`, calculés à la première lecture
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
         self._terres = None  # (maîtres et suzerains, noms, document différé des terres et pays) : refait quand l'un change
         self.condition_vitesse = threading.Condition()
@@ -430,6 +433,18 @@ class ServeurMonde(ThreadingHTTPServer):
                         places = places_du_monde(self.world)
                     self._formes_figees = _serialiser(document_des_formes(self.world, places))
         return self._formes_figees
+
+    def atlas_figee(self) -> bytes:
+        """Publie une seule fois les noms de l'atlas, à la première lecture, sous un verrou propre.
+
+        L'atlas ne lit que les tables de 1400 et la carte figée, jamais un maître ni un tick :
+        il ne demande pas le verrou du tick, et le tick ne le lit pas.
+        """
+        if self._atlas_figee is None:
+            with self.verrou_atlas:
+                if self._atlas_figee is None:
+                    self._atlas_figee = _serialiser(document_de_l_atlas(self.world))
+        return self._atlas_figee
 
     def octets_plan(self, etat, cell_id):
         """Assemble les octets figés de la base et ceux du plan publié."""
@@ -862,6 +877,15 @@ class RequetesMonde(BaseHTTPRequestHandler):
             try:
                 corps = self.server.formes_figees()
             except (FormesInvalides, ValueError) as exc:
+                self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+                return
+            self._repondre_octets(HTTPStatus.OK, corps)
+            return
+        if cible.path == "/atlas":
+            # Les noms des fleuves, des mers, des régions et des sièges, figés : calculés à la première lecture.
+            try:
+                corps = self.server.atlas_figee()
+            except (ValueError, OSError) as exc:
                 self._refuser(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
                 return
             self._repondre_octets(HTTPStatus.OK, corps)

@@ -2689,7 +2689,8 @@ suit les ancres, et le seigneur libre hors couverture. **Niveau 3, pas simulé :
 l'hommage et ses effets, frontières réelles et princes d'Empire hors de la table,
 que la vue ne découpe pas, comme dans la photographie.
 Le dessin plus fin des cellules et de leurs lieux est servi à part : voir « La forme
-des lieux, vue dérivée ».
+des lieux, vue dérivée ». Les noms des fleuves, des mers, des régions et des sièges le
+sont aussi : voir « Les noms de l'atlas, vue dérivée ».
 
 ## La forme des lieux, vue dérivée
 
@@ -2765,7 +2766,72 @@ contour.
 (au mètre près, et à `ACCROCHE_SOMMET_M` près là où un sommet est accroché).
 **Niveau 2, plausible, jamais sourcé :** le tracé de chaque bord brisé et le
 contour de chaque lieu. **Niveau 3, pas simulé :** les fleuves, que les contours ne
-suivent pas, faute de tracé dans le monde.
+suivent pas, faute de tracé dans le monde. Les noms et la place des fleuves sont
+servis à part, sans que le monde les lise : voir « Les noms de l'atlas, vue dérivée ».
+
+## Les noms de l'atlas, vue dérivée
+
+`GET /atlas` sert `{crs, version, fleuves, mers, regions, sieges}` : `crs` =
+`EPSG:3035`, `version` celle de la carte figée, et tous les points en mètres
+entiers. La provenance est `data/atlas-1400.json`, où chaque ligne cite sa
+source publique (l'article et son URL). Le calcul est dans `sim/atlas.py`.
+
+**Un fleuve** est une ligne de points `{lat, lon}` en degrés, de sa source à sa
+mer, d'au moins `POINTS_MIN_FLEUVE` = 2 points, chacun un lieu de ses rives. Il
+est servi `{nom, lignes}`, une ligne de points `{x_m, y_m}` (deux pour le Nil).
+L'atlas en nomme onze (Loire, Seine, Rhône, Rhin, Danube, Elbe, Pô, Èbre, Tage,
+Vistule, Dniepr), de 7 à 13 points chacun. Le monde n'a le cours que d'un
+fleuve, le Nil : il reste dans `nil-cours-1400.json`, seule source de son tracé.
+L'entrée du Nil de l'atlas n'a aucune coordonnée ; elle renvoie à ce fichier
+(`trace_dans`) et n'ajoute que l'ordre des points le long des deux bras du delta
+(Rosette, Damiette), par leurs identifiants. Le Nil sert ses onze points, ni
+plus ni moins, et son cours part du Caire : la vallée au sud reste hors de la
+carte, comme dans « Le cours du Nil, vue dérivée ».
+
+**Une mer** et **une région** sont chacune un nom et un point `{nom, x_m, y_m}` :
+un point de lecture du nom, jamais une frontière ni une surface. L'atlas nomme
+19 mers (Méditerranée, Atlantique, mer du Nord, Baltique, mer Noire, Adriatique,
+mer Égée…) et 70 régions (Aquitaine, Lombardie, Bohême, Anatolie…). Le point de
+chaque région est choisi dans la carte figée : une région dont le centre tombe
+hors de la carte y est nommée par un lieu qui s'y trouve.
+
+**Un siège** est servi `{nom, maison, x_m, y_m}` : le nom du siège de chaque
+maison du registre (`charger_registre_maisons`) placée sur la carte, quand ce
+nom n'est pas celui d'une ville de `villes-1400.json` ; la ville est déjà
+nommée par la carte. Sur la graine 0, 26 sièges, dont Biskra, Bar-le-Duc et
+Mistra. Leur position est celle de `sieges_des_maisons`. Une maison hors carte
+(Saraï, Venise) et les maisons plausibles, dont le siège est un identifiant
+synthétique, n'en servent aucun. Le fichier des villes ne bouge pas : y ajouter
+Biskra déplacerait des bourgs et changerait des noms de lieux.
+
+**Ce que la place doit tenir.** Le pas de la carte est le côté d'une cellule de
+surface moyenne (105,8 km sur la graine 0). Chaque fleuve part d'une cellule de
+terre et finit à moins d'un pas de la côte, jugé par une sonde (`DIRECTIONS_DE_SONDE`
+= 16 directions sur `ANNEAUX_DE_SONDE` = 4 couronnes d'un pas) ; le point d'une mer
+n'est dans aucune cellule mais dans le cadre de la carte (une mer dont le centre
+tombe hors du cadre, comme l'Atlantique, est nommée par un point en mer qui s'y
+trouve), celui d'une région dans une cellule. Aucun nom n'est en
+double, ni entre fleuves, mers, régions et sièges, ni à la casse près. Une table
+vide, une source absente, une coordonnée hors bornes, une projection autre que
+`EPSG:3035` et toute place fausse sont refusées en nommant la ligne
+(`AtlasInvalide`) ; l'atlas ne devine rien.
+
+**Quand et par qui.** Les octets de `/atlas` sont calculés à la première lecture,
+sous un verrou propre, puis restent pour la partie. Ils ne lisent que les tables
+de 1400 et la carte figée, jamais un maître, un stock ni un tick : une prise de
+bourg ne les change pas, et le service ne prend pas le verrou du tick pour les
+calculer. Le tick ne lit jamais cette vue. Une erreur de calcul rend `500` avec
+`erreur`, sans arrêter le service. Rien ne se stocke dans le monde, et aucune règle,
+ni l'IA, ne lit un nom de l'atlas. Cette vue n'est pas encore lue par Unity : écrire
+ces noms et tracer ces fleuves sur la carte est le travail de l'écran.
+
+**Niveau 1 :** les noms et les places, justes dans les grandes lignes, d'après les
+coordonnées publiques des articles cités ; le Nil et ses sources. **Niveau 2,
+plausible :** le cours d'un fleuve joint des lieux de ses rives par des segments
+droits (ni bras, ni méandres, ni lit de 1400), et le point d'une mer ou d'une région
+est un point de lecture ; la sonde de la côte est un contrôle, pas une mesure.
+**Niveau 3, pas simulé :** les frontières des régions, la largeur et le débit des
+fleuves, le bassin versant.
 
 ## Les maisons servies, vue dérivée
 
