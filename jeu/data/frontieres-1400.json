@@ -2,7 +2,7 @@
   "date": "1400-01-01",
   "fidelite": "Niveau 1 : le pays de chaque cellule déclarée, au 1er janvier 1400, d'après une source publique par pays, et le pays de chaque ville témoin. Niveau 2 : le tracé à l'intérieur d'une cellule partagée, chaque lieu allant au pays de la ville de partage la plus proche de sa place. Niveau 3 : l'hommage et ses effets.",
   "regions": {
-    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20]
+    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
   },
   "pays": [],
   "partages": [],
@@ -15,6 +15,17 @@
     { "nom": "Paris", "lat": 48.86, "lon": 2.35, "pays": 3, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume de Charles VI (https://fr.wikipedia.org/wiki/Royaume_de_France)" },
     { "nom": "Rouen", "lat": 49.44, "lon": 1.10, "pays": 3, "source": "Wikipédia, article Duché de Normandie : la Normandie est réunie au domaine royal en 1204, Rouen en est la capitale (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Normandie)" },
     { "nom": "Toulouse", "lat": 43.60, "lon": 1.44, "pays": 3, "source": "Wikipédia, article Comté de Toulouse : le comté est réuni au domaine royal en 1271 (https://fr.wikipedia.org/wiki/Comt%C3%A9_de_Toulouse)" },
+    { "nom": "Bordeaux", "lat": 44.84, "lon": -0.58, "pays": 42, "source": "Wikipédia, article Guyenne : possession du roi d'Angleterre de 1152 à 1453 ; Henri IV en fait duc son fils Henri de Monmouth (https://en.wikipedia.org/wiki/Henry_V_of_England)" },
+    { "nom": "Nantes", "lat": 47.22, "lon": -1.55, "pays": 41, "source": "Wikipédia, article Duché de Bretagne : ville ducale de Nantes (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Bretagne)" },
+    { "nom": "Dijon", "lat": 47.32, "lon": 5.04, "pays": 40, "source": "Wikipédia, article Duché de Bourgogne : capitale Dijon (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Bourgogne)" },
+    { "nom": "Bruges", "lat": 51.21, "lon": 3.22, "pays": 40, "source": "Wikipédia en anglais, article Philip the Bold : comte de Flandre depuis 1384 ; Bruges, principale ville comtale (https://en.wikipedia.org/wiki/Philip_the_Bold)" },
+    { "nom": "Dublin", "lat": 53.35, "lon": -6.26, "pays": 49, "source": "Wikipédia en anglais, article Lordship of Ireland : la partie de l'Irlande tenue par le roi d'Angleterre, « seigneur d'Irlande » (https://en.wikipedia.org/wiki/Lordship_of_Ireland)" },
+    { "nom": "Orléans", "lat": 47.90, "lon": 1.90, "pays": 43, "source": "Wikipédia en anglais, article Duchy of Orléans : Charles VI recrée en 1392 le duché pour son frère Louis (https://en.wikipedia.org/wiki/Duchy_of_Orl%C3%A9ans)" },
+    { "nom": "Angers", "lat": 47.47, "lon": -0.55, "pays": 44, "source": "Wikipédia en anglais, article Angers : capitale de la province d'Anjou (https://en.wikipedia.org/wiki/Angers)" },
+    { "nom": "Bourges", "lat": 47.08, "lon": 2.40, "pays": 45, "source": "Wikipédia en anglais, article Bourges : capitale du duché de Berry, créé en 1360 (https://en.wikipedia.org/wiki/Bourges)" },
+    { "nom": "Moulins", "lat": 46.57, "lon": 3.33, "pays": 46, "source": "Wikipédia en anglais, article Moulins, Allier : capitale du Bourbonnais et siège des ducs de Bourbon (https://en.wikipedia.org/wiki/Moulins,_Allier)" },
+    { "nom": "Foix", "lat": 42.97, "lon": 1.61, "pays": 47, "source": "Wikipédia en anglais, article Foix : ancienne capitale du comté de Foix (https://en.wikipedia.org/wiki/Foix)" },
+    { "nom": "Lectoure", "lat": 43.93, "lon": 0.62, "pays": 48, "source": "Wikipédia en anglais, article Lectoure : capitale du comté d'Armagnac depuis 1325 (https://en.wikipedia.org/wiki/Lectoure)" },
     { "nom": "Londres", "lat": 51.51, "lon": -0.13, "pays": 1, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale (https://fr.wikipedia.org/wiki/Royaume_d%27Angleterre)" },
     { "nom": "Édimbourg", "lat": 55.95, "lon": -3.19, "pays": 2, "source": "Wikipédia, article Édimbourg : bourg royal d'Écosse établi au XIIe siècle (https://fr.wikipedia.org/wiki/%C3%89dimbourg)" },
     { "nom": "Lisbonne", "lat": 38.72, "lon": -9.14, "pays": 4, "source": "Wikipédia, article Royaume de Portugal : Lisbonne capitale depuis 1255 (https://fr.wikipedia.org/wiki/Royaume_de_Portugal)" },
