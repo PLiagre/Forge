@@ -34,7 +34,7 @@ ne dépend que de couches plus basses, sauf les boucles dites plus bas.
 |---|---|---|
 | le socle | `constants`, `projection`, `villes` | les constantes du moteur, la projection de la carte, les villes de 1400 ; ils ne dépendent de rien |
 | le modèle | `model`, `foyers`, `plan`, `flux`, `modificateurs`, `lieux`, `aggregation` | ce qu'est une cellule, un lieu, un foyer, un plan de ville ; les flux d'un jour ; le registre des modificateurs ; les agrégations conservatives |
-| l'Europe de 1400 | `puissances`, `maisons`, `seigneuries`, `capitales`, `places`, `noms`, `personnages`, `registre_maisons`, `maitres`, `jouables`, `pluie`, `fleuve` | qui tient quoi au premier jour, lu dans `jeu/data/` |
+| l'Europe de 1400 | `puissances`, `maisons`, `seigneuries`, `capitales`, `places`, `noms`, `personnages`, `registre_maisons`, `maitres`, `jouables`, `pays_servis`, `villes_3d`, `pluie`, `fleuve` | qui tient quoi au premier jour, lu dans `jeu/data/` |
 | les règles d'un jour | `engine`, avec `prelevement`, `greniers`, `ateliers`, `chantiers`, `batiments`, `routes_interieures`, `convois`, `departs`, `logement`, `portes`, `ville1400` | la fabrication, l'extraction, la récolte, le commerce, la faim, la mort, les naissances, la migration, les chantiers |
 | le monde | `world` | l'état entier, construit depuis la carte, et sa sérialisation |
 | les gestes | `intentions`, `jauges`, `evenements`, `pays` | ce que le joueur et l'IA déposent ; les jauges du pays ; les événements à choix |
@@ -97,7 +97,7 @@ jeu) écoute sur `127.0.0.1`. Tout ce qu'Unity sait du monde vient de lui.
 | `GET /maison?id=` | lit | une maison | `ClientMaison` |
 | `GET /pays?maison=` | lit | le pays et ses jauges | `ClientPays` |
 | `GET /maisons`, `GET /ia`, `GET /modificateurs` | lit | toutes les maisons, le relevé des décisions de l'IA, les modificateurs et leur détail | lus par les écrans de `Forge.Interface` (dossiers du pays et des voisins, infobulle) |
-| `GET /jouables`, `GET /evenement` | lit | les pays jouables, l'événement en attente | pas encore de client |
+| `GET /jouables`, `GET /evenement` | lit | les pays jouables, chacun avec son pays, ses règnes, son siège, son suzerain et sa ville en 3D ; l'événement en attente | pas encore de client |
 | `GET /horloge` | lit | la vitesse, la pause, la durée du dernier tick | `ClientHorloge` |
 | `POST /intention` | écrit | un geste du joueur ; rend un reçu : accepté, ou refusé avec sa raison | `ClientIntention` |
 | `POST /vitesse?jours_par_seconde=` | écrit | la vitesse de l'horloge ; 0 est la pause | `ClientHorloge` |

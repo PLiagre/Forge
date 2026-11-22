@@ -1742,7 +1742,10 @@ ancres : elle est de **niveau 2**, plausible et jamais sourcée. Montfort tient
 Wittelsbach, Linz en Bohême, Besançon et Lille chez Valois-Bourgogne : ces
 anomalies sont acceptées. Luxembourg tient le Saint-Empire, mais aucune de
 ses cellules, dont les trois ancres sont tenues par des vassaux ; ses cellules
-sont celles de la Bohême et de la Hongrie.
+sont celles de la Bohême et de la Hongrie. Sur la carte servie, aucun pays ne
+porte le nom d'une maison : la tenante d'une cellule reste ce qu'elle est ici, et
+Luxembourg règne sur trois pays servis, le Saint-Empire, la Bohême et la Hongrie
+(voir « La carte et les terres servies, vue dérivée »).
 
 Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
 les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
@@ -2557,27 +2560,84 @@ calcul supplémentaire à chaque tick. Une erreur de construction rend
 
 `GET /terres` sert, au tick publié, `{tick, date, terres, pays}`
 (`carte_servie.terres_et_pays`). `terres` porte, pour chaque cellule triée,
-`cell_id`, `maitre` (le maître de son bourg, ou `null`) et `pays` : la maison au
-sommet de la suzeraineté de ce maître (`guerre.racine`), `null` sans maître.
-`pays` nomme chaque pays présent, trié par identifiant, du nom des fiches des
-maisons (`null` s'il est absent). Une place prise à une maison d'un autre pays
-passe au pays du preneur ; prise dans le même pays, elle change de maître, pas
-de pays. La publication copie le document des terres et des pays et ne le
-refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
-date et le tick du jour. Les octets naissent à la première lecture de `/terres`
-(`TerresDifferees`), puis restent ; ce sont ceux du document entier aux clés
-triées.
+`cell_id`, `maitre` (le maître de son bourg, ou `null`), `maison` et `pays`.
+`maison` est la maison au sommet de la suzeraineté de ce maître
+(`guerre.racine`), `null` sans maître : c'est ce que `pays` servait avant.
+`pays` est le pays de 1400 de la terre (`sim/pays_servis.py`, `pays_des_terres`),
+qui ne se confond plus avec la maison : une maison peut régner sur plusieurs pays.
 
-**Niveau 1 :** trait des contours de la carte figée, puissances, maisons et
-villes avec leurs sources. **Niveau 2, plausible :** simplification à 1 km,
-approximation de dessin, et étendue des puissances. **Niveau 3, pas simulé :**
-frontières réelles, comme dans la photographie.
+Le pays d'une terre suit quatre cas, dans cet ordre :
+
+1. sans maître de bourg, `null` ;
+2. la première terre de départ (`seigneurie-<n>`) sur la chaîne qui va du maître
+   à la racine donne son pays : l'identifiant de la terre de départ ;
+3. sinon `puissance-<id>`, la puissance de la cellule, quand la racine en est la
+   tête : sa grande maison, ou son institution pour une république, une Église
+   ou un ordre ;
+4. sinon le pays d'origine de la racine (`pays_d_origine`) : la puissance de la
+   cellule de son siège, sinon celle sur laquelle elle règne (un siège hors
+   carte : Saraï, Venise), sinon elle-même (un seigneur libre, qui est son propre
+   pays).
+
+Une place prise par une maison d'un autre pays passe donc au pays du preneur.
+Une place prise par une terre de départ (Bar) entre dans le duché de Bar. Prise
+par la maison qui règne sur le pays, elle change de maître, pas de pays. Sur la
+graine 0, au départ, Luxembourg règne sur trois pays, le Saint-Empire (11
+terres), la Bohême (10) et la Hongrie (18) ; la Navarre a pour maison Évreux ; les
+six départs sont leurs propres pays ; les 31 terres hors de toute puissance ont
+pour pays leur seigneur libre, nommé par les noms plausibles.
+
+`pays` liste `{id, nom, maison: {id, nom}, suzerain}` de chaque pays présent et
+de chaque suzerain cité, triés par identifiant (`fiches_des_pays`). Le nom d'une
+puissance vient de la table, celui d'une terre de départ de
+`seigneuries-1400.json`, celui d'un seigneur libre des noms servis (`null` s'il
+est absent). Seule une terre de départ a un suzerain, `puissance-<suzerain>` : la
+puissance dont elle relève. Une république, une Église ou un ordre a pour maison
+son institution. Les clés de premier niveau ne changent pas, et le client Unity
+n'en lit pas de neuve.
+
+Les tables des puissances et des maisons, les seigneuries et la vue des
+puissances sont lues une fois par monde servi (`SourcesDesPays`), sans jamais
+lire un maître. La publication copie le document des terres et des pays et ne le
+refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
+date et le tick du jour : une prise ne refait que les pays, sous la même clé de
+recalcul qu'avant. Les octets naissent à la première lecture de `/terres`
+(`TerresDifferees`), puis restent ; ce sont ceux du document entier aux clés
+triées. Le tick ne lit pas cette vue.
+
+**Niveau 1 :** trait des contours de la carte figée, puissances et leurs noms,
+maisons et villes avec leurs sources. **Niveau 2, plausible :** simplification à
+1 km, approximation de dessin, étendue des pays, qui suit les ancres, et le
+seigneur libre hors couverture. **Niveau 3, pas simulé :** frontières réelles et
+princes d'Empire, que la vue ne découpe pas, comme dans la photographie.
 
 ## Les maisons servies, vue dérivée
 
 `GET /jouables` donne `{"tick", "date", "jouables": maisons_jouables(monde)}` sous
 `verrou_tick` : les six seigneuries de départ en tête, par numéro, puis les grandes
 maisons et les petits seigneurs ; ni institution, ni maison sans lieu.
+
+Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
+
+- `pays` `{id, nom}` : le pays de la maison, par la règle des terres, sur la chaîne
+  de la maison et la puissance de la cellule de son siège (`pays_des_maisons`) ;
+- `regne` : les pays où elle est la maison régnante (Luxembourg : Saint-Empire,
+  Bohême, Hongrie ; une terre de départ : elle-même ; Valois-Bourgogne : aucun) ;
+- `siege` `{nom, lieu, cell_id}` : `nom` est celui du registre, sourcé (Pampelune,
+  Dijon), `lieu` le nom servi du lieu ; un petit seigneur n'a que le nom servi ;
+- `suzerain` `{id, nom, pays}`, ou `null` : `pays` est celui au titre duquel le
+  suzerain la tient (Wurtemberg relève de Luxembourg au titre du Saint-Empire, un
+  seigneur de Hongrie au titre de la Hongrie) ;
+- `ville` `{batie, scene, raison}` : `batie` dit si la capitale a une ville bâtie
+  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas.
+
+Le `nom` d'un petit seigneur vient des noms servis, non de son identifiant. La
+liste des capitales bâties est `data/villes-3d.json` (`sim/villes_3d.py`) : les
+maisons dont la ville existe en 3D, avec leur scène, et le modèle de la raison
+donnée aux autres. C'est un fait de la vue, pas une règle du monde : le moteur ne
+vérifie pas que la scène existe, un test vérifie que les scènes existent et que
+les maisons sont exactement celles de `TerresAvecKit.Scenes`. Seule `seigneurie-6`
+(Biskra) y figure. Le tick ne lit ni cette vue ni cette donnée.
 
 `GET /maisons` donne le registre complet trié par identifiant : nom, sorte,
 suzerain, siège (`cell_id`, `rang`, ou `null` hors carte) et nombre de lieux
@@ -4139,6 +4199,10 @@ l’IA sont lues et recalculées dans `sim/capitales.py`.
 
 La projection ellipsoïdale des ancres est définie dans `sim/projection.py` ;
 leur sélection commune vit dans `sim/puissances.py` et sert `sim/maisons.py`.
+
+Le pays de chaque terre, de chaque maison jouable et sa fiche se calculent dans
+`sim/pays_servis.py` ; la donnée des capitales bâties en 3D est lue par
+`sim/villes_3d.py`.
 
 Les paramètres du tick sont définis comme constantes nommées dans
 `sim/constants.py`. Aucun littéral numérique de ces valeurs n'apparaît dans
