@@ -254,7 +254,11 @@ def test_plafond_et_production_partagent_la_meme_formule():
 
 
 def test_vue_du_fleuve_n_a_que_world_parmi_ses_lecteurs():
-    """Seul le chargement de carte importe la vue dérivée du Nil."""
+    """Le chargement de carte et la vue de l'atlas, qui sert le tracé du Nil, importent la vue du Nil.
+
+    Le moteur ne lit la crue que par la carte chargée (`world.py`) ; l'atlas ne fait que la
+    servir, et aucun autre module ne la lit (voir `test_noms_de_l_atlas.py` pour qui lit l'atlas).
+    """
     def importe_fleuve(source: str) -> bool:
         arbre = ast.parse(source)
         for noeud in ast.walk(arbre):
@@ -282,7 +286,7 @@ def test_vue_du_fleuve_n_a_que_world_parmi_ses_lecteurs():
     print(f"lecteurs = {sorted(lecteurs)}")
     print(f"contre_epreuve_detectee = {contre_epreuve}")
     assert len(modules) > 0
-    assert lecteurs == {"world.py"}
+    assert lecteurs == {"world.py", "atlas.py"}
     assert contre_epreuve
 
 

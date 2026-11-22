@@ -518,3 +518,24 @@ def test_documentation_des_noms_de_l_atlas(document):
     for renvoi in ("La carte et les terres servies, vue dérivée", "La forme des lieux, vue dérivée"):
         autre = texte.split(f"## {renvoi}\n", 1)[1].split("\n## ", 1)[0]
         assert "« Les noms de l'atlas, vue dérivée »" in autre.replace("\n", " "), f"{renvoi} ne renvoie pas à l'atlas"
+
+
+def test_seul_le_service_lit_l_atlas():
+    """Le tick, le monde et l'IA ne lisent aucun nom de l'atlas : seul le service importe `sim.atlas`."""
+    import ast
+
+    def importe_atlas(source):
+        for noeud in ast.walk(ast.parse(source)):
+            if isinstance(noeud, ast.Import) and any(a.name == "sim.atlas" for a in noeud.names):
+                return True
+            if isinstance(noeud, ast.ImportFrom) and noeud.module == "sim.atlas":
+                return True
+        return False
+
+    sim = pathlib.Path(__file__).parents[1]
+    modules = [c for c in sim.rglob("*.py") if "tests" not in c.relative_to(sim).parts and c.name != "atlas.py"]
+    assert len(modules) > 1
+    assert {c.name for c in modules if importe_atlas(c.read_text(encoding="utf-8"))} == {"service.py"}
+    # Contre-épreuve : un import de l'atlas par un autre module est vu.
+    assert importe_atlas("from sim.atlas import charger_atlas")
+    assert importe_atlas("import sim.atlas")
