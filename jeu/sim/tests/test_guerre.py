@@ -752,17 +752,27 @@ def test_le_devis_dit_le_prix_de_la_caserne_et_le_refus_de_son_depot(depart, reg
     caserne = B.charger_types()[regles.batiment_de_levee]
     batiment = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]
     # Son prix est celui du dépôt : ses journées au salaire du bourg ; sans grain, le refus du dépôt.
+    cout = B.cout_kg(monde, caserne, cid)
+    grenier = (monde.greniers.get(BAR) or {}).get(NOURRITURE, 0.0)
+    # Le grain qui manque : le coût moins le grenier.
     attendu = {"nature": "caserne", "nom": caserne.nom, "cell_id": cid, "journees": caserne.journees,
-               "bras_par_jour": caserne.bras_par_jour, "cout_kg": B.cout_kg(monde, caserne, cid)}
+               "bras_par_jour": caserne.bras_par_jour, "cout_kg": cout, "manque_kg": cout - grenier}
     assert {k: v for k, v in batiment.items() if k != "refus"} == attendu and attendu["cout_kg"] > 0
+    assert batiment["manque_kg"] > 0
     depot = {"type": "batir_dans_une_province", "maison": BAR, "cell": cid, "nature": "caserne"}
     assert batiment["refus"] == _refus(monde, depot) is not None and batiment["refus"].startswith("grenier insuffisant")
-    # Le grain au grenier : le devis ne refuse plus, le dépôt passe ; déposée, la seconde se refuse des deux côtés.
+    # Le grain au grenier : le devis ne refuse plus, le dépôt passe, rien ne manque ; déposée, la seconde se refuse
+    # des deux côtés et le manque compte la caserne déjà déposée.
     monde.greniers[BAR][NOURRITURE] = 20000.0
-    assert G.devis_des_ordres(monde, BAR)["levee"]["batiment"]["refus"] is None is _refus(monde, depot)
+    batiment = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]
+    assert batiment["refus"] is None is _refus(monde, depot) and batiment["manque_kg"] == 0
     recevoir_intention(monde, depot)
-    refus = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]["refus"]
-    assert refus == _refus(monde, depot) and "une seule caserne" in refus
+    batiment = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]
+    assert batiment["refus"] == _refus(monde, depot) and "une seule caserne" in batiment["refus"]
+    # Un grenier d'une caserne et demie : sans la caserne déposée, rien ne manquerait ; avec elle, une demi-caserne.
+    monde.greniers[BAR][NOURRITURE] = 1.5 * cout
+    manque = G.devis_des_ordres(monde, BAR)["levee"]["batiment"]["manque_kg"]
+    assert manque == pytest.approx(cout / 2) and manque > 0
 
 
 def test_le_pays_d_une_terre_change_a_la_chute_et_pas_sans_elle(campagne, depart):
