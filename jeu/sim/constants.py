@@ -37,6 +37,16 @@ BALAYAGES_INTERIEURS = 16
 DECIMALES_POINT_METRES = 3
 DECIMALES_POINT_DEGRES = 7
 
+# --- Les noms de l'atlas (sim/atlas.py) : des noms et des places de niveau 1, un contrôle de niveau 2 ---
+# Un fleuve se trace d'au moins deux points, sa source et sa mer.
+POINTS_MIN_FLEUVE = 2
+# Pour juger qu'un bout de fleuve est à moins d'un pas de la côte, on cherche de la mer sur ce
+# nombre de directions également réparties, à chacun des rayons d'une couronne divisée en
+# ANNEAUX_DE_SONDE parts égales d'un pas. Une mer plus étroite que l'écart entre deux sondes
+# peut passer inaperçue : le contrôle ne refuse qu'un bout franchement dans les terres.
+DIRECTIONS_DE_SONDE = 16
+ANNEAUX_DE_SONDE = 4
+
 # --- La forme des lieux (sim/formes.py) : un dessin de niveau 2, jamais une grandeur du monde ---
 # Arrondie au mètre, la carte figée laisse des sommets à moins de cette distance d'un côté
 # qui passe par eux ; le dessin les pose sur ce côté. Un mètre et demi couvre l'arrondi
