@@ -149,7 +149,7 @@ def test_ouest_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_
         amputee = dataclasses.replace(ouest.frontieres, cellules={
             c: p for c, p in ouest.frontieres.cellules.items() if c != retiree})
         with pytest.raises(AssertionError, match="laissées à l'ancre"):
-            _verifier_couverture(dataclasses.replace(ouest, frontieres=amputee), ouest.vue,
+            _verifier_couverture(SimpleNamespace(**{**vars(ouest), "frontieres": amputee}), ouest.vue,
                                  _par_l_ancre(ouest, ouest.table))
 
 
@@ -196,6 +196,26 @@ def test_ouest_partage_au_plus_proche_et_navarre_plus_petite_que_sa_cellule(oues
         faux[cid, 0] = next(v.pays for v in ouest.frontieres.partages[cid] if v.pays != ouest.lieux[cid, 0])
         with pytest.raises(AssertionError):
             _verifier_partages(ouest, faux)
+
+
+def _voisins_de_bar(s, vue):
+    from sim.seigneuries import fiche_de_seigneurie
+    bar = next(x for x in charger_seigneuries(table=s.table) if x.nom == "Duché de Bar")
+    fiche = fiche_de_seigneurie(bar.id, s.monde, table=s.table, vue=vue)
+    return fiche, {v.puissance.nom if v.puissance is not None else None for v in fiche.voisins}
+
+
+def test_ouest_bar_a_ses_vrais_voisins(ouest):
+    # Le Barrois relève de la France ; autour, la Champagne royale, puis la Lorraine, Metz et le
+    # Luxembourg, terres d'Empire : ni Bourgogne ni Trèves, que l'ancre la plus proche y mettait.
+    fiche, voisins = _voisins_de_bar(ouest, ouest.vue)
+    assert fiche.voisins, "échantillon vide"
+    assert fiche.suzerain.nom == "France" and ouest.vue[fiche.cell_id] == fiche.suzerain.id
+    assert voisins == {"France", "Saint-Empire"}, voisins
+    # Contre-épreuve : sans la table, l'ancre la plus proche lui redonne des voisins bourguignons.
+    sans = dataclasses.replace(ouest.frontieres, cellules={}, partages={}, lacunes={})
+    _, a_l_ancre = _voisins_de_bar(ouest, puissances_depuis_monde(ouest.monde, table=ouest.table, frontieres=sans))
+    assert a_l_ancre != voisins and "Bourgogne" in a_l_ancre
 
 
 def _capitale(s, puissance, par_id):

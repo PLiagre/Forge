@@ -184,7 +184,8 @@
     { "id": 80, "puissance": 46, "nom": "Moulins", "lat": 46.57, "lon": 3.33, "source": "Wikipédia en anglais, article Moulins, Allier : Moulins est la capitale du Bourbonnais et le siège des ducs de Bourbon ; la page hésite entre Louis Ier et Pierre II pour le transfert depuis Bourbon-l'Archambault (https://en.wikipedia.org/wiki/Moulins,_Allier)" },
     { "id": 81, "puissance": 47, "nom": "Foix", "lat": 42.97, "lon": 1.61, "source": "Wikipédia en anglais, article Foix : Foix est l'ancienne capitale du comté de Foix (https://en.wikipedia.org/wiki/Foix)" },
     { "id": 82, "puissance": 47, "nom": "Orthez", "lat": 43.49, "lon": -0.77, "source": "Wikipédia en anglais, article Béarn : Orthez est la capitale du Béarn de la seconde moitié du XIIIe siècle au milieu du XVe ; le Béarn est uni à Foix (https://en.wikipedia.org/wiki/B%C3%A9arn)" },
-    { "id": 83, "puissance": 48, "nom": "Lectoure", "lat": 43.93, "lon": 0.62, "source": "Wikipédia en anglais, article Lectoure : la ville devient la capitale du comté d'Armagnac en 1325 (https://en.wikipedia.org/wiki/Lectoure)" }
+    { "id": 83, "puissance": 48, "nom": "Lectoure", "lat": 43.93, "lon": 0.62, "source": "Wikipédia en anglais, article Lectoure : la ville devient la capitale du comté d'Armagnac en 1325 (https://en.wikipedia.org/wiki/Lectoure)" },
+    { "id": 84, "puissance": 13, "nom": "Trévise", "lat": 45.67, "lon": 12.24, "source": "Wikipédia en anglais, article Treviso : première possession notable de Venise en terre ferme ; aux Carrara de 1384 à 1388, la ville revient ensuite à Venise (https://en.wikipedia.org/wiki/Treviso)" }
   ],
   "lacunes": [
     { "id": 1, "nom": "Shetland", "lat": 60.15, "lon": -1.15, "raison": "Îles norvégiennes en 1400 (Union de Kalmar), plus loin de Bergen que la portée." },
