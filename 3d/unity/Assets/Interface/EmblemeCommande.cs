@@ -10,7 +10,8 @@ namespace Forge.Interface
         string motif;
         static string Motif(string nom) => nom == "Terres et comptes" ? "coffre" : nom == "Autres maisons" ? "maisons" : nom == "Menu" ? "livre"
             : nom == "Plan du bourg" ? "bourg" : nom == "Puissances" ? "banniere"
-            : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : nom == "Le pays" ? "couronne" : null;
+            : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : nom == "Le pays" ? "couronne"
+            : nom == "Fermer" ? "croix" : nom == "Votre maison" ? "ecu" : null;
         public static void Poser(Button bouton, string nom)
         {
             string motif = Motif(nom);
@@ -27,12 +28,17 @@ namespace Forge.Interface
         {
             string motif = Motif(nom) ?? throw new System.ArgumentException("icône sans motif : " + nom);
             var bouton = SocleInterface.Commande(barre, nom, x, 0, action, phrase: phrase);
-            bouton.GetComponent<RectTransform>().sizeDelta = new Vector2(56, 44);
+            Reduire(bouton, motif, new Vector2(56, SocleInterface.HauteurCommande));
+            return bouton;
+        }
+        // Une commande réduite à son motif : la taille donnée, aucun texte, le signe centré et agrandi.
+        internal static void Reduire(Button bouton, string motif, Vector2 taille)
+        {
+            bouton.GetComponent<RectTransform>().sizeDelta = taille;
             bouton.GetComponentInChildren<Text>().gameObject.SetActive(false);
             var repere = (RectTransform)bouton.transform.Find("Repère " + motif);
             repere.anchorMin = repere.anchorMax = repere.pivot = new Vector2(.5f, .5f);
             repere.anchoredPosition = Vector2.zero; repere.localScale = Vector3.one * 1.5f;
-            return bouton;
         }
         protected override void OnPopulateMesh(VertexHelper dessin)
         {
@@ -81,6 +87,24 @@ namespace Forge.Interface
                 Trait(dessin, -7, -1, 2, 5); Trait(dessin, -1, -1, 2, 5); Trait(dessin, 5, -1, 2, 5);
                 Trait(dessin, -1, -3, 2, 2);
             }
+            else if (motif == "croix") // deux diagonales épaisses qui se croisent au centre
+            {
+                Oblique(dessin, -6, -6, 6, 6, 2.4f); Oblique(dessin, -6, 6, 6, -6, 2.4f);
+            }
+            else if (motif == "ecu") // le contour d'un blason vide : le haut droit, les flancs, puis la pointe en bas
+            {
+                Trait(dessin, -6, 6, 12, 2); Trait(dessin, -6, -1, 2, 7); Trait(dessin, 4, -1, 2, 7);
+                Oblique(dessin, -5, -1, 0, -7, 2); Oblique(dessin, 5, -1, 0, -7, 2);
+            }
+        }
+        // Un trait épais entre deux points : le quadrilatère tourné qui les joint.
+        void Oblique(VertexHelper dessin, float x1, float y1, float x2, float y2, float epaisseur)
+        {
+            var sens = new Vector2(x2 - x1, y2 - y1).normalized; var cote = new Vector3(-sens.y, sens.x) * (epaisseur / 2);
+            var a = new Vector3(x1, y1); var b = new Vector3(x2, y2); int i = dessin.currentVertCount;
+            dessin.AddVert(a - cote, color, Vector2.zero); dessin.AddVert(a + cote, color, Vector2.zero);
+            dessin.AddVert(b + cote, color, Vector2.zero); dessin.AddVert(b - cote, color, Vector2.zero);
+            dessin.AddTriangle(i, i + 1, i + 2); dessin.AddTriangle(i, i + 2, i + 3);
         }
         void Trait(VertexHelper dessin, float x, float y, float largeur, float hauteur)
         {

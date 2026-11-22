@@ -219,6 +219,14 @@ namespace Forge.Interface
             return bouton;
         }
 
+        // La croix d'un panneau : une commande carrée dans son coin haut droit, au même endroit et au même dessin partout ; elle n'écrit aucun texte, sa phrase le dit au survol.
+        public static Button Croix(RectTransform panneau, Action fermer, string phrase)
+        {
+            var croix = Commande(panneau, "Fermer", panneau.sizeDelta.x - Espacement - HauteurCommande, 20, fermer, phrase: phrase);
+            EmblemeCommande.Reduire(croix, "croix", new Vector2(HauteurCommande, HauteurCommande));
+            return croix;
+        }
+
         public static GameObject Creer()
         {
             var racine = new GameObject("Galerie du socle");

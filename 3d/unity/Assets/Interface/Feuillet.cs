@@ -13,9 +13,7 @@ namespace Forge.Interface
         {
             if (cadre != null) return;
             cadre = SocleInterface.Panneau(parent, titre, 24, 124, 740, 732);
-            var fermer = SocleInterface.Commande(cadre, "Fermer", 588, 20, Fermer, phrase: "Ferme ce feuillet : " + titre + ".");
-            fermer.GetComponent<RectTransform>().sizeDelta = new Vector2(128, 44);
-            fermer.GetComponentInChildren<Text>().rectTransform.sizeDelta = new Vector2(128, 44);
+            SocleInterface.Croix(cadre, Fermer, "Ferme ce feuillet : " + titre + ".");
             var fenetre = new GameObject("Lecture défilante", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
             var rect = fenetre.GetComponent<RectTransform>();
             rect.SetParent(cadre, false);
