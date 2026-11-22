@@ -2672,7 +2672,7 @@ du vassal. Une république, une Église ou un ordre a pour maison
 son institution. Les clés de premier niveau ne changent pas, et le client Unity
 n'en lit pas de neuve.
 
-les tables des puissances et des maisons, les seigneuries, la vue des
+Les tables des puissances et des maisons, les seigneuries, la vue des
 puissances et la puissance des lieux partagés sont lues une fois par monde servi
 (`SourcesDesPays`), sans jamais lire un maître. La publication copie le document des terres et des pays et ne le
 refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
@@ -2688,6 +2688,84 @@ tracé à l'intérieur d'une cellule partagée, étendue des pays hors de l'Oues
 suit les ancres, et le seigneur libre hors couverture. **Niveau 3, pas simulé :**
 l'hommage et ses effets, frontières réelles et princes d'Empire hors de la table,
 que la vue ne découpe pas, comme dans la photographie.
+Le dessin plus fin des cellules et de leurs lieux est servi à part : voir « La forme
+des lieux, vue dérivée ».
+
+## La forme des lieux, vue dérivée
+
+`GET /formes` sert le contour de chaque cellule et celui de chacun de ses lieux :
+`{crs, version, cells}`, avec `crs` = `EPSG:3035` et `version` celle de la carte
+figée. `cells` est trié par `cell_id` ; chaque entrée porte exactement `cell_id`,
+`contour` et `lieux`, et chaque lieu porte `rang` et `contour`, rangés par rang.
+Un contour est toujours un `MultiPolygon` en mètres entiers, dont les anneaux
+gardent le sens de la carte figée (extérieur horaire, trous trigonométriques).
+Un contour se retrouve par (`cell_id`, `rang`) : aucune clé spatiale de plus n'est
+créée, et rien ne se stocke dans le monde. Le calcul est dans `sim/formes.py`.
+
+**Le bord entre deux cellules.** Les sommets de la carte figée sont arrondis au
+mètre. Un sommet qui tombe à moins de `ACCROCHE_SOMMET_M` = 1,5 m d'un côté est
+posé sur ce côté, chez toutes les cellules qui le portent ; une pointe de largeur
+nulle née de cette accroche disparaît (78 sommets sur la graine 0, sans surface).
+Un segment que deux cellules partagent est un segment terre-terre ; tout autre
+segment est de la côte, ou le bord de la carte, et reste tel quel, sommet pour
+sommet. Chaque segment terre-terre se brise en une ligne tirée par
+`random.Random("bord-a-b-k")` (a < b, k le rang du segment entre elles), jamais par
+l'aléa du monde : la même ligne sert aux deux cellules, à l'envers chez l'une. La
+ligne est le graphe d'une fonction le long du segment, obtenue par subdivision
+du milieu jusqu'à `PAS_BRISURE_M` = 1 500 m. Le premier écart vaut
+`ECART_BRISURE` = 0,35 de la longueur, et chaque niveau le multiplie par
+`AMORTI_BRISURE` = 0,6. La ligne reste dans un losange dont le segment est la
+grande diagonale, de demi-largeur `RAPPORT_LOSANGE` = 0,2 de sa longueur.
+
+**La sûreté.** Une ligne ne touche aucun autre côté de ses deux cellules (côte
+comprise) ni aucune ligne déjà brisée, sauf en ses bouts. Elle ne fait passer de
+l'autre côté ni une place de lieu ni un sommet : au droit d'un tel point, elle
+s'en tient au plus à mi-chemin du segment. Sinon le losange se rétrécit de
+moitié, au plus `ESSAIS_LOSANGE` = 6 fois ; au-delà, le segment reste droit. Un
+bord dont aucun sommet ne s'écarte de son segment de plus de
+`ECART_MIN_BRISE_M` = 100 m compte pour droit. Sur la graine 0, 17 segments sur
+1 016 restent droits, tous de moins de 4 km. Un couple de cellules qui partage
+un segment sans arête `land-land` dans l'adjacence (10383 et 10399, dont deux
+sommets ne diffèrent que par les derniers bits) se brise comme les autres ; une
+arête `land-land` sans segment commun est refusée en nommant ses deux cellules.
+
+**Les lieux.** Dans le contour brisé de sa cellule, chaque lieu reçoit la terre
+plus proche de sa place (`sim/places.py`) que de celle d'un autre lieu de la
+cellule. Ce sont les régions des places, rognées par le contour : une île ou une
+presqu'île sans place va au lieu dont la place est la plus proche, et un lieu peut
+donc compter plusieurs morceaux. Les sommets des régions se calculent toujours de
+la même façon (centre du cercle de trois places prises par rang, ou croisement
+d'une médiatrice et d'un côté de la boîte), puis s'arrondissent au mètre. Le point
+où un bord entre lieux coupe le contour est inséré dans le côté coupé, chez les
+deux cellules qui le partagent : l'union des lieux est exactement le contour
+servi, sans trou ni recouvrement. Les bords entre lieux se brisent comme ceux
+entre cellules (graine `lieu-<cell_id>-<bouts>`, même sûreté), et le contour de
+chaque lieu contient sa place. Un lieu qui se toucherait en un sommet se coupe en
+anneaux simples.
+
+**Quand et par qui.** Les contours suivent les places, qui suivent les ancres des
+bourgs gardées au chargement : une conquête ne les change pas.
+`formes_du_monde` les calcule une fois par processus pour la même carte et les
+mêmes places. Le service lit les places sous le verrou du tick, puis calcule hors
+de lui, à la première lecture de `/formes`, sous un verrou propre ; les octets
+restent pour la partie. Le tick ne lit jamais cette vue. Une erreur de calcul
+rend `500` avec `erreur`, sans arrêter le service. Le calcul n'emploie que
+l'addition, la multiplication, la division, la racine et les tirages de
+`random` : les mêmes octets sous Windows et sous Linux. Sur srv1914711, la carte
+entière demande de 12 à 20 s selon la charge, et le document pèse 19 Mo.
+`python3 -m forge` écrit le même document dans `formes.json`, et `carte.png` trace
+ses frontières le long de ces contours.
+
+**Ce que le contour n'est pas.** La surface d'un contour n'est pas une grandeur du
+monde : le moteur donne à chaque lieu la surface de `lieux_de_cellule`, et le
+contour n'en est que le dessin. Ni le tick, ni l'IA, ni une règle ne lisent un
+contour.
+
+**Niveau 1 :** la côte de la carte figée, que les contours suivent sans la bouger
+(au mètre près, et à `ACCROCHE_SOMMET_M` près là où un sommet est accroché).
+**Niveau 2, plausible, jamais sourcé :** le tracé de chaque bord brisé et le
+contour de chaque lieu. **Niveau 3, pas simulé :** les fleuves, que les contours ne
+suivent pas, faute de tracé dans le monde.
 
 ## Les maisons servies, vue dérivée
 
@@ -2795,7 +2873,10 @@ l'échelle d'une cellule », vu ici par sa surface et sa part des habitants ; il
 loge tous les non-paysans à l'amorçage. Les gens des villes nommées, paysans
 à l'amorçage A, restent répartis selon les surfaces.
 Les chemins limitent la distribution alimentaire intérieure décrite ci-dessous.
-La forme, la position et les frontières des lieux ne sont pas simulées.
+La place d'un lieu est une vue dérivée (`sim/places.py`), et sa forme une vue de
+dessin (`sim/formes.py`, voir « La forme des lieux, vue dérivée ») : ni l'une ni
+l'autre n'est une grandeur du monde. La surface d'un lieu reste celle de
+`lieux_de_cellule`, jamais celle de son contour.
 Les noms sont une vue pure `sim/noms.py` hors du tick : niveau 1 pour le siège historique du bourg (seigneuries par id), sinon la ville placée de plus forte population historique, puis nom croissant ; niveau 2, plausible, jamais sourcé, pour `data/noms-1400.json`.
 La première règle applicable lit puissance, religion dans la table des puissances et position du centroïde ; sans puissance, les règles géographiques déclarent puissance et religion absentes. Une absence de règle ou une liste insuffisante est refusée.
 Le bloc frère `noms = {"lieux": [{"rang": R, "nom": N}], "maisons": {IDENTIFIANT: {"nom": N, "prenom_chef": P}}}` est identique dans la photographie et `/lieu`. Les maisons suivent leur fiche et leur rang initial, jamais le lieu consulté ; les historiques gardent leur nom et un prénom `null`, absence déclarée.

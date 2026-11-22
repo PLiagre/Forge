@@ -3,8 +3,15 @@ from copy import deepcopy
 import pytest
 from sim.__main__ import _simulate
 from sim.seigneuries import charger_seigneuries
+from sim.formes import document_des_formes
 from sim.snapshot_export import build_snapshot_document
+from sim.world import World
 from vues.relief import encart as vue
+
+@pytest.fixture(scope='module')
+def formes():
+    # Les contours servis par sim/ ; l'encart les lit, il n'en calcule aucun.
+    return document_des_formes(World.charger(0))
 
 @pytest.fixture(scope='module')
 def photographies():
@@ -158,11 +165,12 @@ def test_bar(photographies):
 # Preuves du dessin : les références viennent de la photographie et des pixels.
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageColor
-from vues.relief.raster import index_des_cellules, _vers_pixel
+from vues.relief.raster import index_des_cellules, index_des_lieux, _vers_pixel
 from vues.relief.carte1400 import COULEUR_CHOIX, _lignes_ajustees, MARGE_FICHE, HAUTEUR_LIGNE, COULEUR_FOND, COULEUR_TEXTE
 
-def repere(d, largeur=900):
-    e = vue.lire_encart(d); index, bornes, _ = index_des_cellules({'cells': e['cellules']}, largeur=largeur)
+def repere(d, formes, largeur=900):
+    # L'index des lieux : les bords gris de l'encart courent entre lieux.
+    e = vue.lire_encart(d); index, bornes, _ = index_des_lieux({'cells': e['cellules']}, formes, largeur=largeur)
     def point(l): return np.array(_vers_pixel(l['point']['x_m'], l['point']['y_m'], bornes, largeur, len(index)), dtype=float)
     return e, index, bornes, point
 
@@ -176,9 +184,9 @@ def alterer(image, controle, geste):
     copie = image.copy(); geste(copie)
     with pytest.raises(AssertionError): controle(copie)
 
-def test_encart_pixels_geometrie(photographies):
-    d = photographies[0]; avant = deepcopy(d); e, index, _, point = repere(d)
-    image, _ = vue.dessiner_encart(d, largeur=900); assert d == avant
+def test_encart_pixels_geometrie(photographies, formes):
+    d = photographies[0]; avant = deepcopy(d); e, index, _, point = repere(d, formes)
+    image, _ = vue.dessiner_encart(d, largeur=900, formes=formes); assert d == avant
     bord = np.zeros(index.shape, bool)
     for a, b in ((np.s_[:, :-1], np.s_[:, 1:]), (np.s_[:-1, :], np.s_[1:, :])): bord[a] |= index[a] != index[b]
     yy, xx = np.indices(index.shape)
@@ -188,6 +196,11 @@ def test_encart_pixels_geometrie(photographies):
         a, b = point(f['source']), point(f['destination']); v = b-a
         bord &= abs((xx-a[0])*v[1]-(yy-a[1])*v[0]) / np.linalg.norm(v) > 12
     assert bord.any() and any(len({l['maitre'] for l in c['lieux']}) > 1 for c in e['cellules'])
+    # Des bords courent à l'intérieur d'une cellule, entre ses lieux : le gris les attend aussi.
+    cellules, _, _ = index_des_cellules({'cells': e['cellules']}, largeur=900, formes=formes)
+    entre_cellules = np.zeros(index.shape, bool)
+    for a, b in ((np.s_[:, :-1], np.s_[:, 1:]), (np.s_[:-1, :], np.s_[1:, :])): entre_cellules[a] |= cellules[a] != cellules[b]
+    assert (bord & ~entre_cellules).any()
     def controle(i):
         assert np.all(i[:len(index)][bord] == vue.COULEUR_CONTOUR)
         for l in e['lieux']:
@@ -195,10 +208,10 @@ def test_encart_pixels_geometrie(photographies):
     controle(image); y, x = np.argwhere(bord)[0]; px, py = point(e['lieux'][0]).astype(int)
     for geste in (lambda i: i.__setitem__((y, x), 0), lambda i: i.__setitem__((py, px), i[py+12, px]), lambda i: i.__setitem__((py, px, slice(0, 3)), ImageColor.getrgb(e['lieux'][-1]['couleur']))): alterer(image, controle, geste)
     sans = deepcopy(d); zone(sans)[0]['lieux'][0]['maitre'] = None
-    i, r = vue.dessiner_encart(sans, largeur=900); assert tuple(i[py, px, :3]) == ImageColor.getrgb(vue.COULEUR_SANS_MAITRE) and any('sans maître' in l for l in r['legende'])
+    i, r = vue.dessiner_encart(sans, largeur=900, formes=formes); assert tuple(i[py, px, :3]) == ImageColor.getrgb(vue.COULEUR_SANS_MAITRE) and any('sans maître' in l for l in r['legende'])
 
-def sections(d, image):
-    e, _, _, point = repere(d); base, _ = vue.dessiner_encart(nul(d), largeur=900); mesures = []
+def sections(d, image, formes):
+    e, _, _, point = repere(d, formes); base, _ = vue.dessiner_encart(nul(d), largeur=900, formes=formes); mesures = []
     for f in e['fleches']:
         a, b = point(f['source']), point(f['destination']); u = (b-a)/np.linalg.norm(b-a); n = np.array([-u[1], u[0]])
         p = np.rint(a + (b-a)*.3 + np.arange(-12, 13)[:, None]*n).astype(int)
@@ -206,15 +219,15 @@ def sections(d, image):
         mesures.append(np.maximum(0, image[p[:, 1], p[:, 0], :3].astype(int)-base[p[:, 1], p[:, 0], :3]).sum())
     return np.array(mesures)
 
-def test_encart_pixels_bar(photographies_pixels_bar, tmp_path):
+def test_encart_pixels_bar(photographies_pixels_bar, formes, tmp_path):
     photographies, historique = photographies_pixels_bar
-    resultats = [vue.dessiner_encart(d, largeur=900) for d in photographies]; images = [i for i, _ in resultats]
-    def comparer_pixels(a, b): assert np.all(sections(photographies[0], a) > sections(photographies[1], b))
+    resultats = [vue.dessiner_encart(d, largeur=900, formes=formes) for d in photographies]; images = [i for i, _ in resultats]
+    def comparer_pixels(a, b): assert np.all(sections(photographies[0], a, formes) > sections(photographies[1], b, formes))
     comparer_pixels(*images)
     for paire in ((images[1], images[1]), (images[0], images[0])):
         with pytest.raises(AssertionError): comparer_pixels(*paire)
     for d, image in zip(photographies, images):
-        e, index, _, point = repere(d); attendus = {(c['cell_id'], c['rang']) for c in e['cercles']}
+        e, index, _, point = repere(d, formes); attendus = {(c['cell_id'], c['rang']) for c in e['cercles']}
         def controle(i):
             assert not np.any(np.all(i[..., :3] == COULEUR_CHOIX[:3], axis=2))
             for l in e['lieux']:
@@ -222,7 +235,7 @@ def test_encart_pixels_bar(photographies_pixels_bar, tmp_path):
                 assert bool(rouge.any()) == ((l['cell_id'], l['rang']) in attendus)
         controle(image); assert e['compteurs']['cercles_joueur'] == (4 if d is photographies[0] else 0)
         r = resultats[0 if d is photographies[0] else 1][1]; assert r['compteurs'] == e['compteurs'] and r['cercles_dessines'] == len(attendus) and r['fleches_dessinees'] == len(e['fleches'])
-        base, _ = vue.dessiner_encart(nul(d), largeur=900)
+        base, _ = vue.dessiner_encart(nul(d), largeur=900, formes=formes)
         yy, xx = np.indices(index.shape)
         if not historique:
             # Les pointes fines restent visibles entre le point et son anneau.
@@ -252,7 +265,7 @@ def test_encart_pixels_bar(photographies_pixels_bar, tmp_path):
                 lieu = next(l for c in zone(seule) for l in c['lieux']
                             if (c['cell_id'], l['rang']) == (f['source']['cell_id'], f['source']['rang']))
                 lieu['flux_30j']['preleve_kg'] = f['kg']
-                image_pointe, _ = vue.dessiner_encart(seule, largeur=900)
+                image_pointe, _ = vue.dessiner_encart(seule, largeur=900, formes=formes)
                 pointe(image_pointe)
             alterer(image_pointe, pointe, lambda i: i[:len(index)].__setitem__(masque, base[:len(index)][masque]))
             x, y = b.astype(int); boite = (slice(y-12,y+13), slice(x-12,x+13))
@@ -262,21 +275,21 @@ def test_encart_pixels_bar(photographies_pixels_bar, tmp_path):
             c = e['cercles'][0]; x, y = point(c).astype(int)
             alterer(image, controle, lambda i: i.__setitem__((slice(y-10,y+11), slice(x-10,x+11)), 0))
         chemin = tmp_path / f"bar-{e['joueur']['part']}.png"; Image.fromarray(image).save(chemin)
-        print(chemin, 'couvertures', sections(d, image), 'cercles', len(attendus), 'hauteur du plan', len(index))
+        print(chemin, 'couvertures', sections(d, image, formes), 'cercles', len(attendus), 'hauteur du plan', len(index))
 
-def test_encart_pixels_bord(photographies):
-    d = photographies[0]; e, index, bornes, point = repere(d); a, b = point(e['fleches'][-1]['source']), point(e['fleches'][-1]['destination'])
+def test_encart_pixels_bord(photographies, formes):
+    d = photographies[0]; e, index, bornes, point = repere(d, formes); a, b = point(e['fleches'][-1]['source']), point(e['fleches'][-1]['destination'])
     assert b[0] < 0 or b[0] >= 900 or b[1] < 0 or b[1] >= len(index)
     for deplacement in (0, 180000):
         copie = nul(d); copie['maisons_du_joueur']['suzerain']['siege']['point']['y_m'] += deplacement
-        _, autre, limites, proj = repere(copie); assert limites == bornes and autre.shape == index.shape
+        _, autre, limites, proj = repere(copie, formes); assert limites == bornes and autre.shape == index.shape
         a, b = proj(e['fleches'][-1]['source']), proj(copie['maisons_du_joueur']['suzerain']['siege']); u = (b-a)/np.linalg.norm(b-a)
         source = e['fleches'][-1]['source']['point']; cible = copie['maisons_du_joueur']['suzerain']['siege']['point']; minx,miny,maxx,maxy = bornes
         t = min(v for v in [(c-source[k])/(cible[k]-source[k]) for k,c in (('x_m',minx),('x_m',maxx),('y_m',miny),('y_m',maxy)) if cible[k] != source[k]] if v > 0)
         bout = np.array(_vers_pixel(source['x_m']+t*(cible['x_m']-source['x_m']), source['y_m']+t*(cible['y_m']-source['y_m']), bornes,900,len(index))); yy,xx = np.indices(index.shape)
-        temoin, _ = vue.dessiner_encart(copie, largeur=900)
+        temoin, _ = vue.dessiner_encart(copie, largeur=900, formes=formes)
         for kg in (0, 1, 10000, 400000, 900000):
-            copie['maisons_du_joueur']['maison']['flux_30j']['du_envoye_kg'] = kg; image, r = vue.dessiner_encart(copie, largeur=900)
+            copie['maisons_du_joueur']['maison']['flux_30j']['du_envoye_kg'] = kg; image, r = vue.dessiner_encart(copie, largeur=900, formes=formes)
             delta = image[:len(index), :, :3].astype(int)-temoin[:len(index), :, :3]; w = min(8,kg/vue.KG_PAR_PIXEL); v = np.array([-u[1],u[0]])*max(3,w); fond = bout-u*max(6,2*w)
             triangle = Image.new('L',(900,len(index))); ImageDraw.Draw(triangle).polygon([tuple(bout),tuple(fond+v),tuple(fond-v)], fill=255)
             masque = (np.array(triangle)>0)&(abs((xx-bout[0])*u[1]-(yy-bout[1])*u[0])>w/2+.6); assert masque.any()
@@ -293,11 +306,11 @@ def test_encart_pixels_bord(photographies):
             if kg == 400000: plafond = delta.copy()
             if kg == 900000: assert np.array_equal(delta, plafond)
 
-def test_encart_pixels_legende(photographies):
+def test_encart_pixels_legende(photographies, formes):
     d = deepcopy(photographies[0]); d['maisons_du_joueur']['maison']['nom'] += ' ' + 'motlong'*30
     for doc in (d, {'terre_choisie': None, 'tick': 30, 'seed': 0}):
         for largeur in (900, 64):
-            image, r = vue.dessiner_encart(doc, largeur=largeur); police = ImageFont.load_default(); crayon = ImageDraw.Draw(Image.new('RGBA', (1,1)))
+            image, r = vue.dessiner_encart(doc, largeur=largeur, formes=formes); police = ImageFont.load_default(); crayon = ImageDraw.Draw(Image.new('RGBA', (1,1)))
             attendues = vue.lire_encart(doc)['legende']; assert all(l in r['legende'] for l in attendues)
             lignes = _lignes_ajustees(r['legende'], crayon, police, largeur); h = 2*MARGE_FICHE+HAUTEUR_LIGNE*len(lignes)
             bande = Image.new('RGBA', (largeur,h), COULEUR_FOND); dessin = ImageDraw.Draw(bande)
