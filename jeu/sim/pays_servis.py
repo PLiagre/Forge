@@ -89,15 +89,39 @@ def pays_des_terres(monde, vue, maisons) -> dict:
     pays = {}
     for cid, cellule in sorted(monde.cells.items()):
         maitre = next((l.maitre for l in cellule.lieux if l.rang == 0), None)
-        if maitre is None:
-            pays[cid] = None
-            continue
-        chaine = _chaine(par_id, maitre)
-        racine = chaine[-1]
-        if racine in par_id and racine not in origines:
-            origines[racine] = pays_d_origine(par_id[racine], vue, maisons)
-        pays[cid] = _pays_selon(chaine, vue.get(cid), par_id, maisons, origines)
+        pays[cid] = None if maitre is None else _pays_depuis(maitre, vue.get(cid), par_id, vue, maisons, origines)
     return pays
+
+
+def pays_des_maisons(monde, vue, maisons, identifiants) -> dict:
+    """identifiant → pays de la maison : la même règle que pour une terre, sur la chaîne de la
+    maison et la puissance de la cellule de son siège (aucune hors carte). Pour la maison qui
+    tient le bourg de son siège, c'est le pays de cette terre."""
+    par_id = {m.id: m for m in monde.maisons}
+    origines = {}
+    pays = {}
+    for identifiant in sorted(set(identifiants)):
+        siege = par_id[identifiant].cell_id if identifiant in par_id else None
+        puissance = None if siege is None else vue.get(siege)
+        pays[identifiant] = _pays_depuis(identifiant, puissance, par_id, vue, maisons, origines)
+    return pays
+
+
+def regne(identifiant, pays, maisons) -> list:
+    """Les pays dont la maison est la maison régnante, dans l'ordre des puissances : celles
+    qu'elle dirige, puis son propre pays quand elle l'est elle-même (une terre de départ, un
+    seigneur libre)."""
+    regnes = [identifiant_de_puissance(p) for p in _dirigees(maisons).get(identifiant, ())]
+    return regnes + [identifiant] if pays == identifiant else regnes
+
+
+def _pays_depuis(maison, puissance, par_id, vue, maisons, origines) -> str:
+    """Le pays d'après la chaîne qui part de `maison` ; `origines` garde le pays d'origine de chaque racine lue."""
+    chaine = _chaine(par_id, maison)
+    racine = chaine[-1]
+    if racine in par_id and racine not in origines:
+        origines[racine] = pays_d_origine(par_id[racine], vue, maisons)
+    return _pays_selon(chaine, puissance, par_id, maisons, origines)
 
 
 def _pays_selon(chaine, puissance, par_id, maisons, origines) -> str:

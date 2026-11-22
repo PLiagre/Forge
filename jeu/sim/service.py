@@ -34,6 +34,7 @@ from sim.batiments import document_des_batiments, documents_des_plans
 from sim.capitales import toutes_les_maisons_de_l_ia
 from sim.jouables import maisons_jouables
 from sim.pays_servis import sources_des_pays
+from sim.villes_3d import charger_villes_3d
 from sim.intentions import IntentionRefusee, TYPE_TRACER_ROUTE, TYPE_DECOUPER_PARCELLE, TYPE_POSER_BATIMENT, TYPE_TRACER_ENCEINTE, TYPE_BATIR_DANS_UNE_PROVINCE, TYPE_FIXER_PART, TYPE_OUVRIR_GRENIER, TYPE_REPONDRE_EVENEMENT, TYPE_DECLARER_GUERRE, TYPE_LEVER_ARMEE, TYPE_MARCHER, TYPE_ASSIEGER, TYPE_RENVOYER_ARMEE, recevoir_intention
 from sim.maisons import charger_maisons
 from sim.maisons_servies import (
@@ -375,6 +376,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._sources_noms = None
         # (monde, sources des pays) : les tables et la vue que les pays de `/terres` lisent, une fois par monde servi.
         self._sources_pays = None
+        self._villes_3d = None  # la donnée des villes bâties en 3D, lue à la première lecture de `/jouables`
         self._pays_du_tick = (None, {})
         self.verrou_tick = threading.Lock()
         self.verrou_carte = threading.Lock()
@@ -451,12 +453,15 @@ class ServeurMonde(ThreadingHTTPServer):
             }
 
     def document_jouables(self):
-        """Les pays que le joueur peut prendre, au tick courant et sous le verrou du tick."""
+        """Les pays que le joueur peut prendre, au tick courant et sous le verrou du tick. Les tables, la vue
+        des puissances et les noms sont ceux déjà lus ; la donnée des villes en 3D est lue une fois."""
         with self.verrou_tick:
+            if self._villes_3d is None:
+                self._villes_3d = charger_villes_3d()
             return {
                 "tick": self.world.ticks_ecoules,
                 "date": self.world.date_simulation,
-                "jouables": maisons_jouables(self.world),
+                "jouables": maisons_jouables(self.world, self._sources_des_pays(), self._noms, self._villes_3d),
             }
 
     def octets_de_maison(self, etat, identifiant=None):

@@ -112,6 +112,64 @@ def test_une_terre_de_depart_est_son_propre_pays_et_dit_son_suzerain(sources):
     assert fiches[fiches[identifiant_de_seigneurie(zab.id)]["suzerain"]]["nom"] == "Hafsides"
 
 
+@pytest.fixture(scope="module")
+def jouables(sources):
+    from sim.jouables import maisons_jouables
+    from sim.pays_servis import sources_des_pays
+    return maisons_jouables(sources.monde, sources_des_pays(sources.monde, sources.table, sources.vue),
+                            sources.matiere.noms)
+
+
+def _verifier_villes(jouables, villes, seigneuries):
+    """Chaque départ dit si sa capitale est bâtie ; seuls ceux de la donnée le disent, les autres disent pourquoi."""
+    departs = [m for m in jouables if m["sorte"] == "seigneurie"]
+    assert [m["id"] for m in departs] == [identifiant_de_seigneurie(s.id) for s in seigneuries], "les six départs"
+    for depart in departs:
+        ville = depart["ville"]
+        assert isinstance(ville["batie"], bool), depart["id"]
+        if not ville["batie"]:
+            assert ville["raison"] and depart["siege"]["nom"] in ville["raison"] and ville["scene"] is None
+    assert {m["id"] for m in departs if m["ville"]["batie"]} == {v.maison for v in villes.villes}
+    assert all(m["ville"]["batie"] == (m["id"] in {v.maison for v in villes.villes}) for m in jouables)
+
+
+def test_chaque_depart_dit_si_sa_capitale_est_batie(sources, jouables):
+    import copy
+    from sim.villes_3d import charger_villes_3d
+    villes = charger_villes_3d()
+    _verifier_villes(jouables, villes, sources.seigneuries)
+    # Aujourd'hui, seule la terre dont le siège est Biskra a sa ville.
+    (biskra,) = [s for s in sources.seigneuries if s.siege.nom == "Biskra"]
+    assert {v.maison for v in villes.villes} == {identifiant_de_seigneurie(biskra.id)}
+    # Contre-épreuve : un départ servi bâti sans entrée dans la donnée.
+    faux = copy.deepcopy(jouables)
+    autre = next(m for m in faux if m["sorte"] == "seigneurie" and not m["ville"]["batie"])
+    autre["ville"] = {"batie": True, "scene": None, "raison": None}
+    with pytest.raises(AssertionError):
+        _verifier_villes(faux, villes, sources.seigneuries)
+
+
+def test_un_jouable_dit_son_pays_ses_regnes_son_siege_et_son_suzerain(sources, jouables):
+    par_id = {m["id"]: m for m in jouables}
+    nommees = {p.nom: p.id for p in sources.table.puissances}
+    luxembourg = par_id[P.tete_de_puissance(nommees["Bohême"], sources.maisons)]
+    assert {p["nom"] for p in luxembourg["regne"]} == {"Saint-Empire", "Bohême", "Hongrie"}
+    assert luxembourg["pays"]["nom"] == "Bohême" and luxembourg["suzerain"] is None
+    navarre = par_id[P.tete_de_puissance(nommees["Navarre"], sources.maisons)]
+    assert navarre["pays"]["nom"] == "Navarre" and navarre["siege"]["nom"] == "Pampelune"
+    puissances = {p.id: p.nom for p in sources.table.puissances}
+    for seigneurie in sources.seigneuries:
+        depart = par_id[identifiant_de_seigneurie(seigneurie.id)]
+        assert depart["pays"]["nom"] == seigneurie.nom and [p["id"] for p in depart["regne"]] == [depart["id"]]
+        assert depart["siege"]["nom"] == seigneurie.siege.nom
+        assert depart["suzerain"]["pays"]["nom"] == puissances[seigneurie.suzerain]
+    # Un seigneur tenu par une maison qui règne sur plusieurs pays relève du pays où il est.
+    hongrois = next(m for m in jouables if m["sorte"] == "plausible"
+                    and m["pays"]["id"] == P.identifiant_de_puissance(nommees["Hongrie"]))
+    assert hongrois["suzerain"]["id"] == luxembourg["id"] and hongrois["suzerain"]["pays"]["nom"] == "Hongrie"
+    assert all(m["nom"] and not m["nom"].startswith("plausible-") for m in jouables)
+
+
 def test_une_place_prise_passe_au_pays_du_preneur(sources):
     import copy
     monde = copy.deepcopy(sources.monde)
