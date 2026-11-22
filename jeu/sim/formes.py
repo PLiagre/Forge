@@ -755,14 +755,15 @@ def decoupe_du_monde(monde) -> Decoupe:
 _DERNIER = [None, None]
 
 
-def formes_du_monde(monde) -> Decoupe:
+def formes_du_monde(monde, places=None) -> Decoupe:
     """Le découpage d'un monde, calculé une fois par processus pour la même carte et les mêmes places.
 
     Les places suivent les ancres des bourgs gardées au chargement (`places_du_monde`) : une
-    conquête ne les bouge pas, et le découpage n'est pas refait.
+    conquête ne les bouge pas, et le découpage n'est pas refait. `places` : celles du monde,
+    déjà lues (le service les lit sous le verrou du tick et calcule hors de lui).
     """
     from sim.places import places_du_monde
-    places = places_du_monde(monde)
+    places = places_du_monde(monde) if places is None else places
     cle = (monde.carte_meta.get("version"), tuple(sorted(monde.carte)),
            tuple((cid, tuple((p.x_m, p.y_m) for p in liste)) for cid, liste in sorted(places.items())))
     if _DERNIER[0] != cle:
@@ -771,9 +772,9 @@ def formes_du_monde(monde) -> Decoupe:
     return _DERNIER[1]
 
 
-def document_des_formes(monde) -> dict:
+def document_des_formes(monde, places=None) -> dict:
     """Ce que sert `GET /formes` : le contour de chaque cellule et celui de chacun de ses lieux, par rang."""
-    decoupe = formes_du_monde(monde)
+    decoupe = formes_du_monde(monde, places)
     return {"crs": "EPSG:3035", "version": monde.carte_meta.get("version"),
             "cells": [{"cell_id": cid, "contour": decoupe.contours[cid],
                        "lieux": [{"rang": rang, "contour": contour} for rang, contour in enumerate(decoupe.lieux[cid])]}

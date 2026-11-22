@@ -12,11 +12,19 @@ recouvrement ; chaque anneau est simple ; chaque lieu contient sa place ; aucun 
 en mer ; la côte et les îles se retrouvent dans les lieux ; un lieu garde son contour quand il
 change de maître. Contre-épreuves : un lieu retiré (un trou), un lieu doublé (un
 recouvrement), une place déplacée hors de son lieu rougissent.
+
+Le service : `GET /formes` sert ces contours, calculés une fois à la première lecture, hors
+du verrou du tick ; ni un tick ni une prise ne les refait, et une erreur rend 500 sans
+arrêter le service.
 """
 
 import collections
 import copy
 import math
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from http import HTTPStatus
 
 import pytest
 
@@ -24,6 +32,8 @@ import sim.constants as _constantes
 from sim.formes import (FormesInvalides, accrocher_les_sommets, anneaux_arrondis, decouper_la_carte,
                         document_des_formes, ecart_a_la_corde, formes_du_monde, se_touchent, segments_partages)
 from sim.places import places_du_monde
+from sim.service import ServeurMonde, _serialiser
+from sim.tests.test_monde import requete_service
 from sim.villes import point_dans_geometrie
 from sim.world import World
 
@@ -446,3 +456,103 @@ def test_le_document_des_formes(monde, decoupe):
         assert cellule["contour"] == decoupe.contours[cellule["cell_id"]]
         assert [l["rang"] for l in cellule["lieux"]] == list(range(len(monde.cells[cellule["cell_id"]].lieux)))
         assert [l["contour"] for l in cellule["lieux"]] == list(decoupe.lieux[cellule["cell_id"]])
+
+
+# --- Le service : GET /formes ---
+
+@contextmanager
+def _service_local():
+    """Un service de graine 0, dont l'horloge ne joue pas seule."""
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join()
+
+
+def test_service_formes_octets(monde, decoupe):
+    # `decoupe` d'abord : le service de graine 0 retrouve le découpage gardé du processus.
+    attendu = _serialiser(document_des_formes(monde))
+    with _service_local() as (_, port):
+        statut, _, octets = requete_service(port, "/formes")
+    assert statut == HTTPStatus.OK
+    assert len(attendu) > 0
+    assert octets == attendu
+    # Contre-épreuve : un octet de plus ne passe pas.
+    with pytest.raises(AssertionError):
+        assert octets + b" " == attendu
+
+
+def test_service_formes_une_fois(monkeypatch, monde, decoupe):
+    import sim.service as service
+
+    appels = []
+    vraie = service.document_des_formes
+
+    def compter(*args, **kwargs):
+        appels.append(1)
+        return vraie(*args, **kwargs)
+
+    monkeypatch.setattr(service, "document_des_formes", compter)
+    with _service_local() as (serveur, port):
+        assert not appels
+        with ThreadPoolExecutor(max_workers=4) as lecteurs:
+            reponses = list(lecteurs.map(lambda _: requete_service(port, "/formes"), range(4)))
+        assert len(appels) == 1
+        assert {statut for statut, _, _ in reponses} == {HTTPStatus.OK}
+        premiers = reponses[0][2]
+        assert premiers and all(octets == premiers for _, _, octets in reponses)
+        requete_service(port, "/tick?n=1", "POST")
+        # Une prise de bourg : le maître d'un lieu devient celui d'une autre maison.
+        with serveur.verrou_tick:
+            cid = next(c for c in sorted(serveur.world.cells) if serveur.world.cells[c].lieux)
+            lieu = serveur.world.cells[cid].lieux[0]
+            lieu.maitre = next(m for m in sorted({l.maitre for c in serveur.world.cells.values()
+                                                  for l in c.lieux if l.maitre}) if m != lieu.maitre)
+        requete_service(port, "/tick?n=1", "POST")
+        statut, _, apres = requete_service(port, "/formes")
+        assert statut == HTTPStatus.OK
+        assert apres == premiers
+        assert len(appels) == 1
+
+
+def test_service_le_tick_ne_calcule_aucune_forme(monkeypatch):
+    import sim.formes as formes
+    import sim.service as service
+
+    def sonde(*args, **kwargs):
+        raise AssertionError("le tick a calculé des formes")
+
+    monkeypatch.setattr(formes, "formes_du_monde", sonde)
+    monkeypatch.setattr(formes, "decouper_la_carte", sonde)
+    monkeypatch.setattr(service, "document_des_formes", sonde)
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    try:
+        serveur.jouer_un_tick()
+        serveur.jouer_un_tick()
+        assert serveur._formes_figees is None
+    finally:
+        serveur.server_close()
+
+
+@pytest.mark.parametrize("erreur", [FormesInvalides, ValueError])
+def test_service_formes_erreur(monkeypatch, monde, decoupe, erreur):
+    import sim.service as service
+
+    with _service_local() as (_, port):
+        with monkeypatch.context() as patch:
+            def refuser(*args, **kwargs):
+                raise erreur("donnée absente")
+
+            patch.setattr(service, "document_des_formes", refuser)
+            statut, document, _ = requete_service(port, "/formes")
+            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR
+            assert document == {"erreur": "donnée absente"}
+            assert requete_service(port, "/monde")[0] == HTTPStatus.OK
+        statut, _, octets = requete_service(port, "/formes")
+        assert statut == HTTPStatus.OK
+        assert octets == _serialiser(document_des_formes(monde))
