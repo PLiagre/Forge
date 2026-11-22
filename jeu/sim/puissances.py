@@ -49,6 +49,7 @@ class Puissance(_NoBadSpatialField):
     nom: str
     nature: str
     religion: str
+    suzerain: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -92,6 +93,20 @@ def _nombre(valeur, identifiant, champ: str, sorte="ancre"):
     return valeur
 
 
+def _refuser_suzerains(puissances, ids) -> None:
+    """Un suzerain déclaré est une puissance connue, et la chaîne des suzerains ne boucle pas."""
+    par_id = {p.id: p for p in puissances}
+    for puissance in puissances:
+        courante, vues = puissance, set()
+        while courante.suzerain is not None:
+            if courante.suzerain not in ids:
+                raise PuissanceInvalide(f"puissance {puissance.id}, champ suzerain : puissance inconnue")
+            if courante.id in vues:
+                raise PuissanceInvalide(f"puissance {puissance.id}, champ suzerain : cycle")
+            vues.add(courante.id)
+            courante = par_id[courante.suzerain]
+
+
 def charger_table(path=None) -> TableDesPuissances:
     """Lit la table, la valide entièrement et rend ses lignes triées."""
     chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
@@ -116,7 +131,14 @@ def charger_table(path=None) -> TableDesPuissances:
             raise PuissanceInvalide(f"puissance {identifiant}, champ nature : valeur inconnue")
         if religion not in RELIGIONS:
             raise PuissanceInvalide(f"puissance {identifiant}, champ religion : valeur inconnue")
-        puissances.append(Puissance(identifiant, nom, nature, religion))
+        suzerain = None
+        if "suzerain" in brute:
+            suzerain = brute["suzerain"]
+            if isinstance(suzerain, bool) or not isinstance(suzerain, int):
+                raise PuissanceInvalide(f"puissance {identifiant}, champ suzerain : entier attendu")
+            _texte(brute.get("source_suzerain"), "puissance", identifiant, "source_suzerain")
+        puissances.append(Puissance(identifiant, nom, nature, religion, suzerain))
+    _refuser_suzerains(puissances, ids_puissances)
 
     ancres, ids_ancres, puissances_visees = [], set(), set()
     for brute in brutes_ancres:
@@ -255,8 +277,14 @@ def puissances_depuis_monde(
     table=None,
     portee=None,
     latitude_moyenne=None,
+    frontieres=None,
 ) -> dict:
-    """Adapte la vue pure aux cellules chargées, sans modifier le monde."""
+    """La puissance de chaque cellule chargée, sans modifier le monde.
+
+    Une cellule que la table des frontières décide (`sim/frontieres.py`) prend son pays déclaré,
+    le pays de son bourg si elle est partagée, ou aucun si elle est en lacune ; l'ancre retenue
+    ne décide que des autres."""
+    from sim.frontieres import charger_frontieres, decisions_des_frontieres
     if positions is None:
         positions = charger_positions()
     if table is None:
@@ -266,9 +294,13 @@ def puissances_depuis_monde(
     if latitude_moyenne is None:
         latitude_moyenne = charger_latitude_moyenne_puissances()
     retenues = positions_du_monde(world, positions)
-    return puissance_par_cellule(
+    vue = puissance_par_cellule(
         retenues, table, portee, latitude_moyenne, geometries_du_monde(world)
     )
+    if frontieres is None:
+        frontieres = charger_frontieres(table=table, carte=world.carte)
+    vue.update(decisions_des_frontieres(world, table, frontieres))
+    return vue
 
 
 def puissance_de_cellule(cell_id, vue, table):

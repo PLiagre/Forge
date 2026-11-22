@@ -2,6 +2,7 @@
 from itertools import zip_longest
 
 import sim.constants as _constantes
+from sim.frontieres import maison_du_bourg, puissances_des_lieux
 from sim.lieux import lieux_depuis_monde
 from sim.maisons import charger_maisons
 from sim.puissances import puissances_depuis_monde
@@ -12,8 +13,20 @@ class AttributionInvalide(ValueError):
     """Une attribution ne respecte pas les lieux ou la règle des maîtres."""
 
 
-def attribuer_maitres(monde, vue=None, maisons=None):
-    """Rend un dictionnaire neuf et les fiches plausibles dans l'ordre spatial."""
+def _tete(puissance, maisons):
+    """La racine du registre qui règne sur une puissance, ou `None` pour un lieu sans pays."""
+    if puissance is None:
+        return None
+    racine = maisons.par_puissance[puissance]
+    return f"grande-{racine}" if racine is not None else f"institution-{puissance}"
+
+
+def attribuer_maitres(monde, vue=None, maisons=None, puissances_lieux=None):
+    """Rend un dictionnaire neuf et les fiches plausibles dans l'ordre spatial.
+
+    Dans une cellule partagée (`puissances_lieux`, celle de `frontieres.puissances_des_lieux`), une
+    grande maison ou une institution ne prend que les lieux du pays sur lequel elle règne, et les
+    seigneurs plausibles se groupent par pays, chacun relevant de la racine de son pays."""
     depart = _constantes.LIEUX_DE_LA_SEIGNEURIE
     groupe = _constantes.LIEUX_PAR_SEIGNEUR_PLAUSIBLE
     for nom, valeur in (("LIEUX_DE_LA_SEIGNEURIE", depart),
@@ -23,6 +36,7 @@ def attribuer_maitres(monde, vue=None, maisons=None):
     lieux = lieux_depuis_monde(monde)
     vue = puissances_depuis_monde(monde) if vue is None else vue
     maisons = charger_maisons() if maisons is None else maisons
+    puissances_lieux = puissances_des_lieux(monde) if puissances_lieux is None else puissances_lieux
     maitres = {(cid, lieu.rang): None for cid, cellule in lieux.items() for lieu in cellule}
     registre = sorted(monde.maisons, key=lambda m: m.id)
     for sortes in (("seigneurie",), ("grande maison", "institution")):
@@ -31,26 +45,39 @@ def attribuer_maitres(monde, vue=None, maisons=None):
                 continue
             for lieu in lieux[maison.cell_id]:
                 couple = (maison.cell_id, lieu.rang)
-                if maitres[couple] is None and (maison.sorte != "seigneurie" or lieu.rang < depart):
+                if maitres[couple] is not None:
+                    continue
+                if maison.sorte == "seigneurie":
+                    prend = lieu.rang < depart
+                else:
+                    prend = (couple not in puissances_lieux
+                             or _tete(puissances_lieux[couple], maisons) == maison.id)
+                if prend:
                     maitres[couple] = maison.id
+    for cid, rang in sorted(puissances_lieux):
+        attendue = maison_du_bourg(monde, cid) if rang == 0 and cid in lieux else None
+        if attendue is not None and maitres[cid, rang] != attendue:
+            raise AttributionInvalide(f"{(cid, rang)} : bourg partagé placé au siège de {attendue}, "
+                                      f"mais d'un pays où elle ne règne pas")
     plausibles = []
     for cid, cellule in lieux.items():
-        libres = [lieu.rang for lieu in cellule if maitres[cid, lieu.rang] is None]
-        puissance = vue[cid]
-        racine = maisons.par_puissance[puissance] if puissance is not None else None
-        suzerain = (f"grande-{racine}" if racine is not None else
-                    f"institution-{puissance}" if puissance is not None else None)
-        for debut in range(0, len(libres), groupe):
-            rangs = libres[debut:debut + groupe]
-            identifiant = f"plausible-{cid}-{rangs[0]}"
-            plausibles.append(MaisonDuMonde(identifiant, identifiant, "plausible", suzerain,
-                                           identifiant, cid, rangs[0], None))
-            for rang in rangs:
-                maitres[cid, rang] = identifiant
+        par_pays = {}
+        for lieu in cellule:
+            if maitres[cid, lieu.rang] is None:
+                par_pays.setdefault(puissances_lieux.get((cid, lieu.rang), vue[cid]), []).append(lieu.rang)
+        for puissance, libres in par_pays.items():
+            suzerain = _tete(puissance, maisons)
+            for debut in range(0, len(libres), groupe):
+                rangs = libres[debut:debut + groupe]
+                identifiant = f"plausible-{cid}-{rangs[0]}"
+                plausibles.append(MaisonDuMonde(identifiant, identifiant, "plausible", suzerain,
+                                               identifiant, cid, rangs[0], None))
+                for rang in rangs:
+                    maitres[cid, rang] = identifiant
     return maitres, tuple(plausibles)
 
 
-def valider_attribution(monde, maitres, plausibles, vue=None, maisons=None):
+def valider_attribution(monde, maitres, plausibles, vue=None, maisons=None, puissances_lieux=None):
     """Nomme le premier couple fautif ; les suzerains se valident dans le registre."""
     couples = [(cid, lieu.rang) for cid, cellule in lieux_depuis_monde(monde).items()
                for lieu in cellule]
@@ -73,7 +100,7 @@ def valider_attribution(monde, maitres, plausibles, vue=None, maisons=None):
         if maison.id in vus:
             raise AttributionInvalide(f"{(maison.cell_id, maison.rang)} : identifiant dupliqué {maison.id}")
         vus.add(maison.id)
-    attendus, fiches = attribuer_maitres(monde, vue, maisons)
+    attendus, fiches = attribuer_maitres(monde, vue, maisons, puissances_lieux)
     for couple in couples:
         if maitres[couple] != attendus[couple]:
             raise AttributionInvalide(f"{couple} : maître différent de la règle")

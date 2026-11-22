@@ -1,0 +1,34 @@
+{
+  "date": "1400-01-01",
+  "fidelite": "Niveau 1 : le pays de chaque cellule déclarée, au 1er janvier 1400, d'après une source publique par pays, et le pays de chaque ville témoin. Niveau 2 : le tracé à l'intérieur d'une cellule partagée, chaque lieu allant au pays de la ville de partage la plus proche de sa place. Niveau 3 : l'hommage et ses effets.",
+  "regions": {
+    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20]
+  },
+  "pays": [],
+  "partages": [],
+  "lacunes": [],
+  "petits_pays": [
+    { "nom": "Andorre", "raison": "Coseigneurie de l'évêque d'Urgell et du comte de Foix depuis les paréages de 1278, moins de 500 km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Andorre)." },
+    { "nom": "Saint-Marin", "raison": "Commune libre du Montefeltro, une soixantaine de km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Saint-Marin)." }
+  ],
+  "temoins": [
+    { "nom": "Paris", "lat": 48.86, "lon": 2.35, "pays": 3, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume de Charles VI (https://fr.wikipedia.org/wiki/Royaume_de_France)" },
+    { "nom": "Rouen", "lat": 49.44, "lon": 1.10, "pays": 3, "source": "Wikipédia, article Duché de Normandie : la Normandie est réunie au domaine royal en 1204, Rouen en est la capitale (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Normandie)" },
+    { "nom": "Toulouse", "lat": 43.60, "lon": 1.44, "pays": 3, "source": "Wikipédia, article Comté de Toulouse : le comté est réuni au domaine royal en 1271 (https://fr.wikipedia.org/wiki/Comt%C3%A9_de_Toulouse)" },
+    { "nom": "Londres", "lat": 51.51, "lon": -0.13, "pays": 1, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale (https://fr.wikipedia.org/wiki/Royaume_d%27Angleterre)" },
+    { "nom": "Édimbourg", "lat": 55.95, "lon": -3.19, "pays": 2, "source": "Wikipédia, article Édimbourg : bourg royal d'Écosse établi au XIIe siècle (https://fr.wikipedia.org/wiki/%C3%89dimbourg)" },
+    { "nom": "Lisbonne", "lat": 38.72, "lon": -9.14, "pays": 4, "source": "Wikipédia, article Royaume de Portugal : Lisbonne capitale depuis 1255 (https://fr.wikipedia.org/wiki/Royaume_de_Portugal)" },
+    { "nom": "Séville", "lat": 37.39, "lon": -5.99, "pays": 5, "source": "Wikipédia, article Séville : conquise par la Castille en 1248 (https://fr.wikipedia.org/wiki/S%C3%A9ville)" },
+    { "nom": "Pampelune", "lat": 42.82, "lon": -1.64, "pays": 7, "source": "Wikipédia, article Royaume de Navarre : Pampelune en est la capitale (https://fr.wikipedia.org/wiki/Royaume_de_Navarre)" },
+    { "nom": "Barcelone", "lat": 41.39, "lon": 2.17, "pays": 6, "source": "Wikipédia, article Couronne d'Aragon : le comté de Barcelone est uni à l'Aragon depuis 1137 (https://fr.wikipedia.org/wiki/Couronne_d%27Aragon)" },
+    { "nom": "Grenade", "lat": 37.18, "lon": -3.60, "pays": 8, "source": "Wikipédia, article Royaume de Grenade : Grenade, capitale nasride de 1238 à 1492 (https://fr.wikipedia.org/wiki/Royaume_de_Grenade)" },
+    { "nom": "Milan", "lat": 45.46, "lon": 9.19, "pays": 14, "source": "Wikipédia, article Duché de Milan : Milan est la capitale du duché créé en 1395 (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Milan)" },
+    { "nom": "Venise", "lat": 45.44, "lon": 12.33, "pays": 13, "source": "Wikipédia, article République de Venise : Venise est la capitale de la république (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_Venise)", "hors_carte": "Le point de Venise, dans la lagune, est hors des polygones de la carte figée ; Trévise témoigne pour la Terre ferme." },
+    { "nom": "Trévise", "lat": 45.67, "lon": 12.24, "pays": 13, "source": "Wikipédia en anglais, article Treviso : la ville revient à Venise en 1388, après la seigneurie des Carrara (https://en.wikipedia.org/wiki/Treviso)" },
+    { "nom": "Gênes", "lat": 44.41, "lon": 8.93, "pays": 16, "source": "Wikipédia, article République de Gênes : Gênes demeure le siège de la république en 1400 (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_G%C3%AAnes)" },
+    { "nom": "Florence", "lat": 43.77, "lon": 11.26, "pays": 15, "source": "Wikipédia, article République de Florence : Florence est le siège de la république (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_Florence)" },
+    { "nom": "Rome", "lat": 41.90, "lon": 12.50, "pays": 17, "source": "Treccani, Enciclopedia dei Papi, article Bonifacio IX : souveraineté sur Rome remise au pape en juin 1398 (https://www.treccani.it/enciclopedia/bonifacio-ix_(Enciclopedia-dei-Papi)/)" },
+    { "nom": "Naples", "lat": 40.85, "lon": 14.27, "pays": 18, "source": "Wikipédia, article Royaume de Naples : Naples est la capitale du royaume continental (https://fr.wikipedia.org/wiki/Royaume_de_Naples)" },
+    { "nom": "Palerme", "lat": 38.12, "lon": 13.36, "pays": 19, "source": "Wikipédia, article Histoire de Palerme, section Les Aragonais : Martin Ier y règne à partir de 1392 (https://fr.wikipedia.org/wiki/Histoire_de_Palerme#Les_Aragonais)" }
+  ]
+}

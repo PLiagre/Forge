@@ -99,8 +99,14 @@ def maison_par_cellule(
 
 def maisons_depuis_monde(
     world, positions=None, table=None, maisons=None, portee=None, latitude_moyenne=None,
+    frontieres=None,
 ) -> dict:
-    """Recalcule les tenantes des cellules chargées, sans modifier le monde."""
+    """Recalcule les tenantes des cellules chargées, sans modifier le monde.
+
+    Une cellule que la table des frontières décide est tenue par la maison de son pays
+    (`par_puissance`), sans maison pour une république, une Église, un ordre ou une lacune ;
+    l'ancre retenue ne décide que des autres."""
+    from sim.frontieres import charger_frontieres, decisions_des_frontieres
     if positions is None:
         positions = charger_positions()
     if table is None:
@@ -112,9 +118,14 @@ def maisons_depuis_monde(
     if latitude_moyenne is None:
         latitude_moyenne = charger_latitude_moyenne_puissances()
     retenues = positions_du_monde(world, positions)
-    return maison_par_cellule(
+    vue = maison_par_cellule(
         retenues, table, maisons, portee, latitude_moyenne, geometries_du_monde(world)
     )
+    if frontieres is None:
+        frontieres = charger_frontieres(table=table, carte=world.carte)
+    for cell_id, pays in decisions_des_frontieres(world, table, frontieres).items():
+        vue[cell_id] = None if pays is None else maisons.par_puissance[pays]
+    return vue
 
 
 def maison_de_cellule(cell_id, vue, maisons):
