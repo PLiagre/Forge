@@ -90,9 +90,21 @@ def _pays_du_suzerain(maison, pays, fiches, pays_des_suzerains):
     return pays_des_suzerains[maison.suzerain]
 
 
+def _suzerain_du_pays(maison, fiche, fiches):
+    """Le suzerain qu'une racine sert par son pays : la tête du pays suzerain que la table déclare,
+    quand la maison règne sur son pays. L'hommage n'entre pas dans le registre : la maison reste
+    une racine."""
+    if maison.suzerain is not None or fiche["maison"]["id"] != maison.id or fiche["suzerain"] is None:
+        return None
+    suzerain = fiches[fiche["suzerain"]]
+    return {"id": suzerain["maison"]["id"], "nom": suzerain["maison"]["nom"],
+            "pays": {"id": suzerain["id"], "nom": suzerain["nom"]}}
+
+
 def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
     """Les maisons jouables, dans l'ordre où le choix les propose, chacune avec ce que le joueur
     prend : son pays, les pays où elle règne, son siège, son suzerain et la ville de sa capitale.
+    Le suzerain d'une racine est celui que la table déclare pour le pays où elle règne, s'il y en a un.
 
     `sources` (`pays_servis.sources_des_pays`), `noms` (`noms_depuis_monde`) et `villes`
     (`villes_3d.charger_villes_3d`) se repassent quand ils sont déjà lus. Une capitale n'est
@@ -111,7 +123,8 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
     jouables = sorted((m for m in monde.maisons
                        if _raison_d_institution(m, sources.table) is None and tenus.get(m.id, 0) > 0), key=_rang)
     suzerains = [m.suzerain for m in jouables if m.suzerain in par_id]
-    pays = pays_des_maisons(monde, sources.vue, sources.maisons, [m.id for m in jouables] + suzerains)
+    pays = pays_des_maisons(monde, sources.vue, sources.maisons, [m.id for m in jouables] + suzerains,
+                            sources.lieux)
     regnes = {m.id: regne(m.id, pays[m.id], sources.maisons) for m in jouables}
     fiches = {f["id"]: f for f in fiches_des_pays(
         set(pays.values()) | {p for r in regnes.values() for p in r},
@@ -128,6 +141,8 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
         suzerain = None if m.suzerain not in par_id else {
             "id": m.suzerain, "nom": _nom_de_maison(matiere, par_id[m.suzerain]),
             "pays": court(_pays_du_suzerain(m, pays[m.id], fiches, pays))}
+        if suzerain is None:
+            suzerain = _suzerain_du_pays(m, fiches[pays[m.id]], fiches)
         batie = m.id in scenes
         resultat.append({
             "id": m.id, "nom": _nom_de_maison(matiere, m), "sorte": m.sorte, "lieux": tenus[m.id],

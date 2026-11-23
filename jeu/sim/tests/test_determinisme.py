@@ -1003,13 +1003,15 @@ def test_noms_purete_et_tick(monkeypatch):
 # Empreintes du document complet et de l'état physique, sans arrondi. La soudure de 1400
 # fixe l'amorçage (le stock de départ porte la ration jusqu'à la moisson) ; l'appel des villes
 # affamées change les points 1 et 3 (elles appellent leur manque dès le premier jour), pas le point 0.
+# Les frontières de 1400 changent tous les points : le registre des maisons (les pays neufs), les
+# maîtres des lieux des cellules partagées et des capitales neuves, et leurs greniers.
 _PART_BASE = {
-    (0, 0): ("6b532d262ed6c185053aad5208e6d1d7b30425a98e18b845e2dc88a90966aeb7", "b22cbd184eca5811e7eca5045c970afb7c389ddc2cf29bb688394b7fb9d410fb"),
-    (0, 1): ("5a810e03b490ef216c80cc5e004880566aa6a40c10e00da7b89cf29a192f7492", "ce5129e718e7a4fd2870b126f3182fcf94109301f0c8eae9d86e3497bc99b575"),
-    (0, 3): ("3a1423f7a186c78b6d4348720ed483733ee5ec6c04b92f8a592f402aaf376b76", "0bbc3357905de74c1186d1592eafe6a9d12b9b72ac998eddb8332d5000993f97"),
-    (42, 0): ("441fc7e4e163a88eef386effb5fc13908bf394f154c56478686b50dfce1a4f3b", "59d9c9a5eb132acb0f927aa37c5b7a326becd99b2b151632951082c786c0e2b8"),
-    (42, 1): ("0aed901ca5b6483926be6b2da7a332c84aebf7b1aa9c8262f15f64c567cc9077", "ce9e73d9b5eb31823157d22680d18aa8ea8dc0f45c05370f0474273f7b74a936"),
-    (42, 3): ("99fc975859e57d07247529289cfeae0df8f54cb14e662bc465ce6f93dd3a4c5a", "e07f434246d620d8142d49a355ae118f56b118af59d07c8a4913e1354c1c2762"),
+    (0, 0): ('6aa72f5b9c56ff90a6876dd07438141c8afd762b966f105db764453766198395', 'd8f4ad5100b590e7fdf314d1072532943c46f92da79708aa93d15ec0c6d4843d'),
+    (0, 1): ('86ac7f9af0a0ad4f288132a3350a889b9dd3faf4056f35dcd45e3804c77bf9fe', '16dfe68dc68d424babf7a79b59a9626a566666dc5d9b6ac55eb26d99104d1910'),
+    (0, 3): ('03cc8eaecc2d8f0bbf055c18e97219a560313a5d63c82accb70e685c66cd372c', 'dd2786342c989f06255c42da9551b3961acf2fb0a4f405a857563d866c56926f'),
+    (42, 0): ('49a495908bca3f8b7156036b819153d942a96e59ec92dffda45aa8a347709403', '90f27e942d2fefd36881eec9a4da77dd135879062860dbe593cd7d0ec90b04d2'),
+    (42, 1): ('4aaa4e24b779bf71c158c14e2de4c9820d7a1ae2eaa182f6d2bd433fb7e7a53e', 'cb1b66c11e86070999cd3aff782964c6751d689fa349c26c7524ba0e368ce3ac'),
+    (42, 3): ('98c961459d7ea3c2e351d02aa4649aa0aab7afee85ce5bfcaeda252c2312774c', '0c5383f81cd055f2af2760b47d797027c7ce061663bb748601cafb704f63419c'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1037,14 +1039,15 @@ def test_part_bit_pres(monkeypatch):
 
 
 # Monde avec prélèvement : JSON public et état physique sans aucun arrondi.
-# Avec la soudure de 1400 et l'appel des villes affamées : tous les points.
+# Avec la soudure de 1400 et l'appel des villes affamées : tous les points. Les frontières de 1400
+# changent les maîtres des lieux, donc les greniers où va le prélèvement et les convois qui l'y portent.
 _PRELEVEMENT_BASE = {
-    (0, 1): ("35ea12e585f2cf3a381bd7790fdd3042697a22b63885fb1f50b78a009a94bb81", "2101ed74baf9d02aed103162071a472e51a0cdc6897bd93fe37a99a51dc432b8"),
-    (0, 3): ("2a2c7b18e8e0dd8ba2b530dd9b4a619e672ad1c2253cd1560c492152f1129936", "83387bd1b99cfae908fc2741e14e34c4c8eb346f77d6d6c24984a9454bff3cac"),
-    (0, 20): ("f204c478551586c90e2e819044542f19c5d538300a18937cf46759af5649e6b8", "6f65b107fd264a59c7c21cec33c0bf9d1fcb0ae7f5a042efd7f99376d9fa2ed2"),
-    (42, 1): ("64a70caa87d1d985d109c5c12fd7a5c7b68464c35616a81045c5b2213d80b4d4", "2b2e0a370a57b19585f1b7127affe2bb101079d05bd4865bdd66ef1583be9c50"),
-    (42, 3): ("ad1f2f89a9b616a1509c0d5d4e8c705995cde63919f6cebff7b78f1243067eb0", "cf2248f5f787f1f7e423ca5567e5e0b53cfcb015c07155dce0285b87aaf08cd9"),
-    (42, 20): ("e48d0f3957cba728de44e86c64533aefff2be9c44be9a84c52deda70d6802274", "a498bc13ee1aaa5f32fc2fe804d3c9b8b0eb66eeabecfec1d1348bf9408bc93b"),
+    (0, 1): ('32133284da8ef15db9a9b92ce162645561d1079a0f77271b038e814922e6bed7', '4d59f0704d725c3ef115c5b5ed0c17bcda44e90cca802421a0e8a33672bc067c'),
+    (0, 3): ('c031daae81d9d179cda8de6865491ece75fed03971d24d24220c6d6a1067a6e0', '61bba969648bed22939e358c39cc74ac662be33cfe31c24058f1407a9a30f633'),
+    (0, 20): ('3e34f8b8ef5b3fec2218d1c5abf6062a677384e7ff14dc6adb8da88b49aeb837', '6c3ef2bee54486223dff24871bab15e51f9ceadbfccef928c74e9790c1147a1e'),
+    (42, 1): ('6c30317b27a21dd5f028b956ee243ee672051ee39a4c9d7639c2a23a708fe1ff', '104118385563d5da62caff686d45ddba33cdd8d6a04af9a4c9bedb571c16e5ec'),
+    (42, 3): ('d6958b17aec6e5e90a9495aeabee5ae00ed7216ee45a57465c1bde6d11a32df0', '8ba76e0498d02f7fbcf8c8792239d6f44b711aa93091a643aeb55f2f4dd829dd'),
+    (42, 20): ('81a84b7d1f118be3d45050bdfd2750dd3dd3bb92b5e65bb763977188d974c6c2', '36d55c7cc45ae821fb7ddc2f35cb04fff321d33f017907ef6a474c4253e05cc3'),
 }
 
 
@@ -1102,12 +1105,13 @@ def test_prelevement_bit_pres(monkeypatch):
 
 
 # Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
-# Avec la soudure de 1400 et l'appel des villes affamées.
+# Avec la soudure de 1400 et l'appel des villes affamées. Les frontières de 1400 changent les maîtres
+# et leurs suzerains, donc les dus des vassaux et les greniers des suzerains.
 _DU_BASE = {
-    (0, 3): ('ed1504163933cfb8b2d8d77698baa17b282a73bb8f4fdd17032ae1f12ac62cce', 'b56c5aa58cdaf34308e586375f4f15053c599087c0734bcc03bba6698317f93f'),
-    (0, 20): ('3c9e5ebb4e12fa7d5652e44c3b059919875d13b85487e0a86e6d3d51ef6eac27', 'a995e40a6dd2eccc2013e7536ba4db19f7fb123294b2f8490f9b21b947290c9f'),
-    (42, 3): ('81aaec4db39a13a4a6cb0b85ddb3f130dfbf6ba5dbede17f5f5d0623538eed28', 'e7d32dc3687acfd74f4f42e641c77278026c4201a754eda604bf4e699919188e'),
-    (42, 20): ('3a1687ee4880a1f72286e86eab88589e1b0e83319cda566e9d686bddf882c891', 'd339f56de1918ec860af4a61528a1875edc7236b2999bca12fc62ddbb873dfd7'),
+    (0, 3): ('e0e94d391fca164e82f1ef84914c55880682cb29731a32a1fcc90a80a00b409d', '6bcee1a575f4059532039f9205bd80a4bb59c49162d4edc75bb193832fcf606a'),
+    (0, 20): ('0462dca5e3482aa32cae776666843f6c8e192638e948c32a5f196f9679e20c72', '840ae808aa02fdda3a8fff3dd4a57df1d4a7ffab1a3d102836d3daffa5272eec'),
+    (42, 3): ('9e4f1272dfcbee2e03fa319cc7f5b62fd3bfebe051072bde30d87f0a5aca1765', '8a7e50a39677284996b0b4ef96463c3c7640392cda2833b52355cab6a2031380'),
+    (42, 20): ('dadda80028acc5e26935f5c96df67afc1699979def0c9131792d4904fb76d004', '2888443c3f7cf01d78fa1efffcda375596c2f84cf214d7282585ce11417aad64'),
 }
 
 

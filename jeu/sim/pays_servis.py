@@ -1,14 +1,16 @@
 """Le pays de chaque terre : une puissance de 1400, une terre de départ, ou un seigneur libre.
 
 Une vue pure, recalculée : elle lit le maître du bourg de chaque cellule, le registre des
-maisons et la puissance de chaque cellule, et ne pose rien sur le monde. La maison qui règne
+maisons, la puissance de chaque cellule et celle des lieux d'une cellule partagée
+(`sim/frontieres.py`), et ne pose rien sur le monde. Le pays d'un lieu suit la règle de celui d'une
+terre, sur le maître du lieu et la puissance du lieu. La maison qui règne
 sur un pays vient en second : la maison de Luxembourg règne sur trois pays (Saint-Empire,
 Bohême, Hongrie), qui restent trois pays. Le tick ne lit pas cette vue.
 
 Les identifiants de pays : `puissance-<id>` pour une puissance de la table, l'identifiant
 de la maison pour une terre de départ (`seigneurie-<n>`) ou un seigneur libre.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sim.maisons import TableDesMaisons, charger_maisons
 from sim.maisons_servies import _nom_de_maison
@@ -27,13 +29,23 @@ class SourcesDesPays(_NoBadSpatialField):
     maisons: TableDesMaisons
     seigneuries: tuple
     vue: dict
+    # (cell_id, rang) → puissance des lieux d'une cellule partagée ; ailleurs, celle de la cellule.
+    lieux: dict = field(default_factory=dict)
 
 
 def sources_des_pays(monde, table=None, vue=None) -> SourcesDesPays:
     """Lit les tables ; la table des puissances et la vue déjà lues se repassent."""
+    from sim.frontieres import puissances_des_lieux
     table = charger_table() if table is None else table
     vue = puissances_depuis_monde(monde, table=table) if vue is None else vue
-    return SourcesDesPays(table, charger_maisons(), charger_seigneuries(table=table), vue)
+    return SourcesDesPays(table, charger_maisons(), charger_seigneuries(table=table), vue,
+                          puissances_des_lieux(monde, table=table))
+
+
+def puissance_du_lieu(cell_id, rang, vue, lieux) -> int | None:
+    """La puissance d'un lieu : celle de son lieu dans une cellule partagée, sinon celle de sa cellule."""
+    lieux = {} if lieux is None else lieux
+    return lieux[cell_id, rang] if (cell_id, rang) in lieux else vue.get(cell_id)
 
 
 def identifiant_de_puissance(puissance_id) -> str:
@@ -55,14 +67,16 @@ def _dirigees(maisons) -> dict:
     return dirigees
 
 
-def pays_d_origine(maison, vue, maisons) -> str:
+def pays_d_origine(maison, vue, maisons, lieux=None) -> str:
     """Le pays d'une maison hors de toute terre : une terre de départ est son propre pays ; une
-    autre maison prend la puissance de la cellule de son siège, sinon la puissance sur laquelle
-    elle règne (un siège hors carte), sinon elle est son propre pays."""
+    autre maison prend la puissance du lieu de son siège, sinon la puissance sur laquelle elle
+    règne (un siège hors carte), sinon elle est son propre pays."""
     if maison.sorte == _SORTE_DEPART:
         return maison.id
-    if maison.cell_id is not None and vue.get(maison.cell_id) is not None:
-        return identifiant_de_puissance(vue[maison.cell_id])
+    puissance = (None if maison.cell_id is None
+                 else puissance_du_lieu(maison.cell_id, maison.rang, vue, lieux))
+    if puissance is not None:
+        return identifiant_de_puissance(puissance)
     dirigees = _dirigees(maisons).get(maison.id)
     if dirigees:
         return identifiant_de_puissance(dirigees[0])
@@ -78,7 +92,7 @@ def _chaine(par_id, maison) -> list:
     return chaine
 
 
-def pays_des_terres(monde, vue, maisons) -> dict:
+def pays_des_terres(monde, vue, maisons, lieux=None) -> dict:
     """cell_id → pays de la terre, ou `None` pour une terre sans maître de bourg.
 
     La première terre de départ sur la chaîne du maître donne le pays ; sinon la puissance de
@@ -89,21 +103,36 @@ def pays_des_terres(monde, vue, maisons) -> dict:
     pays = {}
     for cid, cellule in sorted(monde.cells.items()):
         maitre = next((l.maitre for l in cellule.lieux if l.rang == 0), None)
-        pays[cid] = None if maitre is None else _pays_depuis(maitre, vue.get(cid), par_id, vue, maisons, origines)
+        pays[cid] = None if maitre is None else _pays_depuis(
+            maitre, puissance_du_lieu(cid, 0, vue, lieux), par_id, vue, maisons, origines, lieux)
     return pays
 
 
-def pays_des_maisons(monde, vue, maisons, identifiants) -> dict:
+def pays_des_lieux(monde, vue, maisons, lieux=None) -> dict:
+    """(cell_id, rang) → pays de chaque lieu, ou `None` pour un lieu sans maître : la règle d'une
+    terre, sur le maître du lieu et la puissance du lieu."""
+    par_id = {m.id: m for m in monde.maisons}
+    origines = {}
+    pays = {}
+    for cid, cellule in sorted(monde.cells.items()):
+        for lieu in sorted(cellule.lieux, key=lambda l: l.rang):
+            pays[cid, lieu.rang] = None if lieu.maitre is None else _pays_depuis(
+                lieu.maitre, puissance_du_lieu(cid, lieu.rang, vue, lieux), par_id, vue, maisons, origines, lieux)
+    return pays
+
+
+def pays_des_maisons(monde, vue, maisons, identifiants, lieux=None) -> dict:
     """identifiant → pays de la maison : la même règle que pour une terre, sur la chaîne de la
-    maison et la puissance de la cellule de son siège (aucune hors carte). Pour la maison qui
-    tient le bourg de son siège, c'est le pays de cette terre."""
+    maison et la puissance du lieu de son siège (aucune hors carte). Pour la maison qui tient le
+    lieu de son siège, c'est le pays de ce lieu."""
     par_id = {m.id: m for m in monde.maisons}
     origines = {}
     pays = {}
     for identifiant in sorted(set(identifiants)):
-        siege = par_id[identifiant].cell_id if identifiant in par_id else None
-        puissance = None if siege is None else vue.get(siege)
-        pays[identifiant] = _pays_depuis(identifiant, puissance, par_id, vue, maisons, origines)
+        maison = par_id.get(identifiant)
+        puissance = (None if maison is None or maison.cell_id is None
+                     else puissance_du_lieu(maison.cell_id, maison.rang, vue, lieux))
+        pays[identifiant] = _pays_depuis(identifiant, puissance, par_id, vue, maisons, origines, lieux)
     return pays
 
 
@@ -115,12 +144,12 @@ def regne(identifiant, pays, maisons) -> list:
     return regnes + [identifiant] if pays == identifiant else regnes
 
 
-def _pays_depuis(maison, puissance, par_id, vue, maisons, origines) -> str:
+def _pays_depuis(maison, puissance, par_id, vue, maisons, origines, lieux=None) -> str:
     """Le pays d'après la chaîne qui part de `maison` ; `origines` garde le pays d'origine de chaque racine lue."""
     chaine = _chaine(par_id, maison)
     racine = chaine[-1]
     if racine in par_id and racine not in origines:
-        origines[racine] = pays_d_origine(par_id[racine], vue, maisons)
+        origines[racine] = pays_d_origine(par_id[racine], vue, maisons, lieux)
     return _pays_selon(chaine, puissance, par_id, maisons, origines)
 
 
@@ -138,8 +167,8 @@ def _pays_selon(chaine, puissance, par_id, maisons, origines) -> str:
 def fiches_des_pays(identifiants, monde, table, maisons, seigneuries, matiere) -> list:
     """`{id, nom, maison: {id, nom}, suzerain}` de chaque pays donné et de chaque suzerain
     cité, triés par identifiant. Le nom d'une puissance vient de la table, celui d'une terre de
-    départ de sa seigneurie ; un nom absent vaut `None`. Seule une terre de départ a un
-    suzerain : la puissance dont elle relève."""
+    départ de sa seigneurie ; un nom absent vaut `None`. Le suzerain d'une terre de départ est la
+    puissance dont elle relève ; celui d'une puissance, le suzerain que la table déclare."""
     par_id = {m.id: m for m in monde.maisons}
     puissances = {p.id: p for p in table.puissances}
     par_numero = {s.id: s for s in seigneuries}
@@ -159,6 +188,9 @@ def fiches_des_pays(identifiants, monde, table, maisons, seigneuries, matiere) -
             puissance = puissances[int(identifiant.removeprefix(prefixe))]
             tete = tete_de_puissance(puissance.id, maisons)
             nom, maison = puissance.nom, {"id": tete, "nom": nom_de_maison(tete)}
+            if puissance.suzerain is not None:
+                suzerain = identifiant_de_puissance(puissance.suzerain)
+                a_faire.append(suzerain)
         elif identifiant in par_id and par_id[identifiant].sorte == _SORTE_DEPART:
             seigneurie = par_numero[numero_de_seigneurie(identifiant)]
             nom, suzerain = seigneurie.nom, identifiant_de_puissance(seigneurie.suzerain)

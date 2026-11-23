@@ -1,0 +1,230 @@
+{
+  "date": "1400-01-01",
+  "fidelite": "Niveau 1 : le pays de chaque cellule déclarée, au 1er janvier 1400, d'après une source publique par pays, et le pays de chaque ville témoin. Niveau 2 : le tracé à l'intérieur d'une cellule partagée, chaque lieu allant au pays de la ville de partage la plus proche de sa place. Niveau 3 : l'hommage et ses effets.",
+  "regions": {
+    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+  },
+  "pays": [
+    {"pays": 1, "source": "Wikipédia en anglais, article Kingdom of England : la conquête du pays de Galles par Édouard Ier, achevée en 1284, le met sous la couronne d'Angleterre (https://en.wikipedia.org/wiki/Kingdom_of_England); Wikipédia en anglais, article Isle of Man : l'île passe sous la seigneurie féodale de la couronne d'Angleterre en 1399 (https://en.wikipedia.org/wiki/Isle_of_Man); Wikipédia en anglais, article Channel Islands : Jean sans Terre perd la Normandie en 1204 mais garde les îles Anglo-Normandes (https://en.wikipedia.org/wiki/Channel_Islands)", "cellules": [10172, 10189, 10200, 10187, 10171, 10246, 10197, 10237, 10188, 10205, 2656, 10240, 10180, 10198, 1183, 10212, 10203, 10184, 10195, 1221, 10208, 10214, 1223, 1203, 1195]},
+    {"pays": 2, "source": "Wikipédia en anglais, article Kingdom of Scotland : l'Écosse annexe les Hébrides en 1266 (traité de Perth), les îles du Nord seulement en 1472 (https://en.wikipedia.org/wiki/Kingdom_of_Scotland); Wikipédia en anglais, article Lord of the Isles : le seigneur des Îles est un titre du baronnage d'Écosse (https://en.wikipedia.org/wiki/Lord_of_the_Isles)", "cellules": [10213, 1241, 1244, 1245, 1235, 1237, 1246, 1239, 1248, 1240, 1243, 1234, 1236, 1232, 1238, 1228, 1231, 10218, 10202, 10206, 10219, 10207, 10215]},
+    {"pays": 21, "source": "Wikipédia en anglais, article Earldom of Orkney : les Orcades sont une dépendance du royaume de Norvège jusqu'en 1472 ; la Norvège est dans l'Union de Kalmar depuis 1397 (https://en.wikipedia.org/wiki/Earldom_of_Orkney)", "cellules": [1209, 10199, 1210, 1211, 1213, 1208]},
+    {"pays": 49, "source": "Wikipédia en anglais, article Lordship of Ireland : la partie de l'Irlande tenue par le roi d'Angleterre, « seigneur d'Irlande », gouvernée par un lieutenant ; les rois gaéliques restent de niveau 3 (https://en.wikipedia.org/wiki/Lordship_of_Ireland)", "cellules": [10228, 9835, 1192, 10227, 10233, 10224, 10232, 10226, 10234]},
+    {"pays": 3, "source": "Wikipédia en anglais, article Duchy of Normandy : Philippe II saisit la Normandie en 1204 (https://en.wikipedia.org/wiki/Duchy_of_Normandy); Wikipédia en anglais, article County of Champagne : la Champagne est réunie au domaine de la couronne en 1361 (https://en.wikipedia.org/wiki/County_of_Champagne); Wikipédia en anglais, article Languedoc : le comté de Toulouse rejoint le domaine royal en 1271 (https://en.wikipedia.org/wiki/Languedoc); Wikipédia en anglais, article Vivarais : le Vivarais entre dans le Languedoc royal en 1309 (https://en.wikipedia.org/wiki/Vivarais); Wikipédia en anglais, article Dauphiné : le Dauphiné passe en 1349 au futur Charles V, et l'héritier de France porte désormais le titre de dauphin (https://en.wikipedia.org/wiki/Dauphiné); Wikipédia en anglais, article La Rochelle : la ville chasse les Anglais en juin 1372 et Charles V reconnaît ses privilèges (https://en.wikipedia.org/wiki/La_Rochelle)", "cellules": [10254, 10421, 10387, 10244, 10314, 10186, 10418, 10173, 10243, 10253, 10322, 10416, 10429, 10389, 10241, 10175, 10242, 10252, 10249, 10251, 10392, 10390, 10422, 10424, 1187, 1181]},
+    {"pays": 40, "source": "Wikipédia en anglais, article Duchy of Burgundy : Jean II cède le duché à son fils Philippe en 1363 (https://en.wikipedia.org/wiki/Duchy_of_Burgundy); Wikipédia en anglais, article County of Flanders : à partir de 1384, le comté est uni au duché de Bourgogne (https://en.wikipedia.org/wiki/County_of_Flanders); Wikipédia en anglais, article County of Artois : l'Artois est tenu par les ducs de Bourgogne de 1384 à 1477 (https://en.wikipedia.org/wiki/County_of_Artois); Wikipédia en anglais, article Philip the Bold : Marguerite hérite en 1382 de la Flandre, de l'Artois et de la Franche-Comté (https://en.wikipedia.org/wiki/Philip_the_Bold); Wikipédia en anglais, article Saint-Omer : à partir de 1384, Saint-Omer fait partie des Pays-Bas bourguignons (https://en.wikipedia.org/wiki/Saint-Omer)", "cellules": [10391, 10317, 10323, 10420, 10438, 10432, 10419]},
+    {"pays": 41, "source": "Wikipédia en anglais, article Duchy of Brittany : Jean IV meurt le 1er novembre 1399 ; le duc rend hommage au roi de France pour la Bretagne (https://en.wikipedia.org/wiki/Duchy_of_Brittany)", "cellules": [10190, 10211, 10201, 10191, 1212]},
+    {"pays": 42, "source": "Wikipédia en anglais, article Duchy of Aquitaine : au traité de Brétigny (1360), le roi d'Angleterre reste seigneur souverain de l'Aquitaine (https://en.wikipedia.org/wiki/Duchy_of_Aquitaine); Wikipédia en anglais, article Henry V of England : Henri IV donne à son fils le titre de duc d'Aquitaine (https://en.wikipedia.org/wiki/Henry_V_of_England)", "cellules": [10176]},
+    {"pays": 43, "source": "Wikipédia en anglais, article Duchy of Orléans : Charles VI recrée en 1392 le duché d'Orléans pour son frère Louis (https://en.wikipedia.org/wiki/Duchy_of_Orléans); Wikipédia en anglais, article Louis I, Duke of Orléans : Louis Ier est comte de Blois de 1397 à 1407 (https://en.wikipedia.org/wiki/Louis_I,_Duke_of_Orl%C3%A9ans)", "cellules": [10316, 10247, 10250]},
+    {"pays": 44, "source": "Wikipédia en anglais, article Louis II of Anjou : Jean II donne l'Anjou et le Maine en apanage héréditaire à Louis Ier en 1360 ; Louis II est duc d'Anjou et comte de Provence de 1384 à 1417 (https://en.wikipedia.org/wiki/Louis_II_of_Anjou); Wikipédia en anglais, article Aix-en-Provence : au Moyen Âge, Aix est la capitale de la Provence, sous les maisons de Barcelone puis d'Anjou (https://en.wikipedia.org/wiki/Aix-en-Provence)", "cellules": [10170, 10174, 10436]},
+    {"pays": 45, "source": "Wikipédia en anglais, article John, Duke of Berry : comte de Poitou en 1356, Jean reçoit de son père en 1360 les duchés nouvellement créés de Berry et d'Auvergne (https://en.wikipedia.org/wiki/John,_Duke_of_Berry)", "cellules": [10318, 10315, 10235, 10248, 10324, 10321, 1197]},
+    {"pays": 46, "source": "Wikipédia en anglais, article Moulins, Allier : en 1327, Charles IV érige le Bourbonnais en duché ; Moulins est la capitale du Bourbonnais (https://en.wikipedia.org/wiki/Moulins,_Allier); Wikipédia en anglais, article Louis II, Duke of Bourbon : le 19 août 1371, Louis épouse Anne d'Auvergne, comtesse de Forez (https://en.wikipedia.org/wiki/Louis_II,_Duke_of_Bourbon)", "cellules": [10388, 10393]},
+    {"pays": 20, "source": "Wikipédia en anglais, article Piedmont : Othon de Savoie ajoute le Piémont au comté de Savoie en 1046 (https://en.wikipedia.org/wiki/Piedmont); Wikipédia en anglais, article County of Nice : Nice entre dans les domaines de la maison de Savoie le 28 septembre 1388 (https://en.wikipedia.org/wiki/County_of_Nice); Wikipédia en anglais, article Aosta Valley : Humbert Ier de Savoie reçoit le titre de comte d'Aoste en 1031-1032 (https://en.wikipedia.org/wiki/Aosta_Valley)", "cellules": [10434, 10444, 10446, 10447]},
+    {"pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti étend ses domaines à Vérone et Vicence (1387), Feltre et Belluno (1388), Pise et Sienne (1399) (https://en.wikipedia.org/wiki/Duchy_of_Milan)", "cellules": [10466, 10454, 10255, 10265]},
+    {"pays": 17, "source": "Wikipédia en anglais, article Papal States : au plus fort, les États de l'Église couvrent le Latium, les Marches, l'Ombrie et la Romagne ; des seigneurs locaux n'y reconnaissent le pape que de nom (https://en.wikipedia.org/wiki/Papal_States)", "cellules": [10277, 10271, 10276]},
+    {"pays": 18, "source": "Wikipédia en anglais, article Abruzzo : à la paix de Caltabellotta (1302), la Sicile va à la couronne d'Aragon et le Sud continental au royaume de Naples (https://en.wikipedia.org/wiki/Abruzzo)", "cellules": [10278, 10288, 10283, 1311, 10298, 10287, 10302, 10296, 10292]},
+    {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily)", "cellules": [9905, 9914, 9921, 1313, 1318]},
+    {"pays": 16, "source": "Wikipédia en anglais, article Bastia : en 1370, la république de Gênes envoie deux gouverneurs en Corse ; la Maona gère l'île pour elle (https://en.wikipedia.org/wiki/Bastia)", "cellules": [2943]},
+    {"pays": 9, "source": "Wikipédia en anglais, article Duchy of Brabant : le duché de Brabant est un État du Saint-Empire (https://en.wikipedia.org/wiki/Duchy_of_Brabant); Wikipédia en anglais, article County of Holland : le comté de Hollande, uni au Hainaut et à la Bavière-Straubing (https://en.wikipedia.org/wiki/County_of_Holland); Wikipédia en anglais, article County of Hainaut : le Hainaut est une seigneurie du Saint-Empire, frontalière du royaume de France (https://en.wikipedia.org/wiki/County_of_Hainaut); Wikipédia en anglais, article Prince-Bishopric of Liège : principauté ecclésiastique du Saint-Empire (https://en.wikipedia.org/wiki/Prince-Bishopric_of_Liège); Wikipédia en anglais, article Duchy of Lorraine : duché du Saint-Empire jusqu'en 1766 (https://en.wikipedia.org/wiki/Duchy_of_Lorraine); Wikipédia en anglais, article Duchy of Luxembourg : État du Saint-Empire (https://en.wikipedia.org/wiki/Duchy_of_Luxembourg); Wikipédia en anglais, article Verdun : Verdun, Metz et Toul, villes libres de l'Empire, ne sont réunies à la France qu'en 1552 (https://en.wikipedia.org/wiki/Verdun); Wikipédia en anglais, article Frisia : la Frise et Groningue restent indépendantes jusqu'en 1498 ; leur suzerain nominal est l'Empire, niveau 2 (https://en.wikipedia.org/wiki/Frisia); Wikipédia en anglais, article County of Tyrol : le Tyrol est aux Habsbourg depuis 1363 (https://en.wikipedia.org/wiki/County_of_Tyrol); Wikipédia en anglais, article Prince-Bishopric of Trent : Trente est un État d'Empire sous un prince-évêque (https://en.wikipedia.org/wiki/Prince-Bishopric_of_Trent)", "cellules": [10427, 10425, 10423, 1469, 7875, 1502, 1515, 1525, 10431, 10437, 10443, 10417, 10266]},
+    {"pays": 5, "source": "Wikipédia en anglais, article Santiago de Compostela : les royaumes de León et de Galice s'unissent au royaume de Castille (https://en.wikipedia.org/wiki/Santiago_de_Compostela); Wikipédia en anglais, article Seville : Séville entre dans la Castille en 1248 (https://en.wikipedia.org/wiki/Seville); Wikipédia en anglais, article Soria : Soria est castillane définitivement en 1134 (https://en.wikipedia.org/wiki/Soria)", "cellules": [10222, 10210, 10217, 10220, 10204, 10216]},
+    {"pays": 4, "source": "Wikipédia en anglais, article Porto : en 1387, Porto accueille le mariage de Jean Ier de Portugal et de Philippa de Lancastre (https://en.wikipedia.org/wiki/Porto); Wikipédia en anglais, article Elvas : Elvas est portugaise depuis 1226 (https://en.wikipedia.org/wiki/Elvas)", "cellules": [10231, 10229]},
+    {"pays": 6, "source": "Wikipédia en anglais, article Crown of Aragon : union du royaume d'Aragon et du comté de Barcelone, qui tient aux XIVe et XVe siècles les Baléares, la Sardaigne et la Sicile (https://en.wikipedia.org/wiki/Crown_of_Aragon); Wikipédia en anglais, article Balearic Islands : les îles reviennent à la couronne d'Aragon (https://en.wikipedia.org/wiki/Balearic_Islands); Wikipédia en anglais, article La Seu d'Urgell : siège de l'évêque d'Urgell, en Catalogne (https://en.wikipedia.org/wiki/La_Seu_d%27Urgell)", "cellules": [10313, 10238, 10179, 10245, 1494, 1368, 1266, 1267, 1547]}
+  ],
+  "partages": [
+    { "cell_id": 10430, "villes": [
+      {"nom": "Saint-Dizier", "lat": 48.64, "lon": 4.95, "pays": 3, "source": "Wikipédia en anglais, article Saint-Dizier : la ville devient une forteresse royale (https://en.wikipedia.org/wiki/Saint-Dizier)"},
+      {"nom": "Verdun", "lat": 49.16, "lon": 5.38, "pays": 9, "source": "Wikipédia en anglais, article Verdun : principauté épiscopale du Saint-Empire depuis le Xe siècle, soumise par la France en 1552 (https://en.wikipedia.org/wiki/Verdun)"},
+      {"nom": "Toul", "lat": 48.68, "lon": 5.89, "pays": 9, "source": "Wikipédia en anglais, article Toul : Toul appartient au Saint-Empire jusqu'à son annexion par Henri II en 1552 (https://en.wikipedia.org/wiki/Toul)"}
+    ] },
+    { "cell_id": 10182, "villes": [
+      {"nom": "Laval", "lat": 48.07, "lon": -0.77, "pays": 44, "source": "Wikipédia en anglais, article Laval, Mayenne : Laval appartient à la province du Maine ; Jean II donne l'Anjou et le Maine à Louis Ier en 1360 (article Louis II of Anjou) (https://en.wikipedia.org/wiki/Laval,_Mayenne)"},
+      {"nom": "Châteaubriant", "lat": 47.72, "lon": -1.38, "pays": 41, "source": "Wikipédia en anglais, article Châteaubriant : place forte de la province de Bretagne, au seuil de l'Anjou (https://en.wikipedia.org/wiki/Ch%C3%A2teaubriant)"}
+    ] },
+    { "cell_id": 10183, "villes": [
+      {"nom": "Clisson", "lat": 47.09, "lon": -1.28, "pays": 41, "source": "Wikipédia en anglais, article Clisson : berceau de la famille de Clisson, dont Olivier IV, connétable de France et seigneur breton (https://en.wikipedia.org/wiki/Clisson)"},
+      {"nom": "La Rochelle", "lat": 46.16, "lon": -1.15, "pays": 3, "source": "Wikipédia en anglais, article La Rochelle : la ville chasse les Anglais en juin 1372 et Charles V reconnaît ses privilèges (https://en.wikipedia.org/wiki/La_Rochelle)"},
+      {"nom": "Fontenay-le-Comte", "lat": 46.47, "lon": -0.81, "pays": 45, "source": "Wikipédia en anglais, article Fontenay-le-Comte : capitale du Bas-Poitou ; Jean de Berry est comte de Poitou (article John, Duke of Berry) (https://en.wikipedia.org/wiki/Fontenay-le-Comte)"}
+    ] },
+    { "cell_id": 10320, "villes": [
+      {"nom": "Rodez", "lat": 44.35, "lon": 2.57, "pays": 48, "source": "Wikipédia en anglais, article Rodez : la dynastie des comtes d'Armagnac et de Rodez tient la ville (https://en.wikipedia.org/wiki/Rodez)"},
+      {"nom": "Albi", "lat": 43.93, "lon": 2.15, "pays": 3, "source": "Wikipédia en anglais, article Albi : après la croisade contre les Albigeois, la région est annexée par la couronne de France (https://en.wikipedia.org/wiki/Albi)"}
+    ] },
+    { "cell_id": 10239, "villes": [
+      {"nom": "Lectoure", "lat": 43.93, "lon": 0.62, "pays": 48, "source": "Wikipédia en anglais, article Lectoure : la ville devient la capitale du comté d'Armagnac en 1325 (https://en.wikipedia.org/wiki/Lectoure)"},
+      {"nom": "Agen", "lat": 44.2, "lon": 0.62, "pays": 3, "source": "Wikipédia en anglais, article Agenais : l'Agenais, pris et repris pendant la guerre de Cent Ans, est au roi de France à la retraite des Anglais ; sa tenure en 1400 est de niveau 2 (https://en.wikipedia.org/wiki/Agenais)"}
+    ] },
+    { "cell_id": 10236, "villes": [
+      {"nom": "Pau", "lat": 43.3, "lon": -0.37, "pays": 47, "source": "Wikipédia en anglais, article Béarn : le Béarn est uni à la maison de Foix ; Pau est au cœur de la principauté (https://en.wikipedia.org/wiki/B%C3%A9arn)"},
+      {"nom": "Tarbes", "lat": 43.23, "lon": 0.08, "pays": 3, "source": "Wikipédia en anglais, article Bigorre : la Bigorre est reprise par les Français et leurs alliés les comtes de Foix entre 1370 et 1406 (https://en.wikipedia.org/wiki/Bigorre)"}
+    ] },
+    { "cell_id": 10178, "villes": [
+      {"nom": "Orthez", "lat": 43.49, "lon": -0.77, "pays": 47, "source": "Wikipédia en anglais, article Béarn : Orthez est la capitale du Béarn, uni à Foix, de la seconde moitié du XIIIe siècle au milieu du XVe (https://en.wikipedia.org/wiki/B%C3%A9arn)"},
+      {"nom": "Dax", "lat": 43.71, "lon": -1.05, "pays": 42, "source": "Wikipédia en anglais, article Dax, Landes : Dax reste sous la domination anglaise de 1152 à 1451 (https://en.wikipedia.org/wiki/Dax,_Landes)"},
+      {"nom": "Bayonne", "lat": 43.49, "lon": -1.47, "pays": 42, "source": "Wikipédia en anglais, article Bayonne : la ville passe aux Anglais en 1152 par le mariage d'Aliénor d'Aquitaine (https://en.wikipedia.org/wiki/Bayonne)"},
+      {"nom": "Saint-Jean-Pied-de-Port", "lat": 43.16, "lon": -1.24, "pays": 7, "source": "Wikipédia en anglais, article Saint-Jean-Pied-de-Port : ancienne capitale de la Basse-Navarre (https://en.wikipedia.org/wiki/Saint-Jean-Pied-de-Port)"}
+    ] },
+    { "cell_id": 10319, "villes": [
+      {"nom": "Foix", "lat": 42.97, "lon": 1.61, "pays": 47, "source": "Wikipédia en anglais, article Foix : ancienne capitale du comté de Foix (https://en.wikipedia.org/wiki/Foix)"},
+      {"nom": "Carcassonne", "lat": 43.21, "lon": 2.35, "pays": 3, "source": "Wikipédia en anglais, article Carcassonne : la ville se soumet au royaume de France en 1247 (https://en.wikipedia.org/wiki/Carcassonne)"},
+      {"nom": "Narbonne", "lat": 43.18, "lon": 3.0, "pays": 3, "source": "Wikipédia en anglais, article Narbonne : la région passe sous le contrôle effectif des rois de France au début du XIIIe siècle (https://en.wikipedia.org/wiki/Narbonne)"},
+      {"nom": "Perpignan", "lat": 42.7, "lon": 2.9, "pays": 6, "source": "Wikipédia en anglais, article County of Roussillon : le Roussillon passe en 1172 à Alphonse II d'Aragon et reste dans la couronne d'Aragon (https://en.wikipedia.org/wiki/County_of_Roussillon)"}
+    ] },
+    { "cell_id": 10426, "villes": [
+      {"nom": "Nîmes", "lat": 43.84, "lon": 4.36, "pays": 3, "source": "Wikipédia en anglais, article Nîmes : Louis établit le pouvoir royal dans la région, qui devient le Languedoc (https://en.wikipedia.org/wiki/N%C3%AEmes)"},
+      {"nom": "Avignon", "lat": 43.95, "lon": 4.81, "pays": 17, "source": "Wikipédia en anglais, article Avignon : le pape Clément VI achète la ville à Jeanne Ire de Naples en 1348 ; le Grand Schisme n'est pas simulé (https://en.wikipedia.org/wiki/Avignon)"},
+      {"nom": "Carpentras", "lat": 44.06, "lon": 5.05, "pays": 17, "source": "Wikipédia en anglais, article Comtat Venaissin : le Comtat est terre pontificale depuis 1274 (https://en.wikipedia.org/wiki/Comtat_Venaissin)"},
+      {"nom": "Arles", "lat": 43.68, "lon": 4.63, "pays": 44, "source": "Wikipédia en anglais, article Arles : ville de la province de Provence, dont Louis II d'Anjou est comte de 1384 à 1417 (article Louis II of Anjou) (https://en.wikipedia.org/wiki/Arles)"}
+    ] },
+    { "cell_id": 10435, "villes": [
+      {"nom": "Gap", "lat": 44.56, "lon": 6.08, "pays": 3, "source": "Wikipédia en anglais, article Gap, Hautes-Alpes : le Gapençais va au Dauphiné en 1209, que le dauphin cède en 1349 au futur Charles V (https://en.wikipedia.org/wiki/Gap,_Hautes-Alpes)"},
+      {"nom": "Sisteron", "lat": 44.2, "lon": 5.94, "pays": 44, "source": "Wikipédia en anglais, article Sisteron : limite nord du domaine des comtes de Provence (https://en.wikipedia.org/wiki/Sisteron)"}
+    ] },
+    { "cell_id": 10433, "villes": [
+      {"nom": "Chambéry", "lat": 45.57, "lon": 5.92, "pays": 20, "source": "Wikipédia en anglais, article Chambéry : capitale savoyarde de 1295 à 1563 (https://en.wikipedia.org/wiki/Chamb%C3%A9ry)"},
+      {"nom": "Grenoble", "lat": 45.19, "lon": 5.72, "pays": 3, "source": "Wikipédia en anglais, article Grenoble : capitale du Dauphiné, cédé en 1349 au futur Charles V (article Dauphiné) (https://en.wikipedia.org/wiki/Grenoble)"}
+    ] },
+    { "cell_id": 10456, "villes": [
+      {"nom": "Gênes", "lat": 44.41, "lon": 8.93, "pays": 16, "source": "Wikipédia en anglais, article Republic of Genoa : Gênes demeure le siège de la république ; Charles VI en est le défenseur depuis 1396 (https://en.wikipedia.org/wiki/Republic_of_Genoa)"},
+      {"nom": "Alexandrie", "lat": 44.91, "lon": 8.61, "pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Luchino et Giovanni Visconti ajoutent Tortone et Alexandrie en 1347 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"},
+      {"nom": "Casale", "lat": 45.13, "lon": 8.45, "pays": 14, "source": "Wikipédia en anglais, article Casale Monferrato : conquise par les Visconti en 1370, elle leur reste jusqu'en 1404 (https://en.wikipedia.org/wiki/Casale_Monferrato)"},
+      {"nom": "Asti", "lat": 44.9, "lon": 8.21, "pays": 43, "source": "Wikipédia en anglais, article Asti : Asti entre dans la dot de Valentine Visconti à son mariage avec Louis d'Orléans en 1389 (https://en.wikipedia.org/wiki/Asti)"}
+    ] },
+    { "cell_id": 10256, "villes": [
+      {"nom": "Parme", "lat": 44.8, "lon": 10.33, "pays": 14, "source": "Wikipédia en anglais, article Parma : Parme passe sous le contrôle de Milan en 1341 (https://en.wikipedia.org/wiki/Parma)"},
+      {"nom": "La Spezia", "lat": 44.1, "lon": 9.82, "pays": 16, "source": "Wikipédia en anglais, article La Spezia : la ville suit les vicissitudes de Gênes depuis la seigneurie de Niccolò Fieschi (https://en.wikipedia.org/wiki/La_Spezia)"}
+    ] },
+    { "cell_id": 10263, "villes": [
+      {"nom": "Vérone", "lat": 45.44, "lon": 10.99, "pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti conquiert Vérone en 1387 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"},
+      {"nom": "Vicence", "lat": 45.55, "lon": 11.55, "pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti conquiert Vicence en 1387 ; elle passe à Venise en 1404 (article Vicenza) (https://en.wikipedia.org/wiki/Duchy_of_Milan)"},
+      {"nom": "Trévise", "lat": 45.67, "lon": 12.24, "pays": 13, "source": "Wikipédia en anglais, article Treviso : aux Carrara de 1384 à 1388, la ville revient ensuite à Venise (https://en.wikipedia.org/wiki/Treviso)"},
+      {"nom": "Padoue", "lat": 45.41, "lon": 11.88, "pays": null, "source": "Wikipédia en anglais, article Lords of Padua : les Carrara tiennent Padoue de 1308 à 1405 (https://en.wikipedia.org/wiki/Lordship_of_Padua)", "raison": "Seigneurie des Carrara, puissance absente de la table."},
+      {"nom": "Mantoue", "lat": 45.16, "lon": 10.79, "pays": null, "source": "Wikipédia en anglais, article Mantua : Mantoue est aux Gonzague de 1328 à 1708 (https://en.wikipedia.org/wiki/Mantua)", "raison": "Seigneurie des Gonzague, puissance absente de la table."}
+    ] },
+    { "cell_id": 10275, "villes": [
+      {"nom": "Udine", "lat": 46.06, "lon": 13.24, "pays": 9, "source": "Wikipédia en anglais, article Patria del Friuli : le patriarche d'Aquilée, prince ecclésiastique du Saint-Empire, garde son pouvoir temporel jusqu'à l'annexion vénitienne de 1420 (https://en.wikipedia.org/wiki/Patriarchate_of_Aquileia_(state))"},
+      {"nom": "Belluno", "lat": 46.14, "lon": 12.22, "pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti conquiert Feltre et Belluno en 1388 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"}
+    ] },
+    { "cell_id": 10268, "villes": [
+      {"nom": "Arezzo", "lat": 43.46, "lon": 11.88, "pays": 15, "source": "Wikipédia en anglais, article Arezzo : la commune reste indépendante jusqu'en 1384, puis passe à Florence (https://en.wikipedia.org/wiki/Arezzo)"},
+      {"nom": "Rimini", "lat": 44.06, "lon": 12.57, "pays": null, "source": "Wikipédia en anglais, article Papal States : les Malatesta de Rimini ne reconnaissent le pape que de nom (https://en.wikipedia.org/wiki/Papal_States)", "raison": "Seigneurie des Malatesta, vicaires du pape, puissance absente de la table."},
+      {"nom": "Urbino", "lat": 43.73, "lon": 12.64, "pays": null, "source": "Wikipédia en anglais, article Urbino : la ville est aux Montefeltro depuis environ 1200 (https://en.wikipedia.org/wiki/Urbino)", "raison": "Seigneurie des Montefeltro, puissance absente de la table."},
+      {"nom": "Pérouse", "lat": 43.11, "lon": 12.39, "pays": 17, "source": "Wikipédia en anglais, article Papal States : les États de l'Église couvrent l'Ombrie (https://en.wikipedia.org/wiki/Papal_States) ; article Duchy of Milan : les Visconti ne prennent Pérouse qu'en 1400 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"}
+    ] },
+    { "cell_id": 10260, "villes": [
+      {"nom": "Florence", "lat": 43.77, "lon": 11.26, "pays": 15, "source": "Wikipédia en anglais, article Republic of Florence : Florence est le siège de la république (https://en.wikipedia.org/wiki/Republic_of_Florence)"},
+      {"nom": "Pise", "lat": 43.72, "lon": 10.4, "pays": 14, "source": "Wikipédia en anglais, article Lordship of Piombino : le 19 février 1399, Gherardo Appiani cède Pise aux Visconti de Milan (https://en.wikipedia.org/wiki/Principality_of_Piombino)"},
+      {"nom": "Sienne", "lat": 43.32, "lon": 11.33, "pays": 14, "source": "Wikipédia en anglais, article Republic of Siena : les Douze Prieurs donnent la seigneurie de la ville aux Visconti en 1399 ; ils en sont chassés en 1404 (https://en.wikipedia.org/wiki/Republic_of_Siena)"},
+      {"nom": "Lucques", "lat": 43.84, "lon": 10.5, "pays": null, "source": "Wikipédia en anglais, article Lucca : Lucques reste une république indépendante pendant près de cinq siècles ; l'article Duchy of Milan la dit conquise en 1399, divergence conservée (https://en.wikipedia.org/wiki/Lucca)", "raison": "République de Lucques, puissance absente de la table."}
+    ] },
+    { "cell_id": 10132, "villes": [
+      {"nom": "Cagliari", "lat": 39.22, "lon": 9.12, "pays": 6, "source": "Wikipédia en anglais, article Cagliari : la couronne d'Aragon conquiert la Sardaigne sur les Pisans dans la deuxième décennie du XIVe siècle (https://en.wikipedia.org/wiki/Cagliari)"},
+      {"nom": "Alghero", "lat": 40.56, "lon": 8.32, "pays": 6, "source": "Wikipédia en anglais, article Alghero : la ville est conquise par la couronne d'Aragon sous Pierre IV (https://en.wikipedia.org/wiki/Alghero)"},
+      {"nom": "Sassari", "lat": 40.73, "lon": 8.56, "pays": 6, "source": "Wikipédia en anglais, article Sassari : depuis 1323, la république de Sassari se range du côté du roi d'Aragon (https://en.wikipedia.org/wiki/Sassari)"},
+      {"nom": "Oristano", "lat": 39.9, "lon": 8.59, "pays": null, "source": "Wikipédia en anglais, article Oristano : capitale du judicat d'Arborée, dernier royaume sarde, qui disparaît en 1420 (https://en.wikipedia.org/wiki/Oristano)", "raison": "Judicat d'Arborée, puissance absente de la table."}
+    ] },
+    { "cell_id": 10194, "villes": [
+      {"nom": "Berwick", "lat": 55.77, "lon": -2.0, "pays": 1, "source": "Wikipédia en anglais, article Berwick-upon-Tweed : l'Angleterre reprend Berwick en 1333 ; la ville n'est rendue à l'Écosse qu'en 1461 (https://en.wikipedia.org/wiki/Berwick-upon-Tweed)"},
+      {"nom": "Newcastle", "lat": 54.97, "lon": -1.61, "pays": 1, "source": "Wikipédia en anglais, article Newcastle upon Tyne : ville la plus septentrionale d'Angleterre (https://en.wikipedia.org/wiki/Newcastle_upon_Tyne)"},
+      {"nom": "Melrose", "lat": 55.6, "lon": -2.72, "pays": 2, "source": "Wikipédia en anglais, article Melrose, Scottish Borders : David Ier d'Écosse y fonde une abbaye cistercienne (https://en.wikipedia.org/wiki/Melrose,_Scottish_Borders)"}
+    ] },
+    { "cell_id": 10192, "villes": [
+      {"nom": "Pampelune", "lat": 42.82, "lon": -1.64, "pays": 7, "source": "Wikipédia en anglais, article Pamplona : Pampelune est l'une des capitales du royaume de Navarre (https://en.wikipedia.org/wiki/Pamplona)"},
+      {"nom": "Estella", "lat": 42.67, "lon": -2.03, "pays": 7, "source": "Wikipédia en anglais, article Estella-Lizarra : ville peuplée de Francs par les rois de Navarre sur le chemin de Saint-Jacques (https://en.wikipedia.org/wiki/Estella-Lizarra)"},
+      {"nom": "Olite", "lat": 42.48, "lon": -1.65, "pays": 7, "source": "Wikipédia en anglais, article Olite : le palais royal d'Olite est le siège de Charles III de Navarre (https://en.wikipedia.org/wiki/Olite)"},
+      {"nom": "Logroño", "lat": 42.47, "lon": -2.45, "pays": 5, "source": "Wikipédia en anglais, article Logroño : Jean II de Castille lui donne le titre de cité en 1431 (https://en.wikipedia.org/wiki/Logro%C3%B1o)"},
+      {"nom": "Vitoria", "lat": 42.85, "lon": -2.67, "pays": 5, "source": "Wikipédia en anglais, article Vitoria-Gasteiz : prise par Alphonse VIII en 1199 et annexée au royaume de Castille (https://en.wikipedia.org/wiki/Vitoria-Gasteiz)"},
+      {"nom": "Saint-Sébastien", "lat": 43.32, "lon": -1.98, "pays": 5, "source": "Wikipédia en anglais, article San Sebastián : conquise par la Castille en 1200, privant la Navarre de son accès à la mer (https://en.wikipedia.org/wiki/San_Sebasti%C3%A1n)"}
+    ] },
+    { "cell_id": 10177, "villes": [
+      {"nom": "Saragosse", "lat": 41.65, "lon": -0.88, "pays": 6, "source": "Wikipédia en anglais, article Zaragoza : capitale de l'Aragon (https://en.wikipedia.org/wiki/Zaragoza)"},
+      {"nom": "Huesca", "lat": 42.14, "lon": -0.41, "pays": 6, "source": "Wikipédia en anglais, article Huesca : capitale du royaume d'Aragon de 1096 à 1118 (https://en.wikipedia.org/wiki/Huesca)"},
+      {"nom": "Jaca", "lat": 42.57, "lon": -0.55, "pays": 6, "source": "Wikipédia en anglais, article Jaca : première capitale du royaume d'Aragon (https://en.wikipedia.org/wiki/Jaca)"},
+      {"nom": "Tudela", "lat": 42.06, "lon": -1.6, "pays": 7, "source": "Wikipédia en anglais, article Tudela, Navarre : deuxième ville de Navarre, conquise par Alphonse le Batailleur en 1119 (https://en.wikipedia.org/wiki/Tudela,_Navarre)"}
+    ] },
+    { "cell_id": 10225, "villes": [
+      {"nom": "Porto", "lat": 41.15, "lon": -8.61, "pays": 4, "source": "Wikipédia en anglais, article Porto : Porto accueille en 1387 le mariage de Jean Ier de Portugal (https://en.wikipedia.org/wiki/Porto)"},
+      {"nom": "Bragance", "lat": 41.81, "lon": -6.76, "pays": 4, "source": "Wikipédia en anglais, article Bragança, Portugal : Alphonse III y crée une foire annuelle en 1272 (https://en.wikipedia.org/wiki/Bragan%C3%A7a,_Portugal)"},
+      {"nom": "Guarda", "lat": 40.54, "lon": -7.27, "pays": 4, "source": "Wikipédia en anglais, article Guarda, Portugal : fondée par le roi Sanche Ier en 1199 (https://en.wikipedia.org/wiki/Guarda,_Portugal)"},
+      {"nom": "Ciudad Rodrigo", "lat": 40.6, "lon": -6.53, "pays": 5, "source": "Wikipédia en anglais, article Ciudad Rodrigo : repeuplée et fortifiée par Ferdinand II de León au XIIe siècle (https://en.wikipedia.org/wiki/Ciudad_Rodrigo)"}
+    ] },
+    { "cell_id": 10230, "villes": [
+      {"nom": "Saint-Jacques-de-Compostelle", "lat": 42.88, "lon": -8.54, "pays": 5, "source": "Wikipédia en anglais, article Santiago de Compostela : les royaumes de León et de Galice s'unissent au royaume de Castille (https://en.wikipedia.org/wiki/Santiago_de_Compostela)"},
+      {"nom": "Braga", "lat": 41.55, "lon": -8.42, "pays": 4, "source": "Wikipédia en anglais, article Braga : siège du plus ancien archidiocèse portugais (https://en.wikipedia.org/wiki/Braga)"}
+    ] },
+    { "cell_id": 10223, "villes": [
+      {"nom": "Badajoz", "lat": 38.88, "lon": -6.97, "pays": 5, "source": "Wikipédia en anglais, article Badajoz : conquise par le royaume de León en 1230 (https://en.wikipedia.org/wiki/Badajoz)"},
+      {"nom": "Elvas", "lat": 38.88, "lon": -7.16, "pays": 4, "source": "Wikipédia en anglais, article Elvas : occupée définitivement par les Portugais en 1226 (https://en.wikipedia.org/wiki/Elvas)"}
+    ] },
+    { "cell_id": 10196, "villes": [
+      {"nom": "Soria", "lat": 41.77, "lon": -2.47, "pays": 5, "source": "Wikipédia en anglais, article Soria : castillane définitivement en 1134 (https://en.wikipedia.org/wiki/Soria)"},
+      {"nom": "Calatayud", "lat": 41.35, "lon": -1.64, "pays": 6, "source": "Wikipédia en anglais, article Calatayud : les premières cortès d'Aragon s'y tiennent en 1411 (https://en.wikipedia.org/wiki/Calatayud)"}
+    ] },
+    { "cell_id": 10181, "villes": [
+      {"nom": "Valence", "lat": 39.47, "lon": -0.38, "pays": 6, "source": "Wikipédia en anglais, article Valencia : après la conquête aragonaise de 1238, capitale du royaume de Valence (https://en.wikipedia.org/wiki/Valencia)"},
+      {"nom": "Alicante", "lat": 38.35, "lon": -0.48, "pays": 6, "source": "Wikipédia en anglais, article Alicante : rendue à la couronne d'Aragon en 1296 par Jacques II (https://en.wikipedia.org/wiki/Alicante)"},
+      {"nom": "Murcie", "lat": 37.99, "lon": -1.13, "pays": 5, "source": "Wikipédia en anglais, article Lorca, Spain : le royaume chrétien de Murcie appartient à la couronne de Castille (https://en.wikipedia.org/wiki/Lorca,_Spain)"}
+    ] },
+    { "cell_id": 10193, "villes": [
+      {"nom": "Baza", "lat": 37.49, "lon": -2.77, "pays": 8, "source": "Wikipédia en anglais, article Baza, Granada : l'une des trois villes les plus importantes du royaume de Grenade (https://en.wikipedia.org/wiki/Baza,_Spain)"},
+      {"nom": "Lorca", "lat": 37.68, "lon": -1.7, "pays": 5, "source": "Wikipédia en anglais, article Lorca, Spain : ville frontière du royaume de Murcie, de la couronne de Castille, face à Grenade (https://en.wikipedia.org/wiki/Lorca,_Spain)"}
+    ] },
+    { "cell_id": 10209, "villes": [
+      {"nom": "Grenade", "lat": 37.18, "lon": -3.6, "pays": 8, "source": "Wikipédia en anglais, article Granada : capitale de l'émirat nasride au XIIIe siècle (https://en.wikipedia.org/wiki/Granada)"},
+      {"nom": "Malaga", "lat": 36.72, "lon": -4.42, "pays": 8, "source": "Wikipédia en anglais, article Málaga : ville du royaume nasride, prise par la Castille en 1487 (https://en.wikipedia.org/wiki/M%C3%A1laga)"},
+      {"nom": "Guadix", "lat": 37.3, "lon": -3.14, "pays": 8, "source": "Wikipédia en anglais, article Guadix : territoire de l'émirat de Grenade (https://en.wikipedia.org/wiki/Guadix)"},
+      {"nom": "Antequera", "lat": 37.02, "lon": -4.56, "pays": 8, "source": "Wikipédia en anglais, article Antequera : ville frontière de l'émirat nasride de Grenade (https://en.wikipedia.org/wiki/Antequera)"},
+      {"nom": "Jaén", "lat": 37.77, "lon": -3.79, "pays": 5, "source": "Wikipédia en anglais, article Jaén, Spain : rendue par Muhammad Ier de Grenade à Ferdinand III le 28 février 1246 (https://en.wikipedia.org/wiki/Ja%C3%A9n,_Spain)"}
+    ] },
+    { "cell_id": 10221, "villes": [
+      {"nom": "Séville", "lat": 37.39, "lon": -5.99, "pays": 5, "source": "Wikipédia en anglais, article Seville : Séville entre dans la Castille en 1248 (https://en.wikipedia.org/wiki/Seville)"},
+      {"nom": "Cadix", "lat": 36.53, "lon": -6.29, "pays": 5, "source": "Wikipédia en anglais, article Cádiz : Alphonse X en chasse les Maures en 1262 (https://en.wikipedia.org/wiki/C%C3%A1diz)"},
+      {"nom": "Jerez", "lat": 36.69, "lon": -6.14, "pays": 5, "source": "Wikipédia en anglais, article Jerez de la Frontera : conquise par la couronne de Castille en 1261 (https://en.wikipedia.org/wiki/Jerez_de_la_Frontera)"},
+      {"nom": "Tarifa", "lat": 36.01, "lon": -5.6, "pays": 5, "source": "Wikipédia en anglais, article Tarifa : conquise par Sanche IV de Castille en 1292 (https://en.wikipedia.org/wiki/Tarifa)"},
+      {"nom": "Huelva", "lat": 37.26, "lon": -6.95, "pays": 5, "source": "Wikipédia en anglais, article Huelva : prise par Alphonse X de Castille en 1262 (https://en.wikipedia.org/wiki/Huelva)"},
+      {"nom": "Gibraltar", "lat": 36.14, "lon": -5.35, "pays": 8, "source": "Wikipédia en anglais, article Gibraltar : prise par les Nasrides de Grenade en 1374 ; elle ne revient à la Castille qu'en 1462 (https://en.wikipedia.org/wiki/Gibraltar)"},
+      {"nom": "Ronda", "lat": 36.74, "lon": -5.17, "pays": 8, "source": "Wikipédia en anglais, article Ronda : ville du royaume nasride de Grenade, prise par la Castille en 1485 (https://en.wikipedia.org/wiki/Ronda)"}
+    ] }
+  ],
+  "lacunes": [
+    {"cell_id": 10267, "raison": "Bologne, commune révoltée contre le pape depuis 1376 (article Bologna), Ferrare aux Este (article Ferrara) et Ravenne aux da Polenta : aucun pays de la table."},
+    {"cell_id": 1273, "raison": "Île d'Elbe, de la seigneurie de Piombino des Appiani, fondée en 1399 (article Principality of Piombino) : puissance absente de la table."},
+    {"cell_id": 1340, "raison": "Lastovo, île de la république de Raguse (article Lastovo) : puissance absente de la table."},
+    {"cell_id": 1546, "raison": "Îles du Sulcis, au sud-ouest de la Sardaigne, entre le juge d'Arborée et la couronne d'Aragon : non départagées."},
+    {"cell_id": 1549, "raison": "Îles du Sulcis, au sud-ouest de la Sardaigne, entre le juge d'Arborée et la couronne d'Aragon : non départagées."}
+  ],
+  "petits_pays": [
+    {"nom": "Andorre", "raison": "Coseigneurie de l'évêque d'Urgell et du comte de Foix depuis les paréages de 1278, moins de 500 km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Andorre)."},
+    {"nom": "Saint-Marin", "raison": "Commune libre du Montefeltro, une soixantaine de km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Saint-Marin)."},
+    {"nom": "Calais", "raison": "Ville anglaise depuis sa prise par Édouard III en 1347, confirmée par le traité de 1360 (https://en.wikipedia.org/wiki/Calais) : le Calaisis est plus petit qu'un lieu ; la cellule va à la Bourgogne de Saint-Omer."},
+    {"nom": "Seigneurie de Piombino", "raison": "Piombino et une part de l'île d'Elbe, cédées à part par Gherardo Appiani en 1399 : plus petite que deux lieux (https://en.wikipedia.org/wiki/Principality_of_Piombino)."}
+  ],
+  "temoins": [
+    {"nom": "Paris", "lat": 48.86, "lon": 2.35, "pays": 3, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume de Charles VI (https://fr.wikipedia.org/wiki/Royaume_de_France)"},
+    {"nom": "Rouen", "lat": 49.44, "lon": 1.1, "pays": 3, "source": "Wikipédia, article Duché de Normandie : la Normandie est réunie au domaine royal en 1204, Rouen en est la capitale (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Normandie)"},
+    {"nom": "Toulouse", "lat": 43.6, "lon": 1.44, "pays": 3, "source": "Wikipédia, article Comté de Toulouse : le comté est réuni au domaine royal en 1271 (https://fr.wikipedia.org/wiki/Comt%C3%A9_de_Toulouse)"},
+    {"nom": "Bordeaux", "lat": 44.84, "lon": -0.58, "pays": 42, "source": "Wikipédia, article Guyenne : possession du roi d'Angleterre de 1152 à 1453 ; Henri IV en fait duc son fils Henri de Monmouth (https://en.wikipedia.org/wiki/Henry_V_of_England)"},
+    {"nom": "Nantes", "lat": 47.22, "lon": -1.55, "pays": 41, "source": "Wikipédia, article Duché de Bretagne : ville ducale de Nantes (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Bretagne)"},
+    {"nom": "Dijon", "lat": 47.32, "lon": 5.04, "pays": 40, "source": "Wikipédia, article Duché de Bourgogne : capitale Dijon (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Bourgogne)"},
+    {"nom": "Bruges", "lat": 51.21, "lon": 3.22, "pays": 40, "source": "Wikipédia en anglais, article Philip the Bold : comte de Flandre depuis 1384 ; Bruges, principale ville comtale (https://en.wikipedia.org/wiki/Philip_the_Bold)"},
+    {"nom": "Dublin", "lat": 53.35, "lon": -6.26, "pays": 49, "source": "Wikipédia en anglais, article Lordship of Ireland : la partie de l'Irlande tenue par le roi d'Angleterre, « seigneur d'Irlande » (https://en.wikipedia.org/wiki/Lordship_of_Ireland)"},
+    {"nom": "Orléans", "lat": 47.9, "lon": 1.9, "pays": 43, "source": "Wikipédia en anglais, article Duchy of Orléans : Charles VI recrée en 1392 le duché pour son frère Louis (https://en.wikipedia.org/wiki/Duchy_of_Orl%C3%A9ans)"},
+    {"nom": "Angers", "lat": 47.47, "lon": -0.55, "pays": 44, "source": "Wikipédia en anglais, article Angers : capitale de la province d'Anjou (https://en.wikipedia.org/wiki/Angers)"},
+    {"nom": "Bourges", "lat": 47.08, "lon": 2.4, "pays": 45, "source": "Wikipédia en anglais, article Bourges : capitale du duché de Berry, créé en 1360 (https://en.wikipedia.org/wiki/Bourges)"},
+    {"nom": "Moulins", "lat": 46.57, "lon": 3.33, "pays": 46, "source": "Wikipédia en anglais, article Moulins, Allier : capitale du Bourbonnais et siège des ducs de Bourbon (https://en.wikipedia.org/wiki/Moulins,_Allier)"},
+    {"nom": "Foix", "lat": 42.97, "lon": 1.61, "pays": 47, "source": "Wikipédia en anglais, article Foix : ancienne capitale du comté de Foix (https://en.wikipedia.org/wiki/Foix)"},
+    {"nom": "Lectoure", "lat": 43.93, "lon": 0.62, "pays": 48, "source": "Wikipédia en anglais, article Lectoure : capitale du comté d'Armagnac depuis 1325 (https://en.wikipedia.org/wiki/Lectoure)"},
+    {"nom": "Londres", "lat": 51.51, "lon": -0.13, "pays": 1, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale (https://fr.wikipedia.org/wiki/Royaume_d%27Angleterre)"},
+    {"nom": "Édimbourg", "lat": 55.95, "lon": -3.19, "pays": 2, "source": "Wikipédia, article Édimbourg : bourg royal d'Écosse établi au XIIe siècle (https://fr.wikipedia.org/wiki/%C3%89dimbourg)"},
+    {"nom": "Lisbonne", "lat": 38.72, "lon": -9.14, "pays": 4, "source": "Wikipédia, article Royaume de Portugal : Lisbonne capitale depuis 1255 (https://fr.wikipedia.org/wiki/Royaume_de_Portugal)"},
+    {"nom": "Séville", "lat": 37.39, "lon": -5.99, "pays": 5, "source": "Wikipédia, article Séville : conquise par la Castille en 1248 (https://fr.wikipedia.org/wiki/S%C3%A9ville)"},
+    {"nom": "Pampelune", "lat": 42.82, "lon": -1.64, "pays": 7, "source": "Wikipédia, article Royaume de Navarre : Pampelune en est la capitale (https://fr.wikipedia.org/wiki/Royaume_de_Navarre)"},
+    {"nom": "Barcelone", "lat": 41.39, "lon": 2.17, "pays": 6, "source": "Wikipédia, article Couronne d'Aragon : le comté de Barcelone est uni à l'Aragon depuis 1137 (https://fr.wikipedia.org/wiki/Couronne_d%27Aragon)"},
+    {"nom": "Grenade", "lat": 37.18, "lon": -3.6, "pays": 8, "source": "Wikipédia, article Royaume de Grenade : Grenade, capitale nasride de 1238 à 1492 (https://fr.wikipedia.org/wiki/Royaume_de_Grenade)"},
+    {"nom": "Milan", "lat": 45.46, "lon": 9.19, "pays": 14, "source": "Wikipédia, article Duché de Milan : Milan est la capitale du duché créé en 1395 (https://fr.wikipedia.org/wiki/Duch%C3%A9_de_Milan)"},
+    {"nom": "Venise", "lat": 45.44, "lon": 12.33, "pays": 13, "source": "Wikipédia, article République de Venise : Venise est la capitale de la république (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_Venise)", "hors_carte": "Le point de Venise, dans la lagune, est hors des polygones de la carte figée ; Trévise témoigne pour la Terre ferme."},
+    {"nom": "Trévise", "lat": 45.67, "lon": 12.24, "pays": 13, "source": "Wikipédia en anglais, article Treviso : la ville revient à Venise en 1388, après la seigneurie des Carrara (https://en.wikipedia.org/wiki/Treviso)"},
+    {"nom": "Gênes", "lat": 44.41, "lon": 8.93, "pays": 16, "source": "Wikipédia, article République de Gênes : Gênes demeure le siège de la république en 1400 (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_G%C3%AAnes)"},
+    {"nom": "Florence", "lat": 43.77, "lon": 11.26, "pays": 15, "source": "Wikipédia, article République de Florence : Florence est le siège de la république (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_Florence)"},
+    {"nom": "Rome", "lat": 41.9, "lon": 12.5, "pays": 17, "source": "Treccani, Enciclopedia dei Papi, article Bonifacio IX : souveraineté sur Rome remise au pape en juin 1398 (https://www.treccani.it/enciclopedia/bonifacio-ix_(Enciclopedia-dei-Papi)/)"},
+    {"nom": "Naples", "lat": 40.85, "lon": 14.27, "pays": 18, "source": "Wikipédia, article Royaume de Naples : Naples est la capitale du royaume continental (https://fr.wikipedia.org/wiki/Royaume_de_Naples)"},
+    {"nom": "Palerme", "lat": 38.12, "lon": 13.36, "pays": 19, "source": "Wikipédia, article Histoire de Palerme, section Les Aragonais : Martin Ier y règne à partir de 1392 (https://fr.wikipedia.org/wiki/Histoire_de_Palerme#Les_Aragonais)"}
+  ]
+}

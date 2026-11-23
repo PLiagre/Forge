@@ -13,6 +13,7 @@ import pytest
 
 from sim.aggregation import PositionCelluleInconnue, charger_positions, derive_appartenance
 from sim import engine, world as etat_monde
+from sim.frontieres import charger_frontieres, puissances_des_lieux
 from sim.maisons import (
     charger_maisons, maison_de_cellule, maison_par_cellule, maisons_depuis_monde,
 )
@@ -49,8 +50,11 @@ POINTS = {
     "Vienne": (48.21, 16.37, "Habsbourg"), "Prague": (50.08, 14.44, "Luxembourg"),
     "Buda": (47.50, 19.04, "Luxembourg"), "Londres": (51.51, -0.13, "Lancastre"),
     "Constantinople": (41.01, 28.98, "Paléologue"), "Edirne": (41.68, 26.56, "Osman"),
-    "Nicosie": (35.17, 33.36, "Lusignan"), "Venise": (45.44, 12.33, None),
+    "Nicosie": (35.17, 33.36, "Lusignan"), "Venise": (45.44, 12.33, "Visconti"),
 }
+# Venise n'a pas de cellule à elle : sa cellule la plus proche est celle que se partagent Vérone
+# (Milan), Vicence (Milan) et Trévise (Venise). La cellule suit son bourg, donc Milan et Visconti ;
+# la république n'a que ses lieux dans la cellule.
 
 
 def _document():
@@ -84,10 +88,10 @@ def test_lecture(tmp_path):
     print(f"maisons_lues={len(maisons.maisons)}, puissances_lues={len(maisons.par_puissance)}, "
           f"avec_maison={len(table.puissances) - len(sans)}, sans_maison={len(sans)}, "
           f"vassaux_declares={vassaux}")
-    assert len(maisons.maisons) == 30
-    assert len(maisons.par_puissance) == 39 and len(sans) == 10
+    assert len(maisons.maisons) == 37
+    assert len(maisons.par_puissance) == 49 and len(sans) == 10
     assert all(p.nature in NATURES_SANS_MAISON for p in sans)
-    assert vassaux == 6
+    assert vassaux == 3
     assert set(maisons.par_ancre) == {a.id for a in table.ancres}
     assert list(m.id for m in maisons.maisons) == sorted(m.id for m in maisons.maisons)
     document = _document()
@@ -182,7 +186,7 @@ def _vassaux(monde, table, maisons, positions, latitude):
 def test_vassaux(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vus, hors = _vassaux(monde, table, maisons, positions, latitude)
-    assert (vus, hors) == (6, 0)
+    assert (vus, hors) == (3, 0)
     prague = next(a for a in table.ancres if a.nom == "Prague")
     munich = next(a for a in table.ancres if a.nom == "Munich")
     intruse = dataclasses.replace(prague, id=max(a.id for a in table.ancres) + 1,
@@ -208,12 +212,25 @@ def test_geographie(carte):
         assert (maison.nom if maison else None) == attendue, nom
     venise = next(p for p in table.puissances if p.nom == "Venise")
     assert venise.nature == "république"
-    assert puissances_depuis_monde(monde)[cellules["Venise"]] == venise.id
+    milan = next(p for p in table.puissances if p.nom == "Milan")
+    assert maisons.par_puissance[venise.id] is None
+    assert puissances_depuis_monde(monde)[cellules["Venise"]] == milan.id
+    assert venise.id not in puissances_depuis_monde(monde).values()
+    pays_des_lieux = puissances_des_lieux(monde)
+    de_venise = [couple for couple, pays in pays_des_lieux.items()
+                 if couple[0] == cellules["Venise"] and pays == venise.id]
+    assert de_venise
     ancres = {a.nom: a.id for a in table.ancres}
     ids = {m.nom: m.id for m in maisons.maisons}
-    tenantes = dict(maisons.par_ancre)
-    for nom in ("Dijon", "Bruges"): tenantes[ancres[nom]] = ids["Valois"]
-    sans_bourgogne = maisons_depuis_monde(monde, maisons=dataclasses.replace(maisons, par_ancre=tenantes))
+    # Dijon et Bruges sont des cellules déclarées du pays Bourgogne : leur maison est celle de la
+    # puissance, pas celle d'une ancre de vassal.
+    bourgogne = next(p for p in table.puissances if p.nom == "Bourgogne")
+    assert maisons.par_puissance[bourgogne.id] == ids["Valois-Bourgogne"]
+    assert all(vue[cellules[n]] == ids["Valois-Bourgogne"] for n in ("Dijon", "Bruges"))
+    tenantes = {a.id: ids["Valois"] if a.puissance == bourgogne.id else maisons.par_ancre[a.id]
+                for a in table.ancres}
+    sans_bourgogne = maisons_depuis_monde(monde, maisons=dataclasses.replace(
+        maisons, par_puissance={**maisons.par_puissance, bourgogne.id: ids["Valois"]}, par_ancre=tenantes))
     assert all(sans_bourgogne[cellules[n]] == ids["Valois"] for n in ("Dijon", "Bruges"))
     assert ids["Valois-Bourgogne"] not in sans_bourgogne.values()
     tenantes = dict(maisons.par_ancre)
@@ -258,7 +275,7 @@ def test_compte(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
     avec, sans, non_couvertes, incoherentes = _compter(monde, table, maisons, vue)
-    assert (avec, sans, non_couvertes) == (476, 89, 31)
+    assert (avec, sans, non_couvertes) == (478, 80, 38)
     assert avec + sans + non_couvertes == len(monde.cells) and incoherentes == 0
     _chaque_maison(vue, maisons)
     ids = {m.nom: m.id for m in maisons.maisons}
@@ -330,9 +347,27 @@ def test_ancre_contenue(carte):
     vue = maisons_depuis_monde(monde)
     ids = {m.nom: m.id for m in maisons.maisons}
     assert vue[10374] == ids["Paléologue"]
-    assert _compter(monde, table, maisons, vue) == (476, 89, 31, 0)
-    assert ancres and all(vue[c] == (maisons.par_ancre[a] if a is not None else None)
-                          for c, a in ancres.items())
+    assert _compter(monde, table, maisons, vue) == (478, 80, 38, 0)
+    # Une cellule que la table des frontières déclare a le pays de la table (celui de son bourg si
+    # elle est partagée, aucun si elle est en lacune) ; toutes les autres suivent l'ancre contenante
+    # ou la plus proche.
+    frontieres = charger_frontieres()
+    declarees = frontieres.declarees()
+    pays_des_lieux = puissances_des_lieux(monde)
+
+    def attendue(cellule, ancre):
+        if cellule in frontieres.cellules:
+            pays = frontieres.cellules[cellule]
+        elif cellule in frontieres.partages:
+            pays = pays_des_lieux[cellule, 0]
+        elif cellule in frontieres.lacunes:
+            pays = None
+        else:
+            return maisons.par_ancre[ancre] if ancre is not None else None
+        return maisons.par_puissance[pays] if pays is not None else None
+
+    assert ancres and declarees and declarees < set(ancres)
+    assert all(vue[c] == attendue(c, a) for c, a in ancres.items())
     deplacee = dataclasses.replace(table, ancres=tuple(
         dataclasses.replace(a, lat=positions[10032][0], lon=positions[10032][1])
         if a.nom == "Constantinople" else a for a in table.ancres))
@@ -347,7 +382,7 @@ def test_ancre_contenue(carte):
                                   intruse.id: ids["Wittelsbach"]})
     assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Wittelsbach"]
     assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
-    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(476, 89, 31)")
+    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(478, 80, 38)")
 
 
 # Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.
@@ -365,12 +400,13 @@ CELLULES_CAPITALES = (
     10237, 10206, 10322, 10231, 10204, 10313, 10192, 10209, 10284, 10466,
     10283, 10433, 9892, 10327, 10374, 10366, 10329, 10300, 10362, 10371,
     None, 8992, 10143, 9788, 9831, 10059, 10420, 10191, 10452, 10294,
+    10176, 10316, 10174, 10318, 10388, 10319, 10239,
 )
 
 
 def test_capitale_lecture():
     capitales = charger_capitales()
-    assert len(capitales) == 30
+    assert len(capitales) == 37
     assert {c.maison for c in capitales} == {m.id for m in charger_maisons().maisons}
     assert tuple(c.maison for c in capitales) == tuple(sorted(c.maison for c in capitales))
     assert all(isinstance(c, _NoBadSpatialField) for c in capitales)
@@ -424,9 +460,9 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     monde = carte[0]
     capitales = charger_capitales()
     vue = maisons_de_l_ia(monde)
-    assert tuple(m.cell_id for m in vue[:30]) == CELLULES_CAPITALES
-    assert sum(m.cell_id is not None for m in vue[:30]) == 29
-    hors = [m for m in vue[:30] if m.cell_id is None]
+    assert tuple(m.cell_id for m in vue[:37]) == CELLULES_CAPITALES
+    assert sum(m.cell_id is not None for m in vue[:37]) == 36
+    hors = [m for m in vue[:37] if m.cell_id is None]
     assert len(hors) == 1 and hors[0].id == 21
     assert hors[0].nom == "Djötchides" and hors[0].capitale == "Saraï" and hors[0].hors_carte
     tenantes = maisons_depuis_monde(monde)
@@ -440,7 +476,7 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     document = json.loads(CAPITALES.read_text(encoding="utf-8"))
     document["capitales"][0].update(lat=paris.lat, lon=paris.lon)
     fausse = maisons_de_l_ia(monde, capitales=charger_capitales(_ecrire(tmp_path, document)))
-    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:30] if m.cell_id is not None) == 1
+    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:37] if m.cell_id is not None) == 1
     with pytest.raises(AssertionError, match="incohérentes : 1"):
         _preuve_coherence_capitales(fausse, tenantes)
 
@@ -719,7 +755,8 @@ def _preuve_registre_charge(monde, documents):
     _preuve_registre(historiques, documents, monde.carte)
     copie = copy.copy(monde)
     copie.maisons = historiques
-    attendus, plausibles = _attente_maitres(copie, puissances_depuis_monde(monde), charger_maisons())
+    attendus, plausibles = _attente_maitres(copie, puissances_depuis_monde(monde), charger_maisons(),
+                                            puissances_des_lieux(copie))
     assert plausibles and isinstance(monde.maisons, tuple)
     assert monde.maisons == tuple(sorted(historiques + plausibles, key=lambda m: m.id))
     assert len({m.id for m in monde.maisons}) == len(monde.maisons)
@@ -1029,33 +1066,40 @@ def test_grenier_serialisation():
     print(f"paniers_publies={len(document['greniers'])}, pertes_kg={monde.pertes_kg}")
 
 
-# Attribution des maîtres : l'attente ne consulte jamais sim.maitres.
-def _attente_maitres(monde, vue, maisons, depart=4, groupe=3, priorite=True):
+# Attribution des maîtres : l'attente ne consulte jamais sim.maitres. `puissances_lieux` donne le
+# pays de chaque lieu des cellules partagées ; dans l'une d'elles, une grande maison ou une
+# institution ne prend que les lieux du pays qu'elle dirige, et les rangs libres se groupent par pays.
+def _attente_maitres(monde, vue, maisons, puissances_lieux, depart=4, groupe=3, priorite=True):
     from sim.lieux import lieux_depuis_monde
     from sim.registre_maisons import MaisonDuMonde
+
+    def tete(pays):
+        racine = maisons.par_puissance[pays] if pays is not None else None
+        return (f"grande-{racine}" if racine is not None else
+                f"institution-{pays}" if pays is not None else None)
+
     attendus, fiches = {}, []
     for cid, lieux in lieux_depuis_monde(monde).items():
-        libres = []
+        libres = {}
         for lieu in lieux:
+            pays = puissances_lieux.get((cid, lieu.rang), vue[cid])
             departs = sorted((m.id for m in monde.maisons if m.cell_id == cid
                               and m.sorte == "seigneurie" and lieu.rang < depart))
             sieges = sorted(m.id for m in monde.maisons if m.cell_id == cid
-                            and m.sorte in ("grande maison", "institution"))
+                            and m.sorte in ("grande maison", "institution")
+                            and ((cid, lieu.rang) not in puissances_lieux or tete(pays) == m.id))
             candidats = departs + sieges if priorite else sieges + departs
             if candidats:
                 attendus[cid, lieu.rang] = candidats[0]
             else:
-                libres.append(lieu.rang)
-        puissance = vue[cid]
-        racine = maisons.par_puissance[puissance] if puissance is not None else None
-        suzerain = (f"grande-{racine}" if racine is not None else
-                    f"institution-{puissance}" if puissance is not None else None)
-        for debut in range(0, len(libres), groupe):
-            rangs = libres[debut:debut + groupe]
-            identifiant = f"plausible-{cid}-{rangs[0]}"
-            fiches.append(MaisonDuMonde(identifiant, identifiant, "plausible", suzerain,
-                                       identifiant, cid, rangs[0], None))
-            attendus.update({(cid, rang): identifiant for rang in rangs})
+                libres.setdefault(pays, []).append(lieu.rang)
+        for pays, rangs_libres in libres.items():
+            for debut in range(0, len(rangs_libres), groupe):
+                rangs = rangs_libres[debut:debut + groupe]
+                identifiant = f"plausible-{cid}-{rangs[0]}"
+                fiches.append(MaisonDuMonde(identifiant, identifiant, "plausible", tete(pays),
+                                           identifiant, cid, rangs[0], None))
+                attendus.update({(cid, rang): identifiant for rang in rangs})
     return dict(sorted(attendus.items())), tuple(fiches)
 
 
@@ -1063,7 +1107,7 @@ def _attente_maitres(monde, vue, maisons, depart=4, groupe=3, priorite=True):
 def monde_maitres():
     monde = World.charger(0)
     monde.maisons = charger_registre_maisons(monde.carte)
-    return monde, puissances_depuis_monde(monde), charger_maisons()
+    return monde, puissances_depuis_monde(monde), charger_maisons(), puissances_des_lieux(monde)
 
 
 @pytest.fixture
@@ -1079,16 +1123,41 @@ def cas_maitres():
         MaisonDuMonde("grande-3", "G", "grande maison", None, "G", 2, 0, None),
         MaisonDuMonde("institution-11", "I", "institution", None, "I", None, None, "hors carte"),
     )
-    return monde, {1: 3, 2: 3, 3: 3, 4: 11, 5: None}, charger_maisons()
+    return monde, {1: 3, 2: 3, 3: 3, 4: 11, 5: None}, charger_maisons(), {}
 
 
 def test_maitre_monde(monde_maitres):
     from sim.maitres import attribuer_maitres, valider_attribution
     from sim.lieux import lieux_depuis_monde
     from sim.registre_maisons import valider_registre_maisons
-    monde, vue, maisons = monde_maitres
+    monde, vue, maisons, puissances_lieux = monde_maitres
     maitres, plausibles = attribuer_maitres(monde)
     assert (maitres, plausibles) == _attente_maitres(*monde_maitres)
+    # Contre-épreuve : sans le pays des lieux, l'attente change : la cellule partagée compte.
+    assert puissances_lieux and _attente_maitres(monde, vue, maisons, {}) != (maitres, plausibles)
+    # Dans une cellule partagée, une grande maison ou une institution ne tient que les lieux de
+    # son pays, et une fiche plausible regroupe des lieux d'un seul pays, dont elle relève.
+    def tete(pays):
+        racine = maisons.par_puissance[pays] if pays is not None else None
+        return f"grande-{racine}" if racine is not None else f"institution-{pays}" if pays is not None else None
+    partages = {(cid, rang): pays for (cid, rang), pays in puissances_lieux.items()}
+    assert any(maitres[c].startswith(("grande-", "institution-")) for c in partages)
+    for couple, pays in partages.items():
+        if maitres[couple].startswith(("grande-", "institution-")):
+            assert maitres[couple] == tete(pays), couple
+    par_fiche = {}
+    for couple, pays in partages.items():
+        par_fiche.setdefault(maitres[couple], set()).add(pays)
+    fiches = {m.id: m for m in plausibles}
+    assert any(i in fiches for i in par_fiche)
+    for identifiant, pays in par_fiche.items():
+        if identifiant in fiches:
+            assert len(pays) == 1 and fiches[identifiant].suzerain == tete(next(iter(pays))), identifiant
+    suzerains = {}
+    for i in par_fiche:
+        if i in fiches:
+            suzerains.setdefault(fiches[i].cell_id, set()).add(fiches[i].suzerain)
+    assert any(len(s) > 1 for s in suzerains.values())
     couples = [(cid, l.rang) for cid, lieux in lieux_depuis_monde(monde).items() for l in lieux]
     assert couples and list(maitres) == couples
     registre = monde.maisons + plausibles
@@ -1120,7 +1189,7 @@ def test_maitre_monde(monde_maitres):
 
 def test_maitre_cas(cas_maitres):
     from sim.maitres import attribuer_maitres, valider_attribution
-    monde, vue, maisons = cas_maitres
+    monde, vue, maisons, puissances_lieux = cas_maitres
     attendu = _attente_maitres(*cas_maitres)
     assert attendu != _attente_maitres(*cas_maitres, priorite=False)
     for registre in (monde.maisons, tuple(reversed(monde.maisons))):
@@ -1134,7 +1203,7 @@ def test_maitre_cas(cas_maitres):
             assert [m.rang for m in groupes] == [0, 3, 6]
             assert [Counter(maitres.values())[m.id] for m in groupes] == [3, 3, 1]
             assert all(m.suzerain == suzerain for m in groupes)
-        valider_attribution(monde, maitres, plausibles, vue, maisons)
+        valider_attribution(monde, maitres, plausibles, vue, maisons, puissances_lieux)
 
 
 @pytest.mark.parametrize("nom,valeur", [("LIEUX_DE_LA_SEIGNEURIE", 2),
@@ -1156,8 +1225,8 @@ def test_maitre_constantes(cas_maitres, monkeypatch, nom, valeur):
 def test_maitre_contre_epreuves(monde_maitres):
     from sim.maitres import AttributionInvalide, attribuer_maitres, valider_attribution
     from sim.registre_maisons import valider_registre_maisons
-    monde, vue, maisons = monde_maitres
-    maitres, plausibles = attribuer_maitres(monde, vue, maisons)
+    monde, vue, maisons, puissances_lieux = monde_maitres
+    maitres, plausibles = attribuer_maitres(monde, vue, maisons, puissances_lieux)
     premier = next(iter(maitres))
     p = plausibles[0]
     siege = (p.cell_id, p.rang)
@@ -1181,7 +1250,7 @@ def test_maitre_contre_epreuves(monde_maitres):
     ]
     for alteres, fiches, couple in cas:
         with pytest.raises(AttributionInvalide) as erreur:
-            valider_attribution(monde, alteres, fiches, vue, maisons)
+            valider_attribution(monde, alteres, fiches, vue, maisons, puissances_lieux)
         assert str(couple) in str(erreur.value)
         if not alteres:
             assert "échantillon vide" in str(erreur.value)
@@ -1190,17 +1259,17 @@ def test_maitre_contre_epreuves(monde_maitres):
                           ("suzerain", "inconnu"), ("hors_carte", "altéré")):
         with pytest.raises(AttributionInvalide) as erreur:
             valider_attribution(monde, maitres, (dataclasses.replace(p, **{champ: valeur}),)
-                               + plausibles[1:], vue, maisons)
+                               + plausibles[1:], vue, maisons, puissances_lieux)
         assert str(siege) in str(erreur.value)
     for fiches in ((dataclasses.replace(p, suzerain="inconnu"),) + plausibles[1:],
                    (dataclasses.replace(p, suzerain=plausibles[1].id),
                     dataclasses.replace(plausibles[1], suzerain=p.id)) + plausibles[2:]):
         with pytest.raises(PuissanceInvalide, match=p.id):
             valider_registre_maisons(monde.maisons + fiches)
-    valider_attribution(monde, maitres, plausibles, vue, maisons)
+    valider_attribution(monde, maitres, plausibles, vue, maisons, puissances_lieux)
     vide = World({}, [])
     with pytest.raises(AttributionInvalide, match="échantillon vide.*\\(None, None\\)"):
-        valider_attribution(vide, {}, (), {}, maisons)
+        valider_attribution(vide, {}, (), {}, maisons, {})
 
 
 def _importe_maitres(texte, chargement=False):
@@ -1220,11 +1289,11 @@ def _importe_maitres(texte, chargement=False):
 
 def test_maitre_pur(monde_maitres):
     from sim.maitres import attribuer_maitres
-    monde, vue, maisons = monde_maitres
+    monde, vue, maisons, puissances_lieux = monde_maitres
     avant = copy.deepcopy((json.dumps(monde.to_dict(), sort_keys=True), monde.maisons,
                            monde.carte, [vars(c) for c in monde.cells.values()]))
-    premier = attribuer_maitres(monde, vue, maisons)
-    second = attribuer_maitres(monde, vue, maisons)
+    premier = attribuer_maitres(monde, vue, maisons, puissances_lieux)
+    second = attribuer_maitres(monde, vue, maisons, puissances_lieux)
     assert premier == second and premier[0] is not second[0]
     assert (json.dumps(monde.to_dict(), sort_keys=True), monde.maisons,
             monde.carte, [vars(c) for c in monde.cells.values()]) == avant
@@ -1237,14 +1306,14 @@ def test_maitre_pur(monde_maitres):
 
 def test_maitre_permutations(monde_maitres, monkeypatch):
     from sim.maitres import attribuer_maitres
-    monde, vue, maisons = monde_maitres
-    attendu = attribuer_maitres(monde, vue, maisons)
+    monde, vue, maisons, puissances_lieux = monde_maitres
+    attendu = attribuer_maitres(monde, vue, maisons, puissances_lieux)
     assert attendu[0] and attendu[1]
     for cellules, fiches in ((True, False), (False, True), (True, True)):
         copie = copy.copy(monde)
         copie.cells = dict(reversed(list(monde.cells.items()))) if cellules else monde.cells
         copie.maisons = tuple(reversed(monde.maisons)) if fiches else monde.maisons
-        assert attribuer_maitres(copie, vue, maisons) == attendu
+        assert attribuer_maitres(copie, vue, maisons, puissances_lieux) == attendu
         if cellules:
             couples = [(cid, l.rang) for cid, c in copie.cells.items() for l in c.lieux]
             faux = (dict(zip(couples, attendu[0].values())), attendu[1])
@@ -1256,7 +1325,7 @@ def test_maitre_permutations(monde_maitres, monkeypatch):
             charge = World.charger(0, document)
         assert {(cid, l.rang): l.maitre for cid, c in charge.cells.items() for l in c.lieux} == attendu[0]
         assert charge.maisons == tuple(sorted(monde.maisons + attendu[1], key=lambda m: m.id))
-    with pytest.raises(AssertionError): assert attribuer_maitres(World({}, []), {}, maisons)[0]
+    with pytest.raises(AssertionError): assert attribuer_maitres(World({}, []), {}, maisons, {})[0]
     assert _importe_maitres("class World:\n def to_dict(self):\n  from sim.maitres import attribuer_maitres", True)
     assert _importe_maitres("class World:\n def to_dict(self):\n  attribuer_maitres(self)", True)
 
@@ -3713,6 +3782,8 @@ ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palati
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
 MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {f'seigneurie-{n}' for n in range(1, 7)}
 
+MAISONS_SANS_ETAT = {f'grande-{n}' for n in range(31, 38)}
+
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
     filiation = (ROBERT, f'{nom} est {qualite} {PARENTS_PAL} ; ' + ELISABETH_N + ' donne la même liste d’enfants.')
@@ -3880,7 +3951,7 @@ def test_familles_historiques_palatinat():
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2390
+    assert len(monde.personnages) == 2408
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4153,7 +4224,7 @@ def test_familles_historiques_bar():
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
-    assert len(monde.personnages) == 2390
+    assert len(monde.personnages) == 2408
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4471,7 +4542,7 @@ def test_familles_historiques_wurtemberg():
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
-    assert len(monde.personnages) == 2390
+    assert len(monde.personnages) == 2408
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4832,7 +4903,7 @@ def test_familles_historiques_brankovic():
         if c['maison'] in CHEFS_TROIS: _chef_trois(c)
     _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
-    assert len(monde.personnages) == 2390
+    assert len(monde.personnages) == 2408
     _preuve_monde_brankovic(list(monde.personnages))
     ids = {CHEF_BRANKOVIC, BRANKOVIC}
     _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
@@ -4924,8 +4995,11 @@ def test_familles_historiques_zab(tmp_path):
 
 def _achevement(etats, chefs, maisons):
     voulues = {c['maison'] for c in chefs if not c['maison'].startswith('institution-')} - {HORDE, TLEMCEN}
-    assert len(etats) == len({e['maison'] for e in etats}) == len(voulues) == 34
-    assert {e['maison'] for e in etats} == voulues == {m.id for m in maisons if m.sorte in ('grande maison', 'seigneurie')} - {HORDE, TLEMCEN} == MAISONS_AVEC_ETAT
+    # Les chefs des grandes maisons 31 à 37 sont posés sans famille : sept chefs, pas encore d'état.
+    assert len(voulues) == 41 and MAISONS_SANS_ETAT <= voulues
+    avec = voulues - MAISONS_SANS_ETAT
+    assert len(etats) == len({e['maison'] for e in etats}) == len(avec) == 34
+    assert {e['maison'] for e in etats} == avec == {m.id for m in maisons if m.sorte in ('grande maison', 'seigneurie')} - {HORDE, TLEMCEN} - MAISONS_SANS_ETAT == MAISONS_AVEC_ETAT
 
 
 def _achevement_monde(personnes):
@@ -4955,6 +5029,13 @@ def test_familles_historiques_achevement(tmp_path):
         personnes = [copy.deepcopy(f) for f in monde.personnages]
         next(f for f in personnes if f['id'] == 'personne-' + maison)['etat_familial'] = dict(copy.deepcopy(modele), maison=maison)
         with pytest.raises(AssertionError): _achevement_monde(personnes)
+    # Un état posé sur un chef sans famille échoue : le catalogue ne l'attend pas encore.
+    sans = sorted(MAISONS_SANS_ETAT)[1]
+    assert not MAISONS_SANS_ETAT & MAISONS_AVEC_ETAT
+    with pytest.raises(AssertionError): _achevement(d['etats'] + [dict(copy.deepcopy(modele), maison=sans)], d['chefs'], monde.maisons)
+    personnes = [copy.deepcopy(f) for f in monde.personnages]
+    next(f for f in personnes if f['id'] == 'personne-' + sans)['etat_familial'] = dict(copy.deepcopy(modele), maison=sans)
+    with pytest.raises(AssertionError): _achevement_monde(personnes)
     personnes = [copy.deepcopy(f) for f in monde.personnages]
     next(f for f in personnes if f['id'] == 'personne-charles')['etat_familial'] = copy.deepcopy(modele)
     with pytest.raises(AssertionError): _achevement_monde(personnes)
