@@ -165,10 +165,12 @@ def _pays_selon(chaine, puissance, par_id, maisons, origines) -> str:
 
 
 def fiches_des_pays(identifiants, monde, table, maisons, seigneuries, matiere) -> list:
-    """`{id, nom, maison: {id, nom}, suzerain}` de chaque pays donné et de chaque suzerain
+    """`{id, nom, maison: {id, nom}, suzerain, ensemble}` de chaque pays donné et de chaque suzerain
     cité, triés par identifiant. Le nom d'une puissance vient de la table, celui d'une terre de
     départ de sa seigneurie ; un nom absent vaut `None`. Le suzerain d'une terre de départ est la
-    puissance dont elle relève ; celui d'une puissance, le suzerain que la table déclare."""
+    puissance dont elle relève ; celui d'une puissance, le suzerain que la table déclare.
+    `ensemble` est celui que la table déclare pour une puissance (« Saint-Empire »), `None` pour
+    une autre puissance, une terre de départ ou un seigneur libre."""
     par_id = {m.id: m for m in monde.maisons}
     puissances = {p.id: p for p in table.puissances}
     par_numero = {s.id: s for s in seigneuries}
@@ -183,11 +185,12 @@ def fiches_des_pays(identifiants, monde, table, maisons, seigneuries, matiere) -
         identifiant = a_faire.pop()
         if identifiant in fiches:
             continue
-        suzerain = None
+        suzerain = ensemble = None
         if identifiant.startswith(prefixe):
             puissance = puissances[int(identifiant.removeprefix(prefixe))]
             tete = tete_de_puissance(puissance.id, maisons)
             nom, maison = puissance.nom, {"id": tete, "nom": nom_de_maison(tete)}
+            ensemble = puissance.ensemble
             if puissance.suzerain is not None:
                 suzerain = identifiant_de_puissance(puissance.suzerain)
                 a_faire.append(suzerain)
@@ -199,5 +202,6 @@ def fiches_des_pays(identifiants, monde, table, maisons, seigneuries, matiere) -
         else:
             nom = nom_de_maison(identifiant)
             maison = {"id": identifiant, "nom": nom}
-        fiches[identifiant] = {"id": identifiant, "nom": nom, "maison": maison, "suzerain": suzerain}
+        fiches[identifiant] = {"id": identifiant, "nom": nom, "maison": maison, "suzerain": suzerain,
+                               "ensemble": ensemble}
     return [fiches[i] for i in sorted(fiches)]

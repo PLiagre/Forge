@@ -50,6 +50,9 @@ class Puissance(_NoBadSpatialField):
     nature: str
     religion: str
     suzerain: int | None = None
+    # L'ensemble dont la puissance est membre (« Saint-Empire ») : servi dans la fiche du pays, sans
+    # effet sur le monde.
+    ensemble: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -137,7 +140,13 @@ def charger_table(path=None) -> TableDesPuissances:
             if isinstance(suzerain, bool) or not isinstance(suzerain, int):
                 raise PuissanceInvalide(f"puissance {identifiant}, champ suzerain : entier attendu")
             _texte(brute.get("source_suzerain"), "puissance", identifiant, "source_suzerain")
-        puissances.append(Puissance(identifiant, nom, nature, religion, suzerain))
+        ensemble = None
+        if "ensemble" in brute:
+            ensemble = _texte(brute["ensemble"], "puissance", identifiant, "ensemble")
+            _texte(brute.get("source_ensemble"), "puissance", identifiant, "source_ensemble")
+        elif "source_ensemble" in brute:
+            raise PuissanceInvalide(f"puissance {identifiant}, champ ensemble : source sans ensemble")
+        puissances.append(Puissance(identifiant, nom, nature, religion, suzerain, ensemble))
     _refuser_suzerains(puissances, ids_puissances)
 
     ancres, ids_ancres, puissances_visees = [], set(), set()

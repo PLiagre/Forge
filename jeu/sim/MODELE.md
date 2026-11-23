@@ -1647,7 +1647,11 @@ Armagnac), Gênes, sous le roi de France depuis 1396, la Guyenne sous l'Angleter
 Milan et la Savoie sous le Saint-Empire, Naples sous l'Église en déclarent un. Le
 suzerain se sert dans la fiche du pays ; il n'entre pas dans le registre des
 maisons : un pays vassal reste une racine, garde son nom et sa couleur, et
-l'hommage reste de **niveau 3**.
+l'hommage reste de **niveau 3**. Une puissance peut aussi déclarer l'`ensemble`
+dont elle est membre (« Saint-Empire »), un texte, avec sa `source_ensemble` ; un
+texte vide, une source absente ou vide, une source sans ensemble sont refusés en
+nommant la puissance et le champ. L'ensemble se sert dans la fiche du pays et
+n'entre ni dans le registre, ni dans la vue des puissances, ni dans le tick.
 
 À chaque consultation, une cellule retient d'abord une ancre contenue dans
 son polygone (bord compris, trous exclus). Les points EPSG:4326 des ancres
@@ -2659,7 +2663,7 @@ France compte 28 terres, la Bourgogne 7 et la Bretagne 6 ; les six départs sont
 leurs propres pays ; les 38 terres hors de toute puissance ont pour pays leur
 seigneur libre, nommé par les noms plausibles.
 
-`pays` liste `{id, nom, maison: {id, nom}, suzerain}` de chaque pays présent et
+`pays` liste `{id, nom, maison: {id, nom}, suzerain, ensemble}` de chaque pays présent et
 de chaque suzerain cité, triés par identifiant (`fiches_des_pays`). Le nom d'une
 puissance vient de la table, celui d'une terre de départ de
 `seigneuries-1400.json`, celui d'un seigneur libre des noms servis (`null` s'il
@@ -2668,9 +2672,13 @@ puissance dont elle relève ; une puissance a celui que la table déclare (la
 Bourgogne, la Bretagne et les grands fiefs relèvent de la France, la Guyenne de
 l'Angleterre, Milan et la Savoie du Saint-Empire, Naples de l'Église, Gênes de la
 France), sans entrer dans le registre. La fiche du suzerain est servie avec celle
-du vassal. Une république, une Église ou un ordre a pour maison
-son institution. Les clés de premier niveau ne changent pas, et le client Unity
-n'en lit pas de neuve.
+du vassal. Une puissance qui déclare un `ensemble` (avec sa `source_ensemble`)
+le porte dans sa fiche : un prince d'Empire dit « Saint-Empire » sans relever
+d'aucun suzerain ; sans déclaration, et pour une terre de départ ou un seigneur
+libre, `ensemble` vaut `null`. L'ensemble n'a aucun effet dans le moteur : ni
+maître, ni pays, ni suzerain n'en dépendent (le lien d'Empire est de **niveau 3**).
+Une république, une Église ou un ordre a pour maison son institution. Les clés de
+premier niveau ne changent pas, et le client Unity n'en lit pas de neuve.
 
 Les tables des puissances et des maisons, les seigneuries, la vue des
 puissances et la puissance des lieux partagés sont lues une fois par monde servi
