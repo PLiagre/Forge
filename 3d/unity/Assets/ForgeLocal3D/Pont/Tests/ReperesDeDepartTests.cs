@@ -119,7 +119,7 @@ namespace Forge.Pont.Tests {
         }
         // La fiche d'une terre au survol de son repère, telle que le faux service la sert.
         private const string FICHE_MOREE = "Despotat de Morée\nMaison : Paléologue\nSiège : Mistra, cellule 10340\nHabitants de la cellule : 80919 au tick 3\nSuzerain : Byzance\nVoisins :\n"
-            + "  cellule 10335, Byzance, 77525 habitants\n  cellule 10347, Byzance, 55393 habitants\nLieux tenus : 4";
+            + "  cellule 10335, aucune puissance nommée, 77525 habitants\n  cellule 10347, Venise, 55393 habitants\nLieux tenus : 4";
         private Transform Repere(FicheDeDepart f) => objet.transform.Find(RACINE + "/Repère " + f.Nom);
         private MaisonLue Maison(long id) { using (var m = new ClientMaison(port, ClientDeparts.DelaiMinimal)) { var l = m.Lire("seigneurie-" + id); Assert.IsTrue(l.Presente, l.Absence); return l.Donnees; } }
         [Test] public void Le_survol_d_un_repere_ouvre_la_fiche_servie_de_sa_terre() {

@@ -87,8 +87,8 @@ namespace Forge.Pont {
         }
     }
 
-    // Le tracé du nom de chaque pays, tiré de la grille des cellules du terrain. Le territoire d'un pays se lit par
-    // échantillons, un texel sur quelques-uns ; d'un pays en plusieurs morceaux, seul le plus grand d'un seul tenant
+    // Le tracé du nom de chaque pays, tiré de la grille des lieux du terrain, chaque lieu au pays de sa cellule. Le
+    // territoire d'un pays se lit par échantillons, un texel sur quelques-uns ; d'un pays en plusieurs morceaux, seul le plus grand d'un seul tenant
     // porte le nom : un nom ne s'étire pas par-dessus une mer ou un voisin. Sur ce morceau, le grand axe est celui où
     // les points s'étalent le plus, et l'arc est la parabole qui passe au plus près d'eux. Un territoire à peu près
     // rond n'a pas de grand axe : son nom s'écrit d'ouest en est. Là où l'arc sort de la terre du pays (une baie, un
@@ -112,10 +112,12 @@ namespace Forge.Pont {
         public static Dictionary<int, TraceDeNom> Tracer(TerrainDeCarte terrain, IReadOnlyList<int> pays) {
             if (terrain == null) throw new ArgumentNullException(nameof(terrain));
             if (pays == null) throw new ArgumentNullException(nameof(pays));
-            int rangs = pays.Count; long terre = 0; var parNumero = new int[rangs + 1]; parNumero[0] = -1;
+            int rangs = pays.Count; long terre = 0; var parNumero = new int[terrain.NombreDeLieux + 1]; parNumero[0] = -1;
+            // Chaque lieu porte le nom du pays de sa cellule.
+            for (int l = 0; l < terrain.NombreDeLieux; l++) parNumero[l + 1] = pays[terrain.CelluleDuLieu(l)];
             var zones = new Dictionary<int, RectInt>();
             for (int r = 0; r < rangs; r++) {
-                parNumero[r + 1] = pays[r]; int texels = terrain.TexelsDe(r);
+                int texels = terrain.TexelsDe(r);
                 if (pays[r] < 0 || texels == 0) continue;
                 terre += texels; RectInt zone = terrain.ZoneDe(r);
                 zones[pays[r]] = zones.TryGetValue(pays[r], out RectInt deja) ? Union(deja, zone) : zone;
@@ -138,7 +140,7 @@ namespace Forge.Pont {
                     km[k] = new Vector2(coin.x + (i + 0.5f) * terrain.Pas, coin.y + (j + 0.5f) * terrain.Pas);
                 }
                 int lePays = cle;
-                traces[cle] = Ajuster(km, sautDuPays * terrain.Pas, p => { ushort n = terrain.CelluleEn(p.x, p.y); return n != 0 && parNumero[n] == lePays; });
+                traces[cle] = Ajuster(km, sautDuPays * terrain.Pas, p => { ushort n = terrain.LieuEn(p.x, p.y); return n != 0 && parNumero[n] == lePays; });
             }
             return traces;
         }
@@ -155,11 +157,11 @@ namespace Forge.Pont {
         // échantillon est rendu par son rang dans la zone, `largeur` par ligne. À taille égale, le premier morceau
         // rencontré du sud-ouest au nord-est est gardé.
         private static Dictionary<int, List<int>> Morceaux(TerrainDeCarte terrain, int[] parNumero, RectInt zone, int saut, int seul, out int largeur) {
-            ushort[] cellules = terrain.TexelsDesCellules; int l = (zone.width + saut - 1) / saut, h = (zone.height + saut - 1) / saut; largeur = l;
+            ushort[] lieux = terrain.TexelsDesLieux; int l = (zone.width + saut - 1) / saut, h = (zone.height + saut - 1) / saut; largeur = l;
             var grille = new int[l * h];
             for (int j = 0; j < h; j++) {
                 int ligne = (zone.yMin + Texel(j, saut, zone.height)) * terrain.Largeur + zone.xMin;
-                for (int i = 0; i < l; i++) { int p = parNumero[cellules[ligne + Texel(i, saut, zone.width)]]; grille[j * l + i] = p >= 0 && (seul < 0 || p == seul) ? p : -1; }
+                for (int i = 0; i < l; i++) { int p = parNumero[lieux[ligne + Texel(i, saut, zone.width)]]; grille[j * l + i] = p >= 0 && (seul < 0 || p == seul) ? p : -1; }
             }
             var grands = new Dictionary<int, List<int>>(); var pile = new Stack<int>(); var morceau = new List<int>();
             for (int depart = 0; depart < grille.Length; depart++) {

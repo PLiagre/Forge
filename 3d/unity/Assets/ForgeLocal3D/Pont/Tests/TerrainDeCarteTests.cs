@@ -3,55 +3,72 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Le terrain levé de la carte servie : aucune cellule ne disparaît, la grille des cellules dit la même terre que
-    // les contours, le relief suit la classe servie et s'arrête au rivage, le maillage couvre le tout sous le plan 0,
-    // et chaque texel porte sa distance au bord de sa cellule, à la côte et, selon les pays, à la frontière.
-    // La carte vient de la fixture, lue par ClientCarte ; le terrain est levé une fois pour tous les cas.
+    // Le terrain levé de la carte servie et de la forme de ses lieux : aucun lieu ne disparaît, la grille des lieux dit
+    // la même terre que leurs contours, le relief suit la classe servie et s'arrête au rivage, le maillage couvre le
+    // tout sous le plan 0, et chaque texel porte sa distance au bord de son lieu, à la côte et, selon les pays des
+    // lieux, à la frontière, qui passe dans une cellule quand deux pays se la partagent. La carte, ses formes et ses
+    // terres sont les réponses figées de l'Ouest (`FormesDeTest`) ; le terrain est levé une fois pour tous les cas.
     public sealed class TerrainDeCarteTests {
-        private static byte[] _octets; private static CarteLue _carte; private static TerrainDeCarte _terrain;
-        [SetUp] public void Preparer() {
-            if (_terrain != null) return;
-            _octets = File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json");
-            var sonde = new TcpListener(IPAddress.Loopback, 0);
-            sonde.Start(); int port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop();
-            var ecoute = new HttpListener();
-            ecoute.Prefixes.Add("http://127.0.0.1:" + port + "/"); ecoute.Start();
-            var fil = new Thread(() => {
-                try {
-                    HttpListenerContext ctx = ecoute.GetContext();
-                    ctx.Response.StatusCode = 200; ctx.Response.ContentLength64 = _octets.Length;
-                    ctx.Response.OutputStream.Write(_octets, 0, _octets.Length); ctx.Response.Close();
-                } catch (Exception) { }
-            }) { IsBackground = true };
-            fil.Start();
-            try {
-                using (var client = new ClientCarte(port, ClientCarte.DelaiMinimal))
-                { var lecture = client.Lire(); Assert.IsTrue(lecture.Presente, lecture.Absence); _carte = lecture.Carte; }
-            } finally { ecoute.Close(); fil.Join(TimeSpan.FromSeconds(5)); }
-            _terrain = TerrainDeCarte.Lever(_carte);
-        }
+        private static CarteLue Carte => FormesDeTest.CarteOuest;
+        private static FormesLues Formes => FormesDeTest.FormesOuest;
+        private static TerrainDeCarte Terrain => FormesDeTest.TerrainOuest;
         // Une terre carrée, sans puissance ni ville, son coin sud-ouest en (x, y), en mètres.
-        private static CelluleDeCarte Carre(long id, double x, double y, double cote, string relief = null) {
-            var anneau = new[] { new PointCarte(x, y), new PointCarte(x + cote, y), new PointCarte(x + cote, y + cote), new PointCarte(x, y + cote), new PointCarte(x, y) };
+        private static CelluleDeCarte Carre(long id, double x, double y, double cote, string relief = null, double haut = 0) {
+            double h = haut > 0 ? haut : cote;
+            var anneau = new[] { new PointCarte(x, y), new PointCarte(x + cote, y), new PointCarte(x + cote, y + h), new PointCarte(x, y + h), new PointCarte(x, y) };
             return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0], relief);
         }
-        private static TerrainDeCarte LeveDe(params CelluleDeCarte[] cellules) => TerrainDeCarte.Lever(new CarteLue(cellules.Length, cellules));
+        private static TerrainDeCarte LeveDe(params CelluleDeCarte[] cellules) => FormesDeTest.Lever(new CarteLue(cellules.Length, cellules));
+        // Un anneau rectangulaire, en mètres, en polygone sans trou.
+        private static PolygoneDeCarte[] Rectangle(double x0, double y0, double x1, double y1) =>
+            new[] { new PolygoneDeCarte(new[] { new PointCarte(x0, y0), new PointCarte(x1, y0), new PointCarte(x1, y1), new PointCarte(x0, y1), new PointCarte(x0, y0) }, new IEnumerable<PointCarte>[0]) };
+        // Les anneaux d'un lieu en km locaux, extérieurs et trous confondus.
+        private static List<double[]> Anneaux(FormeDeLieu lieu, PointCarte o) {
+            var anneaux = new List<double[]>();
+            foreach (PolygoneDeCarte p in lieu.Contour)
+                for (int a = -1; a < p.Trous.Count; a++) {
+                    IReadOnlyList<PointCarte> anneau = a < 0 ? p.Exterieur : p.Trous[a]; var km = new double[2 * anneau.Count];
+                    for (int k = 0; k < anneau.Count; k++) { km[2 * k] = (anneau[k].X - o.X) / 1000.0; km[2 * k + 1] = (anneau[k].Y - o.Y) / 1000.0; }
+                    anneaux.Add(km);
+                }
+            return anneaux;
+        }
+        // Un point est au lieu s'il croise un nombre impair de ses anneaux (règle pair-impair).
+        private static bool Dans(List<double[]> anneaux, double x, double z) {
+            bool dedans = false;
+            foreach (double[] a in anneaux)
+                for (int k = 0; k + 3 < a.Length; k += 2)
+                    if ((a[k + 1] > z) != (a[k + 3] > z) && x < a[k] + (z - a[k + 1]) / (a[k + 3] - a[k + 1]) * (a[k + 2] - a[k])) dedans = !dedans;
+            return dedans;
+        }
+        // La surface d'un lieu en km² : ses anneaux extérieurs, moins ses trous.
+        private static double Surface(FormeDeLieu lieu) {
+            double s = 0;
+            foreach (PolygoneDeCarte p in lieu.Contour)
+                for (int a = -1; a < p.Trous.Count; a++) {
+                    IReadOnlyList<PointCarte> anneau = a < 0 ? p.Exterieur : p.Trous[a]; double aire = 0;
+                    for (int k = 0; k + 1 < anneau.Count; k++) aire += anneau[k].X * anneau[k + 1].Y - anneau[k + 1].X * anneau[k].Y;
+                    s += (a < 0 ? 1 : -1) * Math.Abs(aire) / 2e6;
+                }
+            return s;
+        }
+        private static FormeDeLieu FormeDuLieu(TerrainDeCarte t, int lieu) => Formes.De(Carte.Cellules[t.CelluleDuLieu(lieu)].CellId).Lieux[t.RangDuLieu(lieu)];
+        private static int RangDe(long cellId) { for (int r = 0; r < Carte.Cellules.Count; r++) if (Carte.Cellules[r].CellId == cellId) return r; throw new ArgumentException("cellule " + cellId + " absente de la carte figée"); }
+
         // La hauteur que le dessin lit sous un point est celle du triangle du maillage qui le porte : à un sommet, la
         // sienne ; au milieu de la diagonale d'une maille, la moyenne de ses deux bouts ; au centre d'un triangle, la
         // moyenne de ses trois sommets. C'est ce sol-là que suivent les calques drapés et le rayon de la souris.
         [Test] public void La_hauteur_du_maillage_se_lit_sur_ses_triangles() {
-            TerrainDeCarte t = _terrain; int nx = t.Largeur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, nz = t.Hauteur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, vus = 0;
+            TerrainDeCarte t = Terrain; int nx = t.Largeur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, nz = t.Hauteur / TerrainDeCarte.TEXELS_PAR_MAILLE + 1, vus = 0;
             Assert.AreEqual(nx * nz, t.Sommets.Count, "le maillage n'est pas une grille");
             float plusHaut = float.MinValue, plusBas = float.MaxValue;
-            for (int j = 3; j + 4 < nz; j += 5)
-                for (int i = 3; i + 4 < nx; i += 5) {
+            for (int j = 3; j + 4 < nz; j += 3)
+                for (int i = 3; i + 4 < nx; i += 3) {
                     Vector3 a = t.Sommets[j * nx + i], b = t.Sommets[j * nx + i + 1], c = t.Sommets[(j + 1) * nx + i], d = t.Sommets[(j + 1) * nx + i + 1];
                     Assert.AreEqual(a.y, t.SolDuMaillage(a.x, a.z), 2e-3f, "au sommet (" + i + ", " + j + ")");
                     Assert.AreEqual((b.y + c.y) / 2f, t.SolDuMaillage((b.x + c.x) / 2f, (b.z + c.z) / 2f), 2e-3f, "au milieu de la diagonale de la maille (" + i + ", " + j + ")");
@@ -63,12 +80,12 @@ namespace Forge.Pont.Tests {
             // Hors du rectangle, la hauteur du bord.
             Assert.AreEqual(t.Sommets[0].y, t.SolDuMaillage(t.Coin.x - 500f, t.Coin.y - 500f), 1e-4f); Assert.AreEqual(t.Sommets[nx * nz - 1].y, t.SolDuMaillage(t.Sommets[nx * nz - 1].x + 500f, t.Sommets[nx * nz - 1].z + 500f), 1e-4f);
         }
-        // Un texel de relief est à terre si la moitié de ses texels de cellules l'est.
+        // Un texel de relief est à terre si la moitié de ses texels de lieux l'est.
         private static bool ATerre(TerrainDeCarte t, int i, int j) {
             int n = 0;
             for (int dj = 0; dj < TerrainDeCarte.TEXELS_PAR_RELIEF; dj++)
                 for (int di = 0; di < TerrainDeCarte.TEXELS_PAR_RELIEF; di++)
-                    if (t.Cellules[(j * TerrainDeCarte.TEXELS_PAR_RELIEF + dj) * t.Largeur + i * TerrainDeCarte.TEXELS_PAR_RELIEF + di] != 0) n++;
+                    if (t.Lieux[(j * TerrainDeCarte.TEXELS_PAR_RELIEF + dj) * t.Largeur + i * TerrainDeCarte.TEXELS_PAR_RELIEF + di] != 0) n++;
             return n * 2 >= TerrainDeCarte.TEXELS_PAR_RELIEF * TerrainDeCarte.TEXELS_PAR_RELIEF;
         }
         // L'altitude moyenne des texels de relief à terre.
@@ -79,98 +96,150 @@ namespace Forge.Pont.Tests {
             Assert.Greater(n, 0, "aucune terre"); return somme / n;
         }
 
-        [Test] public void Chaque_cellule_servie_a_ses_texels() {
-            TerrainDeCarte t = _terrain; int servies = _carte.Cellules.Count;
-            Assert.IsTrue(servies == 596 && _carte.CellCount == servies, servies + " cellules servies");
-            var comptes = new int[servies + 1]; int inconnus = 0;
-            Assert.AreEqual(t.Largeur * t.Hauteur, t.Cellules.Count);
-            for (int k = 0; k < t.Cellules.Count; k++) { int c = t.Cellules[k]; if (c > servies) inconnus++; else comptes[c]++; }
-            Assert.AreEqual(0, inconnus, "texels d'un rang que le service ne sert pas");
-            var sans = new List<long>(); int faux = 0;
-            for (int r = 0; r < servies; r++) { if (comptes[r + 1] == 0) sans.Add(_carte.Cellules[r].CellId); if (comptes[r + 1] != t.TexelsDe(r)) faux++; }
-            Assert.IsEmpty(sans, "cellules servies sans texel : " + string.Join(", ", sans.Take(10)));
-            Assert.AreEqual(0, faux, "le compte des texels d'une cellule n'est pas celui de la grille");
+        [Test] public void Chaque_lieu_servi_a_ses_texels() {
+            TerrainDeCarte t = Terrain; int servies = Carte.Cellules.Count, servis = Formes.Cellules.Sum(c => c.Lieux.Count);
+            Assert.IsTrue(servies == 16 && servis > 200 && t.NombreDeLieux == servis, servies + " cellules et " + servis + " lieux servis, " + t.NombreDeLieux + " levés");
+            var comptes = new int[servis + 1]; int inconnus = 0;
+            Assert.AreEqual(t.Largeur * t.Hauteur, t.Lieux.Count);
+            for (int k = 0; k < t.Lieux.Count; k++) { int c = t.Lieux[k]; if (c > servis) inconnus++; else comptes[c]++; }
+            Assert.AreEqual(0, inconnus, "texels d'un lieu que le service ne sert pas");
+            var sans = new List<string>(); int faux = 0;
+            for (int l = 0; l < servis; l++) { if (comptes[l + 1] == 0) sans.Add(Carte.Cellules[t.CelluleDuLieu(l)].CellId + "/" + t.RangDuLieu(l)); if (comptes[l + 1] != t.TexelsDuLieu(l)) faux++; }
+            Assert.IsEmpty(sans, "lieux servis sans texel : " + string.Join(", ", sans.Take(10)));
+            Assert.AreEqual(0, faux, "le compte des texels d'un lieu n'est pas celui de la grille");
             Assert.Greater(comptes[0], 0, "aucune mer");
+            // Les lieux d'une cellule se suivent, par rang ; la cellule compte leurs texels.
+            for (int r = 0; r < servies; r++) {
+                FormeDeCellule forme = Formes.De(Carte.Cellules[r].CellId); int premier = t.PremierLieuDe(r), somme = 0;
+                Assert.AreEqual(forme.Lieux.Count, t.LieuxDe(r), "cellule " + forme.CellId);
+                for (int k = 0; k < forme.Lieux.Count; k++) {
+                    Assert.IsTrue(t.CelluleDuLieu(premier + k) == r && t.RangDuLieu(premier + k) == forme.Lieux[k].Rang && t.LieuDe(r, forme.Lieux[k].Rang) == premier + k, "cellule " + forme.CellId + ", lieu " + k);
+                    somme += t.TexelsDuLieu(premier + k);
+                }
+                Assert.AreEqual(somme, t.TexelsDe(r), "cellule " + forme.CellId + " : ses texels ne sont pas ceux de ses lieux");
+                Assert.AreEqual(-1, t.LieuDe(r, forme.Lieux.Count), "un rang que la cellule ne sert pas a un lieu");
+            }
         }
 
-        [Test] public void Le_rectangle_couvre_les_cellules_bordees_de_mer() {
-            TerrainDeCarte t = _terrain; float marge = TerrainDeCarte.MARGE_DE_MER_KM, maille = t.PasDuMaillage;
-            PointCarte o = MaillageDeCarte.Mailler(_carte).Origine;
+        // Chaque lieu porte autant de texels que sa surface en couvre, au bord près : la grille dessine les lieux à
+        // leur taille, et le plus petit lieu servi s'y voit. Sur la carte entière, le pas laisse cent texels au moins à
+        // un lieu de 1 000 km².
+        [Test] public void Chaque_lieu_a_les_texels_de_sa_surface() {
+            TerrainDeCarte t = Terrain; double total = 0, ecart = 0, petite = double.MaxValue, texel = (double)t.Pas * t.Pas; int petit = -1, grands = 0; var aLEcart = new List<string>();
+            for (int l = 0; l < t.NombreDeLieux; l++) {
+                double surface = Surface(FormeDuLieu(t, l)), couverte = t.TexelsDuLieu(l) * texel;
+                total += surface; ecart += Math.Abs(couverte - surface);
+                if (surface < petite) { petite = surface; petit = l; }
+                // Un lieu d'au moins cent texels a ceux de sa surface, à un cinquième près ; plus petit, un texel de plus ou de moins compte.
+                if (surface < 100 * texel) continue;
+                grands++; if (Math.Abs(couverte - surface) > surface / 5) aLEcart.Add(Carte.Cellules[t.CelluleDuLieu(l)].CellId + "/" + t.RangDuLieu(l));
+            }
+            TestContext.Out.WriteLine("au pas de " + t.Pas + " km, " + t.NombreDeLieux + " lieux sur " + total.ToString("0") + " km², écart " + ecart.ToString("0") + " km² ; le plus petit lieu, "
+                + Carte.Cellules[t.CelluleDuLieu(petit)].CellId + "/" + t.RangDuLieu(petit) + ", fait " + petite.ToString("0.0") + " km² et " + t.TexelsDuLieu(petit) + " texels");
+            Assert.Greater(total, 100000, "échantillon vide : les lieux servis ne couvrent presque rien");
+            Assert.Less(ecart, total / 50, "les texels des lieux ne suivent pas leur surface");
+            Assert.Greater(grands, t.NombreDeLieux / 2, "échantillon vide : presque aucun lieu de cent texels");
+            Assert.IsEmpty(aLEcart, "lieux dont les texels ne couvrent pas la surface : " + string.Join(", ", aLEcart.Take(10)));
+            // Le pas de la carte entière : son plus grand côté, celui de la carte de 1400 figée, bordé de mer.
+            var racine = LecteurJson.LireObjet(File.ReadAllText(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json", Encoding.UTF8));
+            double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+            foreach (Dictionary<string, object> cellule in (List<object>)racine["cells"])
+                foreach (List<object> polygone in (List<object>)((Dictionary<string, object>)cellule["contour"])["coordinates"])
+                    foreach (List<object> anneau in polygone)
+                        foreach (List<object> point in anneau) { double x = (double)point[0], y = (double)point[1]; x0 = Math.Min(x0, x); x1 = Math.Max(x1, x); y0 = Math.Min(y0, y); y1 = Math.Max(y1, y); }
+            double pas = TerrainDeCarte.PasPour(Math.Max(x1 - x0, y1 - y0) / 1000 + 2 * TerrainDeCarte.MARGE_DE_MER_KM), mille = 1000 / (pas * pas);
+            TestContext.Out.WriteLine("carte entière de " + ((x1 - x0) / 1000).ToString("0") + " × " + ((y1 - y0) / 1000).ToString("0") + " km : pas de " + pas.ToString("0.000") + " km, " + mille.ToString("0") + " texels pour 1 000 km²");
+            Assert.GreaterOrEqual(mille, 100, "au pas de la carte entière, un lieu de 1 000 km² n'a pas cent texels");
+        }
+
+        [Test] public void Le_rectangle_couvre_les_lieux_bordes_de_mer() {
+            TerrainDeCarte t = Terrain; float marge = TerrainDeCarte.MARGE_DE_MER_KM, maille = t.PasDuMaillage;
+            PointCarte o = MaillageDeCarte.Mailler(Carte).Origine;
             Assert.IsTrue(t.Origine.X == o.X && t.Origine.Y == o.Y, "l'origine du terrain n'est pas celle des maillages");
             Assert.IsTrue(t.Pas >= TerrainDeCarte.PAS_MINIMAL_KM && Math.Max(t.Largeur, t.Hauteur) <= TerrainDeCarte.COTE_MAXIMAL, t.Largeur + " × " + t.Hauteur + " au pas de " + t.Pas);
             Assert.IsTrue(t.Largeur % TerrainDeCarte.TEXELS_PAR_MAILLE == 0 && t.Hauteur % TerrainDeCarte.TEXELS_PAR_MAILLE == 0 && t.Largeur > 0 && t.Hauteur > 0, "le rectangle n'est pas en mailles entières");
             Assert.IsTrue(t.LargeurDuRelief * TerrainDeCarte.TEXELS_PAR_RELIEF == t.Largeur && t.HauteurDuRelief * TerrainDeCarte.TEXELS_PAR_RELIEF == t.Hauteur && t.Altitudes.Count == t.LargeurDuRelief * t.HauteurDuRelief);
             Assert.IsTrue(t.PasDuRelief == t.Pas * TerrainDeCarte.TEXELS_PAR_RELIEF && maille == t.Pas * TerrainDeCarte.TEXELS_PAR_MAILLE);
-            // La boîte est celle des points servis ; le rectangle la borde de la marge, à une maille près au nord et à l'est.
+            // La boîte est celle des points des lieux servis ; le rectangle la borde de la marge, à une maille près au nord et à l'est.
             double x0 = double.PositiveInfinity, z0 = double.PositiveInfinity, x1 = double.NegativeInfinity, z1 = double.NegativeInfinity;
-            foreach (CelluleDeCarte c in _carte.Cellules)
-                foreach (PolygoneDeCarte p in c.Contour)
-                    foreach (PointCarte q in p.Exterieur) { double x = (q.X - o.X) / 1000, z = (q.Y - o.Y) / 1000; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
+            foreach (FormeDeCellule c in Formes.Cellules)
+                foreach (FormeDeLieu l in c.Lieux)
+                    foreach (PolygoneDeCarte p in l.Contour)
+                        foreach (PointCarte q in p.Exterieur) { double x = (q.X - o.X) / 1000, z = (q.Y - o.Y) / 1000; if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; }
             Bounds b = t.Boite;
             Assert.IsTrue(Math.Abs(b.min.x - x0) < 1e-2 && Math.Abs(b.max.x - x1) < 1e-2 && Math.Abs(b.min.z - z0) < 1e-2 && Math.Abs(b.max.z - z1) < 1e-2 && b.size.y == 0, "la boîte n'est pas celle des points servis : " + b);
             Vector2 coin = t.Coin; float est = coin.x + t.Largeur * t.Pas, nord = coin.y + t.Hauteur * t.Pas;
             Assert.IsTrue(Math.Abs(coin.x - (b.min.x - marge)) < 1e-2 && Math.Abs(coin.y - (b.min.z - marge)) < 1e-2, "le coin n'est pas à la marge de la boîte : " + coin);
             Assert.IsTrue(est >= b.max.x + marge - 1e-2 && est < b.max.x + marge + maille && nord >= b.max.z + marge - 1e-2 && nord < b.max.z + marge + maille, "le rectangle ne s'arrête pas à la marge : " + est + ", " + nord);
+            Assert.AreEqual(TerrainDeCarte.PasPour(Math.Max(b.size.x, b.size.z) + 2 * marge), t.Pas, 1e-6, "le pas n'est pas celui du plus grand côté");
         }
 
-        // Un texel est à la cellule dont un contour contient son centre : la grille et le repérage par les contours
-        // disent la même terre, sauf au ras d'un bord, où l'un calcule en flottants simples et l'autre en doubles.
-        [Test] public void La_grille_des_cellules_dit_la_terre_des_contours() {
-            TerrainDeCarte t = _terrain; var reperage = new ReperageDeCarte(_carte, t.Origine);
-            var rangs = new Dictionary<long, int>(); for (int r = 0; r < _carte.Cellules.Count; r++) rangs[_carte.Cellules[r].CellId] = r + 1;
-            int vus = 0, aTerre = 0, enMer = 0, ecarts = 0, horsGrille = 0;
+        // Un texel est au lieu dont un contour contient son centre : la grille et les contours servis des lieux disent
+        // la même terre, sauf au ras d'un bord. La cellule d'un texel est celle de son lieu.
+        [Test] public void La_grille_des_lieux_dit_la_terre_des_contours() {
+            TerrainDeCarte t = Terrain; var anneaux = new List<double[]>[t.NombreDeLieux]; var boites = new Rect[t.NombreDeLieux];
+            for (int l = 0; l < anneaux.Length; l++) {
+                anneaux[l] = Anneaux(FormeDuLieu(t, l), t.Origine); float a = float.MaxValue, c = float.MaxValue, b = float.MinValue, d = float.MinValue;
+                foreach (double[] anneau in anneaux[l]) for (int k = 0; k + 1 < anneau.Length; k += 2) { a = Mathf.Min(a, (float)anneau[k]); b = Mathf.Max(b, (float)anneau[k]); c = Mathf.Min(c, (float)anneau[k + 1]); d = Mathf.Max(d, (float)anneau[k + 1]); }
+                boites[l] = Rect.MinMaxRect(a, c, b, d);
+            }
+            int vus = 0, aTerre = 0, enMer = 0, ecarts = 0, horsGrille = 0, autreCellule = 0;
             for (int j = 3; j < t.Hauteur; j += 7)
                 for (int i = 3; i < t.Largeur; i += 7) {
-                    float x = t.Coin.x + (i + 0.5f) * t.Pas, z = t.Coin.y + (j + 0.5f) * t.Pas; int grille = t.Cellules[j * t.Largeur + i];
-                    CelluleDeCarte sous = reperage.Sous(x, z); int attendu = sous == null ? 0 : rangs[sous.CellId];
+                    float x = t.Coin.x + (i + 0.5f) * t.Pas, z = t.Coin.y + (j + 0.5f) * t.Pas; int grille = t.Lieux[j * t.Largeur + i], attendu = 0;
+                    for (int l = 0; l < anneaux.Length && attendu == 0; l++) if (boites[l].Contains(new Vector2(x, z)) && Dans(anneaux[l], x, z)) attendu = l + 1;
                     vus++; if (grille == 0) enMer++; else aTerre++;
                     if (grille != attendu) ecarts++;
-                    if (t.CelluleEn(x, z) != grille) horsGrille++;
+                    if (t.LieuEn(x, z) != grille) horsGrille++;
+                    if (t.CelluleEn(x, z) != (grille == 0 ? 0 : t.CelluleDuLieu(grille - 1) + 1)) autreCellule++;
                 }
             TestContext.Out.WriteLine(vus + " texels vus, " + aTerre + " à terre, " + ecarts + " écarts");
             Assert.IsTrue(aTerre > 1000 && enMer > 1000, aTerre + " à terre, " + enMer + " en mer : l'échantillon ne juge rien");
-            Assert.AreEqual(0, horsGrille, "CelluleEn ne rend pas le texel de la grille");
-            Assert.LessOrEqual(ecarts, vus / 10000, ecarts + " texels sur " + vus + " ne sont pas à la cellule de leur centre");
-            Assert.IsTrue(t.CelluleEn(t.Coin.x - 1, 0) == 0 && t.CelluleEn(0, t.Coin.y + t.Hauteur * t.Pas + 1) == 0, "hors du rectangle, ce n'est pas la mer");
+            Assert.AreEqual(0, horsGrille, "LieuEn ne rend pas le texel de la grille"); Assert.AreEqual(0, autreCellule, "CelluleEn ne rend pas la cellule du lieu");
+            Assert.LessOrEqual(ecarts, vus / 10000, ecarts + " texels sur " + vus + " ne sont pas au lieu de leur centre");
+            Assert.IsTrue(t.LieuEn(t.Coin.x - 1, 0) == 0 && t.CelluleEn(0, t.Coin.y + t.Hauteur * t.Pas + 1) == 0, "hors du rectangle, ce n'est pas la mer");
         }
 
-        // Ce que la grille distingue, un trait le borde : entre deux texels voisins de cellules différentes, chacun a un
-        // bord de sa cellule à deux texels au plus ; entre la terre et la mer, c'est la côte. Une pointe ou une entaille
-        // plus fine qu'un texel, dont il ne reste que des texels épars, garde ainsi son trait.
+        // Ce que la grille distingue, un trait le borde : entre deux texels voisins de lieux différents, de la même
+        // cellule ou de deux, chacun a un bord de son lieu à deux texels au plus ; entre la terre et la mer, c'est la
+        // côte. Une pointe ou une entaille plus fine qu'un texel, dont il ne reste que des texels épars, garde ainsi son trait.
         [Test] public void Un_changement_de_la_grille_a_son_trait() {
-            TerrainDeCarte t = _terrain; int cotes = 0, bords = 0, sansTrait = 0; var parDemi = new int[5]; float pire = 0f, seuil = 2f * t.Pas;
+            TerrainDeCarte t = Terrain; int cotes = 0, entreCellules = 0, dansUneCellule = 0, sansTrait = 0; var parDemi = new int[5]; float pire = 0f, seuil = 2f * t.Pas;
             for (int j = 0; j < t.Hauteur; j++)
                 for (int i = 0; i < t.Largeur; i++) {
-                    int ici = t.Cellules[j * t.Largeur + i];
+                    int ici = t.Lieux[j * t.Largeur + i];
                     for (int v = 0; v < 2; v++) {
                         int vi = i + 1 - v, vj = j + v; if (vi >= t.Largeur || vj >= t.Hauteur) continue;
-                        int la = t.Cellules[vj * t.Largeur + vi]; if (la == ici) continue;
+                        int la = t.Lieux[vj * t.Largeur + vi]; if (la == ici) continue;
                         float x = t.Coin.x + (i + 0.5f) * t.Pas, z = t.Coin.y + (j + 0.5f) * t.Pas, xv = t.Coin.x + (vi + 0.5f) * t.Pas, zv = t.Coin.y + (vj + 0.5f) * t.Pas;
                         float d;
                         if (ici == 0 || la == 0) { cotes++; d = Mathf.Max(t.CoteEn(x, z), t.CoteEn(xv, zv)); }
-                        else { bords++; d = Mathf.Max(t.BordEn(x, z), t.BordEn(xv, zv)); }
+                        else { if (t.CelluleDuLieu(ici - 1) == t.CelluleDuLieu(la - 1)) dansUneCellule++; else entreCellules++; d = Mathf.Max(t.BordEn(x, z), t.BordEn(xv, zv)); }
                         parDemi[Mathf.Min(4, Mathf.FloorToInt(2f * d / t.Pas))]++; if (d > seuil) sansTrait++; if (d > pire) pire = d;
                     }
                 }
-            TestContext.Out.WriteLine(cotes + " changements entre terre et mer, " + bords + " entre deux cellules ; par demi-texel de distance au trait : " + string.Join(" ", parDemi) + " ; le pire à " + pire + " km");
-            Assert.IsTrue(cotes > 1000 && bords > 1000, cotes + " côtes, " + bords + " bords : l'échantillon ne juge rien");
+            TestContext.Out.WriteLine(cotes + " changements entre terre et mer, " + entreCellules + " entre deux cellules, " + dansUneCellule + " entre deux lieux d'une cellule ; par demi-texel de distance au trait : "
+                + string.Join(" ", parDemi) + " ; le pire à " + pire + " km");
+            Assert.IsTrue(cotes > 1000 && entreCellules > 1000 && dansUneCellule > 1000, cotes + " côtes, " + entreCellules + " bords entre cellules, " + dansUneCellule + " dans une cellule : l'échantillon ne juge rien");
             Assert.AreEqual(0, sansTrait, sansTrait + " changements de la grille sont à plus de " + seuil + " km de tout trait, le pire à " + pire + " km");
         }
 
+        // Chaque lieu a le relief de sa cellule : la moyenne des altitudes monte avec la classe servie.
         [Test] public void Le_relief_monte_avec_la_classe_servie() {
-            TerrainDeCarte t = _terrain; int servies = _carte.Cellules.Count; var parRang = new double[servies];
+            TerrainDeCarte t = Terrain; int servies = Carte.Cellules.Count; var parRang = new double[servies];
             for (int j = 0; j < t.Hauteur; j++)
                 for (int i = 0; i < t.Largeur; i++) {
-                    int c = t.Cellules[j * t.Largeur + i];
-                    if (c != 0) parRang[c - 1] += t.Altitudes[(j / TerrainDeCarte.TEXELS_PAR_RELIEF) * t.LargeurDuRelief + i / TerrainDeCarte.TEXELS_PAR_RELIEF];
+                    int c = t.Lieux[j * t.Largeur + i];
+                    if (c != 0) parRang[t.CelluleDuLieu(c - 1)] += t.Altitudes[(j / TerrainDeCarte.TEXELS_PAR_RELIEF) * t.LargeurDuRelief + i / TerrainDeCarte.TEXELS_PAR_RELIEF];
                 }
             var sommes = new Dictionary<string, double>(); var comptes = new Dictionary<string, int>();
             for (int r = 0; r < servies; r++) {
-                string classe = _carte.Cellules[r].Relief; Assert.IsNotNull(classe, "cellule " + _carte.Cellules[r].CellId + " sans relief servi");
+                string classe = Carte.Cellules[r].Relief; Assert.IsNotNull(classe, "cellule " + Carte.Cellules[r].CellId + " sans relief servi");
                 sommes.TryGetValue(classe, out double s); comptes.TryGetValue(classe, out int n); sommes[classe] = s + parRang[r]; comptes[classe] = n + t.TexelsDe(r);
             }
-            string[] ordre = { "marais", "plaine", "colline", "montagne", "haute_montagne" };
-            CollectionAssert.AreEquivalent(ordre, sommes.Keys, "les classes servies ne sont pas celles que le terrain habille");
+            string[] ordre = new[] { "marais", "plaine", "colline", "montagne", "haute_montagne" }.Where(sommes.ContainsKey).ToArray();
+            CollectionAssert.IsSubsetOf(sommes.Keys, new[] { "marais", "plaine", "colline", "montagne", "haute_montagne" }, "les classes servies ne sont pas celles que le terrain habille");
+            Assert.GreaterOrEqual(ordre.Length, 4, "échantillon vide : l'extrait ne sert presque aucune classe");
             double[] moyennes = ordre.Select(c => sommes[c] / comptes[c]).ToArray();
             string lu = string.Join(", ", ordre.Select((c, k) => c + " " + moyennes[k].ToString("0.00")));
             TestContext.Out.WriteLine(lu);
@@ -178,7 +247,7 @@ namespace Forge.Pont.Tests {
         }
 
         [Test] public void La_terre_emerge_la_mer_plonge_et_le_bord_est_au_fond() {
-            TerrainDeCarte t = _terrain; int l = t.LargeurDuRelief, h = t.HauteurDuRelief, terres = 0, mers = 0, noyees = 0, emergees = 0; float cime = float.NegativeInfinity, creux = float.PositiveInfinity;
+            TerrainDeCarte t = Terrain; int l = t.LargeurDuRelief, h = t.HauteurDuRelief, terres = 0, mers = 0, noyees = 0, emergees = 0; float cime = float.NegativeInfinity, creux = float.PositiveInfinity;
             for (int j = 0; j < h; j++)
                 for (int i = 0; i < l; i++) {
                     float a = t.Altitudes[j * l + i]; if (a > cime) cime = a; if (a < creux) creux = a;
@@ -198,24 +267,25 @@ namespace Forge.Pont.Tests {
         }
 
         [Test] public void Deux_leves_de_la_meme_carte_sont_egaux() {
-            var montre = Stopwatch.StartNew(); TerrainDeCarte second = TerrainDeCarte.Lever(_carte); montre.Stop();
-            TestContext.Out.WriteLine("levé en " + montre.ElapsedMilliseconds + " ms, " + second.Largeur + " × " + second.Hauteur + " texels au pas de " + second.Pas + " km");
-            Assert.IsTrue(second.Largeur == _terrain.Largeur && second.Hauteur == _terrain.Hauteur && second.Pas == _terrain.Pas && second.Coin == _terrain.Coin);
+            var montre = Stopwatch.StartNew(); TerrainDeCarte second = TerrainDeCarte.Lever(Carte, Formes); montre.Stop(); TerrainDeCarte t = Terrain;
+            UnityEngine.Debug.Log("TERRAIN : " + Carte.Cellules.Count + " cellules et " + second.NombreDeLieux + " lieux levés en " + montre.ElapsedMilliseconds + " ms, "
+                + second.Largeur + " × " + second.Hauteur + " texels au pas de " + second.Pas + " km, " + second.Separations + " morceaux de côtés");
+            Assert.IsTrue(second.Largeur == t.Largeur && second.Hauteur == t.Hauteur && second.Pas == t.Pas && second.Coin == t.Coin);
             int ecarts = 0;
-            for (int k = 0; k < second.Cellules.Count; k++) if (second.Cellules[k] != _terrain.Cellules[k]) ecarts++;
-            for (int k = 0; k < second.Altitudes.Count; k++) if (second.Altitudes[k] != _terrain.Altitudes[k]) ecarts++;
-            for (int k = 0; k < second.Sommets.Count; k++) if (second.Sommets[k] != _terrain.Sommets[k]) ecarts++;
-            for (int k = 0; k < second.Bords.Count; k++) if (second.Bords[k] != _terrain.Bords[k]) ecarts++;
+            for (int k = 0; k < second.Lieux.Count; k++) if (second.Lieux[k] != t.Lieux[k]) ecarts++;
+            for (int k = 0; k < second.Altitudes.Count; k++) if (second.Altitudes[k] != t.Altitudes[k]) ecarts++;
+            for (int k = 0; k < second.Sommets.Count; k++) if (second.Sommets[k] != t.Sommets[k]) ecarts++;
+            for (int k = 0; k < second.Bords.Count; k++) if (second.Bords[k] != t.Bords[k]) ecarts++;
             Assert.AreEqual(0, ecarts, "texels, altitudes, sommets ou distances différents d'un levé à l'autre");
-            Assert.AreEqual(_terrain.Separations, second.Separations, "les deux levés ne séparent pas les mêmes côtés");
+            Assert.AreEqual(t.Separations, second.Separations, "les deux levés ne séparent pas les mêmes côtés");
             // Les frontières aussi, pour les mêmes pays : la mesure se partage entre plusieurs fils sans dépendre de leur ordre.
-            var pays = new int[_carte.Cellules.Count]; for (int r = 0; r < pays.Length; r++) pays[r] = r % 7;
-            byte[] un = new byte[second.Largeur * second.Hauteur], deux = new byte[un.Length]; _terrain.Frontieres(pays, un, _terrain.Tout); second.Frontieres(pays, deux, second.Tout);
+            var pays = new int[t.NombreDeLieux]; for (int l = 0; l < pays.Length; l++) pays[l] = l % 7;
+            byte[] un = new byte[second.Largeur * second.Hauteur], deux = new byte[un.Length]; t.Frontieres(pays, un, t.Tout); second.Frontieres(pays, deux, second.Tout);
             Assert.IsTrue(un.SequenceEqual(deux) && un.Any(c => c != TerrainDeCarte.AU_LOIN), "frontières différentes d'un levé à l'autre, ou aucune");
         }
 
         [Test] public void Le_maillage_couvre_le_rectangle_sous_le_plan_des_calques() {
-            TerrainDeCarte t = _terrain; int m = TerrainDeCarte.TEXELS_PAR_MAILLE, nx = t.Largeur / m + 1, nz = t.Hauteur / m + 1;
+            TerrainDeCarte t = Terrain; int m = TerrainDeCarte.TEXELS_PAR_MAILLE, nx = t.Largeur / m + 1, nz = t.Hauteur / m + 1;
             Assert.IsTrue(t.Sommets.Count == nx * nz && t.Uv.Count == nx * nz && t.Triangles.Count == (nx - 1) * (nz - 1) * 6, t.Sommets.Count + " sommets, " + t.Triangles.Count + " indices");
             Vector3 premier = t.Sommets[0], dernier = t.Sommets[nx * nz - 1];
             Assert.IsTrue(Math.Abs(premier.x - t.Coin.x) < 1e-2 && Math.Abs(premier.z - t.Coin.y) < 1e-2, "le premier sommet n'est pas au coin sud-ouest");
@@ -242,31 +312,37 @@ namespace Forge.Pont.Tests {
 
         // Une île de dix mètres ne contient le centre d'aucun texel : elle en reçoit un quand même, là où elle est.
         [Test] public void Une_ile_plus_petite_qu_un_texel_garde_un_texel() {
-            var carte = new CarteLue(2, new[] { Carre(1, 0, 0, 50000), Carre(2, 100000, 20000, 10) });
-            TerrainDeCarte t = TerrainDeCarte.Lever(carte); PointCarte o = t.Origine;
+            TerrainDeCarte t = LeveDe(Carre(1, 0, 0, 50000), Carre(2, 100000, 20000, 10)); PointCarte o = t.Origine;
             Assert.AreEqual(1f, t.Pas, "une petite carte se lève au pas minimal");
             Assert.AreEqual(2500, t.TexelsDe(0), "une terre de 50 km de côté, au pas d'un km");
             Assert.AreEqual(1, t.TexelsDe(1), "l'île n'a pas son texel");
             Assert.AreEqual(2, t.CelluleEn((float)((100005 - o.X) / 1000), (float)((20005 - o.Y) / 1000)), "le texel de l'île n'est pas sous l'île");
             Assert.AreEqual(1, t.CelluleEn((float)((25000 - o.X) / 1000), (float)((25000 - o.Y) / 1000)));
             Assert.AreEqual(0, t.CelluleEn((float)((75000 - o.X) / 1000), (float)((25000 - o.Y) / 1000)), "entre la terre et l'île, ce n'est pas la mer");
-            Assert.AreEqual(2501, t.Cellules.Count(c => c != 0));
+            Assert.AreEqual(2501, t.Lieux.Count(c => c != 0));
         }
 
-        [Test] public void Une_carte_sans_terre_n_a_pas_de_terrain() {
-            Assert.Throws<ArgumentNullException>(() => TerrainDeCarte.Lever(null));
-            var vide = Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(new CarteLue(0, new CelluleDeCarte[0])));
-            StringAssert.Contains("une carte vide n'a aucun terrain", vide.Message);
-            var sansContour = new CelluleDeCarte(5, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0]);
-            var refus = Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(new CarteLue(2, new[] { Carre(1, 0, 0, 50000), sansContour })));
-            StringAssert.Contains("cellule 5 : aucun contour", refus.Message);
-            // Le rang d'une cellule tient dans un texel de seize bits, le zéro étant la mer.
-            var trop = Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(new CarteLue(ushort.MaxValue, Enumerable.Range(0, ushort.MaxValue).Select(i => Carre(i, 0, 0, 1000)).ToArray())));
-            StringAssert.Contains(ushort.MaxValue + " cellules", trop.Message);
+        // Sans formes, ou sans la forme d'une cellule, d'un lieu ou d'un contour, aucun terrain ne se lève : la carte
+        // ne retombe jamais sur le dessin des seules cellules.
+        [Test] public void Une_carte_sans_terre_ou_sans_formes_n_a_pas_de_terrain() {
+            var carte = new CarteLue(2, new[] { Carre(1, 0, 0, 50000), Carre(2, 50000, 0, 50000) }); FormesLues formes = FormesDeTest.UnLieuParCellule(carte);
+            Assert.Throws<ArgumentNullException>(() => TerrainDeCarte.Lever(null, formes)); Assert.Throws<ArgumentNullException>(() => TerrainDeCarte.Lever(carte, null));
+            StringAssert.Contains("une carte vide n'a aucun terrain", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(new CarteLue(0, new CelluleDeCarte[0]), formes)).Message);
+            FormeDeCellule une = formes.Cellules[0], deux = formes.Cellules[1];
+            StringAssert.Contains("des formes de 1 cellules pour une carte de 2", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(carte, new FormesLues(null, new[] { une }))).Message);
+            var ailleurs = new FormeDeCellule(3, deux.Contour, deux.Lieux);
+            StringAssert.Contains("cellule 2 : aucune forme servie", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(carte, new FormesLues(null, new[] { une, ailleurs }))).Message);
+            var sansLieu = new FormeDeCellule(2, deux.Contour, new FormeDeLieu[0]);
+            StringAssert.Contains("cellule 2 : aucun lieu", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(carte, new FormesLues(null, new[] { une, sansLieu }))).Message);
+            var sansContour = new FormeDeCellule(2, deux.Contour, new[] { new FormeDeLieu(0, deux.Contour), new FormeDeLieu(1, new PolygoneDeCarte[0]) });
+            StringAssert.Contains("cellule 2, lieu 1 : aucun contour", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(carte, new FormesLues(null, new[] { une, sansContour }))).Message);
+            // Le numéro d'un lieu tient dans un texel de seize bits, le zéro étant la mer.
+            var foule = new FormeDeCellule(2, deux.Contour, Enumerable.Range(0, ushort.MaxValue - 1).Select(r => new FormeDeLieu(r, deux.Contour)));
+            StringAssert.Contains(ushort.MaxValue + " lieux", Assert.Throws<ArgumentException>(() => TerrainDeCarte.Lever(carte, new FormesLues(null, new[] { une, foule }))).Message);
         }
 
         [Test] public void Un_relief_non_servi_se_dessine_en_plaine() {
-            TerrainDeCarte Leve(string relief) => TerrainDeCarte.Lever(new CarteLue(1, new[] { Carre(1, 0, 0, 200000, relief) }));
+            TerrainDeCarte Leve(string relief) => LeveDe(Carre(1, 0, 0, 200000, relief));
             TerrainDeCarte plaine = Leve("plaine"), sans = Leve(null), inconnue = Leve("lagune"), montagne = Leve("montagne"), marais = Leve("marais");
             Assert.AreEqual(plaine.Altitudes.Count, sans.Altitudes.Count);
             int ecarts = 0;
@@ -275,7 +351,7 @@ namespace Forge.Pont.Tests {
             double basse = MoyenneATerre(marais), moyenne = MoyenneATerre(plaine), haute = MoyenneATerre(montagne);
             Assert.IsTrue(basse < moyenne && moyenne < haute, "marais " + basse + ", plaine " + moyenne + ", montagne " + haute);
             // La classe ne change que le relief : la terre est la même.
-            for (int k = 0; k < plaine.Cellules.Count; k++) if (plaine.Cellules[k] != montagne.Cellules[k]) ecarts++;
+            for (int k = 0; k < plaine.Lieux.Count; k++) if (plaine.Lieux[k] != montagne.Lieux[k]) ecarts++;
             Assert.AreEqual(0, ecarts, "la classe de relief a déplacé la terre");
         }
 
@@ -294,6 +370,34 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(.5f, t.BordEn(-10.5f, .5f), .1f); Assert.AreEqual(.5f, t.CoteEn(-10.5f, .5f), .1f); Assert.AreEqual(3.5f, t.BordEn(-13.5f, .5f), .1f); Assert.AreEqual(3.5f, t.CoteEn(-13.5f, .5f), .1f);
             Assert.IsTrue(t.BordEn(-30.5f, .5f) == portee && t.CoteEn(-30.5f, .5f) == portee, "au large, la distance ne sature pas à sa portée");
             Assert.IsTrue(t.BordEn(t.Coin.x - 1, 0) == portee && t.CoteEn(t.Coin.x - 1, 0) == portee, "hors du rectangle, la distance n'est pas la portée");
+        }
+
+        // Une cellule de 20 km sur 10 coupée en deux lieux, et une voisine d'un seul lieu : en x local, l'ouest de la
+        // première de -15 à -5, son est de -5 à 5, la voisine de 5 à 15. Le côté commun des deux lieux est un bord,
+        // jamais une côte ; il devient une frontière quand ils ne sont pas du même pays, et seulement alors.
+        [Test] public void Les_lieux_d_une_cellule_ont_leurs_bords_et_leurs_frontieres() {
+            var carte = new CarteLue(2, new[] { Carre(1, 0, 0, 20000, null, 10000), Carre(2, 20000, 0, 10000) });
+            var formes = new FormesLues(null, new[] {
+                new FormeDeCellule(1, carte.Cellules[0].Contour, new[] { new FormeDeLieu(0, Rectangle(0, 0, 10000, 10000)), new FormeDeLieu(1, Rectangle(10000, 0, 20000, 10000)) }),
+                new FormeDeCellule(2, carte.Cellules[1].Contour, new[] { new FormeDeLieu(0, carte.Cellules[1].Contour) }) });
+            TerrainDeCarte t = TerrainDeCarte.Lever(carte, formes);
+            Assert.IsTrue(t.Pas == 1f && t.Origine.X == 15000 && t.Origine.Y == 5000, "le cas n'est pas celui qu'on croit : pas " + t.Pas);
+            Assert.IsTrue(t.NombreDeLieux == 3 && t.LieuxDe(0) == 2 && t.LieuxDe(1) == 1 && t.PremierLieuDe(1) == 2 && t.CelluleDuLieu(1) == 0 && t.CelluleDuLieu(2) == 1 && t.RangDuLieu(1) == 1 && t.LieuDe(0, 1) == 1);
+            Assert.IsTrue(t.LieuEn(-5.5f, .5f) == 1 && t.LieuEn(-4.5f, .5f) == 2 && t.LieuEn(5.5f, .5f) == 3, "les lieux ne sont pas à leur place");
+            Assert.IsTrue(t.CelluleEn(-5.5f, .5f) == 1 && t.CelluleEn(-4.5f, .5f) == 1 && t.CelluleEn(5.5f, .5f) == 2, "les lieux ne sont pas dans leur cellule");
+            Assert.IsTrue(t.TexelsDuLieu(0) == 100 && t.TexelsDuLieu(1) == 100 && t.TexelsDe(0) == 200 && t.TexelsDe(1) == 100);
+            RectInt cellule = t.ZoneDe(0), ouest = t.ZoneDuLieu(0), est = t.ZoneDuLieu(1);
+            Assert.IsTrue(cellule.xMin <= Math.Min(ouest.xMin, est.xMin) && cellule.xMax >= Math.Max(ouest.xMax, est.xMax) && ouest.xMax < est.xMax, "la zone de la cellule ne tient pas celles de ses lieux");
+            // Le côté commun des deux lieux, en x = -5 : un bord vu des deux, pas une côte.
+            Assert.AreEqual(.5f, t.BordEn(-5.5f, .5f), .1f); Assert.AreEqual(.5f, t.BordEn(-4.5f, .5f), .1f); Assert.AreEqual(2.5f, t.BordEn(-7.5f, .5f), .1f);
+            Assert.AreEqual(4.5f, t.CoteEn(-5.5f, .5f), .1f, "le côté commun de deux lieux compte pour une côte");
+            var champ = new byte[t.Largeur * t.Hauteur];
+            t.Frontieres(new[] { 1, 2, 2 }, champ, t.Tout);
+            Assert.AreEqual(.5f, t.FrontiereEn(champ, -5.5f, .5f), .1f, "deux lieux d'une cellule à deux pays n'ont pas de frontière"); Assert.AreEqual(.5f, t.FrontiereEn(champ, -4.5f, .5f), .1f);
+            Assert.AreEqual(9.5f, t.FrontiereEn(champ, 4.5f, .5f), .1f, "une frontière entre l'est de la cellule et sa voisine du même pays");
+            t.Frontieres(new[] { 1, 1, 2 }, champ, t.Tout);
+            Assert.AreEqual(10.5f, t.FrontiereEn(champ, -5.5f, .5f), .1f, "une frontière entre deux lieux du même pays"); Assert.AreEqual(.5f, t.FrontiereEn(champ, 4.5f, .5f), .1f);
+            t.Frontieres(new[] { 1, 1, 1 }, champ, t.Tout); Assert.IsTrue(champ.All(c => c == TerrainDeCarte.AU_LOIN), "une frontière dans un même pays");
         }
 
         // Le service simplifie chaque contour à part : deux terres voisines peuvent laisser entre elles une fente plus
@@ -315,7 +419,7 @@ namespace Forge.Pont.Tests {
 
         // Deux contours qui se recouvrent sur 2 km : la 1 de x = -9 à 1, la 2 de -1 à 9. La première servie garde le
         // recouvrement, et le seul trait est à son côté.
-        [Test] public void Sous_deux_contours_la_premiere_cellule_servie_fait_foi() {
+        [Test] public void Sous_deux_contours_le_premier_lieu_servi_fait_foi() {
             TerrainDeCarte t = LeveDe(Carre(1, 0, 0, 10000), Carre(2, 8000, 0, 10000));
             Assert.IsTrue(t.Pas == 1f && t.Origine.X == 9000, "le cas n'est pas celui qu'on croit");
             Assert.IsTrue(t.CelluleEn(-.5f, .5f) == 1 && t.CelluleEn(.5f, .5f) == 1 && t.CelluleEn(1.5f, .5f) == 2, "le recouvrement n'est pas à la première terre");
@@ -337,13 +441,56 @@ namespace Forge.Pont.Tests {
             t.Frontieres(new[] { 0, 2 }, champ, t.Tout); Assert.AreEqual(.5f, t.FrontiereEn(champ, -.5f, .5f), .1f);
             t.Frontieres(new[] { 0, 0 }, champ, t.Tout); Assert.IsTrue(champ.All(c => c == TerrainDeCarte.AU_LOIN), "une frontière entre deux terres sans pays");
             t.Frontieres(new[] { -1, 2 }, champ, t.Tout); Assert.IsTrue(champ.All(c => c == TerrainDeCarte.AU_LOIN), "une frontière avec une terre retirée");
-            StringAssert.Contains("un pays par cellule servie", Assert.Throws<ArgumentException>(() => t.Frontieres(new[] { 1 }, champ, t.Tout)).Message);
-            StringAssert.Contains("un pays par cellule servie", Assert.Throws<ArgumentException>(() => t.Frontieres(null, champ, t.Tout)).Message);
+            StringAssert.Contains("un pays par lieu servi", Assert.Throws<ArgumentException>(() => t.Frontieres(new[] { 1 }, champ, t.Tout)).Message);
+            StringAssert.Contains("un pays par lieu servi", Assert.Throws<ArgumentException>(() => t.Frontieres(null, champ, t.Tout)).Message);
             StringAssert.Contains("un octet par texel", Assert.Throws<ArgumentException>(() => t.Frontieres(new[] { 1, 2 }, new byte[3], t.Tout)).Message);
         }
 
-        // Quand une cellule change de pays, il suffit de mesurer de nouveau sa zone : le champ est celui d'une mesure entière.
-        [Test] public void Mesurer_la_zone_d_une_cellule_vaut_tout_mesurer() {
+        // La cellule de Pampelune est à la Navarre, et une partie de ses lieux à la Castille (`autres_pays` de `/terres`).
+        // Chaque lieu au pays que `/terres` lui donne : une frontière sépare deux lieux voisins de pays différents dans
+        // cette cellule, et aucune ne passe entre deux lieux du même pays, où qu'ils soient. Ce qui est loin de tout
+        // lieu d'un autre pays (à plus de la portée, et de deux texels) n'a aucune frontière mesurée.
+        [Test] public void Une_frontiere_passe_dans_la_cellule_partagee_et_jamais_entre_deux_lieux_du_meme_pays() {
+            TerrainDeCarte t = Terrain; int[] pays = FormesDeTest.PaysDesLieux(t, Carte, FormesDeTest.TerresOuest); int rang = RangDe(FormesDeTest.PAMPELUNE);
+            var paysDePampelune = Enumerable.Range(t.PremierLieuDe(rang), t.LieuxDe(rang)).Select(l => pays[l]).Distinct().ToArray();
+            Assert.GreaterOrEqual(paysDePampelune.Length, 2, "échantillon vide : la cellule de Pampelune n'est qu'à un pays");
+            var champ = new byte[t.Largeur * t.Hauteur]; t.Frontieres(pays, champ, t.Tout);
+            int rayon = Mathf.CeilToInt(TerrainDeCarte.PORTEE_DES_FRONTIERES_KM / t.Pas) + 3, separees = 0, malSeparees = 0, loinDeTout = 0, fausses = 0;
+            int Pays(int k) => t.Lieux[k] == 0 ? -1 : pays[t.Lieux[k] - 1];
+            bool SeulPays(int i, int j, int p) {
+                for (int dj = -rayon; dj <= rayon; dj++)
+                    for (int di = -rayon; di <= rayon; di++) {
+                        int vi = i + di, vj = j + dj; if (vi < 0 || vj < 0 || vi >= t.Largeur || vj >= t.Hauteur) continue;
+                        int q = Pays(vj * t.Largeur + vi); if (q >= 0 && q != p) return false;
+                    }
+                return true;
+            }
+            for (int j = 0; j < t.Hauteur; j++)
+                for (int i = 0; i < t.Largeur; i++) {
+                    int k = j * t.Largeur + i, ici = t.Lieux[k]; if (ici == 0) continue;
+                    for (int v = 0; v < 2; v++) {
+                        int vi = i + 1 - v, vj = j + v; if (vi >= t.Largeur || vj >= t.Hauteur) continue;
+                        int kv = vj * t.Largeur + vi, la = t.Lieux[kv]; if (la == 0 || la == ici) continue;
+                        if (pays[ici - 1] != pays[la - 1]) {
+                            if (t.CelluleDuLieu(ici - 1) != rang || t.CelluleDuLieu(la - 1) != rang) continue;
+                            separees++; float x = t.Coin.x + (i + 0.5f) * t.Pas, z = t.Coin.y + (j + 0.5f) * t.Pas, xv = t.Coin.x + (vi + 0.5f) * t.Pas, zv = t.Coin.y + (vj + 0.5f) * t.Pas;
+                            if (Mathf.Max(t.FrontiereEn(champ, x, z), t.FrontiereEn(champ, xv, zv)) > 2f * t.Pas) malSeparees++;
+                        } else if (SeulPays(i, j, pays[ici - 1])) { loinDeTout++; if (champ[k] != TerrainDeCarte.AU_LOIN || champ[kv] != TerrainDeCarte.AU_LOIN) fausses++; }
+                    }
+                }
+            TestContext.Out.WriteLine(paysDePampelune.Length + " pays dans la cellule de Pampelune ; " + separees + " changements de pays entre ses lieux, " + malSeparees + " sans frontière ; "
+                + loinDeTout + " bords entre deux lieux du même pays loin de tout autre, " + fausses + " avec une frontière");
+            Assert.Greater(separees, 50, "échantillon vide : aucun changement de pays dans la cellule de Pampelune");
+            Assert.AreEqual(0, malSeparees, "deux lieux de pays différents de la cellule de Pampelune sans frontière entre eux");
+            Assert.Greater(loinDeTout, 1000, "échantillon vide : aucun bord entre deux lieux du même pays");
+            Assert.AreEqual(0, fausses, "une frontière entre deux lieux du même pays");
+            // Tous les lieux à un seul pays : aucune frontière, ni entre les cellules ni dans aucune.
+            t.Frontieres(Enumerable.Repeat(1, t.NombreDeLieux).ToArray(), champ, t.Tout);
+            Assert.IsTrue(champ.All(c => c == TerrainDeCarte.AU_LOIN), "une frontière entre deux lieux du même pays");
+        }
+
+        // Quand un lieu change de pays, il suffit de mesurer de nouveau sa zone : le champ est celui d'une mesure entière.
+        [Test] public void Mesurer_la_zone_d_un_lieu_vaut_tout_mesurer() {
             // Trois terres de 60 km en ligne : la zone de celle du milieu ne couvre pas tout le terrain.
             TerrainDeCarte t = LeveDe(Carre(1, 0, 0, 60000), Carre(2, 60000, 0, 60000), Carre(3, 120000, 0, 60000)); RectInt zone = t.ZoneDe(1);
             Assert.IsTrue(zone.width < t.Largeur && zone.width > 0 && zone.height > 0, "la zone de la terre du milieu couvre tout : l'échantillon ne juge rien");
@@ -351,36 +498,34 @@ namespace Forge.Pont.Tests {
             t.Frontieres(new[] { 1, 1, 2 }, partiel, t.Tout); t.Frontieres(new[] { 1, 2, 2 }, partiel, zone); t.Frontieres(new[] { 1, 2, 2 }, entier, t.Tout);
             Assert.IsTrue(partiel.SequenceEqual(entier), "la mesure de la zone ne vaut pas la mesure entière");
             Assert.IsTrue(entier.Any(c => c != TerrainDeCarte.AU_LOIN), "aucune frontière mesurée");
-            // Sur la carte servie : chaque cellule au pays de sa puissance, puis une cellule de frontière change de pays.
-            t = _terrain; int servies = _carte.Cellules.Count; var pays = new int[servies]; var indices = new Dictionary<long, int>();
-            for (int r = 0; r < servies; r++) {
-                IdentiteDeCarte p = _carte.Cellules[r].Puissance; if (p == null) continue;
-                if (!indices.TryGetValue(p.Id, out int n)) { n = indices.Count + 1; indices[p.Id] = n; }
-                pays[r] = n;
-            }
+            // Sur la carte servie : chaque lieu au pays que `/terres` lui donne, puis un lieu d'une frontière change de pays.
+            t = Terrain; int[] pays = FormesDeTest.PaysDesLieux(t, Carte, FormesDeTest.TerresOuest); int nombre = pays.Max();
             var avant = new byte[t.Largeur * t.Hauteur]; var montre = Stopwatch.StartNew(); t.Frontieres(pays, avant, t.Tout); montre.Stop();
             int k0 = Array.FindIndex(avant, c => c < 20); Assert.GreaterOrEqual(k0, 0, "aucune frontière sur la carte servie");
-            int rang = t.Cellules[k0] - 1; Assert.GreaterOrEqual(rang, 0, "une frontière est mesurée en mer"); pays[rang] = pays[rang] % indices.Count + 1;
-            partiel = (byte[])avant.Clone(); var chrono = Stopwatch.StartNew(); t.Frontieres(pays, partiel, t.ZoneDe(rang)); chrono.Stop();
+            int lieu = t.Lieux[k0] - 1; Assert.GreaterOrEqual(lieu, 0, "une frontière est mesurée en mer"); pays[lieu] = pays[lieu] % nombre + 1;
+            partiel = (byte[])avant.Clone(); var chrono = Stopwatch.StartNew(); t.Frontieres(pays, partiel, t.ZoneDuLieu(lieu)); chrono.Stop();
             entier = new byte[avant.Length]; t.Frontieres(pays, entier, t.Tout);
-            TestContext.Out.WriteLine(indices.Count + " pays ; frontières de la carte servie mesurées en " + montre.ElapsedMilliseconds + " ms, la zone d'une cellule en " + chrono.ElapsedMilliseconds + " ms");
-            Assert.IsTrue(partiel.SequenceEqual(entier), "sur la carte servie, la mesure de la zone ne vaut pas la mesure entière");
+            TestContext.Out.WriteLine(nombre + " pays ; frontières des lieux servis mesurées en " + montre.ElapsedMilliseconds + " ms, la zone d'un lieu en " + chrono.ElapsedMilliseconds + " ms");
+            Assert.IsTrue(partiel.SequenceEqual(entier), "sur la carte servie, la mesure de la zone d'un lieu ne vaut pas la mesure entière");
             Assert.IsFalse(partiel.SequenceEqual(avant), "le changement de pays n'a déplacé aucune frontière : l'échantillon ne juge rien");
         }
 
-        [Test] public void La_zone_d_une_cellule_contient_tous_ses_texels() {
-            TerrainDeCarte t = _terrain; int dehors = 0, vus = 0;
+        [Test] public void La_zone_d_un_lieu_et_celle_de_sa_cellule_contiennent_tous_ses_texels() {
+            TerrainDeCarte t = Terrain; int dehors = 0, horsCellule = 0, vus = 0;
             Assert.AreEqual(new RectInt(0, 0, t.Largeur, t.Hauteur), t.Tout);
-            var zones = new RectInt[_carte.Cellules.Count]; for (int r = 0; r < zones.Length; r++) zones[r] = t.ZoneDe(r);
+            var zones = new RectInt[t.NombreDeLieux]; for (int l = 0; l < zones.Length; l++) zones[l] = t.ZoneDuLieu(l);
+            var cellules = new RectInt[Carte.Cellules.Count]; for (int r = 0; r < cellules.Length; r++) cellules[r] = t.ZoneDe(r);
+            bool Hors(RectInt z, int i, int j) => i < z.xMin || i >= z.xMax || j < z.yMin || j >= z.yMax;
             for (int j = 0; j < t.Hauteur; j++)
                 for (int i = 0; i < t.Largeur; i++) {
-                    int c = t.Cellules[j * t.Largeur + i]; if (c == 0) continue;
-                    vus++; RectInt z = zones[c - 1]; if (i < z.xMin || i >= z.xMax || j < z.yMin || j >= z.yMax) dehors++;
+                    int c = t.Lieux[j * t.Largeur + i]; if (c == 0) continue;
+                    vus++; if (Hors(zones[c - 1], i, j)) dehors++; if (Hors(cellules[t.CelluleDuLieu(c - 1)], i, j)) horsCellule++;
                 }
-            Assert.Greater(vus, 100000, "aucune terre : l'échantillon ne juge rien"); Assert.AreEqual(0, dehors, "texels hors de la zone de leur cellule");
-            // Une zone est à la taille de sa cellule : mesurer celle d'une cellule coûte bien moins que tout mesurer.
-            int petites = zones.Count(z => z.width < t.Largeur / 4 && z.height < t.Hauteur / 4);
-            Assert.Greater(petites, zones.Length / 2, "les zones couvrent le terrain entier");
+            Assert.Greater(vus, 100000, "aucune terre : l'échantillon ne juge rien");
+            Assert.AreEqual(0, dehors, "texels hors de la zone de leur lieu"); Assert.AreEqual(0, horsCellule, "texels hors de la zone de leur cellule");
+            // Une zone est à la taille de son lieu : mesurer celle d'un lieu coûte bien moins que tout mesurer.
+            int petites = zones.Count(z => z.width < t.Largeur / 10 && z.height < t.Hauteur / 10);
+            Assert.Greater(petites, zones.Length / 2, "les zones des lieux couvrent le terrain entier");
         }
 
         // L'octet d'une distance : zéro sur le trait, la portée au plus loin, et un pas plus fin près du trait, où le shader pose son bord.

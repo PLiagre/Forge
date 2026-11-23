@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -191,7 +192,10 @@ namespace Forge.Pont {
             matiere.SetColor("_Table", laTable); matiere.SetColor("_Filet", leFilet);
         }
         // Pose une carte déjà lue, sans service : le terrain se lève sur place. Sans effet sur une carte déjà posée.
-        public void Montrer(CarteLue lue) { if (!close) Poser(lue, TerrainDeCarte.Lever(lue)); }
+        public void Montrer(CarteLue lue) { if (!close) Poser(lue, TerrainDeCarte.Lever(lue, ParCellules(lue))); }
+        // Les formes d'une carte dessinée cellule par cellule : chaque cellule en un seul lieu, de son contour servi.
+        private static FormesLues ParCellules(CarteLue lue) =>
+            new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) })));
         private void Start() => Demarrer();
         private void LateUpdate() => Verser();
         private void Update() => Pas(Time.realtimeSinceStartupAsDouble);
@@ -234,7 +238,7 @@ namespace Forge.Pont {
         private static (CarteLue, TerrainDeCarte, string) Lire(ClientCarte lecteur) {
             LectureCarte lecture = lecteur.Lire();
             if (!lecture.Presente) return (null, null, lecture.Absence);
-            try { return (lecture.Carte, TerrainDeCarte.Lever(lecture.Carte), null); }
+            try { return (lecture.Carte, TerrainDeCarte.Lever(lecture.Carte, ParCellules(lecture.Carte)), null); }
             catch (System.ArgumentException erreur) { return (null, null, "carte : " + erreur.Message); }
         }
         private void Poser(CarteLue lue, TerrainDeCarte terrain) {
@@ -311,7 +315,8 @@ namespace Forge.Pont {
         // terrain ne dessine pas n'en a pas et n'en fait pas.
         private void Mesurer() {
             if (!sale.HasValue) return;
-            var pays = new int[posees.Length]; for (int r = 0; r < pays.Length; r++) pays[r] = posees[r] ? indices[r + 1] : -1;
+            var pays = new int[Terrain.NombreDeLieux];
+            for (int l = 0; l < pays.Length; l++) { int r = Terrain.CelluleDuLieu(l); pays[l] = posees[r] ? indices[r + 1] : -1; }
             Terrain.Frontieres(pays, champ, sale.Value); sale = null; frontieresAVerser = true;
         }
         private void Salir(RectInt zone) {
