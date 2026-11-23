@@ -2872,9 +2872,12 @@ hors de la carte y est nommée par un lieu qui s'y trouve.
 **Un siège** est servi `{nom, maison, x_m, y_m}` : le nom du siège de chaque
 maison du registre (`charger_registre_maisons`) placée sur la carte, quand ce
 nom n'est pas celui d'une ville de `villes-1400.json` ; la ville est déjà
-nommée par la carte. Sur la graine 0, 30 sièges, dont Biskra, Bar-le-Duc,
-Mistra et les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
-Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes). Leur position est celle de `sieges_des_maisons`. Une maison hors carte
+nommée par la carte. Sur la graine 0, 57 sièges, dont Biskra, Bar-le-Duc,
+Mistra, les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
+Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes), et les capitales et
+sièges des princes d'Empire, du Nord et de l'Est (Munich, Wittenberg, Meissen, La
+Haye, Bonn, Aschaffenbourg, Cadolzbourg, Vilnius, Varsovie, Buda…) ; Prague,
+Cologne et les autres villes de `villes-1400.json` sont déjà nommées. Leur position est celle de `sieges_des_maisons`. Une maison hors carte
 (Saraï, Venise) et les maisons plausibles, dont le siège est un identifiant
 synthétique, n'en servent aucun. Le fichier des villes ne bouge pas : y ajouter
 Biskra déplacerait des bourgs et changerait des noms de lieux.
