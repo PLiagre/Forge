@@ -1,7 +1,7 @@
 """Le pays de chaque terre (`sim/pays_servis.py`) : une puissance de 1400, pas une dynastie.
 
-- Deux terres de la même maison régnante mais de deux puissances (Bohême et Hongrie,
-  Aragon et Sicile) sont deux pays.
+- Deux terres de la même maison régnante mais de deux puissances (Hollande et Hainaut,
+  Aragon et Sicile) sont deux pays ; la Bohême et la Hongrie ont chacune leur maison.
 - La cellule de Pampelune est en Navarre ; tout pays servi a un nom.
 - Une terre de départ est son propre pays et dit la puissance dont elle relève.
 """
@@ -52,13 +52,14 @@ def _verifier_puissances_distinctes(s, pays):
         if maitre is not None and s.vue[cid] is not None:
             par_racine.setdefault(racine(par_id, maitre), {}).setdefault(s.vue[cid], set()).add(pays[cid])
     plusieurs = {r: p for r, p in par_racine.items() if len(p) > 1}
-    # Un échantillon vide ne prouve rien : Luxembourg règne sur trois puissances, Barcelone sur deux.
+    # Un échantillon vide ne prouve rien : les Wittelsbach de Straubing règnent sur la Hollande et le
+    # Hainaut, Barcelone sur l'Aragon et la Sicile.
     nommees = {p.nom: p.id for p in s.table.puissances}
-    luxembourg = P.tete_de_puissance(nommees["Bohême"], s.maisons)
+    straubing = P.tete_de_puissance(nommees["Hollande"], s.maisons)
     barcelone = P.tete_de_puissance(nommees["Sicile"], s.maisons)
-    assert luxembourg == P.tete_de_puissance(nommees["Hongrie"], s.maisons)
+    assert straubing == P.tete_de_puissance(nommees["Hainaut"], s.maisons)
     assert barcelone == P.tete_de_puissance(nommees["Aragon"], s.maisons)
-    assert {nommees["Bohême"], nommees["Hongrie"]} <= set(plusieurs.get(luxembourg, ()))
+    assert {nommees["Hollande"], nommees["Hainaut"]} <= set(plusieurs.get(straubing, ()))
     assert {nommees["Aragon"], nommees["Sicile"]} <= set(plusieurs.get(barcelone, ()))
     for tenues in plusieurs.values():
         servis = [pays_servis for pays_servis in tenues.values()]
@@ -152,9 +153,13 @@ def test_chaque_depart_dit_si_sa_capitale_est_batie(sources, jouables):
 def test_un_jouable_dit_son_pays_ses_regnes_son_siege_et_son_suzerain(sources, jouables):
     par_id = {m["id"]: m for m in jouables}
     nommees = {p.nom: p.id for p in sources.table.puissances}
+    # Luxembourg règne sur le Saint-Empire, qui ne tient aucune terre, et sur la Bohême ; la Hongrie est
+    # à Sigismond.
     luxembourg = par_id[P.tete_de_puissance(nommees["Bohême"], sources.maisons)]
-    assert {p["nom"] for p in luxembourg["regne"]} == {"Saint-Empire", "Bohême", "Hongrie"}
+    assert {p["nom"] for p in luxembourg["regne"]} == {"Saint-Empire", "Bohême"}
     assert luxembourg["pays"]["nom"] == "Bohême" and luxembourg["suzerain"] is None
+    sigismond = par_id[P.tete_de_puissance(nommees["Hongrie"], sources.maisons)]
+    assert sigismond["id"] != luxembourg["id"] and [p["nom"] for p in sigismond["regne"]] == ["Hongrie"]
     navarre = par_id[P.tete_de_puissance(nommees["Navarre"], sources.maisons)]
     assert navarre["pays"]["nom"] == "Navarre" and navarre["siege"]["nom"] == "Pampelune"
     puissances = {p.id: p.nom for p in sources.table.puissances}
@@ -166,7 +171,11 @@ def test_un_jouable_dit_son_pays_ses_regnes_son_siege_et_son_suzerain(sources, j
     # Un seigneur tenu par une maison qui règne sur plusieurs pays relève du pays où il est.
     hongrois = next(m for m in jouables if m["sorte"] == "plausible"
                     and m["pays"]["id"] == P.identifiant_de_puissance(nommees["Hongrie"]))
-    assert hongrois["suzerain"]["id"] == luxembourg["id"] and hongrois["suzerain"]["pays"]["nom"] == "Hongrie"
+    assert hongrois["suzerain"]["id"] == sigismond["id"] and hongrois["suzerain"]["pays"]["nom"] == "Hongrie"
+    hennuyer = next(m for m in jouables if m["sorte"] == "plausible"
+                    and m["pays"]["id"] == P.identifiant_de_puissance(nommees["Hainaut"]))
+    straubing = P.tete_de_puissance(nommees["Hainaut"], sources.maisons)
+    assert hennuyer["suzerain"]["id"] == straubing and hennuyer["suzerain"]["pays"]["nom"] == "Hainaut"
     assert all(m["nom"] and not m["nom"].startswith("plausible-") for m in jouables)
 
 
@@ -175,15 +184,22 @@ def test_une_place_prise_passe_au_pays_du_preneur(sources):
     monde = copy.deepcopy(sources.monde)
     avant = _pays(sources)
     nommees = {p.nom: p.id for p in sources.table.puissances}
-    boheme = P.identifiant_de_puissance(nommees["Bohême"])
-    hongrie = next(cid for cid in sorted(avant) if avant[cid] == P.identifiant_de_puissance(nommees["Hongrie"]))
-    # La Bohême et la Hongrie ont la même maison : une place hongroise prise par le maître
-    # d'une place de Bohême reste à la Hongrie, puisque la racine règne sur elle.
-    tcheque = next(cid for cid in sorted(avant) if avant[cid] == boheme)
-    monde.cells[hongrie].lieux[0].maitre = _maitre_du_bourg(monde, tcheque)
-    assert P.pays_des_terres(monde, sources.vue, sources.maisons)[hongrie] == avant[hongrie]
+    hollande = P.identifiant_de_puissance(nommees["Hollande"])
+    hainaut = next(cid for cid in sorted(avant) if avant[cid] == P.identifiant_de_puissance(nommees["Hainaut"]))
+    # La Hollande et le Hainaut ont la même maison : une place du Hainaut prise par le maître
+    # d'une place de Hollande reste au Hainaut, puisque la racine règne sur lui.
+    hollandaise = next(cid for cid in sorted(avant) if avant[cid] == hollande)
+    monde.cells[hainaut].lieux[0].maitre = _maitre_du_bourg(monde, hollandaise)
+    assert P.pays_des_terres(monde, sources.vue, sources.maisons)[hainaut] == avant[hainaut]
     # Prise par une terre de départ, elle entre dans son pays, et elle seule change.
     bar = identifiant_de_seigneurie(sources.seigneuries[0].id)
-    monde.cells[hongrie].lieux[0].maitre = bar
+    monde.cells[hainaut].lieux[0].maitre = bar
     apres = P.pays_des_terres(monde, sources.vue, sources.maisons)
-    assert {cid for cid in avant if avant[cid] != apres[cid]} == {hongrie} and apres[hongrie] == bar
+    assert {cid for cid in avant if avant[cid] != apres[cid]} == {hainaut} and apres[hainaut] == bar
+    # Contre-épreuve : la Bohême et la Hongrie n'ont plus la même maison, une place hongroise prise par
+    # le maître d'une place de Bohême passe à la Bohême.
+    monde = copy.deepcopy(sources.monde)
+    hongrie = next(cid for cid in sorted(avant) if avant[cid] == P.identifiant_de_puissance(nommees["Hongrie"]))
+    tcheque = next(cid for cid in sorted(avant) if avant[cid] == P.identifiant_de_puissance(nommees["Bohême"]))
+    monde.cells[hongrie].lieux[0].maitre = _maitre_du_bourg(monde, tcheque)
+    assert P.pays_des_terres(monde, sources.vue, sources.maisons)[hongrie] == avant[tcheque]

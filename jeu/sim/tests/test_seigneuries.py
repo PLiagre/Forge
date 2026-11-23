@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 from sim import constants as constantes
-from sim.aggregation import charger_positions
+from sim.aggregation import charger_latitude_moyenne, charger_positions
 from sim.engine import population_soutenable_de
 from sim.maisons import charger_maisons
 from sim.model import _NoBadSpatialField
 from sim.puissances import (
-    RELIGIONS, PuissanceInvalide, charger_latitude_moyenne_puissances,
+    RELIGIONS, PuissanceInvalide,
     charger_table, puissances_depuis_monde,
 )
 from sim.seigneuries import (
@@ -187,10 +187,14 @@ def test_refus_hors_carte(contexte):
 
 
 def _preuve_sieges(monde, seigneuries, table):
-    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    """Le siège de chaque seigneurie est dans une cellule de son suzerain ; celui d'une seigneurie
+    d'Empire (le Wurtemberg) dans une cellule sans puissance, le Saint-Empire n'en tenant aucune."""
+    positions, latitude = charger_positions(), charger_latitude_moyenne()
     vue = puissances_depuis_monde(monde, table=table)
     cellules = [cellule_du_siege(s, monde.carte) for s in seigneuries]
-    hors_suzerain = sum(vue[cid] != s.suzerain for s, cid in zip(seigneuries, cellules))
+    empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")
+    hors_suzerain = sum(vue[cid] != (None if s.suzerain == empire else s.suzerain)
+                        for s, cid in zip(seigneuries, cellules))
     desaccords = sum(cid != _cellule_la_plus_proche((s.siege.lat, s.siege.lon), positions, latitude)
                     for s, cid in zip(seigneuries, cellules))
     print(f"sièges_vus={len(cellules)}, sièges_distincts={len(set(cellules))}, hors_suzerain={hors_suzerain}, désaccords_point={desaccords}")
@@ -225,7 +229,8 @@ def test_fiche(contexte):
         cellules = [c for c in monde.cells if vue[c] == s.suzerain]
         voisins = sorted({e["b"] if e["a"] == cid else e["a"] for e in monde.adjacency
                           if e["kind"] == "land-land" and cid in (e["a"], e["b"])})
-        assert cellules and voisins
+        # Le Saint-Empire, suzerain du Wurtemberg, ne tient aucune cellule : il est rendu à ses princes.
+        assert voisins and (cellules or s.nom == "Comté de Wurtemberg")
         assert fiche.seigneurie == s and fiche.cell_id == cid
         assert fiche.habitants == monde.cells[cid].population
         assert fiche.production_kg_par_tick > 0
@@ -241,6 +246,8 @@ def test_fiche(contexte):
         print(f"{s.nom}: cell_id={cid}, habitants={fiche.habitants}, production_kg_par_tick={fiche.production_kg_par_tick}, suzerain={fiche.suzerain.nom}, maison={fiche.maison.nom}, cellules_du_suzerain={fiche.cellules_du_suzerain}, habitants_du_suzerain={fiche.habitants_du_suzerain}, voisins={voisins}")
     bar, wurtemberg, moree, brankovic, evrenos = (fiches[n] for n in (
         "Duché de Bar", "Comté de Wurtemberg", "Despotat de Morée", "Terre des Branković", "Uç d'Evrenos"))
+    assert (wurtemberg.cellules_du_suzerain, wurtemberg.habitants_du_suzerain) == (0, 0)
+    assert wurtemberg.suzerain.nom == "Saint-Empire" and len({v.puissance.nom for v in wurtemberg.voisins}) > 1
     assert fiches["Émirat du Zab"].seigneurie.siege.nom == "Biskra"
     assert evrenos.cell_id in {v.cell_id for v in brankovic.voisins}
     assert brankovic.cell_id in {v.cell_id for v in evrenos.voisins}

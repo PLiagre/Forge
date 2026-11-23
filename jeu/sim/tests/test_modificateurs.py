@@ -37,10 +37,16 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # Quand le registre des personnages change, seule la clé `personnages` de
 # `World.to_dict()` diffère de l'empreinte d'avant, et la photographie est identique.
 # Les frontières de 1400 changent le registre des maisons, les maîtres de 345 lieux et, par eux, les
-# greniers, les convois et leurs cumuls ; aucune population ne change en un an.
+# greniers, les convois et leurs cumuls ; aucune population ne change en un an. Celles de l'Empire, du
+# Nord et de l'Est changent de même le registre, les maîtres et les greniers ; la population au bout
+# d'un an reste 37 481 793. Celles des Balkans, de l'Orient et du Maghreb changent encore, au 365e tick, le
+# registre (32 maisons neuves, 24 retirées, le suzerain de 242), le maître de 100 lieux, 1 183 greniers (et 32
+# neufs, 24 retirés), les convois (140 groupes au lieu de 99) et les cumuls mangé et perdu ; la photographie, la
+# puissance de 80 cellules, la maison de 71, les noms de 49, le maître de 100 lieux et le nom de 187. Aucune
+# cellule ne change hors du maître de ses lieux, ni le bassin : la population reste 37 481 793.
 EMPREINTES_365 = {
-    "linux": ("7bda64df56a337f28b5e8bb665e5118b8df8888b8e656a78ac671038ca4174fc",
-              "cecbb54ff294b6c61d09b50fe382669ae5edc662fefda4630ca148e09c468781"),
+    "linux": ("995e7f2c1c58be8a7d03c9ad36c02d52435cfeaac2ea343795df0bbcadb4b204",
+              "a8ee21c994b54ee37cdab932b9dd00b700ac77c41b777fa591a1ba96b9aa3ea9"),
 }
 
 
