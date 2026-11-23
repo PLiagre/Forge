@@ -206,7 +206,9 @@ def test_encart_pixels_geometrie(photographies, formes):
         for l in e['lieux']:
             x, y = point(l).astype(int); assert tuple(i[y, x, :3]) == ImageColor.getrgb(l['couleur'])
     controle(image); y, x = np.argwhere(bord)[0]; px, py = point(e['lieux'][0]).astype(int)
-    for geste in (lambda i: i.__setitem__((y, x), 0), lambda i: i.__setitem__((py, px), i[py+12, px]), lambda i: i.__setitem__((py, px, slice(0, 3)), ImageColor.getrgb(e['lieux'][-1]['couleur']))): alterer(image, controle, geste)
+    # La couleur d'un autre maître : la palette ne sépare les maîtres qu'à l'intérieur d'une cellule.
+    autre = next(l['couleur'] for l in e['lieux'] if l['couleur'] != e['lieux'][0]['couleur'])
+    for geste in (lambda i: i.__setitem__((y, x), 0), lambda i: i.__setitem__((py, px), i[py+12, px]), lambda i: i.__setitem__((py, px, slice(0, 3)), ImageColor.getrgb(autre))): alterer(image, controle, geste)
     sans = deepcopy(d); zone(sans)[0]['lieux'][0]['maitre'] = None
     i, r = vue.dessiner_encart(sans, largeur=900, formes=formes); assert tuple(i[py, px, :3]) == ImageColor.getrgb(vue.COULEUR_SANS_MAITRE) and any('sans maître' in l for l in r['legende'])
 
