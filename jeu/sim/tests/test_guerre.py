@@ -280,6 +280,44 @@ def test_sans_chemin_terrestre_l_armee_ne_marche_pas(depart):
     assert G.chemin(monde, cid, _voisine(monde, cid)[0]) is not None
 
 
+ZAB = "seigneurie-6"
+
+
+def _places_depuis_biskra(monde, regles):
+    """cell_id → jours de marche de chaque bourg d'une autre racine que le Zab, par les chemins terrestres
+    que le geste `marcher` du joueur suit : ce geste ne borne pas les jours, que seule l'IA limite."""
+    from sim.convois import _plus_court
+    par_id = {m.id: m for m in monde.maisons}
+    sienne = G.racine(par_id, ZAB)
+    places = {}
+    for cid, km in _plus_court(monde, _capitale(monde, ZAB)).items():
+        bourg = G._bourg(monde.cells[cid])
+        if bourg is not None and bourg.maitre is not None and G.racine(par_id, bourg.maitre) != sienne:
+            places[cid] = max(1, math.ceil(km / regles.vitesse_marche_km_par_jour))
+    return places
+
+
+def test_depuis_biskra_une_place_d_un_autre_maitre_reste_a_portee_de_marche(depart, regles):
+    from sim.puissances import charger_table, puissances_depuis_monde
+    places = _places_depuis_biskra(depart, regles)
+    assert places, "aucune place d'un autre maître à portée de marche de Biskra"
+    cid = min(places, key=lambda c: (places[c], c))
+    biskra = _capitale(depart, ZAB)
+    assert cid != biskra and G.chemin(depart, biskra, cid) is not None
+    par_id = {m.id: m for m in depart.maisons}
+    maitre = G._bourg(depart.cells[cid]).maitre
+    noms = {p.id: p.nom for p in charger_table().puissances}
+    pays = noms.get(puissances_depuis_monde(depart)[cid])
+    print(f"place={cid}, jours_de_marche={places[cid]}, maitre={maitre}, suzerain={par_id[maitre].suzerain}, "
+          f"pays={pays}, a_portee_de_l_ia={places[cid] <= regles.ia_jours_de_marche_max}")
+    # Contre-épreuve : chaque bourg qu'on atteint passé à la racine du Zab, il n'y a plus de place à prendre.
+    monde = copy.deepcopy(depart)
+    racine = G.racine(par_id, ZAB)
+    for voisine in places:
+        G._bourg(monde.cells[voisine]).maitre = racine
+    assert _places_depuis_biskra(monde, regles) == {}
+
+
 # --- La conservation ------------------------------------------------------------
 
 def _verifier_conservation(monde, avant):

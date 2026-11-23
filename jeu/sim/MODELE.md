@@ -1704,7 +1704,7 @@ n'y est placée. Cette cellule relève des Mamelouks grâce aux ancres
 d'Alexandrie et de Damiette.
 
 **La table des frontières de 1400.** `data/frontieres-1400.json`, lue par
-`sim/frontieres.py`, déclare le pays de chaque cellule tenue de six régions :
+`sim/frontieres.py`, déclare le pays de chaque cellule de la carte, en sept régions :
 `ouest` (la France et ses grands fiefs, les Îles, l'Ibérie et l'Italie), `empire`
 (l'Allemagne, les Pays-Bas d'Empire, la Suisse, l'Autriche, la Bohême avec la
 Moravie, la Silésie et les Lusaces), `nord` (l'Union de Kalmar, la Finlande, les
@@ -1715,26 +1715,35 @@ Croatie, la Transylvanie et la Dalmatie et ses îles, Novgorod et Pskov), `balka
 nord de l'Égée ; les Ottomans des deux côtés des Détroits, de la Thrace à la
 Thessalie et de la Bulgarie au Kosovo des Branković, et toute l'Anatolie de la carte,
 Karaman compris ; la Serbie de Kruševac ; la Bosnie avec le Hum ; la Valachie ; la
-Moldavie jusqu'à la mer) et `orient` (Rhodes, Kos, Leros, Kalymnos, Tilos et Symi aux
+Moldavie jusqu'à la mer), `orient` (Rhodes, Kos, Leros, Kalymnos, Tilos et Symi aux
 Hospitaliers ; Chypre des Lusignan, Famagouste génoise ; les Mamelouks du delta, de
 Suez, d'Alexandrie et du nord du Sinaï ; la Horde d'Or de la steppe pontique et de la
-Crimée de Qırq Yer, Cembalo génoise ; Venise, pour la Crète, Karpathos et Kasos). La
+Crimée de Qırq Yer, Cembalo génoise ; Venise, pour la Crète, Karpathos et Kasos) et
+`maghreb` (les Hafsides de Tunis, du Djérid, de Constantine et de Bougie, la cellule de
+Biskra comprise ; les Zayyanides de Tlemcen, d'Oran, de Médéa et d'Alger ; les Mérinides
+de Fès, de Ceuta et Tanger, de Taza, de Meknès, du Tadla, de l'Atlas et de Marrakech ;
+Pantelleria sicilienne). La
 Venise d'outre-mer (la Crète, Corfou, Cythère, Négrepont, Tinos et Mykonos, Karpathos et
 Kasos, Coron, Argos et Nauplie, Athènes, Durazzo et Scutari), la Chios et la Samos
 génoises et la Smyrne des Hospitaliers y sont déclarées avec elles. L'Épire, l'Achaïe,
 Patras, Thèbes, la Zeta, les seigneurs albanais, Raguse, les îles des Tocco, du duché de
 l'Archipel et des Querini, Lesbos des Gattilusi, la Cyrénaïque et la Marmarique
-bédouines sont des lacunes ou des villes sans pays, chacune avec sa raison. Pour ces
-cellules, l'ancre la plus proche ne décide plus rien. Elle porte 409 cellules entières,
-rangées par pays avec une source publique par pays ; 96 cellules partagées ; 43 lacunes
+bédouines, la Tripolitaine des Banou Thabit, le Hodna, et les oasis et steppes du désert
+(l'Oued Righ, le Souf, le Zab occidental, le Mzab, les steppes de Laghouat et de
+Djelfa, le Djebel Amour, les monts des Ksour, la haute Moulouya, Figuig, le Tafilalt, le
+Drâa, le Sous) sont des lacunes ou des villes sans pays, chacune avec sa raison : dans
+le désert, des tribus et des oasis dont l'histoire ne nomme pas les maîtres, tenues par
+des seigneurs plausibles de **niveau 2** sans pays de la table. Aucune cellule de la
+carte ne doit son pays à l'ancre la plus proche. La table porte 435 cellules entières,
+rangées par pays avec une source publique par pays ; 96 cellules partagées ; 65 lacunes
 avec leur raison (Bologne, Ferrare et Ravenne ; Elbe ; Lastovo et Mljet ; deux îlots du
 Sulcis ; deux îles frisonnes ; les îles d'Ösel-Wiek ; les Champs sauvages à l'est du
 Dniepr ; l'Épire ; les îles des Tocco, du duché de l'Archipel et Astypalée ; Égine,
 Salamine et Hydra ; Lesbos, Ténédos, Psara, Icarie et Ágios Efstrátios ; la Cyrénaïque
-et la Marmarique) ; 24 pays plus petits que deux lieux, déclarés avec leur raison
+et la Marmarique ; la Tripolitaine, le Hodna et le désert) ; 24 pays plus petits que deux lieux, déclarés avec leur raison
 (Calais, Andorre, Saint-Marin, Piombino, Tournai, Péra, Théodoro et les villes libres
 d'Empire, dont Lübeck, Cologne, Francfort, Nuremberg et Metz, chacune avec le pays qui
-reçoit son lieu) ; et 126 villes témoins, chacune avec son pays de 1400 et sa source,
+reçoit son lieu) ; et 134 villes témoins, chacune avec son pays de 1400 et sa source,
 que les preuves lisent, d'une région au moins. Une cellule
 partagée nomme une ville sourcée par pays, 350 en tout, jamais une ville libre ; une
 ville sans pays (`pays: null`) dit sa raison, 28 en tout : Padoue aux Carrara, Mantoue
@@ -1771,24 +1780,14 @@ monde d'épreuve qui ne porte qu'une part de la carte ignore les cellules décla
 qu'il n'a pas (`frontieres_du_monde`). Le pays d'une cellule déclarée, et celui de
 chaque ville témoin, sont de **niveau 1**, d'après des sources publiques citées
 pays par pays ; le tracé à l'intérieur d'une cellule partagée est de **niveau 2**.
-Sur la carte figée, 541 cellules ont une puissance et 55 n'en ont pas : les
+Sur la carte figée, 527 cellules ont une puissance et 69 n'en ont pas : les
 lacunes de la table et les cellules partagées dont le bourg est sans pays (la
-Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart) s'ajoutent aux
-cellules hors de portée.
+Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart). Chacune dit sa raison
+dans la table : sa lacune, ou la ville sans pays de son bourg.
 
-Les deux `lacunes` déclarent des points nommés et une `raison` : Tripolitaine et
-Oued Righ. Les points des Shetland, des Féroé, de la Finlande, de Hiiumaa, de la
-Dalécarlie et de la Cyrénaïque ont disparu : la table des frontières déclare ces
-cellules (à l'Union de Kalmar, ou en lacune avec sa raison pour Hiiumaa et la
-Cyrénaïque).
-Une cellule non couverte est expliquée par la lacune la plus proche de son
-centroïde, dans la même projection et la même portée ; une égalité exacte
-se départage par le plus petit identifiant de lacune. Au-delà, sa raison est
-`None` et la preuve échoue. Une cellule non couverte que la table des frontières
-décide est expliquée par elle : sa lacune, ou la ville sans pays du bourg d'une
-cellule partagée. Chaque cellule non couverte a une raison, chaque
-lacune sert. Une lacune n'attribue aucune cellule à une puissance ; son point
-est de **niveau 2**, plausible, jamais sourcé.
+Les points de lacune de la table des puissances ont disparu : chaque cellule sans pays
+a sa lacune, ou la ville sans pays du bourg de son partage, dans la table des
+frontières, avec sa raison.
 
 Les anomalies que l'ancre donnait sont corrigées par la table : Rhodes ne donne plus
 aux Hospitaliers les Cyclades orientales, l'est de la Crète et la côte carienne, ni
@@ -1863,14 +1862,13 @@ d'Osman à Paléologue ; 10032 reste à Paléologue, les comptes restent inchang
 Une cellule non couverte rend `None`, comme une cellule de république,
 d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
 puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
-Sur les 596 cellules figées, **471** sont tenues par une maison, **70** sont
-sans maison par déclaration de nature, et **55** sont non couvertes.
+Sur les 596 cellules figées, **457** sont tenues par une maison, **70** sont
+sans maison par déclaration de nature, et **69** sont non couvertes.
 Chacune des 56 maisons tient au moins une cellule.
 
 Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
-sources publiques. Leur étendue suit les ancres hors des régions de la table des
-frontières, où elle est de **niveau 2**, plausible et jamais sourcée ; dans
-l'Ouest, l'Empire, le Nord, l'Est, les Balkans et l'Orient, elle suit la table, de **niveau 1**. Les anomalies que l'ancre
+sources publiques. Leur étendue suit, sur toute la carte, la table des frontières,
+de **niveau 1**. Les anomalies que l'ancre
 y donnait se corrigent par la table et ses témoins : Innsbruck et Linz sont à
 l'Autriche, Besançon au comté de Bourgogne et Lille à la Bourgogne. Luxembourg tient
 le Saint-Empire, mais aucune de ses cellules : chacune va au prince qui la tenait,
@@ -1943,7 +1941,15 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
   est sans puissance ;
 - `voisins`, cellules reliées au siège par une arête `land-land` de
   `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
-  puissance (ou `None`) et ses habitants actuels.
+  puissance (ou `None`) et ses habitants actuels. Le Zab, à Biskra, a pour voisins
+  les Hafsides de Bougie, de Constantine, du Djérid et de Tébessa, ses suzerains, et
+  les terres sans pays du Souf, du Zab occidental et du Hodna. La place d'un autre
+  maître la plus proche, par le chemin terrestre que suit le geste `marcher`, est le
+  bourg du Souf (cellule 10107), d'un seigneur plausible du désert, à 25 jours de
+  marche ; la plus proche place d'un pays de la table est Alger, zayyanide, à 50 jours.
+  Les deux sont au-delà des 20 jours de la portée de l'IA (`ia.jours_de_marche_max`) :
+  c'est le relief du désert, qui ne doit rien aux frontières, et l'IA du Zab ne lève
+  pas pour la guerre.
 
 **Niveau 1** : maison, religion, suzerain et point du siège, vérifiés contre
 des sources publiques ; seigneur quand il est sourcé, chef du Zab déclaré

@@ -7,7 +7,8 @@
     "nord": [21],
     "est": [22, 23, 24, 31, 32, 82, 83],
     "balkans": [25, 26, 27, 28, 29, 30],
-    "orient": [13, 33, 34, 38, 39]
+    "orient": [13, 33, 34, 38, 39],
+    "maghreb": [35, 36, 37]
   },
   "pays": [
     {"pays": 1, "source": "Wikipédia en anglais, article Kingdom of England : la conquête du pays de Galles par Édouard Ier, achevée en 1284, le met sous la couronne d'Angleterre (https://en.wikipedia.org/wiki/Kingdom_of_England); Wikipédia en anglais, article Isle of Man : l'île passe sous la seigneurie féodale de la couronne d'Angleterre en 1399 (https://en.wikipedia.org/wiki/Isle_of_Man); Wikipédia en anglais, article Channel Islands : Jean sans Terre perd la Normandie en 1204 mais garde les îles Anglo-Normandes (https://en.wikipedia.org/wiki/Channel_Islands)", "cellules": [10172, 10189, 10200, 10187, 10171, 10246, 10197, 10237, 10188, 10205, 2656, 10240, 10180, 10198, 1183, 10212, 10203, 10184, 10195, 1221, 10208, 10214, 1223, 1203, 1195]},
@@ -26,7 +27,7 @@
     {"pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti étend ses domaines à Vérone et Vicence (1387), Feltre et Belluno (1388), Pise et Sienne (1399) (https://en.wikipedia.org/wiki/Duchy_of_Milan)", "cellules": [10466, 10454, 10255, 10265]},
     {"pays": 17, "source": "Wikipédia en anglais, article Papal States : au plus fort, les États de l'Église couvrent le Latium, les Marches, l'Ombrie et la Romagne ; des seigneurs locaux n'y reconnaissent le pape que de nom (https://en.wikipedia.org/wiki/Papal_States)", "cellules": [10277, 10271, 10276]},
     {"pays": 18, "source": "Wikipédia en anglais, article Abruzzo : à la paix de Caltabellotta (1302), la Sicile va à la couronne d'Aragon et le Sud continental au royaume de Naples (https://en.wikipedia.org/wiki/Abruzzo)", "cellules": [10278, 10288, 10283, 1311, 10298, 10287, 10302, 10296, 10292]},
-    {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily)", "cellules": [9905, 9914, 9921, 1313, 1318]},
+    {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily) ; Wikipédia en anglais, article Pantelleria : l'île est prise pour la couronne de Sicile en 1311 (https://en.wikipedia.org/wiki/Pantelleria)", "cellules": [9905, 9914, 9921, 1313, 1318, 1296]},
     {"pays": 16, "source": "Wikipédia en anglais, article Bastia : en 1370, la république de Gênes envoie deux gouverneurs en Corse ; la Maona gère l'île pour elle (https://en.wikipedia.org/wiki/Bastia) ; Wikipédia en anglais, article Maona of Chios : la Maona des Giustiniani, compagnie génoise, tient Chios et Samos pour la république depuis 1346 (https://en.wikipedia.org/wiki/Maona_of_Chios)", "cellules": [2943, 1428, 1435]},
     {"pays": 5, "source": "Wikipédia en anglais, article Santiago de Compostela : les royaumes de León et de Galice s'unissent au royaume de Castille (https://en.wikipedia.org/wiki/Santiago_de_Compostela); Wikipédia en anglais, article Seville : Séville entre dans la Castille en 1248 (https://en.wikipedia.org/wiki/Seville); Wikipédia en anglais, article Soria : Soria est castillane définitivement en 1134 (https://en.wikipedia.org/wiki/Soria)", "cellules": [10222, 10210, 10217, 10220, 10204, 10216]},
     {"pays": 4, "source": "Wikipédia en anglais, article Porto : en 1387, Porto accueille le mariage de Jean Ier de Portugal et de Philippa de Lancastre (https://en.wikipedia.org/wiki/Porto); Wikipédia en anglais, article Elvas : Elvas est portugaise depuis 1226 (https://en.wikipedia.org/wiki/Elvas)", "cellules": [10231, 10229]},
@@ -59,7 +60,10 @@
     {"pays": 13, "source": "Wikipédia en anglais, article Kingdom of Candia : la Crète est vénitienne de 1211 à 1669 (https://en.wikipedia.org/wiki/Kingdom_of_Candia) ; Wikipédia en anglais, article Corfu : Corfou se donne à Venise en 1386 (https://en.wikipedia.org/wiki/Corfu) ; Wikipédia en anglais, article Kythira : Cythère est vénitienne depuis 1363 (https://en.wikipedia.org/wiki/Kythira) ; Wikipédia en anglais, article Negroponte : l'Eubée est la seigneurie vénitienne de Négrepont (https://en.wikipedia.org/wiki/Negroponte) ; Wikipédia en anglais, article Tinos : Tinos et Mykonos passent à Venise en 1390, au legs de Georges III Ghisi (https://en.wikipedia.org/wiki/Tinos) ; Wikipédia en anglais, article Karpathos : Karpathos et Kasos appartiennent aux Cornaro, nobles vénitiens, de 1306 à 1538 (https://en.wikipedia.org/wiki/Karpathos)", "cellules": [1355, 1389, 1398, 1415, 1419, 9989, 9996, 10003, 1440, 1437]},
     {"pays": 39, "source": "Wikipédia en anglais, article Knights Hospitaller : l'ordre tient Rhodes et le Dodécanèse de 1310 à 1522 (https://en.wikipedia.org/wiki/Knights_Hospitaller) ; Wikipédia en anglais, article Kos : le château de Kos est hospitalier (https://en.wikipedia.org/wiki/Kos)", "cellules": [1448, 1439, 1436, 1438, 1441, 1447]},
     {"pays": 34, "source": "Wikipédia en anglais, article Mamluk Sultanate : le sultanat tient l'Égypte, avec Alexandrie et Damiette, et la Syrie jusqu'à Gaza (https://en.wikipedia.org/wiki/Mamluk_Sultanate)", "cellules": [8992, 9008, 10168, 10169]},
-    {"pays": 33, "source": "Wikipédia en anglais, article Golden Horde : la Horde tient la steppe pontique et la Crimée intérieure (https://en.wikipedia.org/wiki/Golden_Horde)", "cellules": [10411, 10402, 1479, 10404, 1492]}
+    {"pays": 33, "source": "Wikipédia en anglais, article Golden Horde : la Horde tient la steppe pontique et la Crimée intérieure (https://en.wikipedia.org/wiki/Golden_Horde)", "cellules": [10411, 10402, 1479, 10404, 1492]},
+    {"pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Abu Faris Abd al-Aziz II (1394–1434) tient l'Ifriqiya, de Tunis au Djérid, et le Constantinois avec Constantine et Bougie (https://en.wikipedia.org/wiki/Hafsid_dynasty) ; Wikipédia en anglais, article Biskra : le Zab, de Biskra, relève des Hafsides (https://en.wikipedia.org/wiki/Biskra)", "cellules": [10143, 9876, 10137, 1283, 1285, 1287, 10119, 10131, 9879, 10128, 10122, 10108, 10090, 10103]},
+    {"pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : le royaume zayyanide de Tlemcen s'étend d'Oran et de Tlemcen à Alger et à Médéa (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)", "cellules": [9788, 9861, 9957, 10041]},
+    {"pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : le sultanat mérinide de Fès tient le Maroc atlantique et méditerranéen, de Ceuta et Tanger à Marrakech, jusqu'à la prise de Ceuta par le Portugal en 1415 (https://en.wikipedia.org/wiki/Marinid_dynasty)", "cellules": [9831, 9836, 9813, 9848, 9841, 9839, 9827]}
   ],
   "partages": [
     { "cell_id": 10430, "villes": [
@@ -648,7 +652,29 @@
     {"cell_id": 1413, "raison": "Ágios Efstrátios, îlot voisin de Lemnos, sans maître établi au 1er janvier 1400 par une source publique : non départagé."},
     {"cell_id": 8924, "raison": "Cyrénaïque : terres bédouines entre Hafsides et Mamelouks, sans ville tenue par une puissance de la table."},
     {"cell_id": 10167, "raison": "Marmarique, de Tobrouk à Sollum : terres bédouines aux confins des Mamelouks, sans ville tenue par une puissance de la table."},
-    {"cell_id": 1433, "raison": "Astypalée, seigneurie des Querini, nobles vénitiens (article Astypalaia) : puissance absente de la table."}
+    {"cell_id": 1433, "raison": "Astypalée, seigneurie des Querini, nobles vénitiens (article Astypalaia) : puissance absente de la table."},
+    {"cell_id": 9902, "raison": "Tripolitaine, de Tripoli : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 9916, "raison": "Tripolitaine, de Misrata et du Djebel : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 9887, "raison": "Tripolitaine, de la Djeffara : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 10095, "raison": "Oued Righ, de Touggourt : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10107, "raison": "Souf, d'El Oued : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10087, "raison": "Zab occidental, d'Ouled Djellal : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10115, "raison": "Grand Erg oriental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10134, "raison": "Erg au nord de Ghadamès : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10078, "raison": "Mzab, de Ghardaïa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9961, "raison": "Chebka du Mzab occidental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9866, "raison": "Gourara et grand erg occidental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10037, "raison": "Steppes de Laghouat et de Djelfa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9872, "raison": "Djebel Amour : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9854, "raison": "Steppes d'El Bayadh : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9781, "raison": "Monts des Ksour : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9797, "raison": "Hautes plaines au sud de Tlemcen : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9812, "raison": "Haute Moulouya : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9801, "raison": "Figuig : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9820, "raison": "Tafilalt, de Sijilmassa, ruinée à la fin du XIVe siècle : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9832, "raison": "Dadès et Drâa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9849, "raison": "Sous, de Taroudant : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10082, "raison": "Hodna, de M'Sila, aux confins des Hafsides de Bougie et des Zayyanides : non départagé."}
   ],
   "petits_pays": [
     {"nom": "Andorre", "raison": "Coseigneurie de l'évêque d'Urgell et du comte de Foix depuis les paréages de 1278, moins de 500 km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Andorre)."},
@@ -802,6 +828,14 @@
     {"nom": "Famagouste", "lat": 35.12, "lon": 33.94, "pays": 16, "source": "Wikipédia en anglais, article Famagusta : ville génoise de 1373 à 1464 (https://en.wikipedia.org/wiki/Famagusta)"},
     {"nom": "Le Caire", "lat": 30.04, "lon": 31.24, "pays": 34, "source": "Wikipédia en anglais, article Mamluk Sultanate : Le Caire est la capitale du sultanat (https://en.wikipedia.org/wiki/Mamluk_Sultanate)"},
     {"nom": "Alexandrie", "lat": 31.2, "lon": 29.92, "pays": 34, "source": "Wikipédia en anglais, article Alexandria : Alexandrie est mamelouke (https://en.wikipedia.org/wiki/Alexandria)"},
-    {"nom": "Qırq Yer", "lat": 44.74, "lon": 33.88, "pays": 33, "source": "Wikipédia en anglais, article Chufut-Kale : garnison tatare de la Horde depuis 1299 (https://en.wikipedia.org/wiki/Chufut-Kale)"}
+    {"nom": "Qırq Yer", "lat": 44.74, "lon": 33.88, "pays": 33, "source": "Wikipédia en anglais, article Chufut-Kale : garnison tatare de la Horde depuis 1299 (https://en.wikipedia.org/wiki/Chufut-Kale)"},
+    {"nom": "Tunis", "lat": 36.81, "lon": 10.18, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Tunis est la capitale des Hafsides (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Constantine", "lat": 36.37, "lon": 6.61, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Constantine est la capitale du Constantinois hafside (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Bougie", "lat": 36.75, "lon": 5.08, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Bougie est hafside (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Tlemcen", "lat": 34.88, "lon": -1.32, "pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : Tlemcen est la capitale du royaume zayyanide (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)"},
+    {"nom": "Alger", "lat": 36.75, "lon": 3.06, "pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : Alger relève du royaume zayyanide de Tlemcen (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)"},
+    {"nom": "Fès", "lat": 34.06, "lon": -4.97, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Fès est la capitale du sultanat mérinide (https://en.wikipedia.org/wiki/Marinid_dynasty)"},
+    {"nom": "Marrakech", "lat": 31.63, "lon": -7.99, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Marrakech est mérinide (https://en.wikipedia.org/wiki/Marinid_dynasty)"},
+    {"nom": "Ceuta", "lat": 35.89, "lon": -5.32, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Ceuta est mérinide jusqu'à sa prise par le Portugal en 1415 (https://en.wikipedia.org/wiki/Marinid_dynasty)"}
   ]
 }

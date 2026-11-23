@@ -269,9 +269,5 @@
     { "id": 111, "puissance": 78, "nom": "Osnabrück", "lat": 52.28, "lon": 8.05, "source": "Wikipédia en anglais, article Osnabrück : Osnabrück est le siège des princes-évêques d'Osnabrück (https://en.wikipedia.org/wiki/Osnabr%C3%BCck)" },
     { "id": 114, "puissance": 81, "nom": "Udine", "lat": 46.06, "lon": 13.24, "source": "Wikipédia en anglais, article Udine : Udine est la résidence des patriarches d'Aquilée à partir du XIIIe siècle (https://en.wikipedia.org/wiki/Udine)" },
     { "id": 115, "puissance": 83, "nom": "Varsovie", "lat": 52.23, "lon": 21.01, "source": "Wikipédia en anglais, article Warsaw : Varsovie est la résidence des ducs de Mazovie, et la capitale du duché à partir de 1413 (https://en.wikipedia.org/wiki/Warsaw)" }
-  ],
-  "lacunes": [
-    { "id": 6, "nom": "Tripolitaine", "lat": 32.89, "lon": 13.19, "raison": "Marge du sultanat hafside, plus loin de Tunis que la portée." },
-    { "id": 8, "nom": "Oued Righ", "lat": 33.1, "lon": 6.07, "raison": "Oasis du Sahara, tribus hors de tout État de la table." }
   ]
 }

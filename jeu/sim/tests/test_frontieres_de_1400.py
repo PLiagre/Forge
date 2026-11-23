@@ -67,7 +67,7 @@ REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
-EN_ATTENTE = frozenset({"maghreb"})
+EN_ATTENTE = frozenset()
 # Les vassaux que les fiches nomment, et le suzerain que leur fiche de pays sert.
 VASSAUX_NOMMES = {
     "Serbie": "Ottomans", "Gênes": "France", "Naples": "États de l'Église", "Guyenne": "Angleterre",
@@ -472,11 +472,11 @@ def _verifier_luxembourg(s, vue):
 @_en_attente("empire")
 def test_empire_le_duche_de_luxembourg_tient_au_plus_les_lieux_que_la_table_lui_donne(livre):
     _verifier_luxembourg(livre, livre.vue)
-    # Contre-épreuve : une cellule que la table ne décide pas, donnée au duché, se voit.
+    # Contre-épreuve : une cellule que la table donne à un autre pays, donnée au duché, se voit.
     duche = _puissance_nommee(livre.table, DUCHE_DE_LUXEMBOURG)
-    libre = next(c for c in sorted(livre.vue) if c not in livre.frontieres.declarees())
+    autre = next(c for c, p in livre.frontieres.cellules.items() if p != duche)
     with pytest.raises(AssertionError, match="ne lui donne pas"):
-        _verifier_luxembourg(livre, {**livre.vue, libre: duche})
+        _verifier_luxembourg(livre, {**livre.vue, autre: duche})
 
 
 def _verifier_ensembles(s, fiches):

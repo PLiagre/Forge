@@ -301,7 +301,7 @@ def test_compte(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
     avec, sans, non_couvertes, incoherentes = _compter(monde, table, maisons, vue)
-    assert (avec, sans, non_couvertes) == (471, 70, 55)
+    assert (avec, sans, non_couvertes) == (457, 70, 69)
     assert avec + sans + non_couvertes == len(monde.cells) and incoherentes == 0
     _chaque_maison(vue, maisons)
     ids = {m.nom: m.id for m in maisons.maisons}
@@ -373,7 +373,7 @@ def test_ancre_contenue(carte):
     vue = maisons_depuis_monde(monde)
     ids = {m.nom: m.id for m in maisons.maisons}
     assert vue[10374] == ids["Paléologue"]
-    assert _compter(monde, table, maisons, vue) == (471, 70, 55, 0)
+    assert _compter(monde, table, maisons, vue) == (457, 70, 69, 0)
     # Une cellule que la table des frontières déclare a le pays de la table (celui de son bourg si
     # elle est partagée, aucun si elle est en lacune) ; toutes les autres suivent l'ancre contenante
     # ou la plus proche.
@@ -392,7 +392,8 @@ def test_ancre_contenue(carte):
             return maisons.par_ancre[ancre] if ancre is not None else None
         return maisons.par_puissance[pays] if pays is not None else None
 
-    assert ancres and declarees and declarees < set(ancres)
+    # La table déclare chaque cellule de la carte : l'ancre n'en décide plus aucune.
+    assert ancres and declarees and declarees == set(ancres)
     assert all(vue[c] == attendue(c, a) for c, a in ancres.items())
     deplacee = dataclasses.replace(table, ancres=tuple(
         dataclasses.replace(a, lat=positions[10032][0], lon=positions[10032][1])
@@ -413,7 +414,7 @@ def test_ancre_contenue(carte):
                               geometries)[10374] == ids["Wittelsbach"]
     assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Paléologue"]
     assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
-    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(471, 70, 55)")
+    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(457, 70, 69)")
 
 
 # Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.

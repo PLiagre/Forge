@@ -732,102 +732,6 @@ def test_geographie_et_compte_des_puissances_orientales():
     assert puissances_depuis_monde(monde, table=sans_nicosie) == vue
 
 
-def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
-    from sim.puissances import charger_lacunes, lacune_par_cellule
-
-    monde, positions = World.charger(0), charger_positions()
-    vue, lacunes = puissances_depuis_monde(monde), charger_lacunes()
-    portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
-    # Les points des Shetland, des Féroé, de la Finlande, de Hiiumaa et de la Dalécarlie ont disparu :
-    # la table des frontières déclare leurs cellules, et celle de la Cyrénaïque est une lacune de la table.
-    # Restent ceux du Maghreb et de la Libye.
-    assert len(lacunes) == 2 and all(l.raison.strip() for l in lacunes)
-    assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
-
-    # Une cellule non couverte est expliquée par la table des frontières quand elle la décide : sa lacune,
-    # ou la ville sans pays (et sa raison) d'une cellule partagée dont le bourg est sans pays. Les autres
-    # le sont par la lacune ponctuelle la plus proche.
-    frontieres = frontieres_du_monde(monde)
-    declarees = frontieres.declarees()
-    lieux = puissances_des_lieux(monde, frontieres=frontieres)
-    non_couvertes = cellules_non_couvertes(vue)
-    de_la_table = tuple(c for c in non_couvertes if c in declarees)
-    assert de_la_table == _sans_pays_de_la_table(monde) and de_la_table
-    sans_raison_de_la_table = 0
-    for cid in de_la_table:
-        if cid in frontieres.lacunes:
-            raison = frontieres.lacunes[cid]
-        else:
-            assert lieux[cid, 0] is None
-            raison = " ".join(v.raison or "" for v in frontieres.partages[cid] if v.pays is None)
-        sans_raison_de_la_table += not raison.strip()
-    vue_hors_table = {c: p for c, p in vue.items() if c not in declarees}
-    avant = copy.deepcopy((positions, vue, lacunes, monde.to_dict()))
-
-    def compter(retenues):
-        raisons = lacune_par_cellule(positions, vue_hors_table, retenues, portee, latitude)
-        assert set(raisons) == set(cellules_non_couvertes(vue_hors_table))
-        return len(raisons), sum(r is None for r in raisons.values()), sum(l.id not in raisons.values() for l in retenues)
-
-    hors_table, sans_raison, lacunes_inutiles = compter(lacunes)
-    print(f"non_couvertes={len(non_couvertes)}, de_la_table={len(de_la_table)}, hors_table={hors_table}, "
-          f"sans_raison={sans_raison + sans_raison_de_la_table}, lacunes_inutiles={lacunes_inutiles}")
-    assert len(non_couvertes) == len(de_la_table) + hors_table and hors_table > 0
-    assert sans_raison == sans_raison_de_la_table == lacunes_inutiles == 0
-    # Sans la lacune ponctuelle de la Tripolitaine, deux cellules hors table restent sans raison ; sans la table,
-    # les cellules qu'elle décide n'auraient aucune lacune ponctuelle pour les expliquer.
-    sans_tripolitaine = compter(tuple(l for l in lacunes if l.nom != "Tripolitaine"))
-    paris = dataclasses.replace(lacunes[0], id=max(l.id for l in lacunes) + 1,
-                                nom="Paris", lat=48.86, lon=2.35)
-    avec_paris = compter(lacunes + (paris,))
-    print(f"sans_Tripolitaine={sans_tripolitaine}, avec_Paris={avec_paris}")
-    assert sans_tripolitaine[1] == 2 and avec_paris[2] == 1
-    sans_la_table = lacune_par_cellule(positions, vue, lacunes, portee, latitude)
-    assert sum(r is None for r in sans_la_table.values()) == len(de_la_table)
-    assert compter(tuple(reversed(lacunes))) == (hors_table, sans_raison, lacunes_inutiles)
-    assert (positions, vue, lacunes, monde.to_dict()) == avant
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        paris.raison = "modifiée"
-
-
-def test_refus_des_lacunes_sans_affecter_la_table(tmp_path):
-    from sim.puissances import charger_lacunes
-
-    cas = [
-        ("lacunes", None), ("lacunes", []), ("lacunes", {}),
-        ("raison", ""), ("raison", None), ("nom", "  "), ("nom", None),
-        ("lat", "32.89"), ("lon", math.nan), ("lat", math.inf), ("lon", True),
-        ("id", "dupliqué"), ("id", False),
-    ]
-    refus_observes = 0
-    for champ, valeur in cas:
-        document = _document()
-        lacune = document["lacunes"][0]
-        identifiant = lacune["id"]
-        if champ == "lacunes":
-            if valeur is None:
-                del document[champ]
-            else:
-                document[champ] = valeur
-            ligne = "champ lacunes"
-        else:
-            if valeur is None:
-                del lacune[champ]
-            elif champ == "id" and valeur == "dupliqué":
-                document["lacunes"][1]["id"] = identifiant
-            else:
-                lacune[champ] = valeur
-            ligne = f"lacune {valeur if champ == 'id' and isinstance(valeur, bool) else identifiant}"
-        chemin = _ecrire(tmp_path, document)
-        with pytest.raises(PuissanceInvalide) as erreur:
-            charger_lacunes(chemin)
-        assert ligne in str(erreur.value) and champ in str(erreur.value)
-        assert charger_table(chemin) == charger_table()
-        refus_observes += 1
-    print(f"refus_observés={refus_observes}/{len(cas)}")
-    assert refus_observes == len(cas) > 0
-
-
 def test_ancrage_oriental_sans_piege():
     table = charger_table()
     pieges = {"Bursa": (40.19, 29.06), "Iznik": (40.43, 29.72), "Athènes": (37.98, 23.73)}
@@ -843,39 +747,6 @@ def test_ancrage_oriental_sans_piege():
     contre_epreuve = compter(table.ancres + (bursa,))
     print(f"ancres_sur_piege={ancres_sur_piege}, avec_Bursa={contre_epreuve}")
     assert ancres_sur_piege == 0 and contre_epreuve == 1
-
-
-def test_lacune_departage_projection_et_bord_de_portee():
-    from sim.puissances import charger_lacunes, lacune_par_cellule
-
-    positions = charger_positions()
-    latitude = charger_latitude_moyenne_puissances()
-    paris = _cellule_la_plus_proche((48.86, 2.35), positions, latitude)
-    londres = _cellule_la_plus_proche((51.51, -.13), positions, latitude)
-    assert paris != londres
-    lacunes = charger_lacunes()
-    ouest = dataclasses.replace(lacunes[0], lat=0.0, lon=-1.0)
-    est = dataclasses.replace(lacunes[1], lat=0.0, lon=1.0)
-    vue = {paris: None, londres: charger_table().puissances[0].id}
-    gagnants = [lacune_par_cellule({paris: (0.0, 0.0)}, vue, ordre, 1.0, 0.0)
-                for ordre in ((ouest, est), (est, ouest))]
-    assert gagnants == [{paris: ouest.id}, {paris: ouest.id}]
-    origine = dataclasses.replace(ouest, lon=0.0)
-    sur_bord = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), 1.0, 0.0)
-    au_dela = lacune_par_cellule({paris: (0.0, math.nextafter(1.0, math.inf))}, vue, (origine,), 1.0, 0.0)
-    assert sur_bord == {paris: origine.id} and au_dela == {paris: None}
-    portee = (facteur_de_projection(latitude) + 1.0) / 2
-    avec_projection = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), portee, latitude)
-    sans_projection = lacune_par_cellule({paris: (0.0, 1.0)}, vue, (origine,), portee, 0.0)
-    assert avec_projection == {paris: origine.id} and sans_projection == {paris: None}
-    assert lacune_par_cellule({}, {}, lacunes, portee, latitude) == {}
-    refus_observes = 0
-    for invalide in (True, "1", math.nan, 0, -1):
-        with pytest.raises(PuissanceInvalide, match="portee"):
-            lacune_par_cellule({paris: (0.0, 0.0)}, vue, lacunes, invalide, latitude)
-        refus_observes += 1
-    print(f"départages={len(gagnants)}, bord_couvert={sur_bord[paris] is not None}, au_delà={au_dela[paris]}, refus_observés={refus_observes}")
-    assert refus_observes > 0
 
 
 def test_projection_epsg3035_au_centimetre():
@@ -971,10 +842,10 @@ def test_ancre_contenue_carte():
     comptes, comptes_ancre = Counter(vue.values()), Counter(par_ancre.values())
     assert (comptes_ancre[ids["Byzance"]], comptes_ancre[ids["Ottomans"]]) == (24, 48)
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 541 et 55 : ses lacunes et
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 527 et 69 : ses lacunes et
     # les cellules dont le bourg est d'une ville sans pays.
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (541, 55)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (527, 69)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
