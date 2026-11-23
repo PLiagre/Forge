@@ -23,7 +23,7 @@ namespace Forge.Interface.Tests
             racine = new GameObject("Carte de la guerre témoin", typeof(CarteDessinee)); carte = racine.GetComponent<CarteDessinee>();
             var camera = new GameObject("Caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false);
             camera.orthographic = true; camera.orthographicSize = 20; camera.transform.SetPositionAndRotation(new Vector3(0, 100, 0), Quaternion.Euler(90, 0, 0)); carte.camera = camera;
-            carte.Montrer(new CarteLue(3, new[] { Carre(10, 0), Carre(20, 10000), Carre(30, 20000) }));
+            var lue = new CarteLue(3, new[] { Carre(10, 0), Carre(20, 10000), Carre(30, 20000) }); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
             Assert.That(carte.CellulesPosees, Is.EqualTo(3), "la carte témoin n'est pas posée");
             toile = new GameObject("Toile témoin", typeof(Canvas));
             calques = racine.AddComponent<CalquesCarte>(); calques.Initialiser(carte, toile.transform, () => null, () => null);

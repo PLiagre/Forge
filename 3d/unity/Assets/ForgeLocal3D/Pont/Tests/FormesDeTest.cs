@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -29,6 +31,29 @@ namespace Forge.Pont.Tests {
         public static FormesLues UnLieuParCellule(CarteLue lue) =>
             new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) })));
         public static TerrainDeCarte Lever(CarteLue lue) => TerrainDeCarte.Lever(lue, UnLieuParCellule(lue));
+        // Le corps de `/formes` qui répond à ce corps de `/carte` : chaque cellule en un seul lieu, de son contour servi.
+        public static byte[] UnLieuParCelluleServi(byte[] carte) {
+            var racine = LecteurJson.LireObjet(Encoding.UTF8.GetString(carte)); var s = new StringBuilder("{\"crs\":\"EPSG:3035\",\"version\":null,\"cells\":[");
+            bool premiere = true;
+            foreach (Dictionary<string, object> cellule in (List<object>)racine["cells"]) {
+                if (!premiere) s.Append(','); premiere = false;
+                string contour = Json(cellule["contour"]);
+                s.Append("{\"cell_id\":").Append(Json(cellule["cell_id"])).Append(",\"contour\":").Append(contour).Append(",\"lieux\":[{\"rang\":0,\"contour\":").Append(contour).Append("}]}");
+            }
+            return Encoding.UTF8.GetBytes(s.Append("]}").ToString());
+        }
+        // Une valeur lue par LecteurJson, récrite en JSON.
+        private static string Json(object valeur) {
+            switch (valeur) {
+                case null: return "null";
+                case string texte: return "\"" + texte.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+                case double nombre: return nombre.ToString("R", CultureInfo.InvariantCulture);
+                case bool oui: return oui ? "true" : "false";
+                case List<object> liste: return "[" + string.Join(",", liste.Select(Json)) + "]";
+                case Dictionary<string, object> objet: return "{" + string.Join(",", objet.Select(p => Json(p.Key) + ":" + Json(p.Value))) + "}";
+                default: throw new ArgumentException("valeur JSON inconnue : " + valeur.GetType().Name);
+            }
+        }
 
         // Le pays de chaque lieu du terrain selon `/terres` : un indice par pays servi, 0 pour un lieu sans pays.
         public static int[] PaysDesLieux(TerrainDeCarte t, CarteLue lue, TerresDeLaCarte servies) {

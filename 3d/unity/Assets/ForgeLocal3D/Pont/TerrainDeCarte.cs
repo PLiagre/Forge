@@ -106,10 +106,6 @@ namespace Forge.Pont {
         internal ushort[] TexelsDesLieux => lieux;
         // La cellule de chaque numéro de texel : 0 pour la mer, sinon le rang servi + 1.
         internal ushort[] CellulesDesNumeros => cellulesDesNumeros;
-        // La grille des cellules, tirée de celle des lieux : 0 pour la mer, sinon le rang servi + 1.
-        internal ushort[] TexelsDesCellules {
-            get { var grille = new ushort[lieux.Length]; Parallel.For(0, Hauteur, j => { for (int k = j * Largeur; k < (j + 1) * Largeur; k++) grille[k] = cellulesDesNumeros[lieux[k]]; }); return grille; }
-        }
         internal byte[] TexelsDesBords => bords;
         internal float[] TexelsDuRelief => altitudes;
         internal Vector3[] SommetsDuMaillage => sommets;
