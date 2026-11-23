@@ -62,7 +62,7 @@ REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
-EN_ATTENTE = frozenset({"empire", "nord", "est"})
+EN_ATTENTE = frozenset({"nord", "est"})
 # Un pays plus petit que deux lieux se déclare en lacune, avec sa raison.
 LIEUX_MIN_D_UN_PAYS = 2
 EMPIRE = "Saint-Empire"
@@ -195,10 +195,12 @@ def test_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_ancre(
     s = _region(livre, region)
     par_l_ancre = _par_l_ancre(s, s.table)
     _verifier_couverture(s, s.vue, par_l_ancre)
-    # Les ancres des deux premiers pays ancrés de la région échangées changent la règle de l'ancre,
-    # mais aucune cellule de la région : la table décide, pas l'ancre la plus proche.
+    # Les ancres des deux premiers pays ancrés de la région qui ont une maison échangées changent la
+    # règle de l'ancre, mais aucune cellule de la région : la table décide, pas l'ancre la plus proche.
+    # Le siège d'une institution est sa première ancre et place le bourg d'une cellule partagée : les
+    # pays échangés ont une maison, dont le siège est sa capitale.
     ancres = {a.puissance for a in s.table.ancres}
-    premier, second = sorted(p for p in s.region if p in ancres)[:2]
+    premier, second = sorted(p for p in s.region if p in ancres and s.maisons.par_puissance[p] is not None)[:2]
     echange = {premier: second, second: premier}
     table = dataclasses.replace(s.table, ancres=tuple(
         dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in s.table.ancres))
@@ -268,12 +270,12 @@ def _voisins_de_bar(s, vue):
 
 
 def test_ouest_bar_a_ses_vrais_voisins(livre):
-    # Le Barrois relève de la France ; autour, la Champagne royale, puis la Lorraine, Metz et le
-    # Luxembourg, terres d'Empire : ni Bourgogne ni Trèves, que l'ancre la plus proche y mettait.
+    # Le Barrois relève de la France ; autour, la Champagne royale, puis la Lorraine et le duché de
+    # Luxembourg, princes d'Empire : ni Bourgogne ni Trèves, que l'ancre la plus proche y mettait.
     fiche, voisins = _voisins_de_bar(livre, livre.vue)
     assert fiche.voisins, "échantillon vide"
     assert fiche.suzerain.nom == "France" and livre.vue[fiche.cell_id] == fiche.suzerain.id
-    assert voisins == {"France", "Saint-Empire"}, voisins
+    assert voisins == {"France", "Lorraine", DUCHE_DE_LUXEMBOURG}, voisins
     # Contre-épreuve : sans la table, l'ancre la plus proche lui redonne des voisins bourguignons.
     sans = dataclasses.replace(livre.frontieres, cellules={}, partages={}, lacunes={})
     _, a_l_ancre = _voisins_de_bar(livre, puissances_depuis_monde(livre.monde, table=livre.table, frontieres=sans))
@@ -425,14 +427,14 @@ def _wurtemberg(s, vue):
 def _verifier_wurtemberg(s, vue):
     wurtemberg, fiche = _wurtemberg(s, vue)
     empire = _puissance_nommee(s.table, EMPIRE)
-    # Sa fiche de départ dit qu'il est d'Empire ; le Saint-Empire n'y tient aucune cellule.
-    assert fiche.suzerain.nom == EMPIRE and fiche.cellules_du_suzerain == 0, \
-        (fiche.suzerain.nom, fiche.cellules_du_suzerain)
     assert fiche.voisins, "échantillon vide"
     voisins = [v.puissance.nom if v.puissance is not None else None for v in fiche.voisins]
     princes = {p.nom for p in s.table.puissances if p.ensemble == EMPIRE}
     assert set(voisins) <= princes, f"voisins qui ne sont pas des princes d'Empire : {sorted(set(voisins) - princes, key=str)}"
     assert len(set(voisins)) > 1, voisins
+    # Sa fiche de départ dit qu'il est d'Empire ; le Saint-Empire n'y tient aucune cellule.
+    assert fiche.suzerain.nom == EMPIRE and fiche.cellules_du_suzerain == 0, \
+        (fiche.suzerain.nom, fiche.cellules_du_suzerain)
     # Stuttgart tombe dans un lieu de la terre de départ, et le Saint-Empire ne tient aucun lieu de sa cellule.
     cid = fiche.cell_id
     rang = _lieu_le_plus_proche(s.places[cid], wurtemberg.siege.lat, wurtemberg.siege.lon)
@@ -462,7 +464,6 @@ def _verifier_deux_chefs(s, premier, second):
     assert chefs[0] != chefs[1], chefs
 
 
-@_en_attente("est")
 def test_est_la_pologne_et_la_lituanie_ont_chacune_leur_chef(livre):
     _verifier_deux_chefs(livre, "Pologne", "Lituanie")
     # Contre-épreuve : deux pays d'une même maison (l'Aragon et la Sicile, des Barcelone) se voient.
@@ -470,7 +471,6 @@ def test_est_la_pologne_et_la_lituanie_ont_chacune_leur_chef(livre):
         _verifier_deux_chefs(livre, "Aragon", "Sicile")
 
 
-@_en_attente("est")
 def test_est_la_boheme_et_la_hongrie_ont_chacune_leur_chef(livre):
     _verifier_deux_chefs(livre, "Bohême", "Hongrie")
 

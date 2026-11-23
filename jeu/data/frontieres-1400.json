@@ -2,15 +2,16 @@
   "date": "1400-01-01",
   "fidelite": "Niveau 1 : le pays de chaque cellule déclarée, au 1er janvier 1400, d'après une source publique par pays, et le pays de chaque ville témoin. Niveau 2 : le tracé à l'intérieur d'une cellule partagée, chaque lieu allant au pays de la ville de partage la plus proche de sa place. Niveau 3 : l'hommage et ses effets.",
   "regions": {
-    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+    "empire": [10, 11, 12, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 81]
   },
   "pays": [
     {"pays": 1, "source": "Wikipédia en anglais, article Kingdom of England : la conquête du pays de Galles par Édouard Ier, achevée en 1284, le met sous la couronne d'Angleterre (https://en.wikipedia.org/wiki/Kingdom_of_England); Wikipédia en anglais, article Isle of Man : l'île passe sous la seigneurie féodale de la couronne d'Angleterre en 1399 (https://en.wikipedia.org/wiki/Isle_of_Man); Wikipédia en anglais, article Channel Islands : Jean sans Terre perd la Normandie en 1204 mais garde les îles Anglo-Normandes (https://en.wikipedia.org/wiki/Channel_Islands)", "cellules": [10172, 10189, 10200, 10187, 10171, 10246, 10197, 10237, 10188, 10205, 2656, 10240, 10180, 10198, 1183, 10212, 10203, 10184, 10195, 1221, 10208, 10214, 1223, 1203, 1195]},
     {"pays": 2, "source": "Wikipédia en anglais, article Kingdom of Scotland : l'Écosse annexe les Hébrides en 1266 (traité de Perth), les îles du Nord seulement en 1472 (https://en.wikipedia.org/wiki/Kingdom_of_Scotland); Wikipédia en anglais, article Lord of the Isles : le seigneur des Îles est un titre du baronnage d'Écosse (https://en.wikipedia.org/wiki/Lord_of_the_Isles)", "cellules": [10213, 1241, 1244, 1245, 1235, 1237, 1246, 1239, 1248, 1240, 1243, 1234, 1236, 1232, 1238, 1228, 1231, 10218, 10202, 10206, 10219, 10207, 10215]},
-    {"pays": 21, "source": "Wikipédia en anglais, article Earldom of Orkney : les Orcades sont une dépendance du royaume de Norvège jusqu'en 1472 ; la Norvège est dans l'Union de Kalmar depuis 1397 (https://en.wikipedia.org/wiki/Earldom_of_Orkney)", "cellules": [1209, 10199, 1210, 1211, 1213, 1208]},
+        {"pays": 21, "source": "Wikipédia en anglais, article Earldom of Orkney : les Orcades sont une dépendance du royaume de Norvège jusqu'en 1472 ; la Norvège est dans l'Union de Kalmar depuis 1397 (https://en.wikipedia.org/wiki/Earldom_of_Orkney); Wikipédia en anglais, article Kalmar Union : le Danemark, avec le Jutland et ses îles, est uni à la Norvège et à la Suède depuis 1397 (https://en.wikipedia.org/wiki/Kalmar_Union)", "cellules": [1209, 10199, 1210, 1211, 1213, 1208, 10458, 1556, 1550, 1274, 1281, 1289]},
     {"pays": 49, "source": "Wikipédia en anglais, article Lordship of Ireland : la partie de l'Irlande tenue par le roi d'Angleterre, « seigneur d'Irlande », gouvernée par un lieutenant ; les rois gaéliques restent de niveau 3 (https://en.wikipedia.org/wiki/Lordship_of_Ireland)", "cellules": [10228, 9835, 1192, 10227, 10233, 10224, 10232, 10226, 10234]},
     {"pays": 3, "source": "Wikipédia en anglais, article Duchy of Normandy : Philippe II saisit la Normandie en 1204 (https://en.wikipedia.org/wiki/Duchy_of_Normandy); Wikipédia en anglais, article County of Champagne : la Champagne est réunie au domaine de la couronne en 1361 (https://en.wikipedia.org/wiki/County_of_Champagne); Wikipédia en anglais, article Languedoc : le comté de Toulouse rejoint le domaine royal en 1271 (https://en.wikipedia.org/wiki/Languedoc); Wikipédia en anglais, article Vivarais : le Vivarais entre dans le Languedoc royal en 1309 (https://en.wikipedia.org/wiki/Vivarais); Wikipédia en anglais, article Dauphiné : le Dauphiné passe en 1349 au futur Charles V, et l'héritier de France porte désormais le titre de dauphin (https://en.wikipedia.org/wiki/Dauphiné); Wikipédia en anglais, article La Rochelle : la ville chasse les Anglais en juin 1372 et Charles V reconnaît ses privilèges (https://en.wikipedia.org/wiki/La_Rochelle)", "cellules": [10254, 10421, 10387, 10244, 10314, 10186, 10418, 10173, 10243, 10253, 10322, 10416, 10429, 10389, 10241, 10175, 10242, 10252, 10249, 10251, 10392, 10390, 10422, 10424, 1187, 1181]},
-    {"pays": 40, "source": "Wikipédia en anglais, article Duchy of Burgundy : Jean II cède le duché à son fils Philippe en 1363 (https://en.wikipedia.org/wiki/Duchy_of_Burgundy); Wikipédia en anglais, article County of Flanders : à partir de 1384, le comté est uni au duché de Bourgogne (https://en.wikipedia.org/wiki/County_of_Flanders); Wikipédia en anglais, article County of Artois : l'Artois est tenu par les ducs de Bourgogne de 1384 à 1477 (https://en.wikipedia.org/wiki/County_of_Artois); Wikipédia en anglais, article Philip the Bold : Marguerite hérite en 1382 de la Flandre, de l'Artois et de la Franche-Comté (https://en.wikipedia.org/wiki/Philip_the_Bold); Wikipédia en anglais, article Saint-Omer : à partir de 1384, Saint-Omer fait partie des Pays-Bas bourguignons (https://en.wikipedia.org/wiki/Saint-Omer)", "cellules": [10391, 10317, 10323, 10420, 10438, 10432, 10419]},
+    {"pays": 40, "source": "Wikipédia en anglais, article Duchy of Burgundy : Jean II cède le duché à son fils Philippe en 1363 (https://en.wikipedia.org/wiki/Duchy_of_Burgundy); Wikipédia en anglais, article County of Flanders : à partir de 1384, le comté est uni au duché de Bourgogne (https://en.wikipedia.org/wiki/County_of_Flanders); Wikipédia en anglais, article County of Artois : l'Artois est tenu par les ducs de Bourgogne de 1384 à 1477 (https://en.wikipedia.org/wiki/County_of_Artois); Wikipédia en anglais, article Philip the Bold : Marguerite hérite en 1382 de la Flandre, de l'Artois et de la Franche-Comté (https://en.wikipedia.org/wiki/Philip_the_Bold); Wikipédia en anglais, article Saint-Omer : à partir de 1384, Saint-Omer fait partie des Pays-Bas bourguignons (https://en.wikipedia.org/wiki/Saint-Omer)", "cellules": [10317, 10323, 10420, 10438, 10432, 10419]},
     {"pays": 41, "source": "Wikipédia en anglais, article Duchy of Brittany : Jean IV meurt le 1er novembre 1399 ; le duc rend hommage au roi de France pour la Bretagne (https://en.wikipedia.org/wiki/Duchy_of_Brittany)", "cellules": [10190, 10211, 10201, 10191, 1212]},
     {"pays": 42, "source": "Wikipédia en anglais, article Duchy of Aquitaine : au traité de Brétigny (1360), le roi d'Angleterre reste seigneur souverain de l'Aquitaine (https://en.wikipedia.org/wiki/Duchy_of_Aquitaine); Wikipédia en anglais, article Henry V of England : Henri IV donne à son fils le titre de duc d'Aquitaine (https://en.wikipedia.org/wiki/Henry_V_of_England)", "cellules": [10176]},
     {"pays": 43, "source": "Wikipédia en anglais, article Duchy of Orléans : Charles VI recrée en 1392 le duché d'Orléans pour son frère Louis (https://en.wikipedia.org/wiki/Duchy_of_Orléans); Wikipédia en anglais, article Louis I, Duke of Orléans : Louis Ier est comte de Blois de 1397 à 1407 (https://en.wikipedia.org/wiki/Louis_I,_Duke_of_Orl%C3%A9ans)", "cellules": [10316, 10247, 10250]},
@@ -23,16 +24,27 @@
     {"pays": 18, "source": "Wikipédia en anglais, article Abruzzo : à la paix de Caltabellotta (1302), la Sicile va à la couronne d'Aragon et le Sud continental au royaume de Naples (https://en.wikipedia.org/wiki/Abruzzo)", "cellules": [10278, 10288, 10283, 1311, 10298, 10287, 10302, 10296, 10292]},
     {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily)", "cellules": [9905, 9914, 9921, 1313, 1318]},
     {"pays": 16, "source": "Wikipédia en anglais, article Bastia : en 1370, la république de Gênes envoie deux gouverneurs en Corse ; la Maona gère l'île pour elle (https://en.wikipedia.org/wiki/Bastia)", "cellules": [2943]},
-    {"pays": 9, "source": "Wikipédia en anglais, article Duchy of Brabant : le duché de Brabant est un État du Saint-Empire (https://en.wikipedia.org/wiki/Duchy_of_Brabant); Wikipédia en anglais, article County of Holland : le comté de Hollande, uni au Hainaut et à la Bavière-Straubing (https://en.wikipedia.org/wiki/County_of_Holland); Wikipédia en anglais, article County of Hainaut : le Hainaut est une seigneurie du Saint-Empire, frontalière du royaume de France (https://en.wikipedia.org/wiki/County_of_Hainaut); Wikipédia en anglais, article Prince-Bishopric of Liège : principauté ecclésiastique du Saint-Empire (https://en.wikipedia.org/wiki/Prince-Bishopric_of_Liège); Wikipédia en anglais, article Duchy of Lorraine : duché du Saint-Empire jusqu'en 1766 (https://en.wikipedia.org/wiki/Duchy_of_Lorraine); Wikipédia en anglais, article Duchy of Luxembourg : État du Saint-Empire (https://en.wikipedia.org/wiki/Duchy_of_Luxembourg); Wikipédia en anglais, article Verdun : Verdun, Metz et Toul, villes libres de l'Empire, ne sont réunies à la France qu'en 1552 (https://en.wikipedia.org/wiki/Verdun); Wikipédia en anglais, article Frisia : la Frise et Groningue restent indépendantes jusqu'en 1498 ; leur suzerain nominal est l'Empire, niveau 2 (https://en.wikipedia.org/wiki/Frisia); Wikipédia en anglais, article County of Tyrol : le Tyrol est aux Habsbourg depuis 1363 (https://en.wikipedia.org/wiki/County_of_Tyrol); Wikipédia en anglais, article Prince-Bishopric of Trent : Trente est un État d'Empire sous un prince-évêque (https://en.wikipedia.org/wiki/Prince-Bishopric_of_Trent)", "cellules": [10427, 10425, 10423, 1469, 7875, 1502, 1515, 1525, 10431, 10437, 10443, 10417, 10266]},
     {"pays": 5, "source": "Wikipédia en anglais, article Santiago de Compostela : les royaumes de León et de Galice s'unissent au royaume de Castille (https://en.wikipedia.org/wiki/Santiago_de_Compostela); Wikipédia en anglais, article Seville : Séville entre dans la Castille en 1248 (https://en.wikipedia.org/wiki/Seville); Wikipédia en anglais, article Soria : Soria est castillane définitivement en 1134 (https://en.wikipedia.org/wiki/Soria)", "cellules": [10222, 10210, 10217, 10220, 10204, 10216]},
     {"pays": 4, "source": "Wikipédia en anglais, article Porto : en 1387, Porto accueille le mariage de Jean Ier de Portugal et de Philippa de Lancastre (https://en.wikipedia.org/wiki/Porto); Wikipédia en anglais, article Elvas : Elvas est portugaise depuis 1226 (https://en.wikipedia.org/wiki/Elvas)", "cellules": [10231, 10229]},
-    {"pays": 6, "source": "Wikipédia en anglais, article Crown of Aragon : union du royaume d'Aragon et du comté de Barcelone, qui tient aux XIVe et XVe siècles les Baléares, la Sardaigne et la Sicile (https://en.wikipedia.org/wiki/Crown_of_Aragon); Wikipédia en anglais, article Balearic Islands : les îles reviennent à la couronne d'Aragon (https://en.wikipedia.org/wiki/Balearic_Islands); Wikipédia en anglais, article La Seu d'Urgell : siège de l'évêque d'Urgell, en Catalogne (https://en.wikipedia.org/wiki/La_Seu_d%27Urgell)", "cellules": [10313, 10238, 10179, 10245, 1494, 1368, 1266, 1267, 1547]}
+    {"pays": 6, "source": "Wikipédia en anglais, article Crown of Aragon : union du royaume d'Aragon et du comté de Barcelone, qui tient aux XIVe et XVe siècles les Baléares, la Sardaigne et la Sicile (https://en.wikipedia.org/wiki/Crown_of_Aragon); Wikipédia en anglais, article Balearic Islands : les îles reviennent à la couronne d'Aragon (https://en.wikipedia.org/wiki/Balearic_Islands); Wikipédia en anglais, article La Seu d'Urgell : siège de l'évêque d'Urgell, en Catalogne (https://en.wikipedia.org/wiki/La_Seu_d%27Urgell)", "cellules": [10313, 10238, 10179, 10245, 1494, 1368, 1266, 1267, 1547]},
+    {"pays": 59, "source": "Wikipédia en anglais, article County of Holland : le comté de Hollande tient la Hollande, la Frise occidentale et les îles de Zélande et du Texel ; il est uni au Hainaut sous la maison de Wittelsbach de 1354 à 1433 (https://en.wikipedia.org/wiki/County_of_Holland)", "cellules": [10423, 1469, 1502]},
+    {"pays": 62, "source": "Wikipédia en anglais, article Harderwijk : Harderwijk, sur le Zuiderzee, reçoit ses droits de cité du comte de Gueldre en 1231 (https://en.wikipedia.org/wiki/Harderwijk)", "cellules": [7875]},
+    {"pays": 60, "source": "Wikipédia en anglais, article County of Hainaut : le comté de Hainaut, de Mons à Valenciennes, est une seigneurie du Saint-Empire, frontalière du royaume de France (https://en.wikipedia.org/wiki/County_of_Hainaut)", "cellules": [10417]},
+    {"pays": 61, "source": "Wikipédia en anglais, article Duchy of Lorraine : le duché de Lorraine, de Nancy aux Vosges, est un duché du Saint-Empire (https://en.wikipedia.org/wiki/Duchy_of_Lorraine)", "cellules": [10443]},
+    {"pays": 50, "source": "Wikipédia en anglais, article County of Tyrol : le Tyrol est aux Habsbourg depuis 1363 (https://en.wikipedia.org/wiki/County_of_Tyrol) ; Wikipédia en anglais, article Duchy of Carinthia : la Carinthie est aux Habsbourg depuis 1335 (https://en.wikipedia.org/wiki/Duchy_of_Carinthia) ; Wikipédia en anglais, article Further Austria : l'Autriche antérieure, Brisgau, Haute-Alsace et Souabe, est tenue par les Habsbourg, qui achètent Fribourg-en-Brisgau en 1368 et le comté de Hohenberg en 1381 (https://en.wikipedia.org/wiki/Further_Austria)", "cellules": [10266, 10279, 10450, 10461]},
+    {"pays": 51, "source": "Wikipédia en anglais, article Duchy of Bavaria : la Bavière, de Munich à Landshut et Ingolstadt, est partagée entre les branches de Bavière-Munich, de Bavière-Landshut et de Bavière-Ingolstadt de la maison de Wittelsbach ; ces branches sont réunies ici sous la Bavière-Munich (niveau 2) (https://en.wikipedia.org/wiki/Duchy_of_Bavaria)", "cellules": [10264]},
+    {"pays": 54, "source": "Wikipédia en anglais, article Margraviate of Meissen : la marche de Misnie, de Leipzig à Chemnitz, est aux Wettin (https://en.wikipedia.org/wiki/Margraviate_of_Meissen)", "cellules": [10270]},
+    {"pays": 10, "source": "Wikipédia en anglais, article Lands of the Bohemian Crown : les pays de la couronne de Bohême réunissent la Bohême, la Moravie, la Silésie et les Lusaces (https://en.wikipedia.org/wiki/Lands_of_the_Bohemian_Crown) ; Wikipédia en anglais, article Duchies of Silesia : les ducs de Silésie sont vassaux de la couronne de Bohême depuis le XIVe siècle (https://en.wikipedia.org/wiki/Duchies_of_Silesia)", "cellules": [10284, 10293, 10295]},
+    {"pays": 72, "source": "Wikipédia en anglais, article Prince-Archbishopric of Bremen : la principauté archiépiscopale de Brême s'étend entre la Weser et l'Elbe, autour de Brême et de Stade (https://en.wikipedia.org/wiki/Prince-Archbishopric_of_Bremen)", "cellules": [10455]},
+    {"pays": 65, "source": "Wikipédia en anglais, article Principality of Lüneburg : la principauté de Lunebourg, avec Celle et Hanovre, est aux Welf (https://en.wikipedia.org/wiki/Principality_of_L%C3%BCneburg)", "cellules": [10462]},
+    {"pays": 68, "source": "Wikipédia en anglais, article Gerhard VI, Count of Holstein-Rendsburg : Gérard VI, comte de Holstein-Rendsburg, devient duc de Schleswig en 1386 ; Lübeck, ville libre, est plus petite qu'un lieu (https://en.wikipedia.org/wiki/Gerhard_VI,_Count_of_Holstein-Rendsburg) ; Wikipédia en anglais, article Duchy of Schleswig : le duché de Schleswig s'étend de l'Eider à la Kongeå, avec les îles frisonnes du Nord, Als et Ærø (https://en.wikipedia.org/wiki/Duchy_of_Schleswig) ; Wikipédia en anglais, article Fehmarn : Fehmarn appartient au Holstein (https://en.wikipedia.org/wiki/Fehmarn)", "cellules": [10464, 1548, 1552, 1557, 1564, 1275, 1286]},
+    {"pays": 67, "source": "Wikipédia en anglais, article Principality of Rügen : la principauté de Rügen passe aux ducs de Poméranie en 1325 (https://en.wikipedia.org/wiki/Principality_of_Rügen)", "cellules": [1308]}
   ],
   "partages": [
     { "cell_id": 10430, "villes": [
       {"nom": "Saint-Dizier", "lat": 48.64, "lon": 4.95, "pays": 3, "source": "Wikipédia en anglais, article Saint-Dizier : la ville devient une forteresse royale (https://en.wikipedia.org/wiki/Saint-Dizier)"},
-      {"nom": "Verdun", "lat": 49.16, "lon": 5.38, "pays": 9, "source": "Wikipédia en anglais, article Verdun : principauté épiscopale du Saint-Empire depuis le Xe siècle, soumise par la France en 1552 (https://en.wikipedia.org/wiki/Verdun)"},
-      {"nom": "Toul", "lat": 48.68, "lon": 5.89, "pays": 9, "source": "Wikipédia en anglais, article Toul : Toul appartient au Saint-Empire jusqu'à son annexion par Henri II en 1552 (https://en.wikipedia.org/wiki/Toul)"}
+      {"nom": "Verdun", "lat": 49.16, "lon": 5.38, "pays": null, "source": "Wikipédia en anglais, article Verdun : principauté épiscopale du Saint-Empire depuis le Xe siècle, soumise par la France en 1552 (https://en.wikipedia.org/wiki/Verdun)", "raison": "Verdun, ville libre et principauté épiscopale d'Empire, puissance absente de la table."},
+      {"nom": "Toul", "lat": 48.68, "lon": 5.89, "pays": null, "source": "Wikipédia en anglais, article Toul : Toul appartient au Saint-Empire jusqu'à son annexion par Henri II en 1552 (https://en.wikipedia.org/wiki/Toul)", "raison": "Toul, ville libre et principauté épiscopale d'Empire, puissance absente de la table."}
     ] },
     { "cell_id": 10182, "villes": [
       {"nom": "Laval", "lat": 48.07, "lon": -0.77, "pays": 44, "source": "Wikipédia en anglais, article Laval, Mayenne : Laval appartient à la province du Maine ; Jean II donne l'Anjou et le Maine à Louis Ier en 1360 (article Louis II of Anjou) (https://en.wikipedia.org/wiki/Laval,_Mayenne)"},
@@ -99,7 +111,7 @@
       {"nom": "Mantoue", "lat": 45.16, "lon": 10.79, "pays": null, "source": "Wikipédia en anglais, article Mantua : Mantoue est aux Gonzague de 1328 à 1708 (https://en.wikipedia.org/wiki/Mantua)", "raison": "Seigneurie des Gonzague, puissance absente de la table."}
     ] },
     { "cell_id": 10275, "villes": [
-      {"nom": "Udine", "lat": 46.06, "lon": 13.24, "pays": 9, "source": "Wikipédia en anglais, article Patria del Friuli : le patriarche d'Aquilée, prince ecclésiastique du Saint-Empire, garde son pouvoir temporel jusqu'à l'annexion vénitienne de 1420 (https://en.wikipedia.org/wiki/Patriarchate_of_Aquileia_(state))"},
+      {"nom": "Udine", "lat": 46.06, "lon": 13.24, "pays": 81, "source": "Wikipédia en anglais, article Patriarchate of Aquileia (state) : le patriarche d'Aquilée garde son pouvoir temporel en Frioul jusqu'à l'annexion vénitienne de 1420 ; Udine est sa résidence (https://en.wikipedia.org/wiki/Patriarchate_of_Aquileia_(state))"},
       {"nom": "Belluno", "lat": 46.14, "lon": 12.22, "pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti conquiert Feltre et Belluno en 1388 (https://en.wikipedia.org/wiki/Duchy_of_Milan)"}
     ] },
     { "cell_id": 10268, "villes": [
@@ -181,6 +193,241 @@
       {"nom": "Huelva", "lat": 37.26, "lon": -6.95, "pays": 5, "source": "Wikipédia en anglais, article Huelva : prise par Alphonse X de Castille en 1262 (https://en.wikipedia.org/wiki/Huelva)"},
       {"nom": "Gibraltar", "lat": 36.14, "lon": -5.35, "pays": 8, "source": "Wikipédia en anglais, article Gibraltar : prise par les Nasrides de Grenade en 1374 ; elle ne revient à la Castille qu'en 1462 (https://en.wikipedia.org/wiki/Gibraltar)"},
       {"nom": "Ronda", "lat": 36.74, "lon": -5.17, "pays": 8, "source": "Wikipédia en anglais, article Ronda : ville du royaume nasride de Grenade, prise par la Castille en 1485 (https://en.wikipedia.org/wiki/Ronda)"}
+    ] },
+    { "cell_id": 10425, "villes": [
+      {"nom": "Leyde", "lat": 52.16, "lon": 4.49, "pays": 59, "source": "Wikipédia en anglais, article Leiden : Leyde, ville du comté de Hollande, reçoit ses droits de cité en 1266 (https://en.wikipedia.org/wiki/Leiden)"},
+      {"nom": "Dordrecht", "lat": 51.81, "lon": 4.67, "pays": 59, "source": "Wikipédia en anglais, article Dordrecht : Dordrecht est la plus ancienne ville du comté de Hollande (https://en.wikipedia.org/wiki/Dordrecht)"},
+      {"nom": "La Haye", "lat": 52.08, "lon": 4.31, "pays": 59, "source": "Wikipédia en anglais, article The Hague : La Haye naît autour du Binnenhof, résidence des comtes de Hollande (https://en.wikipedia.org/wiki/The_Hague)"},
+      {"nom": "Gouda", "lat": 52.01, "lon": 4.71, "pays": 59, "source": "Wikipédia en anglais, article Gouda : Gouda reçoit ses droits de cité du comte de Hollande en 1272 (https://en.wikipedia.org/wiki/Gouda)"},
+      {"nom": "Rotterdam", "lat": 51.92, "lon": 4.48, "pays": 59, "source": "Wikipédia en anglais, article Rotterdam : Rotterdam reçoit ses droits de cité du comte de Hollande en 1340 (https://en.wikipedia.org/wiki/Rotterdam)"},
+      {"nom": "Utrecht", "lat": 52.09, "lon": 5.12, "pays": 75, "source": "Wikipédia en anglais, article Utrecht : Utrecht est le siège des princes-évêques d'Utrecht (https://en.wikipedia.org/wiki/Utrecht)"},
+      {"nom": "Bois-le-Duc", "lat": 51.69, "lon": 5.3, "pays": 58, "source": "Wikipédia en anglais, article 's-Hertogenbosch : Bois-le-Duc reçoit ses droits de cité du duc de Brabant vers 1185 (https://en.wikipedia.org/wiki/%27s-Hertogenbosch)"},
+      {"nom": "Breda", "lat": 51.59, "lon": 4.78, "pays": 58, "source": "Wikipédia en anglais, article Breda : Breda est une seigneurie du duché de Brabant (https://en.wikipedia.org/wiki/Breda)"}
+    ] },
+    { "cell_id": 10427, "villes": [
+      {"nom": "Anvers", "lat": 51.22, "lon": 4.4, "pays": 40, "source": "Wikipédia en anglais, article Antwerp : par le traité d'Ath (1357), Anvers passe du Brabant au comte de Flandre, dont Philippe le Hardi hérite en 1384 (https://en.wikipedia.org/wiki/Antwerp)"},
+      {"nom": "Malines", "lat": 51.03, "lon": 4.48, "pays": 40, "source": "Wikipédia en anglais, article Mechelen : Malines passe au comte de Flandre en 1357, puis aux ducs de Bourgogne (https://en.wikipedia.org/wiki/Mechelen)"},
+      {"nom": "Bruxelles", "lat": 50.85, "lon": 4.35, "pays": 58, "source": "Wikipédia en anglais, article Brussels : Bruxelles est l'une des principales villes et résidences des ducs de Brabant (https://en.wikipedia.org/wiki/Brussels)"},
+      {"nom": "Louvain", "lat": 50.88, "lon": 4.7, "pays": 58, "source": "Wikipédia en anglais, article Leuven : Louvain est l'une des capitales du duché de Brabant (https://en.wikipedia.org/wiki/Leuven)"},
+      {"nom": "Tirlemont", "lat": 50.81, "lon": 4.94, "pays": 58, "source": "Wikipédia en anglais, article Tienen : Tirlemont est l'une des bonnes villes du duché de Brabant (https://en.wikipedia.org/wiki/Tienen)"},
+      {"nom": "Diest", "lat": 50.99, "lon": 5.05, "pays": 58, "source": "Wikipédia en anglais, article Diest : Diest est une ville du duché de Brabant (https://en.wikipedia.org/wiki/Diest)"},
+      {"nom": "Lierre", "lat": 51.13, "lon": 4.57, "pays": 58, "source": "Wikipédia en anglais, article Lier, Belgium : Lierre est une ville du duché de Brabant (https://en.wikipedia.org/wiki/Lier,_Belgium)"},
+      {"nom": "Tongres", "lat": 50.78, "lon": 5.46, "pays": 76, "source": "Wikipédia en anglais, article Tongeren : Tongres est une ville de la principauté épiscopale de Liège (https://en.wikipedia.org/wiki/Tongeren)"}
+    ] },
+    { "cell_id": 10431, "villes": [
+      {"nom": "Liège", "lat": 50.63, "lon": 5.57, "pays": 76, "source": "Wikipédia en anglais, article Liège : Liège est la capitale de la principauté épiscopale (https://en.wikipedia.org/wiki/Li%C3%A8ge)"},
+      {"nom": "Huy", "lat": 50.52, "lon": 5.24, "pays": 76, "source": "Wikipédia en anglais, article Huy : Huy est l'une des bonnes villes de la principauté de Liège (https://en.wikipedia.org/wiki/Huy)"},
+      {"nom": "Dinant", "lat": 50.26, "lon": 4.91, "pays": 76, "source": "Wikipédia en anglais, article Dinant : Dinant est l'une des bonnes villes de la principauté de Liège (https://en.wikipedia.org/wiki/Dinant)"},
+      {"nom": "Namur", "lat": 50.47, "lon": 4.87, "pays": null, "source": "Wikipédia en anglais, article County of Namur : le comté de Namur, aux Dampierre, n'est vendu à Philippe le Bon qu'en 1421 (https://en.wikipedia.org/wiki/County_of_Namur)", "raison": "Comté de Namur, puissance absente de la table."},
+      {"nom": "Bastogne", "lat": 50.0, "lon": 5.72, "pays": 57, "source": "Wikipédia en anglais, article Bastogne : Bastogne est une ville du duché de Luxembourg (https://en.wikipedia.org/wiki/Bastogne)"}
+    ] },
+    { "cell_id": 10437, "villes": [
+      {"nom": "Luxembourg", "lat": 49.61, "lon": 6.13, "pays": 57, "source": "Wikipédia en anglais, article Luxembourg City : Luxembourg est le siège des comtes puis des ducs de Luxembourg (https://en.wikipedia.org/wiki/Luxembourg_City)"},
+      {"nom": "Thionville", "lat": 49.36, "lon": 6.17, "pays": 57, "source": "Wikipédia en anglais, article Thionville : Thionville appartient au duché de Luxembourg jusqu'en 1643 (https://en.wikipedia.org/wiki/Thionville)"},
+      {"nom": "Arlon", "lat": 49.68, "lon": 5.82, "pays": 57, "source": "Wikipédia en anglais, article Arlon : Arlon est une ville du duché de Luxembourg (https://en.wikipedia.org/wiki/Arlon)"},
+      {"nom": "Trèves", "lat": 49.75, "lon": 6.64, "pays": 11, "source": "Wikipédia en anglais, article Trier : Trèves est le siège de l'archevêque-électeur de Trèves (https://en.wikipedia.org/wiki/Trier)"},
+      {"nom": "Boulay", "lat": 49.18, "lon": 6.49, "pays": 61, "source": "Wikipédia en anglais, article Boulay-Moselle : Boulay est une seigneurie du duché de Lorraine (https://en.wikipedia.org/wiki/Boulay-Moselle)"},
+      {"nom": "Sarreguemines", "lat": 49.11, "lon": 7.07, "pays": 61, "source": "Wikipédia en anglais, article Sarreguemines : Sarreguemines est une ville du duché de Lorraine (https://en.wikipedia.org/wiki/Sarreguemines)"}
+    ] },
+    { "cell_id": 10391, "villes": [
+      {"nom": "Bruges", "lat": 51.21, "lon": 3.22, "pays": 40, "source": "Wikipédia en anglais, article Bruges : Bruges est la principale ville du comté de Flandre, dont Philippe le Hardi est comte depuis 1384 (https://en.wikipedia.org/wiki/Bruges)"},
+      {"nom": "Gand", "lat": 51.05, "lon": 3.72, "pays": 40, "source": "Wikipédia en anglais, article Ghent : Gand est une ville du comté de Flandre (https://en.wikipedia.org/wiki/Ghent)"},
+      {"nom": "Middelbourg", "lat": 51.5, "lon": 3.61, "pays": 59, "source": "Wikipédia en anglais, article Middelburg : Middelbourg, ville de Zélande, relève des comtes de Hollande, qui sont aussi comtes de Zélande (https://en.wikipedia.org/wiki/Middelburg)"}
+    ] },
+    { "cell_id": 10439, "villes": [
+      {"nom": "Deventer", "lat": 52.25, "lon": 6.16, "pays": 75, "source": "Wikipédia en anglais, article Deventer : Deventer est une ville de l'Oversticht, le temporel des évêques d'Utrecht (https://en.wikipedia.org/wiki/Deventer)"},
+      {"nom": "Zwolle", "lat": 52.51, "lon": 6.09, "pays": 75, "source": "Wikipédia en anglais, article Zwolle : Zwolle reçoit ses droits de cité de l'évêque d'Utrecht en 1230 (https://en.wikipedia.org/wiki/Zwolle)"},
+      {"nom": "Nimègue", "lat": 51.84, "lon": 5.86, "pays": 62, "source": "Wikipédia en anglais, article Nijmegen : Nimègue, ville impériale engagée aux comtes de Gueldre en 1247, est l'une des capitales du duché (https://en.wikipedia.org/wiki/Nijmegen)"},
+      {"nom": "Arnhem", "lat": 51.98, "lon": 5.91, "pays": 62, "source": "Wikipédia en anglais, article Arnhem : Arnhem reçoit ses droits de cité du comte de Gueldre en 1233 (https://en.wikipedia.org/wiki/Arnhem)"},
+      {"nom": "Harderwijk", "lat": 52.35, "lon": 5.62, "pays": 62, "source": "Wikipédia en anglais, article Harderwijk : Harderwijk reçoit ses droits de cité du comte de Gueldre en 1231 (https://en.wikipedia.org/wiki/Harderwijk)"},
+      {"nom": "Zutphen", "lat": 52.14, "lon": 6.2, "pays": 62, "source": "Wikipédia en anglais, article Zutphen : le comté de Zutphen passe aux comtes de Gueldre au XIIe siècle (https://en.wikipedia.org/wiki/Zutphen)"},
+      {"nom": "Clèves", "lat": 51.79, "lon": 6.14, "pays": 63, "source": "Wikipédia en anglais, article Kleve : Clèves est le siège des comtes puis des ducs de Clèves (https://en.wikipedia.org/wiki/Kleve)"}
+    ] },
+    { "cell_id": 10440, "villes": [
+      {"nom": "Deutz", "lat": 50.94, "lon": 6.98, "pays": 70, "source": "Wikipédia en anglais, article Deutz, Cologne : Deutz, face à Cologne, est une ville des archevêques de Cologne (https://en.wikipedia.org/wiki/Deutz,_Cologne)"},
+      {"nom": "Neuss", "lat": 51.2, "lon": 6.69, "pays": 70, "source": "Wikipédia en anglais, article Neuss : Neuss appartient à l'électorat de Cologne (https://en.wikipedia.org/wiki/Neuss)"},
+      {"nom": "Juliers", "lat": 50.92, "lon": 6.36, "pays": 62, "source": "Wikipédia en anglais, article Jülich : Juliers, capitale du duché de Juliers, est unie à la Gueldre de 1393 à 1423 (https://en.wikipedia.org/wiki/J%C3%BClich)"},
+      {"nom": "Ruremonde", "lat": 51.19, "lon": 5.99, "pays": 62, "source": "Wikipédia en anglais, article Roermond : Ruremonde est la capitale du quartier de Haute-Gueldre (https://en.wikipedia.org/wiki/Roermond)"},
+      {"nom": "Wesel", "lat": 51.66, "lon": 6.62, "pays": 63, "source": "Wikipédia en anglais, article Wesel : Wesel reçoit ses droits de cité du comte de Clèves en 1241 (https://en.wikipedia.org/wiki/Wesel)"},
+      {"nom": "Düsseldorf", "lat": 51.23, "lon": 6.77, "pays": null, "source": "Wikipédia en anglais, article Düsseldorf : Düsseldorf est la résidence des ducs de Berg (https://en.wikipedia.org/wiki/D%C3%BCsseldorf)", "raison": "Duché de Berg, puissance absente de la table."}
+    ] },
+    { "cell_id": 10442, "villes": [
+      {"nom": "Bonn", "lat": 50.73, "lon": 7.1, "pays": 70, "source": "Wikipédia en anglais, article Bonn : Bonn est la résidence des archevêques-électeurs de Cologne à partir du XIIIe siècle (https://en.wikipedia.org/wiki/Bonn)"},
+      {"nom": "Brühl", "lat": 50.83, "lon": 6.9, "pays": 70, "source": "Wikipédia en anglais, article Brühl, North Rhine-Westphalia : Brühl est une résidence des archevêques de Cologne (https://en.wikipedia.org/wiki/Br%C3%BChl,_North_Rhine-Westphalia)"},
+      {"nom": "Andernach", "lat": 50.44, "lon": 7.4, "pays": 70, "source": "Wikipédia en anglais, article Andernach : Andernach appartient à l'électorat de Cologne de 1167 à 1794 (https://en.wikipedia.org/wiki/Andernach)"},
+      {"nom": "Mayen", "lat": 50.33, "lon": 7.22, "pays": 11, "source": "Wikipédia en anglais, article Mayen : Mayen appartient à l'électorat de Trèves (https://en.wikipedia.org/wiki/Mayen)"},
+      {"nom": "Düren", "lat": 50.8, "lon": 6.48, "pays": 62, "source": "Wikipédia en anglais, article Düren : Düren, ville impériale engagée aux comtes de Juliers en 1246 (https://en.wikipedia.org/wiki/D%C3%BCren)"}
+    ] },
+    { "cell_id": 10448, "villes": [
+      {"nom": "Münster", "lat": 51.96, "lon": 7.63, "pays": 77, "source": "Wikipédia en anglais, article Münster : Münster est le siège des princes-évêques de Münster (https://en.wikipedia.org/wiki/M%C3%BCnster)"},
+      {"nom": "Hamm", "lat": 51.68, "lon": 7.82, "pays": 63, "source": "Wikipédia en anglais, article Hamm : Hamm, fondée par les comtes de La Marck en 1226, est la ville principale du comté (https://en.wikipedia.org/wiki/Hamm)"},
+      {"nom": "Unna", "lat": 51.54, "lon": 7.69, "pays": 63, "source": "Wikipédia en anglais, article Unna : Unna est une ville du comté de La Marck (https://en.wikipedia.org/wiki/Unna)"},
+      {"nom": "Iserlohn", "lat": 51.38, "lon": 7.7, "pays": 63, "source": "Wikipédia en anglais, article Iserlohn : Iserlohn est une ville du comté de La Marck (https://en.wikipedia.org/wiki/Iserlohn)"},
+      {"nom": "Arnsberg", "lat": 51.4, "lon": 8.06, "pays": 70, "source": "Wikipédia en anglais, article Arnsberg : le comté d'Arnsberg est vendu à l'archevêque de Cologne en 1368 (https://en.wikipedia.org/wiki/Arnsberg)"},
+      {"nom": "Soest", "lat": 51.57, "lon": 8.11, "pays": 70, "source": "Wikipédia en anglais, article Soest : Soest est la principale ville du duché de Westphalie, tenu par les archevêques de Cologne (https://en.wikipedia.org/wiki/Soest)"}
+    ] },
+    { "cell_id": 10451, "villes": [
+      {"nom": "Osnabrück", "lat": 52.28, "lon": 8.05, "pays": 78, "source": "Wikipédia en anglais, article Osnabrück : Osnabrück est le siège des princes-évêques d'Osnabrück (https://en.wikipedia.org/wiki/Osnabr%C3%BCck)"},
+      {"nom": "Meppen", "lat": 52.69, "lon": 7.29, "pays": 77, "source": "Wikipédia en anglais, article Meppen : Meppen et l'Emsland passent à l'évêque de Münster en 1252 (https://en.wikipedia.org/wiki/Meppen)"},
+      {"nom": "Vechta", "lat": 52.73, "lon": 8.28, "pays": 77, "source": "Wikipédia en anglais, article Vechta : Vechta passe à l'évêque de Münster en 1252 (https://en.wikipedia.org/wiki/Vechta)"}
+    ] },
+    { "cell_id": 10441, "villes": [
+      {"nom": "Coevorden", "lat": 52.66, "lon": 6.74, "pays": 75, "source": "Wikipédia en anglais, article Coevorden : Coevorden est la place de la Drenthe, terre des évêques d'Utrecht (https://en.wikipedia.org/wiki/Coevorden)"},
+      {"nom": "Groningue", "lat": 53.22, "lon": 6.57, "pays": null, "source": "Wikipédia en anglais, article Frisian freedom : la Frise reste sans prince féodal, gouvernée par ses communes et ses chefs, jusqu'à la fin du XVe siècle (https://en.wikipedia.org/wiki/Frisian_freedom)", "raison": "Liberté frisonne : communes, Groningue et chefs frisons, aucune puissance de la table."},
+      {"nom": "Emden", "lat": 53.37, "lon": 7.21, "pays": null, "source": "Wikipédia en anglais, article East Frisia : la Frise orientale est aux mains des chefs frisons, dont les tom Brok, jusqu'au XVe siècle (https://en.wikipedia.org/wiki/East_Frisia)", "raison": "Liberté frisonne : chefs de la Frise orientale, aucune puissance de la table."}
+    ] },
+    { "cell_id": 10453, "villes": [
+      {"nom": "Marbourg", "lat": 50.81, "lon": 8.77, "pays": 64, "source": "Wikipédia en anglais, article Marburg : Marbourg est une résidence des landgraves de Hesse (https://en.wikipedia.org/wiki/Marburg)"},
+      {"nom": "Limbourg", "lat": 50.39, "lon": 8.06, "pays": 11, "source": "Wikipédia en anglais, article Limburg an der Lahn : Limbourg-sur-la-Lahn est engagée à l'archevêque de Trèves en 1344 (https://en.wikipedia.org/wiki/Limburg_an_der_Lahn)"}
+    ] },
+    { "cell_id": 10459, "villes": [
+      {"nom": "Cassel", "lat": 51.31, "lon": 9.48, "pays": 64, "source": "Wikipédia en anglais, article Kassel : Cassel est la résidence des landgraves de Hesse (https://en.wikipedia.org/wiki/Kassel)"},
+      {"nom": "Göttingen", "lat": 51.53, "lon": 9.94, "pays": 65, "source": "Wikipédia en anglais, article Göttingen : Göttingen est une ville des ducs de Brunswick (https://en.wikipedia.org/wiki/G%C3%B6ttingen)"}
+    ] },
+    { "cell_id": 10449, "villes": [
+      {"nom": "Coblence", "lat": 50.36, "lon": 7.59, "pays": 11, "source": "Wikipédia en anglais, article Koblenz : Coblence est la résidence de l'archevêque-électeur de Trèves (https://en.wikipedia.org/wiki/Koblenz)"},
+      {"nom": "Mayence", "lat": 50.0, "lon": 8.27, "pays": 71, "source": "Wikipédia en anglais, article Mainz : Mayence est le siège de l'archevêque-électeur ; la ville est libre de 1244 à 1462 (https://en.wikipedia.org/wiki/Mainz)"},
+      {"nom": "Eltville", "lat": 50.03, "lon": 8.12, "pays": 71, "source": "Wikipédia en anglais, article Eltville : Eltville est la résidence des archevêques de Mayence au XIVe siècle (https://en.wikipedia.org/wiki/Eltville)"},
+      {"nom": "Kaiserslautern", "lat": 49.44, "lon": 7.77, "pays": 52, "source": "Wikipédia en anglais, article Kaiserslautern : Kaiserslautern est engagée au Palatinat en 1375 (https://en.wikipedia.org/wiki/Kaiserslautern)"}
+    ] },
+    { "cell_id": 10452, "villes": [
+      {"nom": "Heidelberg", "lat": 49.41, "lon": 8.69, "pays": 52, "source": "Wikipédia en anglais, article Heidelberg : Heidelberg est la résidence des électeurs palatins (https://en.wikipedia.org/wiki/Heidelberg)"},
+      {"nom": "Germersheim", "lat": 49.22, "lon": 8.37, "pays": 52, "source": "Wikipédia en anglais, article Germersheim : Germersheim est engagée aux électeurs palatins en 1330 (https://en.wikipedia.org/wiki/Germersheim)"},
+      {"nom": "Bretten", "lat": 49.04, "lon": 8.71, "pays": 52, "source": "Wikipédia en anglais, article Bretten : Bretten passe au Palatinat en 1349 (https://en.wikipedia.org/wiki/Bretten)"},
+      {"nom": "Neustadt", "lat": 49.35, "lon": 8.14, "pays": 52, "source": "Wikipédia en anglais, article Neustadt an der Weinstraße : Neustadt est une ville des électeurs palatins (https://en.wikipedia.org/wiki/Neustadt_an_der_Weinstra%C3%9Fe)"},
+      {"nom": "Bade", "lat": 48.76, "lon": 8.24, "pays": null, "source": "Wikipédia en anglais, article Margraviate of Baden : le margraviat de Bade, aux Zähringen, est gouverné depuis Baden-Baden (https://en.wikipedia.org/wiki/Margraviate_of_Baden)", "raison": "Margraviat de Bade, puissance absente de la table : sa capitale partagerait la cellule de Heidelberg."}
+    ] },
+    { "cell_id": 10460, "villes": [
+      {"nom": "Aschaffenbourg", "lat": 49.97, "lon": 9.15, "pays": 71, "source": "Wikipédia en anglais, article Aschaffenburg : Aschaffenbourg est la seconde résidence des archevêques de Mayence (https://en.wikipedia.org/wiki/Aschaffenburg)"},
+      {"nom": "Wurtzbourg", "lat": 49.79, "lon": 9.95, "pays": null, "source": "Wikipédia en anglais, article Würzburg : Wurtzbourg est le siège des princes-évêques de Wurtzbourg (https://en.wikipedia.org/wiki/W%C3%BCrzburg)", "raison": "Évêché de Wurtzbourg, puissance absente de la table : son siège partagerait la cellule d'Aschaffenbourg, siège de Mayence."}
+    ] },
+    { "cell_id": 10257, "villes": [
+      {"nom": "Erfurt", "lat": 50.98, "lon": 11.03, "pays": 71, "source": "Wikipédia en anglais, article Erfurt : Erfurt relève des archevêques de Mayence (https://en.wikipedia.org/wiki/Erfurt)"},
+      {"nom": "Eisenach", "lat": 50.97, "lon": 10.31, "pays": 55, "source": "Wikipédia en anglais, article Wartburg : la Wartbourg, au-dessus d'Eisenach, est le château des landgraves de Thuringe (https://en.wikipedia.org/wiki/Wartburg)"},
+      {"nom": "Gotha", "lat": 50.95, "lon": 10.7, "pays": 55, "source": "Wikipédia en anglais, article Gotha : Gotha appartient aux landgraves de Thuringe de la maison de Wettin (https://en.wikipedia.org/wiki/Gotha)"},
+      {"nom": "Weimar", "lat": 50.98, "lon": 11.33, "pays": 55, "source": "Wikipédia en anglais, article Weimar : Weimar appartient aux landgraves de Thuringe de la maison de Wettin (https://en.wikipedia.org/wiki/Weimar)"}
+    ] },
+    { "cell_id": 10261, "villes": [
+      {"nom": "Bamberg", "lat": 49.89, "lon": 10.89, "pays": null, "source": "Wikipédia en anglais, article Bamberg : Bamberg est le siège des princes-évêques de Bamberg (https://en.wikipedia.org/wiki/Bamberg)", "raison": "Évêché de Bamberg, puissance absente de la table : son siège partagerait la cellule de Cadolzbourg, capitale des burgraves de Nuremberg."},
+      {"nom": "Cadolzbourg", "lat": 49.46, "lon": 10.86, "pays": 69, "source": "Wikipédia en anglais, article Cadolzburg : le château de Cadolzbourg est la résidence des burgraves de Nuremberg (https://en.wikipedia.org/wiki/Cadolzburg)"},
+      {"nom": "Bayreuth", "lat": 49.95, "lon": 11.58, "pays": 69, "source": "Wikipédia en anglais, article Bayreuth : Bayreuth appartient aux burgraves de Nuremberg depuis 1260 (https://en.wikipedia.org/wiki/Bayreuth)"}
+    ] },
+    { "cell_id": 10465, "villes": [
+      {"nom": "Stuttgart", "lat": 48.78, "lon": 9.18, "pays": null, "source": "Wikipédia en anglais, article County of Württemberg : le comté de Wurtemberg est gouverné depuis Stuttgart (https://en.wikipedia.org/wiki/County_of_W%C3%BCrttemberg)", "raison": "Comté de Wurtemberg : terre de départ réduite aux quatre lieux de son siège, ses autres terres ne sont pas simulées."},
+      {"nom": "Ansbach", "lat": 49.3, "lon": 10.57, "pays": 69, "source": "Wikipédia en anglais, article Ansbach : Ansbach est achetée par les burgraves de Nuremberg en 1331 (https://en.wikipedia.org/wiki/Ansbach)"},
+      {"nom": "Crailsheim", "lat": 49.13, "lon": 10.07, "pays": 69, "source": "Wikipédia en anglais, article Crailsheim : Crailsheim passe aux burgraves de Nuremberg à la fin du XIVe siècle (https://en.wikipedia.org/wiki/Crailsheim)"}
+    ] },
+    { "cell_id": 10258, "villes": [
+      {"nom": "Landsberg-sur-le-Lech", "lat": 48.05, "lon": 10.88, "pays": 51, "source": "Wikipédia en anglais, article Landsberg am Lech : Landsberg, sur le Lech, est une ville des ducs de Bavière (https://en.wikipedia.org/wiki/Landsberg_am_Lech)"},
+      {"nom": "Schongau", "lat": 47.81, "lon": 10.9, "pays": 51, "source": "Wikipédia en anglais, article Schongau : Schongau passe aux ducs de Bavière en 1268 (https://en.wikipedia.org/wiki/Schongau)"},
+      {"nom": "Reutte", "lat": 47.49, "lon": 10.72, "pays": 50, "source": "Wikipédia en anglais, article Reutte : Reutte et le château d'Ehrenberg appartiennent au comté de Tyrol (https://en.wikipedia.org/wiki/Reutte)"}
+    ] },
+    { "cell_id": 10273, "villes": [
+      {"nom": "Salzbourg", "lat": 47.8, "lon": 13.04, "pays": 74, "source": "Wikipédia en anglais, article Salzburg : Salzbourg est le siège des princes-archevêques (https://en.wikipedia.org/wiki/Salzburg)"},
+      {"nom": "Hallein", "lat": 47.68, "lon": 13.1, "pays": 74, "source": "Wikipédia en anglais, article Hallein : Hallein, ville du sel, appartient aux princes-archevêques de Salzbourg (https://en.wikipedia.org/wiki/Hallein)"},
+      {"nom": "Mühldorf", "lat": 48.25, "lon": 12.52, "pays": 74, "source": "Wikipédia en anglais, article Mühldorf : Mühldorf am Inn reste une exclave salzbourgeoise jusqu'en 1802 (https://en.wikipedia.org/wiki/M%C3%BChldorf)"},
+      {"nom": "Laufen", "lat": 47.94, "lon": 12.93, "pays": 74, "source": "Wikipédia en anglais, article Laufen, Bavaria : Laufen, sur la Salzach, appartient à l'archevêché de Salzbourg (https://en.wikipedia.org/wiki/Laufen,_Bavaria)"},
+      {"nom": "Burghausen", "lat": 48.17, "lon": 12.83, "pays": 51, "source": "Wikipédia en anglais, article Burghausen : Burghausen est la seconde résidence des ducs de Bavière-Landshut (https://en.wikipedia.org/wiki/Burghausen)"},
+      {"nom": "Braunau", "lat": 48.26, "lon": 13.04, "pays": 51, "source": "Wikipédia en anglais, article Braunau am Inn : Braunau est une ville des ducs de Bavière jusqu'en 1779 (https://en.wikipedia.org/wiki/Braunau_am_Inn)"},
+      {"nom": "Kufstein", "lat": 47.58, "lon": 12.17, "pays": 51, "source": "Wikipédia en anglais, article Kufstein : Kufstein reste bavaroise jusqu'en 1504 (https://en.wikipedia.org/wiki/Kufstein)"},
+      {"nom": "Gmunden", "lat": 47.92, "lon": 13.8, "pays": 50, "source": "Wikipédia en anglais, article Gmunden : Gmunden, ville du sel du Salzkammergut, appartient aux ducs d'Autriche (https://en.wikipedia.org/wiki/Gmunden)"}
+    ] },
+    { "cell_id": 10282, "villes": [
+      {"nom": "Linz", "lat": 48.31, "lon": 14.29, "pays": 50, "source": "Wikipédia en anglais, article Linz : Linz est une ville des ducs d'Autriche, capitale de la Haute-Autriche (https://en.wikipedia.org/wiki/Linz)"},
+      {"nom": "Wels", "lat": 48.16, "lon": 14.03, "pays": 50, "source": "Wikipédia en anglais, article Wels : Wels est une ville de Haute-Autriche (https://en.wikipedia.org/wiki/Wels)"},
+      {"nom": "Freistadt", "lat": 48.51, "lon": 14.5, "pays": 50, "source": "Wikipédia en anglais, article Freistadt : Freistadt est une ville de Haute-Autriche (https://en.wikipedia.org/wiki/Freistadt)"},
+      {"nom": "Budweis", "lat": 48.97, "lon": 14.47, "pays": 10, "source": "Wikipédia en anglais, article České Budějovice : Budweis est fondée par le roi de Bohême Ottokar II en 1265 (https://en.wikipedia.org/wiki/%C4%8Cesk%C3%A9_Bud%C4%9Bjovice)"},
+      {"nom": "Krumau", "lat": 48.81, "lon": 14.32, "pays": 10, "source": "Wikipédia en anglais, article Český Krumlov : Krumau est le siège des Rosenberg, seigneurs de Bohême (https://en.wikipedia.org/wiki/%C4%8Cesk%C3%BD_Krumlov)"},
+      {"nom": "Vilshofen", "lat": 48.63, "lon": 13.18, "pays": 51, "source": "Wikipédia en anglais, article Vilshofen an der Donau : Vilshofen, sur le Danube, est une ville des ducs de Bavière (https://en.wikipedia.org/wiki/Vilshofen_an_der_Donau)"}
+    ] },
+    { "cell_id": 10274, "villes": [
+      {"nom": "Straubing", "lat": 48.88, "lon": 12.57, "pays": 51, "source": "Wikipédia en anglais, article Straubing : Straubing est la capitale de la Bavière-Straubing (https://en.wikipedia.org/wiki/Straubing)"},
+      {"nom": "Amberg", "lat": 49.44, "lon": 11.86, "pays": 52, "source": "Wikipédia en anglais, article Amberg : Amberg est la capitale du Haut-Palatinat, aux électeurs palatins (https://en.wikipedia.org/wiki/Amberg)"},
+      {"nom": "Pilsen", "lat": 49.75, "lon": 13.38, "pays": 10, "source": "Wikipédia en anglais, article Plzeň : Pilsen est fondée par le roi de Bohême Venceslas II vers 1295 (https://en.wikipedia.org/wiki/Plze%C5%88)"},
+      {"nom": "Cheb", "lat": 50.08, "lon": 12.37, "pays": 10, "source": "Wikipédia en anglais, article Cheb : Cheb et l'Egerland sont engagés à la couronne de Bohême depuis 1322 (https://en.wikipedia.org/wiki/Cheb)"}
+    ] },
+    { "cell_id": 10294, "villes": [
+      {"nom": "Vienne", "lat": 48.21, "lon": 16.37, "pays": 50, "source": "Wikipédia en anglais, article Vienna : Vienne est le siège des ducs d'Autriche de la maison de Habsbourg (https://en.wikipedia.org/wiki/Vienna)"},
+      {"nom": "Krems", "lat": 48.41, "lon": 15.61, "pays": 50, "source": "Wikipédia en anglais, article Krems an der Donau : Krems est une ville de Basse-Autriche (https://en.wikipedia.org/wiki/Krems_an_der_Donau)"},
+      {"nom": "Brno", "lat": 49.19, "lon": 16.61, "pays": 10, "source": "Wikipédia en anglais, article Brno : Brno est la ville principale de la marche de Moravie, pays de la couronne de Bohême (https://en.wikipedia.org/wiki/Brno)"},
+      {"nom": "Znojmo", "lat": 48.86, "lon": 16.05, "pays": 10, "source": "Wikipédia en anglais, article Znojmo : Znojmo est une ville royale de Moravie (https://en.wikipedia.org/wiki/Znojmo)"}
+    ] },
+    { "cell_id": 10289, "villes": [
+      {"nom": "Graz", "lat": 47.07, "lon": 15.44, "pays": 50, "source": "Wikipédia en anglais, article Graz : Graz est la résidence des Habsbourg léopoldiens en Styrie (https://en.wikipedia.org/wiki/Graz)"},
+      {"nom": "Wiener Neustadt", "lat": 47.81, "lon": 16.24, "pays": 50, "source": "Wikipédia en anglais, article Wiener Neustadt : Wiener Neustadt est une ville des ducs d'Autriche (https://en.wikipedia.org/wiki/Wiener_Neustadt)"},
+      {"nom": "Sopron", "lat": 47.68, "lon": 16.59, "pays": 24, "source": "Wikipédia en anglais, article Sopron : Sopron est une ville royale libre du royaume de Hongrie (https://en.wikipedia.org/wiki/Sopron)"}
+    ] },
+    { "cell_id": 10285, "villes": [
+      {"nom": "Ljubljana", "lat": 46.05, "lon": 14.51, "pays": 50, "source": "Wikipédia en anglais, article Ljubljana : Ljubljana, capitale de la Carniole, est aux Habsbourg depuis 1335 (https://en.wikipedia.org/wiki/Ljubljana)"},
+      {"nom": "Trieste", "lat": 45.65, "lon": 13.78, "pays": 50, "source": "Wikipédia en anglais, article Trieste : Trieste se donne au duc d'Autriche Léopold III en 1382 (https://en.wikipedia.org/wiki/Trieste)"},
+      {"nom": "Modruš", "lat": 45.13, "lon": 15.24, "pays": 24, "source": "Wikipédia en anglais, article Modruš : Modruš est le siège des Frankopan, comtes du royaume de Croatie et de Hongrie (https://en.wikipedia.org/wiki/Modru%C5%A1)"}
+    ] },
+    { "cell_id": 10457, "villes": [
+      {"nom": "Zurich", "lat": 47.37, "lon": 8.54, "pays": 12, "source": "Wikipédia en anglais, article Zürich : Zurich entre dans la Confédération en 1351 (https://en.wikipedia.org/wiki/Z%C3%BCrich)"},
+      {"nom": "Lucerne", "lat": 47.05, "lon": 8.31, "pays": 12, "source": "Wikipédia en anglais, article Lucerne : Lucerne entre dans la Confédération en 1332 (https://en.wikipedia.org/wiki/Lucerne)"},
+      {"nom": "Schwyz", "lat": 47.02, "lon": 8.65, "pays": 12, "source": "Wikipédia en anglais, article Schwyz : Schwyz est l'un des trois cantons fondateurs de 1291 (https://en.wikipedia.org/wiki/Schwyz)"},
+      {"nom": "Zoug", "lat": 47.17, "lon": 8.52, "pays": 12, "source": "Wikipédia en anglais, article Zug : Zoug entre dans la Confédération en 1352 (https://en.wikipedia.org/wiki/Zug)"},
+      {"nom": "Glaris", "lat": 47.04, "lon": 9.07, "pays": 12, "source": "Wikipédia en anglais, article Glarus : Glaris entre dans la Confédération en 1352 (https://en.wikipedia.org/wiki/Glarus)"},
+      {"nom": "Altdorf", "lat": 46.88, "lon": 8.64, "pays": 12, "source": "Wikipédia en anglais, article Altdorf, Uri : Altdorf est le chef-lieu d'Uri, canton fondateur de 1291 (https://en.wikipedia.org/wiki/Altdorf,_Uri)"},
+      {"nom": "Baden", "lat": 47.47, "lon": 8.31, "pays": 50, "source": "Wikipédia en anglais, article Baden, Switzerland : Baden, en Argovie, est le siège des baillis des Habsbourg jusqu'à la conquête confédérée de 1415 (https://en.wikipedia.org/wiki/Baden,_Switzerland)"},
+      {"nom": "Frauenfeld", "lat": 47.56, "lon": 8.9, "pays": 50, "source": "Wikipédia en anglais, article Frauenfeld : Frauenfeld, en Thurgovie, reste aux Habsbourg jusqu'en 1460 (https://en.wikipedia.org/wiki/Frauenfeld)"},
+      {"nom": "Feldkirch", "lat": 47.24, "lon": 9.6, "pays": 50, "source": "Wikipédia en anglais, article Feldkirch, Vorarlberg : Feldkirch est achetée par les Habsbourg en 1375 (https://en.wikipedia.org/wiki/Feldkirch,_Vorarlberg)"}
+    ] },
+    { "cell_id": 10445, "villes": [
+      {"nom": "Berne", "lat": 46.95, "lon": 7.45, "pays": 12, "source": "Wikipédia en anglais, article Bern : Berne entre dans la Confédération en 1353 (https://en.wikipedia.org/wiki/Bern)"},
+      {"nom": "Laupen", "lat": 46.9, "lon": 7.24, "pays": 12, "source": "Wikipédia en anglais, article Laupen : Laupen passe à Berne en 1324 (https://en.wikipedia.org/wiki/Laupen)"},
+      {"nom": "Thoune", "lat": 46.76, "lon": 7.63, "pays": 12, "source": "Wikipédia en anglais, article Thun : Thoune passe à Berne en 1384 (https://en.wikipedia.org/wiki/Thun)"},
+      {"nom": "Berthoud", "lat": 47.06, "lon": 7.62, "pays": 12, "source": "Wikipédia en anglais, article Burgdorf : Berthoud passe à Berne en 1384 (https://en.wikipedia.org/wiki/Burgdorf)"},
+      {"nom": "Fribourg", "lat": 46.8, "lon": 7.15, "pays": 50, "source": "Wikipédia en anglais, article Fribourg : Fribourg est sous la seigneurie des Habsbourg de 1277 à 1452 (https://en.wikipedia.org/wiki/Fribourg)"},
+      {"nom": "Moudon", "lat": 46.67, "lon": 6.8, "pays": 20, "source": "Wikipédia en anglais, article Moudon : Moudon est le siège du bailli de Vaud pour les comtes de Savoie (https://en.wikipedia.org/wiki/Moudon)"}
+    ] },
+    { "cell_id": 10272, "villes": [
+      {"nom": "Wittenberg", "lat": 51.87, "lon": 12.65, "pays": 53, "source": "Wikipédia en anglais, article Wittenberg : Wittenberg est la résidence des ducs ascaniens de Saxe-Wittenberg (https://en.wikipedia.org/wiki/Wittenberg)"},
+      {"nom": "Berlin", "lat": 52.52, "lon": 13.4, "pays": 56, "source": "Wikipédia en anglais, article Berlin : Berlin et Cölln, villes de la marche de Brandebourg, s'unissent en 1307 (https://en.wikipedia.org/wiki/Berlin)"},
+      {"nom": "Brandebourg-sur-la-Havel", "lat": 52.41, "lon": 12.55, "pays": 56, "source": "Wikipédia en anglais, article Brandenburg an der Havel : Brandebourg-sur-la-Havel donne son nom à la marche (https://en.wikipedia.org/wiki/Brandenburg_an_der_Havel)"},
+      {"nom": "Stendal", "lat": 52.6, "lon": 11.86, "pays": 56, "source": "Wikipédia en anglais, article Stendal : Stendal est la principale ville de la Vieille-Marche de Brandebourg (https://en.wikipedia.org/wiki/Stendal)"}
+    ] },
+    { "cell_id": 10280, "villes": [
+      {"nom": "Meissen", "lat": 51.16, "lon": 13.47, "pays": 54, "source": "Wikipédia en anglais, article Meissen : Meissen est la résidence des margraves de Misnie (https://en.wikipedia.org/wiki/Meissen)"},
+      {"nom": "Dresde", "lat": 51.05, "lon": 13.74, "pays": 54, "source": "Wikipédia en anglais, article Dresden : Dresde est une ville des margraves de Misnie (https://en.wikipedia.org/wiki/Dresden)"},
+      {"nom": "Görlitz", "lat": 51.15, "lon": 14.99, "pays": 10, "source": "Wikipédia en anglais, article Görlitz : Görlitz est une ville de la Haute-Lusace, pays de la couronne de Bohême (https://en.wikipedia.org/wiki/G%C3%B6rlitz)"},
+      {"nom": "Bautzen", "lat": 51.18, "lon": 14.42, "pays": 10, "source": "Wikipédia en anglais, article Bautzen : Bautzen est la capitale de la Haute-Lusace, pays de la couronne de Bohême (https://en.wikipedia.org/wiki/Bautzen)"}
+    ] },
+    { "cell_id": 10262, "villes": [
+      {"nom": "Brunswick", "lat": 52.27, "lon": 10.52, "pays": 65, "source": "Wikipédia en anglais, article Braunschweig : Brunswick est la ville des ducs de Brunswick-Lunebourg (https://en.wikipedia.org/wiki/Braunschweig)"},
+      {"nom": "Wolfenbüttel", "lat": 52.16, "lon": 10.53, "pays": 65, "source": "Wikipédia en anglais, article Wolfenbüttel : le château de Wolfenbüttel est la résidence des ducs de Brunswick-Wolfenbüttel depuis 1283 (https://en.wikipedia.org/wiki/Wolfenb%C3%BCttel)"},
+      {"nom": "Magdebourg", "lat": 52.13, "lon": 11.63, "pays": 73, "source": "Wikipédia en anglais, article Magdeburg : Magdebourg est le siège de l'archevêché fondé en 968 (https://en.wikipedia.org/wiki/Magdeburg)"},
+      {"nom": "Halle", "lat": 51.48, "lon": 11.97, "pays": 73, "source": "Wikipédia en anglais, article Halle (Saale) : Halle appartient aux archevêques de Magdebourg (https://en.wikipedia.org/wiki/Halle_(Saale))"}
+    ] },
+    { "cell_id": 10259, "villes": [
+      {"nom": "Lunebourg", "lat": 53.25, "lon": 10.41, "pays": 65, "source": "Wikipédia en anglais, article Lüneburg : Lunebourg est la ville de la principauté de Lunebourg, aux Welf (https://en.wikipedia.org/wiki/L%C3%BCneburg)"},
+      {"nom": "Salzwedel", "lat": 52.85, "lon": 11.15, "pays": 56, "source": "Wikipédia en anglais, article Salzwedel : Salzwedel est une ville de la Vieille-Marche de Brandebourg (https://en.wikipedia.org/wiki/Salzwedel)"}
+    ] },
+    { "cell_id": 10269, "villes": [
+      {"nom": "Schwerin", "lat": 53.63, "lon": 11.41, "pays": 66, "source": "Wikipédia en anglais, article Schwerin : Schwerin est la résidence des ducs de Mecklembourg (https://en.wikipedia.org/wiki/Schwerin)"},
+      {"nom": "Rostock", "lat": 54.09, "lon": 12.1, "pays": 66, "source": "Wikipédia en anglais, article Rostock : Rostock, ville hanséatique, relève des seigneurs puis des ducs de Mecklembourg (https://en.wikipedia.org/wiki/Rostock)"},
+      {"nom": "Wismar", "lat": 53.89, "lon": 11.47, "pays": 66, "source": "Wikipédia en anglais, article Wismar : Wismar, ville hanséatique, appartient aux ducs de Mecklembourg (https://en.wikipedia.org/wiki/Wismar)"},
+      {"nom": "Stralsund", "lat": 54.31, "lon": 13.09, "pays": 67, "source": "Wikipédia en anglais, article Stralsund : Stralsund, ville hanséatique, appartient au duché de Poméranie (https://en.wikipedia.org/wiki/Stralsund)"}
+    ] },
+    { "cell_id": 10281, "villes": [
+      {"nom": "Stettin", "lat": 53.43, "lon": 14.55, "pays": 67, "source": "Wikipédia en anglais, article Szczecin : Stettin est la capitale du duché de Poméranie-Stettin (https://en.wikipedia.org/wiki/Szczecin)"},
+      {"nom": "Wolgast", "lat": 54.05, "lon": 13.77, "pays": 67, "source": "Wikipédia en anglais, article Wolgast : Wolgast est la résidence des ducs de Poméranie-Wolgast (https://en.wikipedia.org/wiki/Wolgast)"},
+      {"nom": "Prenzlau", "lat": 53.32, "lon": 13.86, "pays": 56, "source": "Wikipédia en anglais, article Prenzlau : Prenzlau est la principale ville de l'Uckermark, de la marche de Brandebourg (https://en.wikipedia.org/wiki/Prenzlau)"}
+    ] },
+    { "cell_id": 10297, "villes": [
+      {"nom": "Stolp", "lat": 54.46, "lon": 17.03, "pays": 67, "source": "Wikipédia en anglais, article Słupsk : Stolp est le siège des ducs de Poméranie-Stolp (https://en.wikipedia.org/wiki/S%C5%82upsk)"},
+      {"nom": "Kolberg", "lat": 54.18, "lon": 15.58, "pays": 67, "source": "Wikipédia en anglais, article Kołobrzeg : Kolberg est une ville du duché de Poméranie (https://en.wikipedia.org/wiki/Ko%C5%82obrzeg)"},
+      {"nom": "Schlochau", "lat": 53.66, "lon": 17.36, "pays": 22, "source": "Wikipédia en anglais, article Człuchów : Schlochau est le siège d'une commanderie de l'Ordre teutonique depuis 1312 (https://en.wikipedia.org/wiki/Cz%C5%82uch%C3%B3w)"}
+    ] },
+    { "cell_id": 10290, "villes": [
+      {"nom": "Francfort-sur-l'Oder", "lat": 52.34, "lon": 14.55, "pays": 56, "source": "Wikipédia en anglais, article Frankfurt (Oder) : Francfort-sur-l'Oder est une ville de la marche de Brandebourg (https://en.wikipedia.org/wiki/Frankfurt_(Oder))"},
+      {"nom": "Landsberg", "lat": 52.73, "lon": 15.24, "pays": 56, "source": "Wikipédia en anglais, article Gorzów Wielkopolski : Landsberg-sur-la-Warthe est fondée en 1257 par les margraves de Brandebourg dans la Nouvelle-Marche ; l'Ordre teutonique ne l'achète qu'en 1402 (https://en.wikipedia.org/wiki/Gorz%C3%B3w_Wielkopolski)"},
+      {"nom": "Międzyrzecz", "lat": 52.44, "lon": 15.58, "pays": 23, "source": "Wikipédia en anglais, article Międzyrzecz : Międzyrzecz est une place forte de Grande-Pologne (https://en.wikipedia.org/wiki/Mi%C4%99dzyrzecz)"}
+    ] },
+    { "cell_id": 10305, "villes": [
+      {"nom": "Opole", "lat": 50.67, "lon": 17.93, "pays": 10, "source": "Wikipédia en anglais, article Opole : Opole est le siège des ducs d'Opole, vassaux de la couronne de Bohême (https://en.wikipedia.org/wiki/Opole)"},
+      {"nom": "Częstochowa", "lat": 50.81, "lon": 19.12, "pays": 23, "source": "Wikipédia en anglais, article Częstochowa : Częstochowa est une ville du royaume de Pologne, où les Paulins s'établissent en 1382 (https://en.wikipedia.org/wiki/Cz%C4%99stochowa)"},
+      {"nom": "Wieluń", "lat": 51.22, "lon": 18.57, "pays": 23, "source": "Wikipédia en anglais, article Wieluń : la terre de Wieluń revient à la couronne de Pologne en 1391 (https://en.wikipedia.org/wiki/Wielu%C5%84)"}
     ] }
   ],
   "lacunes": [
@@ -188,13 +435,28 @@
     {"cell_id": 1273, "raison": "Île d'Elbe, de la seigneurie de Piombino des Appiani, fondée en 1399 (article Principality of Piombino) : puissance absente de la table."},
     {"cell_id": 1340, "raison": "Lastovo, île de la république de Raguse (article Lastovo) : puissance absente de la table."},
     {"cell_id": 1546, "raison": "Îles du Sulcis, au sud-ouest de la Sardaigne, entre le juge d'Arborée et la couronne d'Aragon : non départagées."},
-    {"cell_id": 1549, "raison": "Îles du Sulcis, au sud-ouest de la Sardaigne, entre le juge d'Arborée et la couronne d'Aragon : non départagées."}
+    {"cell_id": 1549, "raison": "Îles du Sulcis, au sud-ouest de la Sardaigne, entre le juge d'Arborée et la couronne d'Aragon : non départagées."},
+    {"cell_id": 1515, "raison": "Île frisonne : la Frise reste sans prince féodal, gouvernée par ses communes et ses chefs, jusqu'à la fin du XVe siècle (https://en.wikipedia.org/wiki/Frisian_freedom) : aucune puissance de la table."},
+    {"cell_id": 1525, "raison": "Île frisonne : la Frise reste sans prince féodal, gouvernée par ses communes et ses chefs, jusqu'à la fin du XVe siècle (https://en.wikipedia.org/wiki/Frisian_freedom) : aucune puissance de la table."}
   ],
   "petits_pays": [
     {"nom": "Andorre", "raison": "Coseigneurie de l'évêque d'Urgell et du comte de Foix depuis les paréages de 1278, moins de 500 km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Andorre)."},
     {"nom": "Saint-Marin", "raison": "Commune libre du Montefeltro, une soixantaine de km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Saint-Marin)."},
     {"nom": "Calais", "raison": "Ville anglaise depuis sa prise par Édouard III en 1347, confirmée par le traité de 1360 (https://en.wikipedia.org/wiki/Calais) : le Calaisis est plus petit qu'un lieu ; la cellule va à la Bourgogne de Saint-Omer."},
-    {"nom": "Seigneurie de Piombino", "raison": "Piombino et une part de l'île d'Elbe, cédées à part par Gherardo Appiani en 1399 : plus petite que deux lieux (https://en.wikipedia.org/wiki/Principality_of_Piombino)."}
+    {"nom": "Seigneurie de Piombino", "raison": "Piombino et une part de l'île d'Elbe, cédées à part par Gherardo Appiani en 1399 : plus petite que deux lieux (https://en.wikipedia.org/wiki/Principality_of_Piombino)."},
+    {"nom": "Lübeck", "raison": "Ville libre d'Empire et tête de la Hanse, plus petite qu'un lieu : son lieu va au Holstein voisin (https://en.wikipedia.org/wiki/L%C3%BCbeck)."},
+    {"nom": "Hambourg", "raison": "Ville hanséatique, libre en fait mais tenue en droit des comtes de Holstein, plus petite qu'un lieu : son lieu va au pays voisin (https://en.wikipedia.org/wiki/Hamburg)."},
+    {"nom": "Cologne", "raison": "Ville libre de fait depuis la bataille de Worringen (1288), plus petite qu'un lieu : son lieu va à l'archevêché de Cologne, qui l'entoure (https://en.wikipedia.org/wiki/Cologne)."},
+    {"nom": "Francfort", "raison": "Ville libre d'Empire, où s'élisent les rois des Romains, plus petite qu'un lieu : son lieu va au pays voisin (https://en.wikipedia.org/wiki/Frankfurt)."},
+    {"nom": "Nuremberg", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va au burgraviat de Nuremberg, qui tient encore le château (https://en.wikipedia.org/wiki/Nuremberg)."},
+    {"nom": "Augsbourg", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va à la Bavière voisine (https://en.wikipedia.org/wiki/Augsburg)."},
+    {"nom": "Ratisbonne", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va à la Bavière voisine (https://en.wikipedia.org/wiki/Regensburg)."},
+    {"nom": "Ulm", "raison": "Ville libre d'Empire, plus petite que deux lieux : ses terres vont à l'Autriche antérieure voisine (https://en.wikipedia.org/wiki/Ulm)."},
+    {"nom": "Strasbourg", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va au pays voisin (https://en.wikipedia.org/wiki/Strasbourg)."},
+    {"nom": "Metz", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va au pays voisin (https://en.wikipedia.org/wiki/Metz)."},
+    {"nom": "Aix-la-Chapelle", "raison": "Ville libre d'Empire, plus petite qu'un lieu : son lieu va au pays voisin (https://en.wikipedia.org/wiki/Aachen)."},
+    {"nom": "Bâle", "raison": "Ville et principauté épiscopale, plus petites qu'un lieu : leur lieu va à l'Autriche antérieure voisine (https://en.wikipedia.org/wiki/Basel)."},
+    {"nom": "Tournai", "raison": "Ville du roi de France enclavée dans le Hainaut, plus petite qu'un lieu : son lieu va au Hainaut (https://en.wikipedia.org/wiki/Tournai)."}
   ],
   "temoins": [
     {"nom": "Paris", "lat": 48.86, "lon": 2.35, "pays": 3, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume de Charles VI (https://fr.wikipedia.org/wiki/Royaume_de_France)"},
@@ -225,6 +487,50 @@
     {"nom": "Florence", "lat": 43.77, "lon": 11.26, "pays": 15, "source": "Wikipédia, article République de Florence : Florence est le siège de la république (https://fr.wikipedia.org/wiki/R%C3%A9publique_de_Florence)"},
     {"nom": "Rome", "lat": 41.9, "lon": 12.5, "pays": 17, "source": "Treccani, Enciclopedia dei Papi, article Bonifacio IX : souveraineté sur Rome remise au pape en juin 1398 (https://www.treccani.it/enciclopedia/bonifacio-ix_(Enciclopedia-dei-Papi)/)"},
     {"nom": "Naples", "lat": 40.85, "lon": 14.27, "pays": 18, "source": "Wikipédia, article Royaume de Naples : Naples est la capitale du royaume continental (https://fr.wikipedia.org/wiki/Royaume_de_Naples)"},
-    {"nom": "Palerme", "lat": 38.12, "lon": 13.36, "pays": 19, "source": "Wikipédia, article Histoire de Palerme, section Les Aragonais : Martin Ier y règne à partir de 1392 (https://fr.wikipedia.org/wiki/Histoire_de_Palerme#Les_Aragonais)"}
+    {"nom": "Palerme", "lat": 38.12, "lon": 13.36, "pays": 19, "source": "Wikipédia, article Histoire de Palerme, section Les Aragonais : Martin Ier y règne à partir de 1392 (https://fr.wikipedia.org/wiki/Histoire_de_Palerme#Les_Aragonais)"},
+    {"nom": "Vienne", "lat": 48.21, "lon": 16.37, "pays": 50, "source": "Wikipédia en anglais, article Vienna : Vienne est le siège des ducs d'Autriche de la maison de Habsbourg (https://en.wikipedia.org/wiki/Vienna)"},
+    {"nom": "Innsbruck", "lat": 47.27, "lon": 11.39, "pays": 50, "source": "Wikipédia en anglais, article Innsbruck : Innsbruck, ville du comté de Tyrol, passe aux Habsbourg avec le Tyrol en 1363 (https://en.wikipedia.org/wiki/Innsbruck)"},
+    {"nom": "Linz", "lat": 48.31, "lon": 14.29, "pays": 50, "source": "Wikipédia en anglais, article Linz : Linz est une ville des ducs d'Autriche, capitale de la Haute-Autriche (https://en.wikipedia.org/wiki/Linz)"},
+    {"nom": "Graz", "lat": 47.07, "lon": 15.44, "pays": 50, "source": "Wikipédia en anglais, article Graz : Graz est la résidence des Habsbourg léopoldiens en Styrie (https://en.wikipedia.org/wiki/Graz)"},
+    {"nom": "Munich", "lat": 48.14, "lon": 11.58, "pays": 51, "source": "Wikipédia en anglais, article Munich : Munich est la résidence des ducs de Bavière-Munich (https://en.wikipedia.org/wiki/Munich)"},
+    {"nom": "Heidelberg", "lat": 49.41, "lon": 8.69, "pays": 52, "source": "Wikipédia en anglais, article Heidelberg : Heidelberg est la résidence des électeurs palatins (https://en.wikipedia.org/wiki/Heidelberg)"},
+    {"nom": "Wittenberg", "lat": 51.87, "lon": 12.65, "pays": 53, "source": "Wikipédia en anglais, article Wittenberg : Wittenberg est la résidence des ducs ascaniens de Saxe-Wittenberg (https://en.wikipedia.org/wiki/Wittenberg)"},
+    {"nom": "Meissen", "lat": 51.16, "lon": 13.47, "pays": 54, "source": "Wikipédia en anglais, article Meissen : Meissen est la résidence des margraves de Misnie (https://en.wikipedia.org/wiki/Meissen)"},
+    {"nom": "Leipzig", "lat": 51.34, "lon": 12.37, "pays": 54, "source": "Wikipédia en anglais, article Leipzig : Leipzig est une ville de la marche de Misnie (https://en.wikipedia.org/wiki/Leipzig)"},
+    {"nom": "Gotha", "lat": 50.95, "lon": 10.7, "pays": 55, "source": "Wikipédia en anglais, article Gotha : Gotha appartient aux landgraves de Thuringe (https://en.wikipedia.org/wiki/Gotha)"},
+    {"nom": "Berlin", "lat": 52.52, "lon": 13.4, "pays": 56, "source": "Wikipédia en anglais, article Berlin : Berlin et Cölln, villes de la marche de Brandebourg, s'unissent en 1307 (https://en.wikipedia.org/wiki/Berlin)"},
+    {"nom": "Luxembourg", "lat": 49.61, "lon": 6.13, "pays": 57, "source": "Wikipédia en anglais, article Luxembourg City : Luxembourg est le siège des ducs de Luxembourg (https://en.wikipedia.org/wiki/Luxembourg_City)"},
+    {"nom": "Bruxelles", "lat": 50.85, "lon": 4.35, "pays": 58, "source": "Wikipédia en anglais, article Brussels : Bruxelles est l'une des principales villes des ducs de Brabant (https://en.wikipedia.org/wiki/Brussels)"},
+    {"nom": "La Haye", "lat": 52.08, "lon": 4.31, "pays": 59, "source": "Wikipédia en anglais, article The Hague : La Haye naît autour du Binnenhof, résidence des comtes de Hollande (https://en.wikipedia.org/wiki/The_Hague)"},
+    {"nom": "Amsterdam", "lat": 52.37, "lon": 4.9, "pays": 59, "source": "Wikipédia en anglais, article Amsterdam : Amsterdam est une ville du comté de Hollande (https://en.wikipedia.org/wiki/Amsterdam)"},
+    {"nom": "Mons", "lat": 50.45, "lon": 3.95, "pays": 60, "source": "Wikipédia en anglais, article Mons : Mons est la capitale du comté de Hainaut (https://en.wikipedia.org/wiki/Mons)"},
+    {"nom": "Nancy", "lat": 48.69, "lon": 6.18, "pays": 61, "source": "Wikipédia en anglais, article Nancy, France : Nancy est la capitale des ducs de Lorraine (https://en.wikipedia.org/wiki/Nancy,_France)"},
+    {"nom": "Nimègue", "lat": 51.84, "lon": 5.86, "pays": 62, "source": "Wikipédia en anglais, article Nijmegen : Nimègue est l'une des capitales du duché de Gueldre (https://en.wikipedia.org/wiki/Nijmegen)"},
+    {"nom": "Hamm", "lat": 51.68, "lon": 7.82, "pays": 63, "source": "Wikipédia en anglais, article Hamm : Hamm, fondée par les comtes de La Marck en 1226, est la ville principale du comté de La Marck (https://en.wikipedia.org/wiki/Hamm)"},
+    {"nom": "Cassel", "lat": 51.31, "lon": 9.48, "pays": 64, "source": "Wikipédia en anglais, article Kassel : Cassel est la résidence des landgraves de Hesse (https://en.wikipedia.org/wiki/Kassel)"},
+    {"nom": "Brunswick", "lat": 52.27, "lon": 10.52, "pays": 65, "source": "Wikipédia en anglais, article Braunschweig : Brunswick est la ville des ducs de Brunswick-Lunebourg (https://en.wikipedia.org/wiki/Braunschweig)"},
+    {"nom": "Celle", "lat": 52.62, "lon": 10.08, "pays": 65, "source": "Wikipédia en anglais, article Celle : Celle devient la résidence des princes de Lunebourg à la fin du XIVe siècle (https://en.wikipedia.org/wiki/Celle)"},
+    {"nom": "Schwerin", "lat": 53.63, "lon": 11.41, "pays": 66, "source": "Wikipédia en anglais, article Schwerin : Schwerin est la résidence des ducs de Mecklembourg (https://en.wikipedia.org/wiki/Schwerin)"},
+    {"nom": "Stettin", "lat": 53.43, "lon": 14.55, "pays": 67, "source": "Wikipédia en anglais, article Szczecin : Stettin est la capitale du duché de Poméranie-Stettin (https://en.wikipedia.org/wiki/Szczecin)"},
+    {"nom": "Kiel", "lat": 54.32, "lon": 10.12, "pays": 68, "source": "Wikipédia en anglais, article Kiel : Kiel est une ville des comtes de Holstein (https://en.wikipedia.org/wiki/Kiel)"},
+    {"nom": "Lübeck", "lat": 53.87, "lon": 10.69, "pays": 68, "source": "Wikipédia en anglais, article Lübeck : Lübeck, ville libre d'Empire plus petite qu'un lieu, est entourée du Holstein, où va son lieu (https://en.wikipedia.org/wiki/L%C3%BCbeck)"},
+    {"nom": "Bayreuth", "lat": 49.95, "lon": 11.58, "pays": 69, "source": "Wikipédia en anglais, article Bayreuth : Bayreuth appartient aux burgraves de Nuremberg depuis 1260 (https://en.wikipedia.org/wiki/Bayreuth)"},
+    {"nom": "Cologne", "lat": 50.94, "lon": 6.96, "pays": 70, "source": "Wikipédia en anglais, article Cologne : Cologne, ville libre de fait depuis 1288 et plus petite qu'un lieu, est le siège de l'archevêché, où va son lieu (https://en.wikipedia.org/wiki/Cologne)"},
+    {"nom": "Bonn", "lat": 50.73, "lon": 7.1, "pays": 70, "source": "Wikipédia en anglais, article Bonn : Bonn est la résidence des archevêques-électeurs de Cologne (https://en.wikipedia.org/wiki/Bonn)"},
+    {"nom": "Mayence", "lat": 50.0, "lon": 8.27, "pays": 71, "source": "Wikipédia en anglais, article Mainz : Mayence est le siège de l'archevêque-électeur ; la ville, libre de 1244 à 1462, est plus petite qu'un lieu (https://en.wikipedia.org/wiki/Mainz)"},
+    {"nom": "Trèves", "lat": 49.75, "lon": 6.64, "pays": 11, "source": "Wikipédia en anglais, article Trier : Trèves est le siège de l'archevêque-électeur de Trèves (https://en.wikipedia.org/wiki/Trier)"},
+    {"nom": "Brême", "lat": 53.08, "lon": 8.8, "pays": 72, "source": "Wikipédia en anglais, article Bremen : Brême est le siège de l'archevêché de Brême (https://en.wikipedia.org/wiki/Bremen)"},
+    {"nom": "Magdebourg", "lat": 52.13, "lon": 11.63, "pays": 73, "source": "Wikipédia en anglais, article Magdeburg : Magdebourg est le siège de l'archevêché (https://en.wikipedia.org/wiki/Magdeburg)"},
+    {"nom": "Salzbourg", "lat": 47.8, "lon": 13.04, "pays": 74, "source": "Wikipédia en anglais, article Salzburg : Salzbourg est le siège des princes-archevêques (https://en.wikipedia.org/wiki/Salzburg)"},
+    {"nom": "Utrecht", "lat": 52.09, "lon": 5.12, "pays": 75, "source": "Wikipédia en anglais, article Utrecht : Utrecht est le siège des princes-évêques d'Utrecht (https://en.wikipedia.org/wiki/Utrecht)"},
+    {"nom": "Liège", "lat": 50.63, "lon": 5.57, "pays": 76, "source": "Wikipédia en anglais, article Liège : Liège est la capitale de la principauté épiscopale (https://en.wikipedia.org/wiki/Li%C3%A8ge)"},
+    {"nom": "Münster", "lat": 51.96, "lon": 7.63, "pays": 77, "source": "Wikipédia en anglais, article Münster : Münster est le siège des princes-évêques (https://en.wikipedia.org/wiki/M%C3%BCnster)"},
+    {"nom": "Osnabrück", "lat": 52.28, "lon": 8.05, "pays": 78, "source": "Wikipédia en anglais, article Osnabrück : Osnabrück est le siège des princes-évêques (https://en.wikipedia.org/wiki/Osnabr%C3%BCck)"},
+    {"nom": "Udine", "lat": 46.06, "lon": 13.24, "pays": 81, "source": "Wikipédia en anglais, article Udine : Udine est la résidence des patriarches d'Aquilée (https://en.wikipedia.org/wiki/Udine)"},
+    {"nom": "Prague", "lat": 50.08, "lon": 14.44, "pays": 10, "source": "Wikipédia en anglais, article Prague : Prague est la capitale du royaume de Bohême (https://en.wikipedia.org/wiki/Prague)"},
+    {"nom": "Brno", "lat": 49.19, "lon": 16.61, "pays": 10, "source": "Wikipédia en anglais, article Brno : Brno est la ville principale de la marche de Moravie (https://en.wikipedia.org/wiki/Brno)"},
+    {"nom": "Breslau", "lat": 51.11, "lon": 17.03, "pays": 10, "source": "Wikipédia en anglais, article Wrocław : Breslau passe à la couronne de Bohême en 1335 (https://en.wikipedia.org/wiki/Wroc%C5%82aw)"},
+    {"nom": "Zurich", "lat": 47.37, "lon": 8.54, "pays": 12, "source": "Wikipédia en anglais, article Zürich : Zurich entre dans la Confédération en 1351 (https://en.wikipedia.org/wiki/Z%C3%BCrich)"},
+    {"nom": "Berne", "lat": 46.95, "lon": 7.45, "pays": 12, "source": "Wikipédia en anglais, article Bern : Berne entre dans la Confédération en 1353 (https://en.wikipedia.org/wiki/Bern)"}
   ]
 }
