@@ -33,22 +33,26 @@ COUPLES = {
     "Navarre": "Évreux", "Grenade": "Nasrides", "Saint-Empire": "Luxembourg",
     "Bohême": "Luxembourg", "Milan": "Visconti", "Naples": "Anjou-Durazzo",
     "Sicile": "Barcelone", "Savoie": "Savoie", "Union de Kalmar": "Poméranie",
-    "Pologne-Lituanie": "Jagellon", "Hongrie": "Luxembourg", "Byzance": "Paléologue",
+    "Pologne": "Jagellon", "Hongrie": "Luxembourg-Hongrie", "Byzance": "Paléologue",
     "Ottomans": "Osman", "Serbie": "Lazarević", "Bosnie": "Kotromanić",
     "Valachie": "Basarab", "Moldavie": "Mușat", "Horde d'Or": "Djötchides",
     "Mamelouks": "Barquq", "Hafsides": "Hafsides", "Zayyanides": "Zayyanides",
-    "Mérinides": "Mérinides", "Chypre": "Lusignan",
+    "Mérinides": "Mérinides", "Chypre": "Lusignan", "Lituanie": "Gediminides",
+    "Autriche": "Habsbourg", "Bavière": "Wittelsbach-Bavière", "Palatinat": "Wittelsbach",
+    "Hollande": "Wittelsbach-Straubing", "Hainaut": "Wittelsbach-Straubing",
+    "Brandebourg": "Luxembourg-Moravie", "Duché de Luxembourg": "Luxembourg-Moravie",
 }
-VASSAUX = {
+# La maison de chaque ancre connue : celle de son pays, depuis que les princes d'Empire en sont un.
+ANCRES_CONNUES = {
     "Dijon": "Valois-Bourgogne", "Bruges": "Valois-Bourgogne", "Nantes": "Montfort",
-    "Munich": "Wittelsbach", "Heidelberg": "Wittelsbach", "Vienne": "Habsbourg",
+    "Munich": "Wittelsbach-Bavière", "Heidelberg": "Wittelsbach", "Vienne": "Habsbourg",
 }
 POINTS = {
     "Paris": (48.86, 2.35, "Valois"), "Dijon": (47.32, 5.04, "Valois-Bourgogne"),
     "Bruges": (51.21, 3.22, "Valois-Bourgogne"), "Nantes": (47.22, -1.55, "Montfort"),
-    "Munich": (48.14, 11.58, "Wittelsbach"), "Heidelberg": (49.41, 8.69, "Wittelsbach"),
+    "Munich": (48.14, 11.58, "Wittelsbach-Bavière"), "Heidelberg": (49.41, 8.69, "Wittelsbach"),
     "Vienne": (48.21, 16.37, "Habsbourg"), "Prague": (50.08, 14.44, "Luxembourg"),
-    "Buda": (47.50, 19.04, "Luxembourg"), "Londres": (51.51, -0.13, "Lancastre"),
+    "Buda": (47.50, 19.04, "Luxembourg-Hongrie"), "Londres": (51.51, -0.13, "Lancastre"),
     "Constantinople": (41.01, 28.98, "Paléologue"), "Edirne": (41.68, 26.56, "Osman"),
     "Nicosie": (35.17, 33.36, "Lusignan"), "Venise": (45.44, 12.33, "Visconti"),
 }
@@ -88,10 +92,11 @@ def test_lecture(tmp_path):
     print(f"maisons_lues={len(maisons.maisons)}, puissances_lues={len(maisons.par_puissance)}, "
           f"avec_maison={len(table.puissances) - len(sans)}, sans_maison={len(sans)}, "
           f"vassaux_declares={vassaux}")
-    assert len(maisons.maisons) == 37
-    assert len(maisons.par_puissance) == 49 and len(sans) == 10
+    assert len(maisons.maisons) == 56
+    assert len(maisons.par_puissance) == 81 and len(sans) == 20
     assert all(p.nature in NATURES_SANS_MAISON for p in sans)
-    assert vassaux == 3
+    # Plus aucune ancre ne déclare de maison de vassal : chaque prince d'Empire est un pays.
+    assert vassaux == 0
     assert set(maisons.par_ancre) == {a.id for a in table.ancres}
     assert list(m.id for m in maisons.maisons) == sorted(m.id for m in maisons.maisons)
     document = _document()
@@ -128,12 +133,12 @@ def test_refus(tmp_path, cas, liste, nom, champ):
     elif cas == "France_absente": ligne.pop("maison")
     elif cas == "Venise_ajoutee": ligne["maison"] = _ligne(document, "maisons", "Valois")["id"]
     elif cas in {"France_inconnue", "Nantes_inconnue"}: ligne["maison"] = inconnue
-    elif cas == "Vienne_redondante": ligne["maison"] = _ligne(document, "puissances", "Saint-Empire")["maison"]
+    elif cas == "Vienne_redondante": ligne["maison"] = _ligne(document, "puissances", "Autriche")["maison"]
     elif cas == "nom_vide": ligne["nom"] = "  "
     elif cas == "source_absente": ligne.pop("source")
     elif cas == "id_duplique": ligne["id"] = identifiant = _ligne(document, "maisons", "Lancastre")["id"]
     elif cas == "id_booleen": ligne["id"] = identifiant = True
-    elif cas == "Habsbourg_sans_terre": _ligne(document, "ancres", "Vienne").pop("maison")
+    elif cas == "Habsbourg_sans_terre": _ligne(document, "puissances", "Autriche")["maison"] = _ligne(document, "maisons", "Wittelsbach")["id"]
     chemin = _ecrire(tmp_path, document)
     assert charger_table(chemin) == charger_table()
     with pytest.raises(PuissanceInvalide) as erreur:
@@ -149,15 +154,15 @@ def _connues(table, maisons):
     noms = {m.id: m.nom for m in maisons.maisons}
     puissances = {p.nom: noms.get(maisons.par_puissance[p.id]) for p in table.puissances}
     ancres = {a.nom: noms.get(maisons.par_ancre[a.id]) for a in table.ancres}
-    return (bool(COUPLES) and bool(VASSAUX)
+    return (bool(COUPLES) and bool(ANCRES_CONNUES)
             and all(puissances.get(p) == m for p, m in COUPLES.items())
-            and all(ancres.get(a) == m for a, m in VASSAUX.items()))
+            and all(ancres.get(a) == m for a, m in ANCRES_CONNUES.items()))
 
 
 def test_connues(tmp_path):
     assert _connues(charger_table(), charger_maisons())
     for nom, liste, mauvaise in (("France", "puissances", "Lancastre"),
-                                ("Vienne", "ancres", "Wittelsbach")):
+                                ("Autriche", "puissances", "Wittelsbach")):
         document = _document()
         _ligne(document, liste, nom)["maison"] = _ligne(document, "maisons", mauvaise)["id"]
         # Retirer la maison dépossédée permet d'éprouver l'attribution historique,
@@ -166,12 +171,12 @@ def test_connues(tmp_path):
         document["maisons"] = [m for m in document["maisons"] if m["nom"] != depossedee]
         chemin = _ecrire(tmp_path, document)
         assert not _connues(charger_table(chemin), charger_maisons(chemin))
-    print(f"couples_vus={len(COUPLES)}, ancres_connues={len(VASSAUX)}, contre_épreuves_fausses=2")
+    print(f"couples_vus={len(COUPLES)}, ancres_connues={len(ANCRES_CONNUES)}, contre_épreuves_fausses=2")
 
 
-def _vassaux(monde, table, maisons, positions, latitude):
-    puissances = puissances_depuis_monde(monde, positions, table)
-    vue = maisons_depuis_monde(monde, positions, table, maisons)
+def _vassaux(monde, table, maisons, positions, latitude, frontieres=None):
+    puissances = puissances_depuis_monde(monde, positions, table, frontieres=frontieres)
+    vue = maisons_depuis_monde(monde, positions, table, maisons, frontieres=frontieres)
     declares = [a for a in table.ancres
                 if maisons.par_ancre[a.id] != maisons.par_puissance[a.puissance]]
     hors = 0
@@ -183,18 +188,28 @@ def _vassaux(monde, table, maisons, positions, latitude):
     return len(declares), hors
 
 
-def test_vassaux(carte):
+def test_vassaux(carte, tmp_path):
     monde, table, maisons, positions, latitude, cellules = carte
-    vus, hors = _vassaux(monde, table, maisons, positions, latitude)
-    assert (vus, hors) == (3, 0)
-    prague = next(a for a in table.ancres if a.nom == "Prague")
+    # Plus aucune ancre livrée ne déclare de maison de vassal : chaque prince d'Empire est un pays.
+    assert all(maisons.par_ancre[a.id] == maisons.par_puissance[a.puissance] for a in table.ancres)
+    # La règle se juge sur une table qui en déclare une, Munich tenue par les Wittelsbach du Palatinat,
+    # sans la table des frontières : l'ancre y décide chaque cellule.
+    document = _document()
+    _ligne(document, "ancres", "Munich")["maison"] = _ligne(document, "maisons", "Wittelsbach")["id"]
+    chemin = _ecrire(tmp_path, document)
+    table, maisons = charger_table(chemin), charger_maisons(chemin)
+    sans = dataclasses.replace(charger_frontieres(), cellules={}, partages={}, lacunes={})
+    vus, hors = _vassaux(monde, table, maisons, positions, latitude, sans)
+    assert (vus, hors) == (1, 0)
+    prague = next(a for a in table.ancres if a.nom == "Prague" and a.puissance == next(
+        p.id for p in table.puissances if p.nom == "Bohême"))
     munich = next(a for a in table.ancres if a.nom == "Munich")
     intruse = dataclasses.replace(prague, id=max(a.id for a in table.ancres) + 1,
                                  puissance=munich.puissance, nom="Vassal intrus à Prague")
     alteree = dataclasses.replace(table, ancres=table.ancres + (intruse,))
     tenantes = dataclasses.replace(maisons, par_ancre={**maisons.par_ancre,
                                   intruse.id: maisons.par_ancre[munich.id]})
-    contre_vus, contre_hors = _vassaux(monde, alteree, tenantes, positions, latitude)
+    contre_vus, contre_hors = _vassaux(monde, alteree, tenantes, positions, latitude, sans)
     assert contre_hors == 1 and contre_vus == vus + 1
     assert puissances_depuis_monde(monde, table=alteree)[cellules["Prague"]] == prague.puissance
     assert derive_appartenance({cellules["Prague"]: (prague.lat, prague.lon)},
@@ -233,10 +248,12 @@ def test_geographie(carte):
         maisons, par_puissance={**maisons.par_puissance, bourgogne.id: ids["Valois"]}, par_ancre=tenantes))
     assert all(sans_bourgogne[cellules[n]] == ids["Valois"] for n in ("Dijon", "Bruges"))
     assert ids["Valois-Bourgogne"] not in sans_bourgogne.values()
-    tenantes = dict(maisons.par_ancre)
-    tenantes[ancres["Vienne"]], tenantes[ancres["Munich"]] = tenantes[ancres["Munich"]], tenantes[ancres["Vienne"]]
-    echange = maisons_depuis_monde(monde, maisons=dataclasses.replace(maisons, par_ancre=tenantes))
-    assert echange[cellules["Vienne"]] == ids["Wittelsbach"]
+    # Vienne et Munich sont des cellules de la table : leur maison suit celle de leur pays.
+    autriche, baviere = (next(p.id for p in table.puissances if p.nom == n) for n in ("Autriche", "Bavière"))
+    par_puissance = {**maisons.par_puissance, autriche: maisons.par_puissance[baviere],
+                     baviere: maisons.par_puissance[autriche]}
+    echange = maisons_depuis_monde(monde, maisons=dataclasses.replace(maisons, par_puissance=par_puissance))
+    assert echange[cellules["Vienne"]] == ids["Wittelsbach-Bavière"]
     assert echange[cellules["Munich"]] == ids["Habsbourg"]
     print(f"points_vus={len(POINTS)}, cellules_distinctes={len(set(cellules.values()))}, "
           "Bourgogne_absente=1, villes_échangées=2")
@@ -275,7 +292,7 @@ def test_compte(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
     avec, sans, non_couvertes, incoherentes = _compter(monde, table, maisons, vue)
-    assert (avec, sans, non_couvertes) == (478, 80, 38)
+    assert (avec, sans, non_couvertes) == (477, 78, 41)
     assert avec + sans + non_couvertes == len(monde.cells) and incoherentes == 0
     _chaque_maison(vue, maisons)
     ids = {m.nom: m.id for m in maisons.maisons}
@@ -347,7 +364,7 @@ def test_ancre_contenue(carte):
     vue = maisons_depuis_monde(monde)
     ids = {m.nom: m.id for m in maisons.maisons}
     assert vue[10374] == ids["Paléologue"]
-    assert _compter(monde, table, maisons, vue) == (478, 80, 38, 0)
+    assert _compter(monde, table, maisons, vue) == (477, 78, 41, 0)
     # Une cellule que la table des frontières déclare a le pays de la table (celui de son bourg si
     # elle est partagée, aucun si elle est en lacune) ; toutes les autres suivent l'ancre contenante
     # ou la plus proche.
@@ -382,7 +399,7 @@ def test_ancre_contenue(carte):
                                   intruse.id: ids["Wittelsbach"]})
     assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Wittelsbach"]
     assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
-    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(478, 80, 38)")
+    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(477, 78, 41)")
 
 
 # Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.
@@ -400,13 +417,15 @@ CELLULES_CAPITALES = (
     10237, 10206, 10322, 10231, 10204, 10313, 10192, 10209, 10284, 10466,
     10283, 10433, 9892, 10327, 10374, 10366, 10329, 10300, 10362, 10371,
     None, 8992, 10143, 9788, 9831, 10059, 10420, 10191, 10452, 10294,
-    10176, 10316, 10174, 10318, 10388, 10319, 10239,
+    10176, 10316, 10174, 10318, 10388, 10319, 10239, 10264, 10272, 10280,
+    10257, 10437, 10427, 10425, 10443, 10440, 10439, 10459, 10462, 10269,
+    10281, 10464, 10261, 10358, 10328, 10325,
 )
 
 
 def test_capitale_lecture():
     capitales = charger_capitales()
-    assert len(capitales) == 37
+    assert len(capitales) == 56
     assert {c.maison for c in capitales} == {m.id for m in charger_maisons().maisons}
     assert tuple(c.maison for c in capitales) == tuple(sorted(c.maison for c in capitales))
     assert all(isinstance(c, _NoBadSpatialField) for c in capitales)
@@ -460,9 +479,9 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     monde = carte[0]
     capitales = charger_capitales()
     vue = maisons_de_l_ia(monde)
-    assert tuple(m.cell_id for m in vue[:37]) == CELLULES_CAPITALES
-    assert sum(m.cell_id is not None for m in vue[:37]) == 36
-    hors = [m for m in vue[:37] if m.cell_id is None]
+    assert tuple(m.cell_id for m in vue[:56]) == CELLULES_CAPITALES
+    assert sum(m.cell_id is not None for m in vue[:56]) == 55
+    hors = [m for m in vue[:56] if m.cell_id is None]
     assert len(hors) == 1 and hors[0].id == 21
     assert hors[0].nom == "Djötchides" and hors[0].capitale == "Saraï" and hors[0].hors_carte
     tenantes = maisons_depuis_monde(monde)
@@ -476,7 +495,7 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     document = json.loads(CAPITALES.read_text(encoding="utf-8"))
     document["capitales"][0].update(lat=paris.lat, lon=paris.lon)
     fausse = maisons_de_l_ia(monde, capitales=charger_capitales(_ecrire(tmp_path, document)))
-    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:37] if m.cell_id is not None) == 1
+    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:56] if m.cell_id is not None) == 1
     with pytest.raises(AssertionError, match="incohérentes : 1"):
         _preuve_coherence_capitales(fausse, tenantes)
 
@@ -3782,7 +3801,7 @@ ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palati
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
 MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {f'seigneurie-{n}' for n in range(1, 7)}
 
-MAISONS_SANS_ETAT = {f'grande-{n}' for n in range(31, 38)}
+MAISONS_SANS_ETAT = {f'grande-{n}' for n in range(31, 57)}
 
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
@@ -3951,7 +3970,7 @@ def test_familles_historiques_palatinat():
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2408
+    assert len(monde.personnages) == 2357
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4224,7 +4243,7 @@ def test_familles_historiques_bar():
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
-    assert len(monde.personnages) == 2408
+    assert len(monde.personnages) == 2357
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4542,7 +4561,7 @@ def test_familles_historiques_wurtemberg():
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
-    assert len(monde.personnages) == 2408
+    assert len(monde.personnages) == 2357
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4903,7 +4922,7 @@ def test_familles_historiques_brankovic():
         if c['maison'] in CHEFS_TROIS: _chef_trois(c)
     _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
-    assert len(monde.personnages) == 2408
+    assert len(monde.personnages) == 2357
     _preuve_monde_brankovic(list(monde.personnages))
     ids = {CHEF_BRANKOVIC, BRANKOVIC}
     _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
@@ -4995,8 +5014,8 @@ def test_familles_historiques_zab(tmp_path):
 
 def _achevement(etats, chefs, maisons):
     voulues = {c['maison'] for c in chefs if not c['maison'].startswith('institution-')} - {HORDE, TLEMCEN}
-    # Les chefs des grandes maisons 31 à 37 sont posés sans famille : sept chefs, pas encore d'état.
-    assert len(voulues) == 41 and MAISONS_SANS_ETAT <= voulues
+    # Les chefs des grandes maisons 31 à 56 sont posés sans famille : vingt-six chefs, pas encore d'état.
+    assert len(voulues) == 60 and MAISONS_SANS_ETAT <= voulues
     avec = voulues - MAISONS_SANS_ETAT
     assert len(etats) == len({e['maison'] for e in etats}) == len(avec) == 34
     assert {e['maison'] for e in etats} == avec == {m.id for m in maisons if m.sorte in ('grande maison', 'seigneurie')} - {HORDE, TLEMCEN} - MAISONS_SANS_ETAT == MAISONS_AVEC_ETAT

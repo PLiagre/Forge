@@ -65,7 +65,7 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 83 <= puissances_lues == len(brut["puissances"]) <= 84
+    assert 81 <= puissances_lues == len(brut["puissances"]) <= 82
     assert 115 <= ancres_lues == len(brut["ancres"]) <= 120
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
@@ -325,10 +325,9 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     assert couvertes > 0 and non_couvertes > 0
     assert {valeur for valeur in vue.values() if valeur is not None} <= ids_puissances
     # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée, sauf le
-    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan ; le Brandebourg et
-    # quatre Églises tiennent des lieux de cellules dont le bourg est à un autre pays : la Saxe à
-    # Wittenberg, la Pologne en Nouvelle-Marche, Brunswick, la Hollande, Clèves, Mayence et le burgraviat
-    # de Nuremberg à leur capitale ou à leur siège.
+    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan, et le Brandebourg
+    # des lieux de cellules dont le bourg est à un autre pays : la Saxe à Wittenberg, sa capitale, la
+    # Pologne en Nouvelle-Marche.
     lieux = puissances_des_lieux(monde)
     sans_cellule = [p.nom for p in table.puissances if p.id not in vue.values()]
     for puissance in table.puissances:
@@ -337,8 +336,7 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")
     assert empire not in vue.values() and empire not in lieux.values()
     print(f"puissances_sans_cellule={sans_cellule}")
-    assert sans_cellule == ["Saint-Empire", "Venise", "Brandebourg", "Archevêché de Magdebourg", "Évêché d'Utrecht",
-                            "Évêché de Münster", "Évêché de Wurtzbourg", "Évêché de Bamberg"]
+    assert sans_cellule == ["Saint-Empire", "Venise", "Brandebourg"]
 
     facteur = facteur_de_projection(latitude)
     carres = []
@@ -429,7 +427,7 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 83 <= len(table.puissances) == len(document["puissances"]) <= 84
+        assert 81 <= len(table.puissances) == len(document["puissances"]) <= 82
         assert 115 <= len(table.ancres) == len(document["ancres"]) <= 120
 
     table = charger_table()
@@ -943,11 +941,11 @@ def test_ancre_contenue_carte():
     assert hors == {(25, "Venise"), (37, "Copenhague")}
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 263, dont 11 sans pays :
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 263, dont 10 sans pays :
     # ses lacunes et les cellules dont le bourg est d'une ville sans pays.
     comptes_ancre = Counter(par_ancre.values())
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (554, 42)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (555, 41)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
