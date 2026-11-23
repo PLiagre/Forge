@@ -62,7 +62,7 @@ REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
-EN_ATTENTE = frozenset({"nord", "est"})
+EN_ATTENTE = frozenset()
 # Un pays plus petit que deux lieux se déclare en lacune, avec sa raison.
 LIEUX_MIN_D_UN_PAYS = 2
 EMPIRE = "Saint-Empire"
@@ -195,12 +195,15 @@ def test_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_ancre(
     s = _region(livre, region)
     par_l_ancre = _par_l_ancre(s, s.table)
     _verifier_couverture(s, s.vue, par_l_ancre)
-    # Les ancres des deux premiers pays ancrés de la région qui ont une maison échangées changent la
-    # règle de l'ancre, mais aucune cellule de la région : la table décide, pas l'ancre la plus proche.
-    # Le siège d'une institution est sa première ancre et place le bourg d'une cellule partagée : les
-    # pays échangés ont une maison, dont le siège est sa capitale.
+    # Les ancres du premier pays ancré de la région qui a une maison, et d'un second (de la région,
+    # sinon le premier d'ailleurs), échangées, changent la règle de l'ancre, mais aucune cellule de la
+    # région : la table décide, pas l'ancre la plus proche. Le siège d'une institution est sa première
+    # ancre et place le bourg d'une cellule partagée : les pays échangés ont une maison, dont le siège
+    # est sa capitale.
     ancres = {a.puissance for a in s.table.ancres}
-    premier, second = sorted(p for p in s.region if p in ancres and s.maisons.par_puissance[p] is not None)[:2]
+    avec_maison = sorted(p for p in ancres if s.maisons.par_puissance[p] is not None)
+    dedans = [p for p in avec_maison if p in s.region]
+    premier, second = (dedans + [p for p in avec_maison if p not in s.region])[:2]
     echange = {premier: second, second: premier}
     table = dataclasses.replace(s.table, ancres=tuple(
         dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in s.table.ancres))

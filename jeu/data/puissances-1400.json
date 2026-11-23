@@ -271,11 +271,6 @@
     { "id": 115, "puissance": 83, "nom": "Varsovie", "lat": 52.23, "lon": 21.01, "source": "Wikipédia en anglais, article Warsaw : Varsovie est la résidence des ducs de Mazovie, et la capitale du duché à partir de 1413 (https://en.wikipedia.org/wiki/Warsaw)" }
   ],
   "lacunes": [
-    { "id": 1, "nom": "Shetland", "lat": 60.15, "lon": -1.15, "raison": "Îles norvégiennes en 1400 (Union de Kalmar), plus loin de Bergen que la portée." },
-    { "id": 2, "nom": "Féroé", "lat": 62.01, "lon": -6.77, "raison": "Îles norvégiennes en 1400 (Union de Kalmar), plus loin de Bergen que la portée." },
-    { "id": 3, "nom": "Finlande", "lat": 60.45, "lon": 22.27, "raison": "Finlande et Åland, suédoises en 1400 (Union de Kalmar), sans ancre dans la table." },
-    { "id": 4, "nom": "Hiiumaa", "lat": 58.88, "lon": 22.65, "raison": "Île de Livonie (Ordre livonien, évêché d’Ösel-Wiek), puissance absente de la table." },
-    { "id": 5, "nom": "Dalécarlie", "lat": 60.61, "lon": 15.63, "raison": "Suède centrale (Union de Kalmar), plus loin de Kalmar et de Bergen que la portée." },
     { "id": 6, "nom": "Tripolitaine", "lat": 32.89, "lon": 13.19, "raison": "Marge du sultanat hafside, plus loin de Tunis que la portée." },
     { "id": 7, "nom": "Cyrénaïque", "lat": 32.49, "lon": 20.83, "raison": "Terres bédouines entre Hafsides et Mamelouks, sans ville tenue par une puissance de la table." },
     { "id": 8, "nom": "Oued Righ", "lat": 33.1, "lon": 6.07, "raison": "Oasis du Sahara, tribus hors de tout État de la table." }

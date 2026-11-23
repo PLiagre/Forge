@@ -1717,8 +1717,10 @@ Sur la carte figée, 558 cellules ont une puissance et 38 n'en ont pas : les
 lacunes de la table et les deux cellules partagées dont le bourg est sans pays (la
 Sardaigne d'Arborée ; Rimini et Urbino) s'ajoutent aux cellules hors de portée.
 
-Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
-Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
+Les trois `lacunes` déclarent des points nommés et une `raison` : Tripolitaine,
+Cyrénaïque et Oued Righ. Les points des Shetland, des Féroé, de la Finlande, de
+Hiiumaa et de la Dalécarlie ont disparu : la table des frontières déclare ces
+cellules (à l'Union de Kalmar, ou en lacune avec sa raison pour Hiiumaa).
 Une cellule non couverte est expliquée par la lacune la plus proche de son
 centroïde, dans la même projection et la même portée ; une égalité exacte
 se départage par le plus petit identifiant de lacune. Au-delà, sa raison est

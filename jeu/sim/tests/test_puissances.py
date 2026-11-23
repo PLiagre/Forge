@@ -531,8 +531,8 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     declarees = charger_frontieres().declarees()
     assert {cellules[nom] for nom in ("Venise", "Milan", "Florence", "Gênes", "États de l'Église",
                                       "Naples", "Sicile", "Savoie")} <= declarees
-    assert declarees.isdisjoint(cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique",
-                                                          "Pologne", "Hongrie"))
+    # Le Nord et l'Est sont aussi de la table : l'Union, l'Ordre, la Pologne et la Hongrie.
+    assert {cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique", "Pologne", "Hongrie")} <= declarees
     par_ancre = _par_ancre(monde, table)
     assert {nom: puissance_de_cellule(cellules[nom], par_ancre, table).nom
             for nom in ("Venise", "Milan")} == {"Venise": "Venise", "Milan": "Milan"}
@@ -715,7 +715,9 @@ def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
     monde, positions = World.charger(0), charger_positions()
     vue, lacunes = puissances_depuis_monde(monde), charger_lacunes()
     portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
-    assert len(lacunes) == 8 and all(l.raison.strip() for l in lacunes)
+    # Les points des Shetland, des Féroé, de la Finlande, de Hiiumaa et de la Dalécarlie ont disparu :
+    # la table des frontières déclare leurs cellules. Restent ceux du Maghreb et de la Libye.
+    assert len(lacunes) == 3 and all(l.raison.strip() for l in lacunes)
     assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
 
     # Une cellule non couverte est expliquée par la table des frontières quand elle la décide : sa lacune,
@@ -941,11 +943,11 @@ def test_ancre_contenue_carte():
     assert hors == {(25, "Venise"), (37, "Copenhague")}
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 263, dont 10 sans pays :
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 428, dont 16 sans pays :
     # ses lacunes et les cellules dont le bourg est d'une ville sans pays.
     comptes_ancre = Counter(par_ancre.values())
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (555, 41)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (571, 25)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
