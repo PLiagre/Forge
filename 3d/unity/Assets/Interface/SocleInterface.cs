@@ -39,6 +39,29 @@ namespace Forge.Interface
                 Couleur("papier"), .16f);
         }
 
+        // Les pigments des pays de la carte politique : douze teintes sourdes, à trente degrés à peu près l'une de l'autre, dont
+        // la valeur alterne pour que deux teintes proches sur le cercle se séparent aussi par leur clarté ; le papier les patine
+        // comme tout pigment d'atlas. Deux d'entre eux sont à plus de 11 d'écart (ΔE, CIE 1976).
+        static readonly (float teinte, float saturation, float valeur)[] TeintesDesPays =
+        {
+            (0f, .45f, .62f), (28f, .45f, .74f), (50f, .42f, .64f), (80f, .40f, .74f), (110f, .38f, .58f), (145f, .40f, .70f),
+            (175f, .40f, .56f), (200f, .40f, .72f), (222f, .40f, .58f), (255f, .36f, .70f), (285f, .38f, .56f), (325f, .40f, .70f)
+        };
+        public static IReadOnlyList<Color> PigmentsDesPays { get; } = TeintesDesPays
+            .Select(t => Color.Lerp(Color.HSVToRGB(t.teinte / 360f, t.saturation, t.valeur), Couleur("papier"), .16f)).ToList();
+        // Un pigment éclairci de `part` : sa teinte gardée, sa saturation baissée et sa valeur montée de la même part.
+        public static Color Eclaircir(Color pigment, float part)
+        {
+            Color.RGBToHSV(pigment, out float teinte, out float saturation, out float valeur);
+            return Color.HSVToRGB(teinte, saturation * (1f - part), valeur + (1f - valeur) * part);
+        }
+        // Le liseré que partagent les membres d'un ensemble servi (« Saint-Empire ») : un jeton du socle, et le mot qui le dit
+        // dans la légende. Un ensemble que la table ne connaît pas prend le jeton commun.
+        static readonly Dictionary<string, (string jeton, string mot)> LiseresDesEnsembles = new Dictionary<string, (string, string)> { { "Saint-Empire", ("or-vieilli", "d'or") } };
+        const string JETON_D_UN_ENSEMBLE = "cuivre", MOT_D_UN_ENSEMBLE = "de cuivre";
+        public static Color LisereDeLEnsemble(string ensemble) => Couleur(LiseresDesEnsembles.TryGetValue(ensemble, out var l) ? l.jeton : JETON_D_UN_ENSEMBLE);
+        public static string MotDuLisere(string ensemble) => LiseresDesEnsembles.TryGetValue(ensemble, out var l) ? l.mot : MOT_D_UN_ENSEMBLE;
+
         // Le contraste WCAG 2.1 des jetons, jugé contre la matière que chaque texte ou trait borde.
         public static Color Attenue => Color.Lerp(Couleur("papier"), Couleur("metal"), .30f); // le texte de l'état inactif : une teinte dérivée, pas un jeton
         public enum Usage { Texte, Trait }

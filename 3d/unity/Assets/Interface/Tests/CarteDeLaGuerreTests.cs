@@ -73,7 +73,7 @@ namespace Forge.Interface.Tests
         void Peindre() => typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(calques, null);
         Color32 Teinte(long id) => carte.TeinteDe(id).Value;
         static Color32 Depart => SocleInterface.Pigment(MaillageDeCarte.CouleurSansPuissance);
-        static Color32 DuPays(string pays) => CalquesCarte.Teinte(ModeDeCarte.Puissances, false, CarteDeLaGuerre.CouleurDuPays(pays), 0f);
+        Color32 DuPays(string pays) => guerre.CouleurDuPays(pays);
 
         [Test] public void La_terre_prend_la_teinte_de_son_pays_servi_et_la_change_avec_lui()
         {
@@ -124,7 +124,7 @@ namespace Forge.Interface.Tests
                 Assert.That(habitants.Mode, Is.EqualTo(ModeDeCarte.Habitants));
                 typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(habitants, null);
                 float position = new RepartitionHabitants(monde).Position(20); Assert.That(position, Is.GreaterThan(0f), "échantillon vide : la terre 20 est la moins peuplée");
-                Color32 attendue = CalquesCarte.Teinte(ModeDeCarte.Habitants, false, CarteDeLaGuerre.CouleurDuPays(B), position);
+                Color32 attendue = CalquesCarte.TeintePeinte(ModeDeCarte.Habitants, false, guerre.CouleurDuPays(B), position);
                 Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(attendue), "le lieu n'a pas la teinte des habitants");
                 Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(attendue), "le bourg n'a pas la teinte des habitants");
                 Assert.That((Color32)carte.TeinteDe(10).Value, Is.Not.EqualTo(attendue), "échantillon vide : deux terres de peuplement différent de même teinte");
@@ -205,6 +205,25 @@ namespace Forge.Interface.Tests
             int version = guerre.Version;
             Servir(new TerresDeLaCarte(6, new DateDuMonde(1400, 7), new[] { new PaysDeLaCarte(A, "Bohême", new IdentiteDeMaison("grande-29", "Wittelsbach")), new PaysDeLaCarte(B, "Brume", new IdentiteDeMaison(B, "Brume")) }, terres.Terres));
             Assert.That(guerre.Version, Is.EqualTo(version + 1)); Assert.That(guerre.NomsDesPays.Single(n => n.Texte == "Bohême").Maison.Texte, Is.EqualTo("Wittelsbach"));
+        }
+
+        // Brume, vassale d'Avalon, en porte la teinte plus claire ; toutes deux membres du Saint-Empire, elles en partagent le liseré, sur la carte comme dans la légende.
+        [Test] public void Un_vassal_porte_la_teinte_de_son_suzerain_et_un_ensemble_son_lisere()
+        {
+            var terres = new TerresDeLaCarte(5, new DateDuMonde(1400, 6), new[] { new PaysDeLaCarte(A, "Avalon", null, null, "Saint-Empire"), new PaysDeLaCarte(B, "Brume", null, A, "Saint-Empire") },
+                new[] { new TerreLue(10, "m10", A), new TerreLue(20, "m20", A), new TerreLue(30, "m30", B) });
+            Servir(terres); Peindre();
+            Color avalon = guerre.CouleurDuPays(A), brume = guerre.CouleurDuPays(B);
+            Color.RGBToHSV(avalon, out float ha, out _, out float va); Color.RGBToHSV(brume, out float hb, out _, out float vb);
+            Assert.That(Mathf.Min(Mathf.Abs(ha - hb), 1f - Mathf.Abs(ha - hb)) * 360f, Is.LessThan(3f), "la vassale n'a pas la teinte de sa suzeraine"); Assert.That(vb, Is.GreaterThan(va), "la vassale n'est pas plus claire que sa suzeraine");
+            Assert.That((Teinte(10), Teinte(30)), Is.EqualTo(((Color32)avalon, (Color32)brume)), "la carte ne peint pas les couleurs des pays");
+            Color or = SocleInterface.LisereDeLEnsemble("Saint-Empire");
+            Assert.That(((Color32)guerre.LisereDuPays(A), (Color32)guerre.LisereDuPays(B)), Is.EqualTo(((Color32)or, (Color32)or)), "les membres de l'ensemble n'en ont pas le liseré");
+            Assert.That(CalquesCarte.DetailDuMode(ModeDeCarte.Puissances, null, null, guerre), Does.Contain("Un liseré d'or cerne les membres de l'ensemble « Saint-Empire »."));
+            // Contre-épreuve : sans suzerain ni ensemble, les deux pays voisins ont deux teintes et deux liserés à eux.
+            Servir(new TerresDeLaCarte(6, new DateDuMonde(1400, 7), new[] { new PaysDeLaCarte(A, "Avalon"), new PaysDeLaCarte(B, "Brume") }, terres.Terres)); Peindre();
+            Assert.That(CouleursDesPays.Ecart(guerre.CouleurDuPays(A), guerre.CouleurDuPays(B)), Is.GreaterThanOrEqualTo(CouleursDesPays.ECART_MIN));
+            Assert.That((Color32)guerre.LisereDuPays(A), Is.Not.EqualTo((Color32)or));
         }
 
         [Test] public void Un_nom_se_cache_de_trop_loin_et_s_efface_de_trop_pres()
@@ -323,7 +342,7 @@ namespace Forge.Interface.Tests
             Assert.That(objet.Find("Nombre").GetComponent<TextMesh>().text, Is.EqualTo("1 200 hommes"));
             // L'armée n'est plus un disque : c'est une figurine sur le sol, sa bannière à la couleur de son pays, des piquiers tant qu'elle marche.
             Transform figurine = objet.Find(CarteDeLaGuerre.FIGURINE); Assert.That(figurine, Is.Not.Null, "l'armée n'a pas de figurine"); Assert.That(objet.Find("Disque"), Is.Null);
-            Assert.That((Color32)figurine.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)CarteDeLaGuerre.CouleurDuPays(A)), "l'armée n'a pas la couleur de son pays");
+            Assert.That((Color32)figurine.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)guerre.CouleurDuPays(A)), "l'armée n'a pas la couleur de son pays");
             Assert.That((figurine.GetComponent<MeshFilter>().sharedMesh.name, figurine.GetComponent<MeshRenderer>().sharedMaterial.shader.name), Is.EqualTo(("Armée en marche", FormesDeCarte.SHADER)));
             // Elle ne descend jamais sous sa taille à l'écran, et son nombre se range au sud de son socle.
             float echelle = FormesDeCarte.EchellePourLEcran(carte.camera, objet.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, CarteDeLaGuerre.MIN_PX);

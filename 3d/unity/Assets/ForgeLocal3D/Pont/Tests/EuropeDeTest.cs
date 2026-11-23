@@ -14,7 +14,8 @@ namespace Forge.Pont.Tests {
     // servies une fois par un faux service et lues par les vrais clients, `ClientCarte`, `ClientGuerre`, `ClientAtlas` et `ClientJouables`.
     // Le corps de `/atlas` est aussi gardé tel que `LecteurJson` le lit, pour juger ce que le client en a lu. `/formes` n'est pas relevé : le terrain prend
     // un lieu par cellule (`FormesDeTest.Lever`).
-    internal static class EuropeDeTest {
+    // Publique : les tests de l'interface lisent la même Europe.
+    public static class EuropeDeTest {
         public const string CARTE = "carte-graine0-europe.json", TERRES = "terres-graine0-europe.json", ATLAS = "atlas-graine0.json", JOUABLES = "jouables-graine0-europe.json";
         private static CarteLue carte; private static TerresDeLaCarte terres; private static JouablesLus jouables; private static AtlasLu atlasLu; private static Dictionary<string, object> atlas; private static TerrainDeCarte terrain;
 

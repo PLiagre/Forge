@@ -58,7 +58,7 @@ namespace Forge.Interface
         readonly List<Rect> etiquettes = new List<Rect>(), nombres = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
         LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
-        CarteDeLaGuerre guerre; int versionDesPays = -1; // les pays servis des terres, et leur version au dernier passage
+        CarteDeLaGuerre guerre; int versionDesPays = -1, coloriageDesPays = -1; // les pays servis des terres, leur version et celle de leurs couleurs au dernier passage
         MondeLu precedent;
         long? territoirePrecedent;
         bool changement = true;
@@ -70,7 +70,7 @@ namespace Forge.Interface
             this.carte = carte; this.monde = monde; this.selection = selection;
             var bande = new GameObject(BANDE, typeof(RectTransform)).GetComponent<RectTransform>(); bande.SetParent(toile, false);
             bande.anchorMin = bande.anchorMax = bande.pivot = new Vector2(0, 1); bande.anchoredPosition = new Vector2(X, -1012); bande.sizeDelta = new Vector2(LARGEUR, SocleInterface.HauteurCommande);
-            Bouton(bande, ModeDeCarte.Puissances, 0, "Colore la carte selon la maison qui tient chaque terre.");
+            Bouton(bande, ModeDeCarte.Puissances, 0, "Colore la carte selon le pays qui tient chaque terre.");
             Bouton(bande, ModeDeCarte.Habitants, 165, "Colore la carte selon le nombre d'habitants de chaque terre.");
             Bouton(bande, ModeDeCarte.Flux, 330, "Passe les terres en papier pour lire ce que vos lieux envoient à votre siège, et votre siège à son suzerain.");
             var image = new GameObject(LEGENDE, typeof(RectTransform), typeof(Image)).GetComponent<Image>(); fond = image.rectTransform; fond.SetParent(toile, false);
@@ -89,13 +89,16 @@ namespace Forge.Interface
         public static Color Teinte(ModeDeCarte mode, bool retenue, Color maison, float position) => retenue ? SocleInterface.Couleur("alerte")
             : mode == ModeDeCarte.Habitants ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * position)
             : mode == ModeDeCarte.Flux ? SocleInterface.Couleur("papier") : SocleInterface.Pigment(maison);
+        // La même règle pour une couleur déjà en pigment d'atlas, celle d'un pays servi (`CouleursDesPays`).
+        public static Color TeintePeinte(ModeDeCarte mode, bool retenue, Color pigment, float position) => mode == ModeDeCarte.Puissances && !retenue ? pigment : Teinte(mode, retenue, pigment, position);
         // Le liseré d'un pays le long de sa frontière : son pigment, tiré vers l'encre pour se lire sur sa propre teinte comme sur le papier.
-        public static Color Lisere(Color pays) => Color.Lerp(SocleInterface.Pigment(pays), SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
+        public static Color Lisere(Color pays) => LisereDuPigment(SocleInterface.Pigment(pays));
+        public static Color LisereDuPigment(Color pigment) => Color.Lerp(pigment, SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
         public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition) => mode == ModeDeCarte.Flux ? FLUX
             : LegendeDuCalque(mode == ModeDeCarte.Puissances ? null : repartition ?? throw new ArgumentNullException(nameof(repartition), "légende des habitants sans répartition"));
         public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Habitants ? "Plus une terre est foncée, plus elle compte d'habitants. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes."
             : mode == ModeDeCarte.Flux ? "Toutes les terres passent en papier pour laisser lire les flèches : chacune part d'un de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaissit avec ce qui est envoyé."
-            : "Chaque terre porte, en pigment d'atlas, la couleur de la maison qui la tient : deux terres de même teinte ont le même maître.") + " Le rouge marque la terre que vous gardez ouverte.";
+            : "En attendant la lecture des pays, chaque terre porte, en pigment d'atlas, la couleur de la puissance relevée au dessin de la carte.") + " Le rouge marque la terre que vous gardez ouverte.";
         public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition, bool lieuxPeints) =>
             mode == ModeDeCarte.Puissances && lieuxPeints ? PUISSANCES + "\n" + LieuxDeCarte.ENTETE : LegendeDuMode(mode, repartition);
         // Les lieux parlent dans la légende des Puissances, les flèches dans celle du Flux ; l'infobulle ne reprend que les relevés des lieux, leur en-tête est déjà dans la légende.
@@ -103,7 +106,13 @@ namespace Forge.Interface
             mode == ModeDeCarte.Puissances && lieux != null && lieux.Peint ? DetailDuMode(mode) + " Relief non transmis." + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)
             : mode == ModeDeCarte.Flux && fleches != null ? DetailDuMode(mode) + "\n" + fleches.TexteLegende : DetailDuMode(mode);
         // Les terres lues au pays servi : la légende des Puissances se date du jour lu ; sans terres lues, elle reste celle des puissances du départ.
-        public const string PAYS = "Chaque terre porte, en pigment d'atlas, la couleur de son pays : la maison au sommet de la suzeraineté du maître de son bourg. Deux terres de même teinte sont du même pays ; une terre prise à un autre pays prend la teinte du preneur. Le rouge marque la terre que vous gardez ouverte.";
+        public const string PAYS = "Chaque terre porte, en pigment d'atlas, la couleur de son pays, que ses voisins n'ont pas ; un vassal porte la teinte de son suzerain, plus claire. Une terre prise à un autre pays prend la couleur du preneur.";
+        // Le détail des Puissances quand les pays sont lus : la règle des couleurs, le liseré de chaque ensemble servi, puis la terre gardée.
+        public static string DetailDesPays(TerresDeLaCarte terres)
+        {
+            var ensembles = terres.Pays.Select(p => p.Ensemble).Where(e => e != null).Distinct().OrderBy(e => e, StringComparer.Ordinal);
+            return PAYS + string.Concat(ensembles.Select(e => " Un liseré " + SocleInterface.MotDuLisere(e) + " cerne les membres de l'ensemble « " + e + " ».")) + " Le rouge marque la terre que vous gardez ouverte.";
+        }
         public static string LegendeDesPays(TerresDeLaCarte terres) => "Pays au " + TexteDuMonde.Date(terres.Date) + " · Rouge : territoire conservé";
         public static string LegendeDuMode(ModeDeCarte mode, RepartitionHabitants repartition, bool lieuxPeints, CarteDeLaGuerre guerre) =>
             mode == ModeDeCarte.Puissances && guerre?.Terres != null ? LegendeDesPays(guerre.Terres) + (lieuxPeints ? "\n" + LieuxDeCarte.ENTETE : "") : LegendeDuMode(mode, repartition, lieuxPeints);
@@ -112,7 +121,7 @@ namespace Forge.Interface
         {
             if (guerre == null) return DetailDuMode(mode, lieux, fleches);
             string detail = mode == ModeDeCarte.Puissances && guerre.Terres != null
-                ? PAYS + (lieux != null && lieux.Peint ? lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length) : "") : DetailDuMode(mode, lieux, fleches);
+                ? DetailDesPays(guerre.Terres) + (lieux != null && lieux.Peint ? lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length) : "") : DetailDuMode(mode, lieux, fleches);
             return detail + "\n" + guerre.TexteLegende;
         }
         // Les lignes que prendrait `contenu` dans `texte`, à sa largeur, la toile à l'échelle donnée ; à hauteur nulle, une troncature ne compterait rien.
@@ -138,9 +147,9 @@ namespace Forge.Interface
             EspacerLesNoms();
             var lu = monde(); long? retenu = selection()?.CellId;
             // Les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
-            int version = guerre != null ? guerre.Version : -1;
-            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent && version == versionDesPays) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
-            changement = false; precedent = lu; territoirePrecedent = retenu; versionDesPays = version; ecrite = null;
+            int version = guerre != null ? guerre.Version : -1, coloriage = guerre != null ? guerre.Coloriage : -1;
+            if (!changement && ReferenceEquals(lu, precedent) && retenu == territoirePrecedent && version == versionDesPays && coloriage == coloriageDesPays) { if (ecrite != null) try { Recrire(repartie); } catch (ArgumentException) { changement = true; } return; }
+            changement = false; precedent = lu; territoirePrecedent = retenu; versionDesPays = version; coloriageDesPays = coloriage; ecrite = null;
             try
             {
                 if (maisons == null)
@@ -170,16 +179,17 @@ namespace Forge.Interface
                 if (habitants) foreach (long id in maisons.Keys) repartition.Position(id);
                 foreach (var paire in maisons)
                 {
-                    Color servie = guerre?.CouleurDe(paire.Key) ?? paire.Value; // le pays servi, sinon la puissance relevée au dessin
-                    carte.Rattacher(paire.Key, guerre?.Terres != null ? guerre.Terres.PaysDe(paire.Key) : departs[paire.Key], Lisere(servie)); // la frontière suit le même pays que la teinte
-                    carte.Teinter(paire.Key, Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f));
+                    // Le pigment du pays servi et son liseré, sinon ceux de la puissance relevée au dessin ; la frontière suit le même pays que la teinte.
+                    bool lus = guerre?.Terres != null; string pays = lus ? guerre.Terres.PaysDe(paire.Key) : departs[paire.Key];
+                    Color pigment = lus ? guerre.CouleurDuPays(pays) : SocleInterface.Pigment(paire.Value);
+                    carte.Rattacher(paire.Key, pays, lus ? guerre.LisereDuPays(pays) : LisereDuPigment(pigment));
+                    carte.Teinter(paire.Key, TeintePeinte(mode, paire.Key == retenu, pigment, repartition?.Position(paire.Key) ?? 0f));
                     // Un lieu d'un autre pays que sa terre prend la couleur et le pays du sien, par la même règle qu'une cellule.
-                    if (guerre?.Terres != null)
+                    if (lus)
                         foreach (var lieu in guerre.Terres.AutresPaysDe(paire.Key))
                         {
-                            Color couleurDuLieu = CarteDeLaGuerre.CouleurDuPays(lieu.Pays);
-                            carte.RattacherLieu(paire.Key, lieu.Rang, lieu.Pays, Lisere(couleurDuLieu));
-                            carte.TeinterLieu(paire.Key, lieu.Rang, Teinte(mode, paire.Key == retenu, couleurDuLieu, repartition?.Position(paire.Key) ?? 0f));
+                            carte.RattacherLieu(paire.Key, lieu.Rang, lieu.Pays, guerre.LisereDuPays(lieu.Pays));
+                            carte.TeinterLieu(paire.Key, lieu.Rang, TeintePeinte(mode, paire.Key == retenu, guerre.CouleurDuPays(lieu.Pays), repartition?.Position(paire.Key) ?? 0f));
                         }
                 }
                 Recrire(repartition); repartie = repartition;

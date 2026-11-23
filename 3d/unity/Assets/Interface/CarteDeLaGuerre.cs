@@ -44,7 +44,8 @@ namespace Forge.Interface
         public NomsCourbes Ecriture => ecriture;
         public IReadOnlyList<TextMesh> NombresDesArmees => nombres;
 
-        CarteDessinee carte; VoisinageDeCarte voisinage; string echecDuVoisinage; Task<VoisinageDeCarte> calcul;
+        CarteDessinee carte; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
+        Task<(VoisinageDeCarte voisinage, List<(long, long, long, long)> lieux)> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
         string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin; Mesh enMarche, auSiege;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();
@@ -81,14 +82,14 @@ namespace Forge.Interface
             }
         }
 
-        // La teinte d'un pays ne dépend que de son identifiant, comme celle d'une puissance de 1400.
-        public static Color CouleurDuPays(string id)
-        {
-            if (string.IsNullOrEmpty(id)) return MaillageDeCarte.CouleurSansPuissance;
-            uint h = 2166136261u; foreach (char c in id) { h ^= c; h *= 16777619u; }
-            return MaillageDeCarte.CouleurPourPuissance(h);
-        }
-        // La teinte servie d'une terre : celle de son pays, le gris d'une terre sans pays ; null tant que les terres ne sont pas lues.
+        // Les couleurs des pays lus (`CouleursDesPays`), refaites quand les pays des terres ou leur voisinage changent ; nulles tant que les terres ne sont pas lues.
+        public CouleursDesPays Couleurs { get; private set; }
+        // Change quand une couleur ou un liseré de pays change : les calques repeignent alors.
+        public int Coloriage { get; private set; }
+        // Le pigment d'un pays et son liseré ; ceux tirés de son identifiant tant que les pays ne sont pas coloriés, le gris d'une terre sans pays pour null.
+        public Color CouleurDuPays(string id) => Couleurs != null ? Couleurs.Couleur(id) : id == null ? CouleursDesPays.SansPays : CouleursDesPays.Repli(id);
+        public Color LisereDuPays(string id) => Couleurs != null ? Couleurs.Lisere(id) : CalquesCarte.LisereDuPigment(CouleurDuPays(id));
+        // Le pigment d'une terre : celui de son pays, le gris d'une terre sans pays ; null tant que les terres ne sont pas lues.
         public Color? CouleurDe(long cellId) => Terres == null ? (Color?)null : CouleurDuPays(Terres.PaysDe(cellId));
         // Le pays d'une maison : celui des terres dont elle tient le bourg ; une maison sans bourg est son propre pays.
         public string PaysDeLaMaison(string maison) => Terres?.Terres.FirstOrDefault(t => t.Maitre == maison)?.Pays ?? maison;
@@ -100,12 +101,13 @@ namespace Forge.Interface
             if (carte == null) return;
             if (calcul != null && calcul.IsCompleted)
             {
-                if (calcul.IsFaulted) echecDuVoisinage = calcul.Exception.GetBaseException().Message; else { voisinage = calcul.Result; aRetracer = true; }
+                if (calcul.IsFaulted) echecDuVoisinage = calcul.Exception.GetBaseException().Message; else { (voisinage, lieuxQuiSeTouchent) = calcul.Result; aRetracer = true; }
                 calcul = null; Ecrire();
             }
             if (voisinage == null && calcul == null && echecDuVoisinage == null && carte.Lue != null && carte.Origine is PointCarte origine)
             {
-                var lue = carte.Lue; calcul = Task.Run(() => new VoisinageDeCarte(lue, origine));
+                // Le voisinage des terres, et les lieux qui se touchent sur le terrain quand il est posé.
+                var lue = carte.Lue; var terrain = carte.Terrain; calcul = Task.Run(() => (new VoisinageDeCarte(lue, origine), terrain != null ? CouleursDesPays.LieuxQuiSeTouchent(terrain, lue) : null));
             }
             if (vol != null && vol.IsCompleted) { var fini = vol; vol = null; Appliquer(fini); }
             if (aRetracer) Retracer();
@@ -150,7 +152,7 @@ namespace Forge.Interface
                 foreach (var lieu in t.AutresPays) sb.Append(',').Append(lieu.Rang.ToString(CultureInfo.InvariantCulture)).Append(':').Append(lieu.Pays); // un lieu qui change seul de pays change la clé
                 sb.Append(';');
             }
-            foreach (var p in terres.Pays) sb.Append('|').Append(p.Id).Append('=').Append(p.Nom).Append('/').Append(p.Maison?.Nom);
+            foreach (var p in terres.Pays) sb.Append('|').Append(p.Id).Append('=').Append(p.Nom).Append('/').Append(p.Maison?.Nom).Append('<').Append(p.Suzerain).Append('&').Append(p.Ensemble); // un lien qui change recolore
             return sb.ToString();
         }
 
@@ -158,7 +160,15 @@ namespace Forge.Interface
         void Retracer()
         {
             aRetracer = false;
-            CompterLesFrontieres(); NommerLesPays();
+            CompterLesFrontieres(); Colorier(); NommerLesPays();
+        }
+
+        // Les couleurs des pays, d'après leurs voisinages servis ; celles d'avant restent tant qu'elles sont permises. Les armées se repeignent quand une couleur change.
+        void Colorier()
+        {
+            CouleursDesPays neuves = Terres == null ? null : CouleursDesPays.Colorier(Terres, CouleursDesPays.VoisinsDesPays(Terres, voisinage?.Cotes, lieuxQuiSeTouchent), Couleurs);
+            if (neuves == null ? Couleurs == null : neuves.MemesCouleurs(Couleurs)) { Couleurs = neuves ?? Couleurs; return; }
+            Couleurs = neuves; Coloriage++; DessinerLesArmees();
         }
 
         // Les côtés servis qui séparent deux pays. Le terrain trace leur frontière ; il ne s'en tient ici que le compte.
