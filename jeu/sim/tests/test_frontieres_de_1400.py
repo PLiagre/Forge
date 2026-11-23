@@ -67,7 +67,7 @@ REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
-EN_ATTENTE = frozenset({"orient", "maghreb"})
+EN_ATTENTE = frozenset({"maghreb"})
 # Les vassaux que les fiches nomment, et le suzerain que leur fiche de pays sert.
 VASSAUX_NOMMES = {
     "Serbie": "Ottomans", "Gênes": "France", "Naples": "États de l'Église", "Guyenne": "Angleterre",

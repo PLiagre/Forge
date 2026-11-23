@@ -725,9 +725,11 @@ def test_geographie_et_compte_des_puissances_orientales():
     assert puissance_de_cellule(constantinople, vue_bursa, table_bursa).nom == "Byzance"
     sans_nicosie = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.nom != "Nicosie"))
     cellules_chypre = sum(p == par_nom["Chypre"] for p in vue.values())
-    sans_ancre = sum(p == par_nom["Chypre"] for p in puissances_depuis_monde(monde, table=sans_nicosie).values())
+    # Sans l'ancre de Nicosie, la règle de l'ancre ne donne plus rien à Chypre ; la table lui garde son île.
+    sans_ancre = sum(p == par_nom["Chypre"] for p in _par_ancre(monde, sans_nicosie).values())
     print(f"Constantinople_échangée=Byzance, Edirne_échangée=Ottomans, avec_Bursa=Byzance, Chypre={cellules_chypre}, sans_Nicosie={sans_ancre}")
     assert cellules_chypre > 0 and sans_ancre == 0
+    assert puissances_depuis_monde(monde, table=sans_nicosie) == vue
 
 
 def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
@@ -737,8 +739,9 @@ def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
     vue, lacunes = puissances_depuis_monde(monde), charger_lacunes()
     portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
     # Les points des Shetland, des Féroé, de la Finlande, de Hiiumaa et de la Dalécarlie ont disparu :
-    # la table des frontières déclare leurs cellules. Restent ceux du Maghreb et de la Libye.
-    assert len(lacunes) == 3 and all(l.raison.strip() for l in lacunes)
+    # la table des frontières déclare leurs cellules, et celle de la Cyrénaïque est une lacune de la table.
+    # Restent ceux du Maghreb et de la Libye.
+    assert len(lacunes) == 2 and all(l.raison.strip() for l in lacunes)
     assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
 
     # Une cellule non couverte est expliquée par la table des frontières quand elle la décide : sa lacune,
@@ -771,14 +774,14 @@ def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
           f"sans_raison={sans_raison + sans_raison_de_la_table}, lacunes_inutiles={lacunes_inutiles}")
     assert len(non_couvertes) == len(de_la_table) + hors_table and hors_table > 0
     assert sans_raison == sans_raison_de_la_table == lacunes_inutiles == 0
-    # Sans la lacune ponctuelle de la Cyrénaïque, une cellule hors table reste sans raison ; sans la table,
+    # Sans la lacune ponctuelle de la Tripolitaine, deux cellules hors table restent sans raison ; sans la table,
     # les cellules qu'elle décide n'auraient aucune lacune ponctuelle pour les expliquer.
-    sans_cyrenaique = compter(tuple(l for l in lacunes if l.nom != "Cyrénaïque"))
+    sans_tripolitaine = compter(tuple(l for l in lacunes if l.nom != "Tripolitaine"))
     paris = dataclasses.replace(lacunes[0], id=max(l.id for l in lacunes) + 1,
                                 nom="Paris", lat=48.86, lon=2.35)
     avec_paris = compter(lacunes + (paris,))
-    print(f"sans_Cyrénaïque={sans_cyrenaique}, avec_Paris={avec_paris}")
-    assert sans_cyrenaique[1] == 1 and avec_paris[2] == 1
+    print(f"sans_Tripolitaine={sans_tripolitaine}, avec_Paris={avec_paris}")
+    assert sans_tripolitaine[1] == 2 and avec_paris[2] == 1
     sans_la_table = lacune_par_cellule(positions, vue, lacunes, portee, latitude)
     assert sum(r is None for r in sans_la_table.values()) == len(de_la_table)
     assert compter(tuple(reversed(lacunes))) == (hors_table, sans_raison, lacunes_inutiles)
@@ -968,10 +971,10 @@ def test_ancre_contenue_carte():
     comptes, comptes_ancre = Counter(vue.values()), Counter(par_ancre.values())
     assert (comptes_ancre[ids["Byzance"]], comptes_ancre[ids["Ottomans"]]) == (24, 48)
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 543 et 53 : ses lacunes et
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 541 et 55 : ses lacunes et
     # les cellules dont le bourg est d'une ville sans pays.
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (543, 53)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (541, 55)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)

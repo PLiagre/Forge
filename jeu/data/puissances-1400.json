@@ -272,7 +272,6 @@
   ],
   "lacunes": [
     { "id": 6, "nom": "Tripolitaine", "lat": 32.89, "lon": 13.19, "raison": "Marge du sultanat hafside, plus loin de Tunis que la portée." },
-    { "id": 7, "nom": "Cyrénaïque", "lat": 32.49, "lon": 20.83, "raison": "Terres bédouines entre Hafsides et Mamelouks, sans ville tenue par une puissance de la table." },
     { "id": 8, "nom": "Oued Righ", "lat": 33.1, "lon": 6.07, "raison": "Oasis du Sahara, tribus hors de tout État de la table." }
   ]
 }
