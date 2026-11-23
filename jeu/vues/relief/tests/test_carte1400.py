@@ -475,9 +475,10 @@ def test_capitales_ia_sans(photographies, formes):
     import hashlib
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
     # Les frontières suivent les formes des lieux, et les frontières de 1400 redessinent les pays de l'Ouest,
-    # de l'Empire, du Nord et de l'Est : 79 pays dessinés, 25 cellules sans puissance.
-    empreintes = ["d35bf8faed305ef6da84c708016f4b3a33766449c0c9480bd26addb46cab41bc",
-                  "dab348b856d35c0bf4cb71e414b77823f80b4e178f9894966d27c335cf92b84a"]
+    # de l'Empire, du Nord, de l'Est, des Balkans, de l'Orient et du Maghreb : 80 pays dessinés, 69 cellules
+    # sans puissance (les lacunes de la table n'ont plus le pays de l'ancre la plus proche).
+    empreintes = ["d508b826da5d3f3ee5165081a945187fb6029ef72b7d53245269c668f1e3bb15",
+                  "ddf3c9e158f62c9ad616bd3c112e011f2b35f9d067e5b2636def4b6bd428d4d5"]
     cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
     for document, empreinte in zip(photographies, empreintes):
         image, compte = _rendre(document, formes)
