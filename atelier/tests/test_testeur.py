@@ -443,6 +443,10 @@ def test_le_runner_ne_joue_pas_lui_meme_il_demarre_la_tache_de_la_session_ouvert
     assert r"D:\Forge\.atelier\pilote-testeur\pc\Testeur.cmd" in installeur and "pilote-testeur" in texte
     assert "conhost.exe" in installeur and "--headless" in installeur, "aucune fenêtre de console sur son bureau"
     assert '-m atelier --projet "%ici%.." testeur %arguments%' in lanceur
+    # Deux défauts payés : appelé d'un autre dossier, le lanceur jouait le code de ce dossier-là ; et
+    # « echo 4> fichier » redirigeait le canal 4 au lieu d'écrire le code du passage.
+    assert lanceur.index('cd /d "%ici%.."') < lanceur.index("py -m atelier")
+    assert r'>"%passage%\passage.code" echo %ERRORLEVEL%' in lanceur and "echo %ERRORLEVEL%>" not in lanceur
     for silence in ("SANS_TACHE", "SANS_SESSION", "SANS_FIN"):
         assert f"Attendre $env:{silence}" in texte, "sans passage, l'envoi du pilote reçoit quand même sa réponse"
     assert "testeur --attente $raison" in texte and "testeur --attente $env:RAISON" in texte

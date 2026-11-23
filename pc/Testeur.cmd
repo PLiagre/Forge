@@ -25,5 +25,6 @@ rem Le code de la chaîne est celui de ce dossier, pas celui du dossier d'où l'
 cd /d "%ici%.."
 del "%passage%\passage.code" 2>nul
 py -m atelier --projet "%ici%.." testeur %arguments% > "%passage%\passage.log" 2>&1
-echo %ERRORLEVEL%> "%passage%\passage.code"
+rem La redirection d'abord : « echo 4> fichier » redirigerait le canal 4 au lieu d'écrire le code.
+>"%passage%\passage.code" echo %ERRORLEVEL%
 if not "%~1"=="" type "%passage%\passage.log"
