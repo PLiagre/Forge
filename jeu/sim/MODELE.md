@@ -1659,7 +1659,8 @@ Une puissance peut déclarer son `suzerain`, une puissance de la table, avec sa
 `source_suzerain` ; un suzerain inconnu ou une chaîne qui boucle est refusé. Les
 vassaux de la France (Bourgogne, Bretagne, Orléans, Anjou, Berry, Bourbonnais, Foix,
 Armagnac), Gênes, sous le roi de France depuis 1396, la Guyenne sous l'Angleterre,
-Naples sous l'Église, la Lituanie et la Mazovie sous la Pologne en déclarent un. Le
+Naples sous l'Église, la Lituanie et la Mazovie sous la Pologne, la Serbie de Stefan
+Lazarević sous les Ottomans en déclarent un. Le
 suzerain se sert dans la fiche du pays ; il n'entre pas dans le registre des
 maisons : un pays vassal reste une racine, garde son nom et sa couleur, et
 l'hommage reste de **niveau 3**. Une puissance peut aussi déclarer l'`ensemble`
@@ -1703,27 +1704,40 @@ n'y est placée. Cette cellule relève des Mamelouks grâce aux ancres
 d'Alexandrie et de Damiette.
 
 **La table des frontières de 1400.** `data/frontieres-1400.json`, lue par
-`sim/frontieres.py`, déclare le pays de chaque cellule tenue de quatre régions :
+`sim/frontieres.py`, déclare le pays de chaque cellule tenue de cinq régions :
 `ouest` (la France et ses grands fiefs, les Îles, l'Ibérie et l'Italie), `empire`
 (l'Allemagne, les Pays-Bas d'Empire, la Suisse, l'Autriche, la Bohême avec la
 Moravie, la Silésie et les Lusaces), `nord` (l'Union de Kalmar, la Finlande, les
-Shetland et les Féroé comprises) et `est` (l'Ordre teutonique avec la Livonie et
+Shetland et les Féroé comprises), `est` (l'Ordre teutonique avec la Livonie et
 Gotland, la Pologne, la Mazovie, la Lituanie jusqu'au Dniepr, la Hongrie avec la
-Croatie, la Transylvanie et la Dalmatie, Novgorod et Pskov). Pour ces cellules,
-l'ancre la plus proche ne décide plus rien. Elle porte 329 cellules entières, rangées
-par pays avec une source publique par pays ; 86 cellules partagées ; 13 lacunes avec
-leur raison (Bologne, Ferrare et Ravenne ; Elbe ; Lastovo ; deux îlots du Sulcis ;
-deux îles frisonnes ; les îles d'Ösel-Wiek ; les Champs sauvages à l'est du Dniepr) ;
-22 pays plus petits que deux lieux, déclarés avec leur raison (Calais, Andorre,
-Saint-Marin, Piombino, Tournai et les villes libres d'Empire, dont Lübeck, Cologne,
-Francfort, Nuremberg et Metz, chacune avec le pays qui reçoit son lieu) ; et 106
-villes témoins, chacune avec son pays de 1400 et sa source, que les preuves lisent,
-d'une région chacune. Une cellule partagée nomme une ville sourcée par pays, 319 en
-tout, jamais une ville libre ; une ville sans pays (`pays: null`) dit sa raison, 20
-en tout : Padoue aux Carrara, Mantoue aux Gonzague, Lucques, Rimini et Urbino,
-l'Arborée ; Namur, Berg, Bade, Bamberg, Wurtzbourg, Verdun, Toul, Stuttgart (le
-Wurtemberg, terre de départ, dont les terres hors du siège ne sont pas simulées) ;
-la Frise libre ; Riga, Dorpat et Ösel-Wiek en Livonie.
+Croatie, la Transylvanie et la Dalmatie et ses îles, Novgorod et Pskov) et `balkans`
+(Byzance réduite à Constantinople et Sélymbria, à la Morée de Mistra et aux îles du
+nord de l'Égée ; les Ottomans des deux côtés des Détroits, de la Thrace à la
+Thessalie et de la Bulgarie au Kosovo des Branković, et toute l'Anatolie de la carte,
+Karaman compris ; la Serbie de Kruševac ; la Bosnie avec le Hum ; la Valachie ; la
+Moldavie jusqu'à la mer). La Venise d'outre-mer (la Crète, Corfou, Cythère, Négrepont,
+Tinos et Mykonos, Coron, Argos et Nauplie, Athènes, Durazzo et Scutari), la Chios et
+la Samos génoises et la Smyrne des Hospitaliers y sont déclarées avec elles. L'Épire,
+l'Achaïe, Patras, Thèbes, la Zeta, les seigneurs albanais, Raguse, les îles des Tocco
+et du duché de l'Archipel, Lesbos des Gattilusi sont des lacunes ou des villes sans
+pays, chacune avec sa raison. Pour ces cellules, l'ancre la plus proche ne décide plus
+rien. Elle porte 391 cellules entières, rangées
+par pays avec une source publique par pays ; 94 cellules partagées ; 40 lacunes avec
+leur raison (Bologne, Ferrare et Ravenne ; Elbe ; Lastovo et Mljet ; deux îlots du
+Sulcis ; deux îles frisonnes ; les îles d'Ösel-Wiek ; les Champs sauvages à l'est du
+Dniepr ; l'Épire ; les îles des Tocco et du duché de l'Archipel ; Égine, Salamine et
+Hydra ; Lesbos, Ténédos, Psara, Icarie et Ágios Efstrátios) ; 23 pays plus petits que
+deux lieux, déclarés avec leur raison (Calais, Andorre, Saint-Marin, Piombino, Tournai,
+Péra et les villes libres d'Empire, dont Lübeck, Cologne, Francfort, Nuremberg et Metz,
+chacune avec le pays qui reçoit son lieu) ; et 120 villes témoins, chacune avec son
+pays de 1400 et sa source, que les preuves lisent, d'une région chacune. Une cellule
+partagée nomme une ville sourcée par pays, 345 en tout, jamais une ville libre ; une
+ville sans pays (`pays: null`) dit sa raison, 28 en tout : Padoue aux Carrara, Mantoue
+aux Gonzague, Lucques, Rimini et Urbino, l'Arborée ; Namur, Berg, Bade, Bamberg,
+Wurtzbourg, Verdun, Toul, Stuttgart (le Wurtemberg, terre de départ, dont les terres
+hors du siège ne sont pas simulées) ; la Frise libre ; Riga, Dorpat et Ösel-Wiek en
+Livonie ; Thèbes des Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin,
+Vonitsa des Tocco, Krujë des Thopia, Valona, Antivari de la Zeta et Raguse.
 
 **Un siège par cellule.** Le registre pose chaque maison au bourg de la cellule de
 sa capitale ou de son siège, et chaque maison posée tient ce bourg : deux sièges ne
@@ -1742,9 +1756,9 @@ prendra (`frontieres.maison_du_bourg`, dans l'ordre même de l'attribution des
 maîtres), sinon à la plus grande ville placée : la place du bourg se connaît avant
 ses maîtres, et c'est celle du chargement. La puissance de la cellule, pour tout ce
 qui la lit déjà, est celle de son bourg ; `frontieres.puissances_des_lieux` rend
-celle de chacun des 1 486 lieux partagés (72 sans pays). C'est ainsi que la Navarre
+celle de chacun des 1 615 lieux partagés (107 sans pays). C'est ainsi que la Navarre
 tient 13 lieux, moins que les 20 de la cellule de Pampelune, et Venise les 2 lieux
-du Trévisan, sans aucune cellule entière ; une ancre de Trévise porte sa capitale,
+du Trévisan, sans aucune cellule entière en Italie ; une ancre de Trévise porte sa capitale,
 son siège institutionnel étant hors carte. Le chargement refuse une cellule
 inconnue ou déclarée deux fois, un pays inconnu, une source ou une raison vides,
 une ville de partage hors de sa cellule et un partage à moins de deux pays ; un
@@ -1752,7 +1766,7 @@ monde d'épreuve qui ne porte qu'une part de la carte ignore les cellules décla
 qu'il n'a pas (`frontieres_du_monde`). Le pays d'une cellule déclarée, et celui de
 chaque ville témoin, sont de **niveau 1**, d'après des sources publiques citées
 pays par pays ; le tracé à l'intérieur d'une cellule partagée est de **niveau 2**.
-Sur la carte figée, 571 cellules ont une puissance et 25 n'en ont pas : les
+Sur la carte figée, 543 cellules ont une puissance et 53 n'en ont pas : les
 lacunes de la table et les cellules partagées dont le bourg est sans pays (la
 Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart) s'ajoutent aux
 cellules hors de portée.
@@ -1770,10 +1784,10 @@ cellule partagée. Chaque cellule non couverte a une raison, chaque
 lacune sert. Une lacune n'attribue aucune cellule à une puissance ; son point
 est de **niveau 2**, plausible, jamais sourcé.
 
-Les anomalies mesurées de **niveau 2** sont acceptées : Rhodes donne aux
-Hospitaliers les Cyclades orientales, l'est de la Crète et un bout de côte
-carienne ; Mistra donne à Byzance l'Attique, les îles Ioniennes et l'ouest
-de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
+L'anomalie mesurée de **niveau 2** que l'ancre de Rhodes donnait aux Hospitaliers
+(les Cyclades orientales, l'est de la Crète, un bout de côte carienne) reste à
+corriger par la région `orient` ; celle de Mistra, qui donnait à Byzance l'Attique,
+les îles Ioniennes et l'ouest de la Crète, est corrigée par la table. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
 sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés non
 déclarées et l'hommage, les tributs, le siège de Constantinople et l'Église de Bosnie restent de
 **niveau 3**, pas simulés, sauf les seuls liens de départ du registre ci-dessous.
@@ -1844,14 +1858,14 @@ d'Osman à Paléologue ; 10032 reste à Paléologue, les comptes restent inchang
 Une cellule non couverte rend `None`, comme une cellule de république,
 d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
 puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
-Sur les 596 cellules figées, **505** sont tenues par une maison, **66** sont
-sans maison par déclaration de nature, et **25** sont non couvertes.
+Sur les 596 cellules figées, **472** sont tenues par une maison, **71** sont
+sans maison par déclaration de nature, et **53** sont non couvertes.
 Chacune des 56 maisons tient au moins une cellule.
 
 Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
 sources publiques. Leur étendue suit les ancres hors des régions de la table des
 frontières, où elle est de **niveau 2**, plausible et jamais sourcée ; dans
-l'Ouest, l'Empire, le Nord et l'Est, elle suit la table, de **niveau 1**. Les anomalies que l'ancre
+l'Ouest, l'Empire, le Nord, l'Est et les Balkans, elle suit la table, de **niveau 1**. Les anomalies que l'ancre
 y donnait se corrigent par la table et ses témoins : Innsbruck et Linz sont à
 l'Autriche, Besançon au comté de Bourgogne et Lille à la Bourgogne. Luxembourg tient
 le Saint-Empire, mais aucune de ses cellules : chacune va au prince qui la tenait,

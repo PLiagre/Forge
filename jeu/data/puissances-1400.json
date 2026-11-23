@@ -97,7 +97,7 @@
     { "id": 24, "nom": "Hongrie", "nature": "royaume", "religion": "catholique", "maison": 56 },
     { "id": 25, "nom": "Byzance", "nature": "empire", "religion": "orthodoxe", "maison": 15 },
     { "id": 26, "nom": "Ottomans", "nature": "sultanat", "religion": "musulmane", "maison": 16 },
-    { "id": 27, "nom": "Serbie", "nature": "principauté", "religion": "orthodoxe", "maison": 17 },
+    { "id": 27, "nom": "Serbie", "nature": "principauté", "religion": "orthodoxe", "maison": 17, "suzerain": 26, "source_suzerain": "Wikipédia en anglais, article Stefan Lazarević : après Kosovo (1389), Stefan Lazarević gouverne la Serbie en vassal du sultan Bayezid, pour qui il combat à Rovine (1395), à Nicopolis (1396) et à Ankara (1402) (https://en.wikipedia.org/wiki/Stefan_Lazarevi%C4%87)" },
     { "id": 28, "nom": "Bosnie", "nature": "royaume", "religion": "catholique", "maison": 18 },
     { "id": 29, "nom": "Valachie", "nature": "principauté", "religion": "orthodoxe", "maison": 19 },
     { "id": 30, "nom": "Moldavie", "nature": "principauté", "religion": "orthodoxe", "maison": 20 },

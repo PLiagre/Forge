@@ -1,13 +1,14 @@
 """Les frontières de 1400 (`sim/frontieres.py`, `data/frontieres-1400.json`).
 
-Les preuves de chaque région de la table (`ouest`, `empire`, `nord`, `est` ; `-k <région>`) jugent
-le monde livré :
+Les preuves de chaque région de la table (`ouest`, `empire`, `nord`, `est`, `balkans`, `orient`,
+`maghreb` ; `-k <région>`) jugent le monde livré :
 - chaque ville témoin de la région tombe dans un lieu du pays que la table lui donne ;
 - chaque cellule tenue de la région a un pays, un partage ou une lacune, et aucune ne doit son
   pays à l'ancre la plus proche ;
 - chaque pays de la région a un nom, une capitale dans ses lieux et un chef ou une lacune déclarée.
 Sur toute la table : chaque témoin est d'une région, et dans une cellule partagée chaque lieu est au
-pays de la ville la plus proche de sa place. Dans l'Ouest : la Navarre tient moins de lieux que sa
+pays de la ville la plus proche de sa place. Sur toute la carte : chaque cellule a un pays, un
+partage ou une lacune, et chaque suzerain déclaré est un pays servi, sans boucle. Dans l'Ouest : la Navarre tient moins de lieux que sa
 cellule n'en compte, et Bar a ses vrais voisins. Dans l'Empire : aucune terre ni aucun lieu n'a pour
 pays le Saint-Empire, le duché de Luxembourg tient au plus les lieux que la table lui donne, chaque
 prince servi porte son ensemble, et le Wurtemberg (Stuttgart) a ses vrais voisins. À l'Est : la
@@ -57,12 +58,21 @@ TEMOINS_NOMMES = {
                "Lübeck", "Luxembourg", "Innsbruck", "Linz"),
     "nord": ("Roskilde", "Stockholm", "Bergen", "Kalmar"),
     "est": ("Cracovie", "Vilnius", "Buda", "Novgorod", "Pskov", "Marienbourg"),
+    "balkans": ("Constantinople", "Edirne", "Mistra", "Kruševac", "Bobovac", "Târgoviște", "Suceava",
+                "Thessalonique", "Sofia", "Brousse", "Konya"),
+    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer"),
+    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine"),
 }
 REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
-EN_ATTENTE = frozenset()
+EN_ATTENTE = frozenset({"orient", "maghreb"})
+# Les vassaux que les fiches nomment, et le suzerain que leur fiche de pays sert.
+VASSAUX_NOMMES = {
+    "Serbie": "Ottomans", "Gênes": "France", "Naples": "États de l'Église", "Guyenne": "Angleterre",
+    "Bourgogne": "France", "Lituanie": "Pologne", "Mazovie": "Pologne",
+}
 # Un pays plus petit que deux lieux se déclare en lacune, avec sa raison.
 LIEUX_MIN_D_UN_PAYS = 2
 EMPIRE = "Saint-Empire"
@@ -331,6 +341,79 @@ def test_chaque_pays_a_nom_capitale_et_chef(livre, region):
     tete = tete_de_puissance(min(s.region), s.maisons)
     sans_chef = {**s.monde.chefs, tete: {"personnage": None, "lacune": None}}
     assert any("ni chef ni lacune" in f for f in _fautes_des_pays(s, sans_chef))
+
+
+# --- Toute la carte -----------------------------------------------------------------------------
+
+def _non_declarees(s, frontieres):
+    return sorted(c for c in s.monde.cells if c not in frontieres.declarees())
+
+
+@pytest.mark.xfail(bool(EN_ATTENTE), strict=True, reason="des régions de la carte restent à déclarer")
+def test_toute_cellule_de_la_carte_a_son_pays_son_partage_ou_sa_lacune(livre):
+    assert livre.monde.cells, "échantillon vide"
+    oubliees = _non_declarees(livre, livre.frontieres)
+    assert not oubliees, f"cellules sans pays, partage ni lacune : {oubliees[:12]} ({len(oubliees)})"
+    # Aucune ne doit son pays à l'ancre : la puissance servie de chaque cellule est celle que la table décide.
+    assert livre.vue == decisions_des_frontieres(livre.monde, livre.table, livre.frontieres, livre.lieux)
+    # Contre-épreuve : une cellule retirée de la table se nomme.
+    cid = min(livre.frontieres.cellules)
+    amputee = dataclasses.replace(livre.frontieres, cellules={
+        c: p for c, p in livre.frontieres.cellules.items() if c != cid})
+    assert _non_declarees(livre, amputee) == [cid]
+
+
+def _suzerain_attendu(s, identifiant):
+    """Le suzerain que la table donne au pays servi : celui de la puissance, ou la puissance dont relève
+    une terre de départ ; aucun pour un seigneur libre."""
+    puissances = {identifiant_de_puissance(p.id): p for p in s.table.puissances}
+    departs = {identifiant_de_seigneurie(x.id): x for x in s.seigneuries}
+    if identifiant in puissances:
+        suzerain = puissances[identifiant].suzerain
+        return None if suzerain is None else identifiant_de_puissance(suzerain)
+    if identifiant in departs:
+        return identifiant_de_puissance(departs[identifiant].suzerain)
+    return None
+
+
+def _fautes_des_suzerains(s, fiches):
+    par_id = {f["id"]: f for f in fiches}
+    fautes = []
+    for fiche in fiches:
+        attendu = _suzerain_attendu(s, fiche["id"])
+        if fiche["suzerain"] != attendu:
+            fautes.append(f"{fiche['nom']} : suzerain {fiche['suzerain']}, {attendu} attendu")
+        if fiche["suzerain"] is not None and (fiche["suzerain"] not in par_id
+                                              or not fiche["suzerain"].startswith(identifiant_de_puissance(""))):
+            fautes.append(f"{fiche['nom']} : suzerain {fiche['suzerain']} non servi comme pays de la table")
+        courant, vus = fiche, set()
+        while courant is not None and courant["suzerain"] is not None:
+            if courant["id"] in vus:
+                fautes.append(f"{fiche['nom']} : boucle de suzerains")
+                break
+            vus.add(courant["id"])
+            courant = par_id.get(courant["suzerain"])
+    par_nom = {f["nom"]: f for f in fiches}
+    for vassal, suzerain in sorted(VASSAUX_NOMMES.items()):
+        fiche = par_nom.get(vassal)
+        servi = (par_id.get(fiche["suzerain"]) or {}).get("nom") if fiche is not None else None
+        if servi != suzerain:
+            fautes.append(f"{vassal} : sa fiche sert le suzerain {servi}, {suzerain} attendu")
+    return fautes
+
+
+def test_chaque_suzerain_declare_est_un_pays_servi_sans_boucle(livre):
+    fiches = livre.servie["pays"]
+    assert [f for f in fiches if f["suzerain"] is not None], "échantillon vide : aucun suzerain servi"
+    assert not _fautes_des_suzerains(livre, fiches), _fautes_des_suzerains(livre, fiches)
+    # Contre-épreuves : le suzerain de la Serbie qui la reconnaît pour suzeraine boucle ; un suzerain
+    # retiré des pays servis se voit.
+    par_nom = {f["nom"]: f for f in fiches}
+    serbie, ottomans = par_nom["Serbie"], par_nom["Ottomans"]
+    boucle = [dict(f, suzerain=serbie["id"]) if f is ottomans else f for f in fiches]
+    assert any("boucle" in f for f in _fautes_des_suzerains(livre, boucle))
+    sans = [f for f in fiches if f is not ottomans]
+    assert any("non servi" in f for f in _fautes_des_suzerains(livre, sans))
 
 
 # --- L'Empire -----------------------------------------------------------------------------------

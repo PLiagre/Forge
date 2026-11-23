@@ -232,6 +232,13 @@ def _cellule_la_plus_proche(point, positions, latitude_moyenne):
     return derive_appartenance({0: point}, centroides, latitude_moyenne)[0]
 
 
+def _cellule_du_point(monde, lat, lon):
+    from sim.projection import projeter_epsg3035
+    from sim.villes import point_dans_geometrie
+    point = projeter_epsg3035(lat, lon)
+    return next(c for c in sorted(monde.carte) if point_dans_geometrie(*point, monde.carte[c]["geometry"]))
+
+
 def _par_ancre(monde, table, portee=None):
     """La règle de l'ancre seule, sans la table des frontières : l'ancre contenue, sinon la plus proche."""
     return puissance_par_cellule(positions_du_monde(monde, charger_positions()), table,
@@ -263,6 +270,9 @@ def test_geographie_des_puissances_et_des_non_couvertes():
         nom: _cellule_la_plus_proche(point, positions, latitude)
         for nom, point in points.items()
     }
+    # Le centroïde le plus proche de Constantinople est celui de la Bithynie, ottomane : la ville se
+    # juge dans la cellule de son point.
+    cellules["Constantinople"] = _cellule_du_point(monde, *points["Constantinople"])
     assert len(set(cellules.values())) == len(cellules)
     vue = puissances_depuis_monde(monde)
     noms = {nom: puissance_de_cellule(cell_id, vue, table) for nom, cell_id in cellules.items()}
@@ -325,7 +335,7 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     assert couvertes > 0 and non_couvertes > 0
     assert {valeur for valeur in vue.values() if valeur is not None} <= ids_puissances
     # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée, sauf le
-    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan. Le Brandebourg tient
+    # Saint-Empire, rendu à ses princes. Venise tient des cellules outre-mer et des lieux du Trévisan. Le Brandebourg tient
     # la cellule de la Nouvelle-Marche, où Josse a sa capitale ; celle de Berlin a pour bourg Wittenberg,
     # capitale de la Saxe.
     lieux = puissances_des_lieux(monde)
@@ -336,7 +346,7 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")
     assert empire not in vue.values() and empire not in lieux.values()
     print(f"puissances_sans_cellule={sans_cellule}")
-    assert sans_cellule == ["Saint-Empire", "Venise"]
+    assert sans_cellule == ["Saint-Empire"]
 
     facteur = facteur_de_projection(latitude)
     carres = []
@@ -564,8 +574,14 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     cellules_venise_sans_ancre = sum(p == venise for p in _par_ancre(monde, table_sans_venise).values())
     print(f"cellules_de_Venise_par_ancre={cellules_venise}, sans_ancre={cellules_venise_sans_ancre}")
     assert cellules_venise > 0 and cellules_venise_sans_ancre == 0
-    # Dans le monde, la table ne laisse à Venise aucune cellule entière : seulement des lieux.
-    assert sum(p == venise for p in vue.values()) == 0
+    # Dans le monde, la table ne laisse à Venise aucune cellule entière en Italie : seulement des lieux. Ses
+    # cellules sont celles d'outre-mer que la table lui déclare (la Crète, Corfou, Négrepont…), et les
+    # cellules partagées dont le bourg est vénitien (Athènes, Scutari).
+    frontieres = charger_frontieres()
+    outre_mer = ({c for c, p in frontieres.cellules.items() if p == venise}
+                 | {c for c in frontieres.partages if lieux.get((c, 0)) == venise})
+    assert outre_mer and {c for c, p in vue.items() if p == venise} == outre_mer
+    assert cellules["Venise"] not in outre_mer
 
 
 def test_ancrage_sans_piege():
@@ -688,24 +704,29 @@ def test_geographie_et_compte_des_puissances_orientales():
     assert {nom: puissance_de_cellule(cellule, vue, table).nom for nom, cellule in cellules.items()} == {
         nom: puissance for nom, (_, _, puissance) in points.items()}
 
-    constantinople = _cellule_la_plus_proche((41.01, 28.98), positions, latitude)
+    constantinople = _cellule_du_point(monde, 41.01, 28.98)
     par_nom = {p.nom: p.id for p in table.puissances}
     byzance, ottomans = par_nom["Byzance"], par_nom["Ottomans"]
     echange = {byzance: ottomans, ottomans: byzance}
     table_echangee = dataclasses.replace(table, ancres=tuple(
         dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in table.ancres))
+    # Les ancres échangées changent la règle de l'ancre, mais Constantinople et Edirne sont de la table :
+    # leur pays ne change pas.
+    par_ancre_echangee = _par_ancre(monde, table_echangee)
+    assert puissance_de_cellule(cellules["Edirne"], par_ancre_echangee, table_echangee).nom == "Byzance"
+    assert {constantinople, cellules["Edirne"]} <= charger_frontieres().declarees()
     vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
-    assert puissance_de_cellule(constantinople, vue_echangee, table_echangee).nom == "Ottomans"
-    assert puissance_de_cellule(cellules["Edirne"], vue_echangee, table_echangee).nom == "Byzance"
+    assert puissance_de_cellule(constantinople, vue_echangee, table_echangee).nom == "Byzance"
+    assert puissance_de_cellule(cellules["Edirne"], vue_echangee, table_echangee).nom == "Ottomans"
     bursa = dataclasses.replace(next(a for a in table.ancres if a.puissance == ottomans),
                                id=max(a.id for a in table.ancres) + 1, nom="Bursa", lat=40.19, lon=29.06)
     table_bursa = dataclasses.replace(table, ancres=table.ancres + (bursa,))
     vue_bursa = puissances_depuis_monde(monde, table=table_bursa)
-    assert puissance_de_cellule(constantinople, vue_bursa, table_bursa).nom == "Ottomans"
+    assert puissance_de_cellule(constantinople, vue_bursa, table_bursa).nom == "Byzance"
     sans_nicosie = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.nom != "Nicosie"))
     cellules_chypre = sum(p == par_nom["Chypre"] for p in vue.values())
     sans_ancre = sum(p == par_nom["Chypre"] for p in puissances_depuis_monde(monde, table=sans_nicosie).values())
-    print(f"Constantinople_échangée=Ottomans, Edirne_échangée=Byzance, avec_Bursa=Ottomans, Chypre={cellules_chypre}, sans_Nicosie={sans_ancre}")
+    print(f"Constantinople_échangée=Byzance, Edirne_échangée=Ottomans, avec_Bursa=Byzance, Chypre={cellules_chypre}, sans_Nicosie={sans_ancre}")
     assert cellules_chypre > 0 and sans_ancre == 0
 
 
@@ -927,27 +948,30 @@ def test_ancre_contenue_carte():
     ancienne = puissance_par_cellule(positions, table, charger_portee(), latitude)
     declarees = charger_frontieres().declarees()
     ids = {p.nom: p.id for p in table.puissances}
-    assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
-    assert [par_ancre[c] for c in (10374, 10032, 10366)] == [vue[c] for c in (10374, 10032, 10366)]
-    # Hors de la table, seule la cellule de Constantinople change ; dans la table, celle de Bruxelles, où
-    # l'ancre du Brabant est contenue sans être la plus proche du centroïde.
+    # L'ancre contenue donne Constantinople (10374) à Byzance ; la table aussi, et la Bithynie (10032),
+    # que l'ancre donnait encore à Byzance, aux Ottomans.
+    assert [par_ancre[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
+    assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Ottomans"], ids["Ottomans"]]
+    # Seules les cellules de Constantinople et de Bruxelles, où l'ancre du Brabant est contenue sans être la
+    # plus proche du centroïde, changent par l'ancre contenue ; toutes deux sont de la table.
     assert [c for c in par_ancre if par_ancre[c] != ancienne[c]] == [10374, 10427]
-    assert 10427 in declarees
-    # Ces trois cellules ne sont pas de la table : l'ancre les décide, et la table décide les autres.
-    assert declarees.isdisjoint((10374, 10032, 10366))
+    assert {10374, 10032, 10366, 10427} <= declarees
     assert [c for c in vue if c not in declarees and vue[c] != par_ancre[c]] == []
     assert [c for c in vue if c in declarees and vue[c] != par_ancre[c]]
     hors = {(a.id, a.nom) for a in table.ancres if not any(
         point_dans_geometrie(*projeter_epsg3035(a.lat, a.lon), cell["geometry"])
         for cell in monde.carte.values())}
     assert hors == {(25, "Venise"), (37, "Copenhague")}
-    comptes = Counter(vue.values())
-    assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 428, dont 16 sans pays :
-    # ses lacunes et les cellules dont le bourg est d'une ville sans pays.
-    comptes_ancre = Counter(par_ancre.values())
+    # Par l'ancre seule, Byzance tient 24 cellules et les Ottomans 48 ; par la table, Byzance est réduite
+    # à Constantinople, à la Morée et aux îles du nord de l'Égée, et les Ottomans tiennent les deux côtés
+    # des Détroits.
+    comptes, comptes_ancre = Counter(vue.values()), Counter(par_ancre.values())
+    assert (comptes_ancre[ids["Byzance"]], comptes_ancre[ids["Ottomans"]]) == (24, 48)
+    assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 543 et 53 : ses lacunes et
+    # les cellules dont le bourg est d'une ville sans pays.
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (571, 25)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (543, 53)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
@@ -958,8 +982,10 @@ def test_ancre_contenue_carte():
         alteree = dataclasses.replace(table, ancres=tuple(
             dataclasses.replace(a, lat=point[0], lon=point[1]) if a.nom == "Constantinople" else a
             for a in table.ancres))
-        contre = puissances_depuis_monde(monde, table=alteree)
+        # La règle de l'ancre suit le point déplacé ; la table, elle, garde ces cellules.
+        contre = _par_ancre(monde, alteree)
         assert all(contre[c] == p for c, p in attendues.items())
+        assert puissances_depuis_monde(monde, table=alteree) == vue
     print(f"Byzance={comptes[ids['Byzance']]}, Ottomans={comptes[ids['Ottomans']]}, hors_carte={hors}")
 
 
