@@ -21,6 +21,8 @@ if not "%~1"=="" set "arguments=%*"
 set PATH=%USERPROFILE%\.local\bin;%APPDATA%\npm;%PATH%
 set PYTHONUTF8=1
 set PYTHONPATH=%ici%..
+rem Le code de la chaîne est celui de ce dossier, pas celui du dossier d'où l'on appelle.
+cd /d "%ici%.."
 del "%passage%\passage.code" 2>nul
 py -m atelier --projet "%ici%.." testeur %arguments% > "%passage%\passage.log" 2>&1
 echo %ERRORLEVEL%> "%passage%\passage.code"
