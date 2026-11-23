@@ -12,10 +12,12 @@ courtes, car la session se souvient : `suite_*`.
 
 from __future__ import annotations
 
+import json
 import sys
 
-from .lots import Lot, Question
-from .projet import CHEF, DEVELOPPEUR, Projet
+from .fabrique.procedes import TYPES_ASSETS, procede_pour
+from .lots import DEMANDE_ASSET, Lot, Question, marque
+from .projet import ARTISTE, CHEF, DEVELOPPEUR, Projet
 
 _FRONTIERE = ("Tu ne fais ni `git commit`, ni `git push`, ni aucune commande `gh` : le pilote de la chaîne "
               "enregistre, pousse et parle à GitHub.")
@@ -53,16 +55,28 @@ _TEST_CHANGE = _objet({"fichier": _chaine(), "pourquoi": _chaine("la règle du m
 _COMMANDE = _objet({"commande": _chaine(), "resultat": _chaine("ce qu'elle a rendu, en une ligne")},
                    ("commande", "resultat"))
 
+_DEMANDE_ASSET = _objet({
+    "id": _chaine("identifiant court en minuscules et tirets : ex. icones-ressources-base, texture-pierre-rempart"),
+    "titre": _chaine("titre court lisible : ex. Planche d'icônes des ressources de base"),
+    "type": {"type": "string", "enum": list(TYPES_ASSETS)},
+    "description": _chaine("ce que l'asset doit montrer, son usage en jeu et la liste des éléments (pour une planche)"),
+    "destination": _chaine("chemin cible dans le dépôt : ex. 3d/unity/Assets/Interface/Icones/Ressources"),
+    "dimensions": _chaine("ex. 128x128 ou 1024x1024"),
+    "references_da": _liste(_chaine("chemin d'une référence dans docs/direction-artistique/ ou docs/interface/")),
+    "bloquant": {"type": "boolean", "description": "true seulement si le lot ne peut pas finir sans cet asset ; false par défaut"},
+}, ("id", "titre", "type", "description", "destination"))
+
 SCHEMA_PLAN = _objet({
     "decision": {"type": "string", "enum": ["plan", "question", "refus"]},
     "resume": _chaine("ce que le lot fera, en deux ou trois phrases"),
     "etapes": _liste(_objet({
         "titre": _chaine(),
         "quoi": _chaine("ce que l'étape fait, et dans quels fichiers"),
-        "qui": {"type": "string", "enum": ["chef", "developpeur"]},
+        "qui": {"type": "string", "enum": ["chef", "developpeur", "artiste"]},
         "tests": _chaine("les tests que l'étape joue avant de rendre la main"),
     }, ("titre", "quoi", "qui", "tests"))),
     "tests_a_changer": _liste(_TEST_CHANGE),
+    "demandes_assets": _liste(_DEMANDE_ASSET),
     "question": _QUESTION,
     "raison": _chaine("pourquoi le lot est refusé"),
 }, ("decision",))
@@ -72,6 +86,7 @@ SCHEMA_PASSAGE = _objet({
     "compte_rendu": _chaine("ce qui a été fait, en quelques phrases"),
     "tests_joues": _liste(_COMMANDE),
     "tests_changes": _liste(_TEST_CHANGE),
+    "demandes_assets": _liste(_DEMANDE_ASSET),
     "confie": _liste(_chaine("une tâche confiée au développeur")),
     "question": _QUESTION,
     "conteste": _liste(_objet({"constat": _chaine(), "pourquoi": _chaine()}, ("constat", "pourquoi"))),
@@ -135,8 +150,8 @@ def schema_fiche(projet: Projet) -> dict:
     return _objet({
         "titre": _chaine("court, en mots de joueur"),
         "piste": {"type": "string", "enum": list(projet.pistes)},
-        "machine": {"type": "string", "enum": ["vps", "pc"]},
-        "meneur": {"type": "string", "enum": ["chef", "developpeur"]},
+        "machine": {"type": "string", "enum": ["vps", "pc", "asset"]},
+        "meneur": {"type": "string", "enum": ["chef", "developpeur", "artiste"]},
         "joueur": _chaine("ce que je joue de plus : le geste, et ce qu'il décide"),
         "samedi": _chaine("ce que je vois à la démo, en mots de joueur"),
         "regle": _chaine("la règle du monde, son niveau de fidélité, la section de MODELE.md ; « sans objet » "
@@ -196,13 +211,64 @@ def corps_de_fiche(fiche: dict, *, depend_de: list[int] = (), decoupe_de: int | 
     ]
     if (fiche.get("hors_du_lot") or "").strip():
         morceaux += ["## Hors du lot", fiche["hors_du_lot"].strip(), ""]
-    meneur = "le développeur seul" if fiche.get("meneur") == "developpeur" else "le chef de lot"
-    morceaux.append(f"Piste : {fiche.get('piste', '')} · Machine : {fiche.get('machine', 'vps')} · Mené par : {meneur}")
+    meneur_nom = {"developpeur": "le développeur seul", "artiste": "l'artiste (chaîne visuelle Google)"}.get(
+        fiche.get("meneur"), "le chef de lot")
+    morceaux.append(f"Piste : {fiche.get('piste', '')} · Machine : {fiche.get('machine', 'vps')} · Mené par : {meneur_nom}")
     if decoupe_de is not None:
         morceaux.append(f"Découpé du lot #{decoupe_de} par le CTO.")
     if depend_de:
         morceaux.append("Dépend de : " + ", ".join(f"#{n}" for n in depend_de))
     return "\n".join(morceaux) + "\n"
+
+
+def corps_de_demande_asset(demande: dict, *, demandeur: int | None = None) -> str:
+    """Le texte de l'issue d'un lot d'asset ouvert automatiquement par le pilote."""
+    asset_id = str(demande["id"]).strip()
+    type_asset = str(demande["type"]).strip()
+    procede = procede_pour(type_asset)
+    dimensions = str(demande.get("dimensions") or procede.dimensions_defaut).strip()
+    destination = str(demande["destination"]).strip().replace("\\", "/")
+    refs = [str(r).strip() for r in (demande.get("references_da") or procede.references_da) if str(r).strip()]
+    origine = f"Demandé automatiquement par le lot #{demandeur}." if demandeur is not None else "Demandé par la chaîne."
+    spec = {
+        "id": asset_id,
+        "type": type_asset,
+        "destination": destination,
+        "dimensions": dimensions,
+        "references_da": refs,
+        "transparent": procede.transparent,
+        "raccordable": procede.raccordable,
+    }
+    if demandeur is not None:
+        spec["demande_par"] = demandeur
+    lignes = [
+        "## Ce que l'asset doit livrer",
+        str(demande.get("description") or "").strip(),
+        "",
+        "## Cible et contraintes",
+        f"- **Identifiant** : `{asset_id}`",
+        f"- **Type** : `{type_asset}` ({procede.titre})",
+        f"- **Destination** : `{destination}`",
+        f"- **Dimensions** : `{dimensions}`",
+        "- **Références DA** : " + ", ".join(f"`{r}`" for r in refs),
+        "",
+        "## Procédé optimal retenu",
+        procede.consigne(),
+        "",
+        "## Preuves avant de rendre la main",
+        f"- Enregistrer les fichiers livrés dans `assets/manifeste.json` (`{_py()} -m atelier.fabrique enregistrer …`).",
+        f"- Jouer `{_py()} -m atelier.fabrique controler --strict` : zéro défaut.",
+        "",
+        "```json",
+        json.dumps(spec, ensure_ascii=False, indent=2),
+        "```",
+        "",
+        origine,
+        "",
+        marque(role="pilote", etat=DEMANDE_ASSET, asset_id=asset_id, type=type_asset,
+               **({"demandeur": demandeur} if demandeur is not None else {})),
+    ]
+    return "\n".join(lignes) + "\n"
 
 
 def _decisions(decisions: tuple[str, ...]) -> str:
@@ -216,7 +282,7 @@ def _decisions(decisions: tuple[str, ...]) -> str:
 
 def _capture(lot: Lot) -> str:
     """Un lot `pc` se montre : le PC photographie ce que le meneur lui dit de jouer."""
-    if lot.machine != "pc":
+    if lot.machine != "pc" or lot.meneur == ARTISTE:
         return ""
     return ("- Ce lot se voit à l'écran : écris un scénario de capture qui pose ce que le lot ajoute ou joue son "
             "geste, et place la caméra pour qu'on le voie (`3d/unity/Assets/ForgeLocal3D/Editor/Captures/`, sur le "
@@ -225,7 +291,29 @@ def _capture(lot: Lot) -> str:
             "est fini, le PC joue les tests EditMode, puis ce scénario, et joint ses images à la PR.\n")
 
 
+def _regles_de_l_artiste(projet: Projet, lot: Lot) -> str:
+    return f"""Tu es l'artiste visuel de Forge, sur la chaîne parallèle Google (abonnement Google uniquement, aucune clé d'API). Tu mènes le lot d'asset #{lot.numero} « {lot.titre} » du plan à la fusion.
+
+Lis d'abord `AGENTS.md`, `docs/interface/DA.md`, `docs/interface/MATIERES.md` et `docs/direction-artistique/README.md`.
+
+La fiche du lot d'asset (issue #{lot.numero}) :
+-----
+{lot.corps.strip() or "(vide)"}
+-----
+
+Tes règles :
+- Utilise ton outil natif `generate_image` en lui passant les planches de référence de `docs/direction-artistique/` ou `docs/interface/` pour tenir une cohérence stricte avec la direction artistique de Forge (sombre, gothique, médiévale, matières mates perceptibles, aucun texte parasite).
+- Économise le quota de l'abonnement Google AI Pro : pour plusieurs icônes, génère UNE planche en grille uniforme (3x3 ou 4x4) sur fond uni contrasté, puis découpe et détoure localement avec `{_py()} -m atelier.fabrique decouper-planche`.
+- Passe toujours par `{_py()} -m atelier.fabrique` pour le post-traitement déterministe (`decouper-planche`, `detourer`, `pbr`, `enregistrer`) afin de garantir un alpha strict 0/255 (jamais de cœur translucide à 254), des raccords sans couture et un jeu PBR complet.
+- Ne laisse aucun fichier brut temporaire dans le dépôt ; ne modifie jamais de code métier ni les chemins interdits ({_interdits(projet)}).
+- Vérifie chaque image livrée à l'œil puis joue `{_py()} -m atelier.fabrique controler --strict` avant de rendre la main.
+- {_FRONTIERE}
+- Écris en français : comptes rendus, noms et entrées du manifeste."""
+
+
 def _regles_du_meneur(projet: Projet, lot: Lot) -> str:
+    if lot.meneur == ARTISTE:
+        return _regles_de_l_artiste(projet, lot)
     role = "le chef de lot" if lot.meneur == CHEF else "le développeur, et tu mènes seul ce lot simple"
     confier = ("- Tu codes le difficile toi-même. Tu confies au sous-agent `developpeur` les tâches bornées (un "
                "fichier, un test, un écran, une donnée), une à la fois, avec les fichiers et la règle à suivre ; "
@@ -245,6 +333,7 @@ Tes règles :
 {confier}- Joue les tests de ce que tu touches avant de rendre la main : un fichier de test, `-k` pour un nom (par exemple `{_py()} -m pytest jeu/sim/tests/test_lieux.py -q -k ouverture`), et les commandes des preuves de la fiche. Jamais la suite entière ni une simulation de plus de {projet.jours_max} jours : la chaîne les refuse, la CI joue la suite après la poussée et la nuit joue les longues preuves.
 - Un changement du monde met à jour les tests qu'il touche, dans ce lot, aussi stricts, et tu dis pourquoi dans `tests_changes` : la règle qui a changé. Un test juge le monde livré : jamais un drapeau, une fixture ou un paramètre qui rejoue l'ancienne règle pour garder l'ancien test vert.
 - Un changement du monde met à jour `jeu/sim/MODELE.md` dans ce lot.
+- S'il manque un asset visuel pour ce lot (icône, planche d'icônes, blason, texture PBR, illustration DA, prop 3D), ne dessine pas de substitut grossier à la main : déclare-le dans `demandes_assets` (avec `bloquant: false` dès que le code peut référencer le chemin cible avec un repli propre). Le pilote ouvre automatiquement le lot sur la chaîne visuelle parallèle (Google Antigravity).
 - Jamais dans : {_interdits(projet)}. Le pilote retire ces changements.
 - Un commentaire dit ce que le code fait et la contrainte qu'il respecte : ni date, ni numéro de lot, ni auteur.
 - Si le lot exige une décision que tu n'as pas le droit de prendre (une règle du monde que la fiche ne donne pas, deux lectures de la fiche qui se valent), rends `question` : la question en une phrase, deux à quatre réponses avec ce que chacune coûte, et ta recommandation. Le CTO tranche, et le lot continue.
@@ -254,12 +343,17 @@ Tes règles :
 
 def plan(projet: Projet, lot: Lot, decisions: tuple[str, ...] = ()) -> str:
     """La première consigne du meneur : concevoir le lot et rendre son plan."""
-    confie = (" et dit qui la fait (`chef` pour le difficile, `developpeur` pour une tâche bornée que tu lui "
-              "confieras)" if lot.meneur == CHEF else " (`qui` vaut `developpeur` : c'est toi)")
+    if lot.meneur == ARTISTE:
+        confie = " (`qui` vaut `artiste` : c'est toi)"
+    elif lot.meneur == CHEF:
+        confie = (" et dit qui la fait (`chef` pour le difficile, `developpeur` pour une tâche bornée que tu lui "
+                  "confieras)")
+    else:
+        confie = " (`qui` vaut `developpeur` : c'est toi)"
     return _regles_du_meneur(projet, lot) + _decisions(decisions) + f"""
 
-TA TÂCHE MAINTENANT : LE PLAN. Lis le code que le lot touche, puis rends ton plan en étapes. Tu n'écris aucun fichier à cette étape, et tu ne lances aucun test : tu lis.
-- Chaque étape laisse le dépôt cohérent, se vérifie par les tests qu'elle nomme{confie}. Trois à sept étapes pour un gros lot, une ou deux pour un petit.
+TA TÂCHE MAINTENANT : LE PLAN. Lis le code et les références que le lot touche, puis rends ton plan en étapes. Tu n'écris aucun fichier à cette étape, et tu ne lances aucun test : tu lis.
+- Chaque étape laisse le dépôt cohérent, se vérifie par les tests ou contrôles qu'elle nomme{confie}. Une à trois étapes pour un lot d'assets, trois à sept pour un gros lot de code.
 - La dernière étape joue les preuves de la fiche et vérifie que ce qu'elle promet au joueur est vrai.
 - `tests_a_changer` : les tests existants que le lot rendra faux, avec la règle qui change. Cherche-les maintenant (ce qui compte, borne ou fige ce que le lot touche ; les empreintes épinglées).
 - Si la fiche ne sert pas le palier ou se contredit, rends `refus` avec la raison. Si elle demande une décision qui n'est pas la tienne, rends `question`."""
@@ -505,10 +599,10 @@ Ce que tu avais décidé seul pendant l'étape, « à revoir à la démo » :
 Les étapes, leur ordre, leur durée en jours et la règle d'un lot sont dans `CAP.md` ; les fiches déjà préparées d'une étape sont dans `docs/etapes/`. Regarde le code avant d'écrire : une fiche promet ce que le jeu peut vraiment recevoir.
 - Un palier est une étape de `CAP.md`, ou la tranche d'une étape qui se joue seule : elle se compte en jours, pas en semaines. Si le propriétaire dit que l'étape jouée n'est pas au niveau, le palier suivant la corrige d'abord ; sinon c'est l'étape d'après, dans l'ordre de `CAP.md`. Reprends les fiches de `docs/etapes/` quand elles existent, corrigées de ce que le code est devenu.
 - Un lot est un système complet du jeu, qui se joue seul, sans plafond de taille. Ce qui touche les mêmes fichiers va dans le même lot plutôt que dans deux lots qui s'attendent : chaque lot de plus coûte un plan, une CI et une relecture.
-- Tout part en parallèle, sauf ce qui dépend vraiment d'un autre lot. Le VPS mène {projet.capacite("vps")} lots à la fois, le PC {projet.capacite("pc")} (Unity) ; deux lots du PC menés ensemble ne touchent ni la même scène, ni le même prefab, ni le même écran. `apres` ne porte que les fiches qu'une fiche attend vraiment (l'écran attend la donnée qu'il affiche) ; jamais « après » pour ranger. Jamais de boucle.
+- Tout part en parallèle, sauf ce qui dépend vraiment d'un autre lot. Le VPS mène {projet.capacite("vps")} lots à la fois, le PC {projet.capacite("pc")} (Unity) et la file visuelle `asset` {projet.capacite("asset")} (abonnement Google, indépendante du quota Claude) ; deux lots du PC menés ensemble ne touchent ni la même scène, ni le même prefab, ni le même écran. `apres` ne porte que les fiches qu'une fiche attend vraiment (l'écran attend la donnée qu'il affiche) ; jamais « après » pour ranger. Jamais de boucle.
 - Le chemin le plus long, de la première fiche à la dernière en suivant `apres`, tient dans la durée que `CAP.md` donne à l'étape, à raison de deux à quatre heures par lot. S'il ne tient pas, regroupe ou retire des dépendances.
 - La dernière fiche du chemin porte la preuve de l'étape : son critère de fin dans `CAP.md`, joué d'un trait dans le build, sans touche à connaître.
-- Chaque fiche dit ce que je joue de plus, ce que je vois à la démo, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste ({", ".join(projet.pistes)}), la machine (`pc` pour Unity ou Blender) et qui le mène (`chef`, ou `developpeur` pour un lot simple de données ou d'écran courant). Dans `hors_du_lot`, les dossiers que le lot touche et ce qu'il laisse à un autre.
+- Chaque fiche dit ce que je joue de plus, ce que je vois à la démo, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste ({", ".join(projet.pistes)}), la machine (`pc` pour Unity ou Blender, `asset` pour les icônes/textures/illustrations sur la chaîne visuelle parallèle) et qui le mène (`chef`, `developpeur` pour un lot simple de données ou d'écran courant, ou `artiste` pour un lot d'assets visuels). Dans `hors_du_lot`, les dossiers que le lot touche et ce qu'il laisse à un autre.
 - Ce qui reste du palier {numero} et que le propriétaire veut encore, reprends-le dans une fiche ; ce qu'il écarte, laisse-le.
 - `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, ce que tu reportes, et ce qui part en parallèle. {_FRONTIERE}"""
 

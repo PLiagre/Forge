@@ -28,7 +28,7 @@ from . import agents as agents_mod
 from . import journal, traces
 from .depot import Depot
 from .github import GitHub
-from .projet import CHEF, DEVELOPPEUR, MACHINES, OUTILS, ROLES, ProjetIncomplet, charger, table_des_roles
+from .projet import ARTISTE, CHEF, DEVELOPPEUR, MACHINES, OUTILS, ROLES, ProjetIncomplet, charger, table_des_roles
 
 
 def _racine(args: argparse.Namespace) -> Path:
@@ -63,19 +63,23 @@ def _cmd_veille(args: argparse.Namespace) -> int:
         return 1
     for outil in sorted({a.outil for a in projet.agents.values()}):
         binaire = OUTILS[outil]
+        # Antigravity (chaîne visuelle parallèle) reste facultatif à la veille :
+        # son absence met les lots `asset` en attente sans arrêter la chaîne Claude.
+        gravite = None if outil == "antigravity" else False
         # Lancé comme la chaîne le lance : sous Windows, un .cmd passe par son
         # node.exe, jamais par cmd.exe (`agents.lancement`).
         try:
             commande, env = agents_mod.lancement([binaire, "--version"], dict(os.environ))
         except agents_mod.Introuvable as e:
-            dire(False, f"{binaire} — {e}")
+            dire(gravite, f"{binaire} — {e}")
             continue
         try:
             version = subprocess.run(commande, env=env, capture_output=True, text=True, encoding="utf-8",
                                      errors="replace", timeout=60).stdout.strip()
-            dire(bool(version), f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'}")
+            dire(True if version else gravite,
+                 f"{binaire} — {version.splitlines()[0] if version else 'ne rend pas sa version'}")
         except (OSError, subprocess.TimeoutExpired) as e:
-            dire(False, f"{binaire} — ne démarre pas : {e}")
+            dire(gravite, f"{binaire} — ne démarre pas : {e}")
     jeton = agents_mod.FICHIER_JETON_CLAUDE
     if jeton.is_file() and jeton.stat().st_size > 0:
         mode = jeton.stat().st_mode & 0o777
@@ -103,7 +107,7 @@ def _cmd_sonde(args: argparse.Namespace) -> int:
     fautes = 0
     for role in ([args.role] if args.role else ROLES):
         agent = projet.agent(role)
-        ecrit = role in (CHEF, DEVELOPPEUR)
+        ecrit = role in (CHEF, DEVELOPPEUR, ARTISTE)
         if (str(agent), ecrit) in vus:
             continue
         vus.add((str(agent), ecrit))

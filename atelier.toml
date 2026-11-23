@@ -20,7 +20,7 @@ interdits = ["atelier/", ".github/", "atelier.toml", "AGENTS.md", "CLAUDE.md", "
 # relecteur, puis par le CTO.
 coeur = ["jeu/sim/engine.py", "jeu/sim/world.py", "jeu/sim/intentions.py"]
 # Les pistes d'un palier : l'étiquette que porte chaque lot.
-pistes = ["monde", "ville", "interface"]
+pistes = ["monde", "ville", "interface", "asset"]
 # Corrections après une CI rouge ou une relecture « CORRIGER » avant que le
 # lot soit bloqué et que le CTO le regarde.
 corrections_max = 2
@@ -31,7 +31,8 @@ coupures_max = 3
 deblocages_max = 2
 
 # Une ligne par rôle : harnais/modèle@effort. Changer un rôle de modèle,
-# c'est changer sa ligne. Le harnais est Claude Code ; l'effort est celui de
+# c'est changer sa ligne. Le harnais est Claude Code (ou Antigravity CLI pour
+# la chaîne visuelle sur l'abonnement Google) ; l'effort est celui de
 # `--effort` (low, medium, high, xhigh, max). Quand le quota manque, le lot
 # attend : il n'échoue pas.
 [agents]
@@ -53,20 +54,27 @@ lecteur     = "claude/claude-haiku-5-5@medium"
 # joueur qui le découvre : ni le code, ni le service, ni les journaux. Son
 # modèle doit voir les images et juger une règle ou un chiffre de 1400.
 testeur     = "claude/claude-opus-5-5@high"
+# Il produit les assets visuels (icônes, textures PBR, illustrations de DA,
+# vues de référence 3D) sur la chaîne parallèle, via l'abonnement Google
+# (Antigravity CLI `agy`, sans clé d'API) et les outils déterministes
+# d'`atelier/fabrique/`.
+artiste     = "antigravity/gemini-3.8-flash-medium"
 
-# Combien de lots chaque machine fait avancer en même temps. Le VPS n'a que
+# Combien de lots chaque file fait avancer en même temps. Le VPS n'a que
 # deux processeurs. Le PC mène deux lots Unity, chacun dans son chantier
 # (`.atelier/chantiers/pc` et `pc-2`, 3,4 Go de `Library` chacun) : deux Unity
 # ensemble y jouent les 1 364 tests EditMode en 189 et 196 s, contre 187 s
-# pour un seul. Le PC a deux runners, un par lot : avec un seul, les
-# passages des deux lots se suivraient, sans rien casser.
+# pour un seul. La file `asset` tourne en parallèle sur l'abonnement Google
+# sans prendre de place aux lots Claude.
 [machines]
 vps = 2
 pc = 2
+asset = 1
 
-# Combien d'agents tournent ensemble sur l'abonnement.
+# Combien d'agents tournent ensemble sur chaque abonnement.
 [outils]
 claude = 4
+antigravity = 1
 
 # Le temps qu'un appel a pour rendre la main, en secondes. Un appel coupé
 # n'est pas perdu : sa session reprend au tour suivant.
@@ -79,6 +87,7 @@ lecteur = 600
 # Soixante gestes au plus, regardés un à un : l'étape 0 en a pris vingt-deux
 # en cinq minutes et demie.
 testeur = 2700
+artiste = 1800
 
 # Ce que pèse le verdict du testeur. `ouvre = true` : « tenue » ou « tenue avec
 # peine » ouvre l'étape suivante que le CTO a proposée, et « non tenue » ouvre

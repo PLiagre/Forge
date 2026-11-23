@@ -51,11 +51,15 @@ def _avec_chef(ligne):
 
 
 # ------------------------------------------------------- le vrai fichier
-def test_le_vrai_fichier_donne_son_modele_a_chacun_des_six_roles(vrai):
-    assert ROLES == ("cto", "chef", "developpeur", "relecteur", "lecteur", "testeur") and set(vrai.agents) == set(ROLES)
-    for role, modele in (("cto", "fable"), ("chef", "opus"), ("developpeur", "sonnet"), ("relecteur", "opus"),
-                         ("lecteur", "haiku"), ("testeur", "opus")):
-        assert modele in vrai.agent(role).modele and vrai.agent(role).outil == "claude", role
+def test_le_vrai_fichier_donne_son_modele_a_chacun_des_sept_roles(vrai):
+    assert ROLES == ("cto", "chef", "developpeur", "relecteur", "lecteur", "testeur", "artiste")
+    assert set(vrai.agents) == set(ROLES)
+    for role, outil, modele in (
+        ("cto", "claude", "fable"), ("chef", "claude", "opus"), ("developpeur", "claude", "sonnet"),
+        ("relecteur", "claude", "opus"), ("lecteur", "claude", "haiku"), ("testeur", "claude", "opus"),
+        ("artiste", "antigravity", "gemini-"),
+    ):
+        assert modele in vrai.agent(role).modele and vrai.agent(role).outil == outil, role
 
 
 def test_le_vrai_fichier_interdit_a_un_lot_les_regles_et_la_chaine(vrai):
@@ -72,8 +76,8 @@ def test_le_vrai_fichier_nomme_le_coeur_du_moteur(vrai):
     assert not vrai.touche_le_coeur([])
 
 
-def test_le_vrai_fichier_a_les_trois_pistes(vrai):
-    assert vrai.pistes == ("monde", "ville", "interface")
+def test_le_vrai_fichier_a_les_quatre_pistes(vrai):
+    assert vrai.pistes == ("monde", "ville", "interface", "asset")
 
 
 def test_il_n_y_a_plus_de_plafond_de_lignes(vrai):
@@ -104,10 +108,13 @@ def test_un_role_inconnu_se_refuse(tmp_path):
 def test_un_modele_hors_de_l_abonnement_se_refuse(tmp_path):
     for ligne in ("claude/gpt-5", "claude/gpt-5-opus", "claude/opusculaire"):
         _refus(tmp_path, _avec_chef(ligne), "[agents].chef", ligne, "seuls les modèles de l'abonnement Claude tournent")
+    _refus(tmp_path, _avec_chef("antigravity/gpt-5"), "[agents].chef",
+           "seuls les modèles Gemini de l'abonnement Google")
 
 
 def test_un_harnais_inconnu_se_refuse(tmp_path):
-    _refus(tmp_path, _avec_chef("codex/opus@high"), "[agents].chef : outil inconnu 'codex' (connus : claude)")
+    _refus(tmp_path, _avec_chef("codex/opus@high"),
+           "[agents].chef : outil inconnu 'codex' (connus : antigravity, claude)")
 
 
 def test_un_effort_inconnu_se_refuse(tmp_path):
@@ -133,7 +140,7 @@ def test_une_capacite_nulle_ou_negative_se_refuse(tmp_path):
 
 
 def test_une_machine_inconnue_se_refuse(tmp_path):
-    _refus(tmp_path, TOML + "\n[machines]\nmac = 1\n", "[machines] ne connaît pas 'mac' (connus : vps, pc)")
+    _refus(tmp_path, TOML + "\n[machines]\nmac = 1\n", "[machines] ne connaît pas 'mac' (connus : vps, pc, asset)")
     _refus(tmp_path, TOML + "\n[outils]\ncodex = 2\n", "[outils] ne connaît pas 'codex'")
     _refus(tmp_path, TOML + "\n[gardes]\nlignes_max = 800\n", "[gardes] ne connaît pas 'lignes_max'")
 
@@ -158,24 +165,28 @@ def test_les_antislashs_de_windows_n_ouvrent_pas_un_chemin_interdit(projet):
 
 def test_le_delai_la_capacite_et_le_plafond_se_lisent_ou_prennent_leur_defaut(projet, vrai):
     assert all(projet.delai(role) == 1800 for role in ROLES), "sans [delais], trente minutes"
-    assert (projet.capacite("vps"), projet.capacite("pc"), projet.plafond("claude")) == (1, 1, None)
-    assert (vrai.delai("chef"), vrai.delai("lecteur")) == (3600, 600)
-    assert (vrai.capacite("vps"), vrai.capacite("pc"), vrai.plafond("claude")) == (2, 2, 4)
+    assert (projet.capacite("vps"), projet.capacite("pc"), projet.capacite("asset"), projet.plafond("claude")) == (
+        1, 1, 1, None)
+    assert (vrai.delai("chef"), vrai.delai("lecteur"), vrai.delai("artiste")) == (3600, 600, 1800)
+    assert (vrai.capacite("vps"), vrai.capacite("pc"), vrai.capacite("asset"),
+            vrai.plafond("claude"), vrai.plafond("antigravity")) == (2, 2, 1, 4, 1)
     with pytest.raises(ProjetIncomplet, match="depanneur"):
         projet.agent("depanneur")
 
 
-def test_la_table_des_roles_a_six_lignes_et_dit_le_parallelisme_et_le_poids_du_testeur(projet, vrai):
+def test_la_table_des_roles_a_sept_lignes_et_dit_le_parallelisme_et_le_poids_du_testeur(projet, vrai):
     lignes = table_des_roles(vrai).splitlines()
-    assert [l.split()[0] for l in lignes[1:7]] == list(ROLES) and lignes[7] == ""
+    assert [l.split()[0] for l in lignes[1:8]] == list(ROLES) and lignes[8] == ""
     assert lignes[1].split() == ["cto", "claude-fable-5-2", "high", "1800", "s"]
     assert lignes[5].split() == ["lecteur", "claude-haiku-5-5", "medium", "600", "s"]
     assert lignes[6].split() == ["testeur", "claude-opus-5-5", "high", "2700", "s"]
-    assert lignes[-3:] == ["lots en même temps : vps 2, pc 2", "agents en même temps : claude 4",
+    assert lignes[7].split() == ["artiste", "gemini-3.8-flash-medium", "—", "1800", "s"]
+    assert lignes[-3:] == ["lots en même temps : vps 2, pc 2, asset 1",
+                           "agents en même temps : antigravity 1, claude 4",
                            "verdict du testeur : il ouvre l'étape suivante ; après 2 « non tenue » de suite, le "
                            "propriétaire décide"]
     assert table_des_roles(projet).splitlines()[-3:] == [
-        "lots en même temps : vps 1, pc 1", "agents en même temps : sans plafond",
+        "lots en même temps : vps 1, pc 1, asset 1", "agents en même temps : sans plafond",
         "verdict du testeur : il informe ; le « oui » du propriétaire ouvre l'étape suivante"]
 
 
