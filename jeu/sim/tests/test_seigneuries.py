@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 from sim import constants as constantes
-from sim.aggregation import charger_positions
+from sim.aggregation import charger_latitude_moyenne, charger_positions
 from sim.engine import population_soutenable_de
 from sim.maisons import charger_maisons
 from sim.model import _NoBadSpatialField
 from sim.puissances import (
-    RELIGIONS, PuissanceInvalide, charger_latitude_moyenne_puissances,
+    RELIGIONS, PuissanceInvalide,
     charger_table, puissances_depuis_monde,
 )
 from sim.seigneuries import (
@@ -189,7 +189,7 @@ def test_refus_hors_carte(contexte):
 def _preuve_sieges(monde, seigneuries, table):
     """Le siège de chaque seigneurie est dans une cellule de son suzerain ; celui d'une seigneurie
     d'Empire (le Wurtemberg) dans une cellule sans puissance, le Saint-Empire n'en tenant aucune."""
-    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    positions, latitude = charger_positions(), charger_latitude_moyenne()
     vue = puissances_depuis_monde(monde, table=table)
     cellules = [cellule_du_siege(s, monde.carte) for s in seigneuries]
     empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")

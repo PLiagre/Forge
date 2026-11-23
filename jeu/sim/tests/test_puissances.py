@@ -1,4 +1,5 @@
-"""Preuves de lecture et de refus de la table des puissances de 1400."""
+"""Preuves de lecture et de refus de la table des puissances de 1400, et de la puissance de chaque
+cellule, que la table des frontières décide : les ancres sont des points, elles ne décident aucune cellule."""
 import json
 import math
 import pathlib
@@ -7,29 +8,11 @@ import pytest
 from sim.aggregation import charger_positions
 from sim.puissances import PuissanceInvalide, charger_table
 
-import copy
 import dataclasses
 
-from sim.aggregation import (
-    PositionCelluleInconnue,
-    derive_appartenance,
-    facteur_de_projection,
-    positions_du_monde,
-    projeter,
-)
-from sim.frontieres import charger_frontieres, frontieres_du_monde, puissances_des_lieux
-from sim.puissances import (
-    Ancre,
-    Puissance,
-    TableDesPuissances,
-    cellules_non_couvertes,
-    charger_latitude_moyenne_puissances,
-    charger_portee,
-    geometries_du_monde,
-    puissance_de_cellule,
-    puissance_par_cellule,
-    puissances_depuis_monde,
-)
+from sim.aggregation import charger_latitude_moyenne, derive_appartenance
+from sim.frontieres import charger_frontieres, decisions_des_frontieres, frontieres_du_monde, puissances_des_lieux
+from sim.puissances import cellules_non_couvertes, puissance_de_cellule, puissances_depuis_monde
 from sim.world import World
 
 TABLE = pathlib.Path(__file__).parents[2] / "data" / "puissances-1400.json"
@@ -156,68 +139,6 @@ def test_ancrage_dans_la_carte(tmp_path):
     assert calais == (0, 1) and paris_inversee == (1, 0)
 
 
-def test_portee_et_projection_se_lisent_et_se_refusent(tmp_path):
-    document = _document()
-    centres = json.loads(
-        (TABLE.parent / "province-centres-1400.json").read_text(encoding="utf-8")
-    )
-    portee = charger_portee()
-    latitude = charger_latitude_moyenne_puissances()
-    assert math.isfinite(portee) and portee > 0
-    assert latitude == centres["projection"]["mid_latitude"]
-
-    alterations = []
-    for champ, valeur in (
-        ("portee", None),
-        ("degres_projetes", None),
-        ("degres_projetes", "4.0"),
-        ("degres_projetes", True),
-        ("degres_projetes", math.nan),
-        ("degres_projetes", math.inf),
-        ("degres_projetes", 0),
-        ("degres_projetes", -1),
-        ("niveau", 1),
-        ("projection", None),
-        ("mid_latitude", None),
-        ("mid_latitude", "47.5"),
-        ("mid_latitude", math.inf),
-    ):
-        altere = copy.deepcopy(document)
-        if champ in ("portee", "projection"):
-            del altere[champ]
-        elif champ in ("degres_projetes", "niveau"):
-            if valeur is None:
-                del altere["portee"][champ]
-            else:
-                altere["portee"][champ] = valeur
-        elif valeur is None:
-            del altere["projection"][champ]
-        else:
-            altere["projection"][champ] = valeur
-        alterations.append((champ, altere))
-
-    refus_observes = 0
-    for index, (champ, altere) in enumerate(alterations):
-        chemin = tmp_path / f"portee-{index}.json"
-        chemin.write_text(json.dumps(altere), encoding="utf-8")
-        chargeur = (
-            charger_latitude_moyenne_puissances
-            if champ in ("projection", "mid_latitude")
-            else charger_portee
-        )
-        with pytest.raises(PuissanceInvalide) as capture:
-            chargeur(chemin)
-        attendu = "projection" if champ == "projection" else champ
-        assert attendu in str(capture.value)
-        assert charger_table(chemin) == charger_table()
-        refus_observes += 1
-
-    print(f"portee={portee}, latitude_moyenne={latitude}")
-    print(f"refus_observés={refus_observes}/{len(alterations)}")
-    assert refus_observes == len(alterations)
-    assert refus_observes > 0
-
-
 def _cellule_la_plus_proche(point, positions, latitude_moyenne):
     @dataclasses.dataclass(frozen=True)
     class Centroide:
@@ -239,13 +160,6 @@ def _cellule_du_point(monde, lat, lon):
     return next(c for c in sorted(monde.carte) if point_dans_geometrie(*point, monde.carte[c]["geometry"]))
 
 
-def _par_ancre(monde, table, portee=None):
-    """La règle de l'ancre seule, sans la table des frontières : l'ancre contenue, sinon la plus proche."""
-    return puissance_par_cellule(positions_du_monde(monde, charger_positions()), table,
-                                 charger_portee() if portee is None else portee,
-                                 charger_latitude_moyenne_puissances(), geometries_du_monde(monde))
-
-
 def _sans_pays_de_la_table(monde):
     """Les cellules que la table des frontières laisse sans pays : ses lacunes, et ses cellules partagées
     dont le bourg est d'une ville sans pays."""
@@ -256,76 +170,50 @@ def _sans_pays_de_la_table(monde):
 
 
 def test_geographie_des_puissances_et_des_non_couvertes():
-    monde = World.charger(0)
-    positions = charger_positions()
-    latitude = charger_latitude_moyenne_puissances()
-    table = charger_table()
+    monde, table = World.charger(0), charger_table()
     points = {
         "Paris": (48.86, 2.35),
         "Londres": (51.51, -0.13),
         "Le Caire": (30.04, 31.24),
         "Constantinople": (41.01, 28.98),
     }
-    cellules = {
-        nom: _cellule_la_plus_proche(point, positions, latitude)
-        for nom, point in points.items()
-    }
-    # Le centroïde le plus proche de Constantinople est celui de la Bithynie, ottomane : la ville se
-    # juge dans la cellule de son point.
-    cellules["Constantinople"] = _cellule_du_point(monde, *points["Constantinople"])
+    cellules = {nom: _cellule_du_point(monde, *point) for nom, point in points.items()}
     assert len(set(cellules.values())) == len(cellules)
     vue = puissances_depuis_monde(monde)
-    noms = {nom: puissance_de_cellule(cell_id, vue, table) for nom, cell_id in cellules.items()}
-    non_couvertes = cellules_non_couvertes(vue)
-    assert noms["Paris"].nom == "France"
-    assert noms["Londres"].nom == "Angleterre"
-    assert noms["Le Caire"].nom == "Mamelouks" and cellules["Le Caire"] not in non_couvertes
-    assert noms["Constantinople"].nom == "Byzance" and cellules["Constantinople"] not in non_couvertes
+    noms = {nom: puissance_de_cellule(cell_id, vue, table).nom for nom, cell_id in cellules.items()}
+    assert noms == {"Paris": "France", "Londres": "Angleterre", "Le Caire": "Mamelouks",
+                    "Constantinople": "Byzance"}
 
+    # Les ancres ne décident aucune cellule : celles de la France et de l'Angleterre échangées, le pays
+    # de chaque cellule reste le même.
     par_nom = {puissance.nom: puissance.id for puissance in table.puissances}
     france, angleterre = par_nom["France"], par_nom["Angleterre"]
-    ancres_echangees = tuple(
-        dataclasses.replace(
-            ancre,
-            puissance=(
-                angleterre if ancre.puissance == france
-                else france if ancre.puissance == angleterre
-                else ancre.puissance
-            ),
-        )
-        for ancre in table.ancres
-    )
-    table_echangee = dataclasses.replace(table, ancres=ancres_echangees)
-    # La règle de l'ancre échangée met Paris à l'Angleterre et Londres à la France...
-    par_ancre_echangee = _par_ancre(monde, table_echangee)
-    assert puissance_de_cellule(cellules["Paris"], par_ancre_echangee, table_echangee).nom == "Angleterre"
-    assert puissance_de_cellule(cellules["Londres"], par_ancre_echangee, table_echangee).nom == "France"
-    # ... mais Paris et Londres sont des cellules de la table : l'échange n'y change rien, nulle part.
-    declarees = charger_frontieres().declarees()
-    assert {cellules["Paris"], cellules["Londres"]} <= declarees
-    vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
-    assert puissance_de_cellule(cellules["Paris"], vue_echangee, table_echangee).nom == "France"
-    assert puissance_de_cellule(cellules["Londres"], vue_echangee, table_echangee).nom == "Angleterre"
-    assert {c for c in vue if vue_echangee[c] != vue[c]}.isdisjoint(declarees)
-    par_ancre = _par_ancre(monde, table)
-    assert {c for c in vue if vue_echangee[c] != vue[c]} == {
-        c for c in vue if c not in declarees and par_ancre_echangee[c] != par_ancre[c]}
+    echange = {france: angleterre, angleterre: france}
+    table_echangee = dataclasses.replace(table, ancres=tuple(
+        dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in table.ancres))
+    assert puissances_depuis_monde(monde, table=table_echangee) == vue
 
-    # À portée infinie, l'ancre couvre tout ce que la table ne décide pas : ne restent sans pays que
-    # les cellules que la table laisse sans pays.
-    vue_infinie = puissances_depuis_monde(monde, portee=math.inf)
+    # Une cellule sans pays est une cellule que la table laisse sans pays, avec sa raison : sa lacune, ou
+    # la ville sans pays du bourg de son partage.
+    frontieres = frontieres_du_monde(monde)
+    lieux = puissances_des_lieux(monde, frontieres=frontieres)
     sans_pays = _sans_pays_de_la_table(monde)
-    print(f"cellules_de_référence_distinctes={len(set(cellules.values()))}")
-    print(f"non_couvertes={len(non_couvertes)}, sans_pays_de_la_table={len(sans_pays)}")
-    assert puissance_de_cellule(cellules["Le Caire"], vue_infinie, table) is not None
-    assert sans_pays and cellules_non_couvertes(vue_infinie) == sans_pays
+    assert sans_pays and cellules_non_couvertes(vue) == sans_pays
+    for cid in sans_pays:
+        raison = frontieres.lacunes.get(cid) or " ".join(
+            v.raison for v in frontieres.partages.get(cid, ()) if v.pays is None and lieux[cid, 0] is None)
+        assert raison.strip(), f"cellule {cid} sans pays et sans raison"
+    print(f"cellules_de_référence_distinctes={len(set(cellules.values()))}, sans_pays={len(sans_pays)}")
+    # Contre-épreuve : une cellule retirée de la table est refusée en la nommant.
+    cid = cellules["Paris"]
+    amputee = dataclasses.replace(frontieres, cellules={c: p for c, p in frontieres.cellules.items() if c != cid})
+    with pytest.raises(PuissanceInvalide, match=f"cellule {cid}, champ cell_id"):
+        puissances_depuis_monde(monde, table=table, frontieres=amputee)
 
 
 def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     monde = World.charger(0)
-    positions = charger_positions()
     table = charger_table()
-    latitude = charger_latitude_moyenne_puissances()
     vue = puissances_depuis_monde(monde)
     non_couvertes = len(cellules_non_couvertes(vue))
     couvertes = sum(puissance_id is not None for puissance_id in vue.values())
@@ -348,59 +236,9 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     print(f"puissances_sans_cellule={sans_cellule}")
     assert sans_cellule == ["Saint-Empire"]
 
-    facteur = facteur_de_projection(latitude)
-    carres = []
-    for position in positions.values():
-        cellule_x, cellule_y = projeter(*position, facteur)
-        for ancre in table.ancres:
-            ancre_x, ancre_y = projeter(ancre.lat, ancre.lon, facteur)
-            carres.append((cellule_x - ancre_x) ** 2 + (cellule_y - ancre_y) ** 2)
-    plus_petite_distance = math.sqrt(min(carres))
-    portee_minuscule = plus_petite_distance / 2
-    vue_vide = puissances_depuis_monde(monde, portee=portee_minuscule)
-    declarees = charger_frontieres().declarees()
-    couvertes_minuscule = {c for c, v in vue_vide.items() if v is not None}
+    # La puissance de chaque cellule est celle que la table des frontières décide.
+    assert vue == decisions_des_frontieres(monde, table, frontieres_du_monde(monde, table))
     print(f"couvertes={couvertes}, non_couvertes={non_couvertes}")
-    print(f"couvertes_portee_minuscule={len(couvertes_minuscule)}")
-    assert plus_petite_distance > 0
-    # L'ancre ne couvre plus rien à une portée minuscule : ne restent couvertes que les cellules de la table.
-    assert sum(v is not None for v in _par_ancre(monde, table, portee_minuscule).values()) == 0
-    assert couvertes_minuscule and couvertes_minuscule == {c for c in declarees if vue[c] is not None}
-
-
-def test_egalite_des_ancres_et_bord_de_portee():
-    puissances = (
-        Puissance(1, "A", "royaume", "catholique"),
-        Puissance(2, "B", "royaume", "catholique"),
-    )
-    ancres = (
-        Ancre(3, 1, "Ouest", 0.0, -1.0, "synthétique"),
-        Ancre(7, 2, "Est", 0.0, 1.0, "synthétique"),
-    )
-    facteur = facteur_de_projection(0.0)
-    cellule = projeter(0.0, 0.0, facteur)
-    carres = tuple(
-        sum((a - b) ** 2 for a, b in zip(cellule, projeter(ancre.lat, ancre.lon, facteur)))
-        for ancre in ancres
-    )
-    gagnants = []
-    for ordre in (ancres, tuple(reversed(ancres))):
-        table = TableDesPuissances("1400-01-01", puissances, ordre)
-        gagnants.append(puissance_par_cellule({11: (0.0, 0.0)}, table, 1.0, 0.0)[11])
-    ancre_origine = dataclasses.replace(ancres[0], lon=0.0)
-    table_une_ancre = TableDesPuissances("1400-01-01", puissances[:1], (ancre_origine,))
-    sur_bord = puissance_par_cellule({11: (0.0, 1.0)}, table_une_ancre, 1.0, 0.0)
-    au_dela = puissance_par_cellule(
-        {11: (0.0, math.nextafter(1.0, math.inf))},
-        table_une_ancre,
-        1.0,
-        0.0,
-    )
-    print(f"carres_exactement_egaux={carres[0] == carres[1]}, gagnants={gagnants}")
-    assert carres[0] == carres[1]
-    assert gagnants == [1, 1]
-    assert sur_bord[11] == 1
-    assert au_dela[11] is None
 
 
 def test_vue_pure_que_le_tick_ne_lit_pas():
@@ -411,18 +249,10 @@ def test_vue_pure_que_le_tick_ne_lit_pas():
     seconde = puissances_depuis_monde(monde)
     apres = json.dumps(monde.to_dict(), sort_keys=True)
     attributs_apres = {cell_id: tuple(vars(cellule)) for cell_id, cellule in monde.cells.items()}
-    positions = charger_positions()
-    plus_petite = min(monde.cells)
-    del positions[plus_petite]
-    with pytest.raises(PositionCelluleInconnue) as capture:
-        puissances_depuis_monde(monde, positions=positions)
-
     print(f"vues_identiques={premiere == seconde}, monde_inchangé={avant == apres}")
-    print(f"cellule_absente_nommée={str(plus_petite) in str(capture.value)}")
-    assert premiere == seconde
+    assert premiere and premiere == seconde
     assert avant == apres
     assert attributs_avant == attributs_apres
-    assert str(plus_petite) in str(capture.value)
 
 
 def test_lecture_des_douze_ajouts(tmp_path):
@@ -508,7 +338,7 @@ def test_nouvelles_puissances_connues(tmp_path):
 def test_geographie_et_compte_des_douze_nouvelles_puissances():
     monde = World.charger(0)
     positions = charger_positions()
-    latitude = charger_latitude_moyenne_puissances()
+    latitude = charger_latitude_moyenne()
     table = charger_table()
     points = {
         "Venise": (45.44, 12.33), "Milan": (45.46, 9.19),
@@ -537,43 +367,16 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     assert sum(p == venise for (cid, _), p in lieux.items() if cid == cellules["Venise"]) > 0
     assert couvertes + non_couvertes == len(monde.cells)
 
-    # Les échanges et les ancres ajoutées se jugent sur la règle de l'ancre : la table décide ces cellules.
-    declarees = charger_frontieres().declarees()
-    assert {cellules[nom] for nom in ("Venise", "Milan", "Florence", "Gênes", "États de l'Église",
-                                      "Naples", "Sicile", "Savoie")} <= declarees
-    # Le Nord et l'Est sont aussi de la table : l'Union, l'Ordre, la Pologne et la Hongrie.
-    assert {cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique", "Pologne", "Hongrie")} <= declarees
-    par_ancre = _par_ancre(monde, table)
-    assert {nom: puissance_de_cellule(cellules[nom], par_ancre, table).nom
-            for nom in ("Venise", "Milan")} == {"Venise": "Venise", "Milan": "Milan"}
+    # Les ancres ne décident aucune cellule : celles de Venise et de Milan échangées, ou une ancre de Milan
+    # ajoutée à Vérone, la vue reste la même.
     echangees = tuple(dataclasses.replace(a, puissance=milan if a.puissance == venise
                                            else venise if a.puissance == milan else a.puissance)
                       for a in table.ancres)
-    table_echangee = dataclasses.replace(table, ancres=echangees)
-    par_ancre_echangee = _par_ancre(monde, table_echangee)
-    venise_echangee = puissance_de_cellule(cellules["Venise"], par_ancre_echangee, table_echangee).nom
-    milan_echangee = puissance_de_cellule(cellules["Milan"], par_ancre_echangee, table_echangee).nom
-    print(f"Venise_après_échange={venise_echangee}, Milan_après_échange={milan_echangee}")
-    assert venise_echangee == "Milan" and milan_echangee == "Venise"
-    # Les deux cellules sont de la table : l'échange des ancres ne change rien au monde.
-    assert {cellules["Venise"], cellules["Milan"]} <= declarees
-    assert puissances_depuis_monde(monde, table=table_echangee) == vue
-
+    assert puissances_depuis_monde(monde, table=dataclasses.replace(table, ancres=echangees)) == vue
     verone = dataclasses.replace(next(a for a in table.ancres if a.nom == "Milan"),
                                  id=max(a.id for a in table.ancres) + 1,
                                  nom="Vérone", lat=45.44, lon=10.99)
-    table_verone = dataclasses.replace(table, ancres=table.ancres + (verone,))
-    venise_avec_verone = puissance_de_cellule(
-        cellules["Venise"], _par_ancre(monde, table_verone), table_verone).nom
-    print(f"Venise_avec_ancre_à_Vérone={venise_avec_verone}")
-    assert venise_avec_verone == "Milan"
-    assert puissances_depuis_monde(monde, table=table_verone) == vue
-
-    table_sans_venise = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.puissance != venise))
-    cellules_venise = sum(p == venise for p in par_ancre.values())
-    cellules_venise_sans_ancre = sum(p == venise for p in _par_ancre(monde, table_sans_venise).values())
-    print(f"cellules_de_Venise_par_ancre={cellules_venise}, sans_ancre={cellules_venise_sans_ancre}")
-    assert cellules_venise > 0 and cellules_venise_sans_ancre == 0
+    assert puissances_depuis_monde(monde, table=dataclasses.replace(table, ancres=table.ancres + (verone,))) == vue
     # Dans le monde, la table ne laisse à Venise aucune cellule entière en Italie : seulement des lieux. Ses
     # cellules sont celles d'outre-mer que la table lui déclare (la Crète, Corfou, Négrepont…), et les
     # cellules partagées dont le bourg est vénitien (Athènes, Scutari).
@@ -683,7 +486,7 @@ def test_puissances_orientales_connues(tmp_path):
 
 def test_geographie_et_compte_des_puissances_orientales():
     monde, table = World.charger(0), charger_table()
-    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    positions, latitude = charger_positions(), charger_latitude_moyenne()
     points = {
         "Mistra": (37.07, 22.37, "Byzance"), "Edirne": (41.68, 26.56, "Ottomans"),
         "Ankara": (39.93, 32.85, "Ottomans"), "Kruševac": (43.58, 21.33, "Serbie"),
@@ -704,32 +507,24 @@ def test_geographie_et_compte_des_puissances_orientales():
     assert {nom: puissance_de_cellule(cellule, vue, table).nom for nom, cellule in cellules.items()} == {
         nom: puissance for nom, (_, _, puissance) in points.items()}
 
+    # Les ancres ne décident aucune cellule : celles de Byzance et des Ottomans échangées, une ancre
+    # ottomane ajoutée à Brousse ou celle de Nicosie retirée, la vue reste la même.
     constantinople = _cellule_du_point(monde, 41.01, 28.98)
     par_nom = {p.nom: p.id for p in table.puissances}
     byzance, ottomans = par_nom["Byzance"], par_nom["Ottomans"]
     echange = {byzance: ottomans, ottomans: byzance}
     table_echangee = dataclasses.replace(table, ancres=tuple(
         dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in table.ancres))
-    # Les ancres échangées changent la règle de l'ancre, mais Constantinople et Edirne sont de la table :
-    # leur pays ne change pas.
-    par_ancre_echangee = _par_ancre(monde, table_echangee)
-    assert puissance_de_cellule(cellules["Edirne"], par_ancre_echangee, table_echangee).nom == "Byzance"
-    assert {constantinople, cellules["Edirne"]} <= charger_frontieres().declarees()
-    vue_echangee = puissances_depuis_monde(monde, table=table_echangee)
-    assert puissance_de_cellule(constantinople, vue_echangee, table_echangee).nom == "Byzance"
-    assert puissance_de_cellule(cellules["Edirne"], vue_echangee, table_echangee).nom == "Ottomans"
     bursa = dataclasses.replace(next(a for a in table.ancres if a.puissance == ottomans),
                                id=max(a.id for a in table.ancres) + 1, nom="Bursa", lat=40.19, lon=29.06)
     table_bursa = dataclasses.replace(table, ancres=table.ancres + (bursa,))
-    vue_bursa = puissances_depuis_monde(monde, table=table_bursa)
-    assert puissance_de_cellule(constantinople, vue_bursa, table_bursa).nom == "Byzance"
     sans_nicosie = dataclasses.replace(table, ancres=tuple(a for a in table.ancres if a.nom != "Nicosie"))
+    for alteree in (table_echangee, table_bursa, sans_nicosie):
+        assert puissances_depuis_monde(monde, table=alteree) == vue
+    assert puissance_de_cellule(constantinople, vue, table).nom == "Byzance"
     cellules_chypre = sum(p == par_nom["Chypre"] for p in vue.values())
-    # Sans l'ancre de Nicosie, la règle de l'ancre ne donne plus rien à Chypre ; la table lui garde son île.
-    sans_ancre = sum(p == par_nom["Chypre"] for p in _par_ancre(monde, sans_nicosie).values())
-    print(f"Constantinople_échangée=Byzance, Edirne_échangée=Ottomans, avec_Bursa=Byzance, Chypre={cellules_chypre}, sans_Nicosie={sans_ancre}")
-    assert cellules_chypre > 0 and sans_ancre == 0
-    assert puissances_depuis_monde(monde, table=sans_nicosie) == vue
+    print(f"Constantinople=Byzance, Chypre={cellules_chypre}")
+    assert cellules_chypre > 0
 
 
 def test_ancrage_oriental_sans_piege():
@@ -767,116 +562,32 @@ def test_projection_epsg3035_au_centimetre():
     print(f"points_comparés={len(points)}, écart_maximal_m={max(ecarts)}")
 
 
-def _carre_projete(latitude, longitude, demi_cote):
-    from sim.projection import projeter_epsg3035
-
-    x, y = projeter_epsg3035(latitude, longitude)
-    return {"type": "Polygon", "coordinates": [[
-        [x - demi_cote, y - demi_cote], [x + demi_cote, y - demi_cote],
-        [x + demi_cote, y + demi_cote], [x - demi_cote, y + demi_cote],
-        [x - demi_cote, y - demi_cote],
-    ]]}
-
-
-def test_ancre_contenue_synthetique():
-    from sim.projection import projeter_epsg3035
-
-    a = Ancre(3, 1, "A", 40.5, 10.0, "synthétique")
-    b = Ancre(7, 2, "B", 40.1, 10.0, "synthétique")
-    table = TableDesPuissances("1400-01-01", (), (a, b))
-    positions, geometries = {11: (40.0, 10.0)}, {11: _carre_projete(a.lat, a.lon, 100)}
-    assert puissance_par_cellule(positions, table, 1.0, 0.0, geometries)[11] == 1
-    assert puissance_par_cellule(positions, table, 1.0, 0.0)[11] == 2
-    assert puissance_par_cellule(positions, table, 0.2, 0.0, geometries)[11] is None
-    deplacee = dataclasses.replace(table, ancres=(dataclasses.replace(a, lat=41.0), b))
-    assert puissance_par_cellule(positions, deplacee, 2.0, 0.0, geometries)[11] == 2
-    grande = {11: _carre_projete(40.0, 10.0, 200_000)}
-    for ancres, attendue in (((a, b), 2),
-                             ((dataclasses.replace(a, lat=40.0, lon=9.0),
-                               dataclasses.replace(b, lat=40.0, lon=11.0)), 1)):
-        for ordre in (ancres, tuple(reversed(ancres))):
-            assert puissance_par_cellule(positions, dataclasses.replace(table, ancres=ordre),
-                                         2.0, 0.0, grande)[11] == attendue
-    # Le bord contient A ; un trou autour d'A l'exclut ; un MultiPolygon le retrouve.
-    bord = _carre_projete(a.lat, a.lon, 100)
-    x, _ = projeter_epsg3035(a.lat, a.lon)
-    for sommet in (bord["coordinates"][0][0], bord["coordinates"][0][3], bord["coordinates"][0][4]):
-        sommet[0] = x
-    trou = copy.deepcopy(grande[11])
-    trou["coordinates"].append(geometries[11]["coordinates"][0])
-    multi = {"type": "MultiPolygon", "coordinates": [geometries[11]["coordinates"]]}
-    for geometrie, attendue in ((bord, 1), (trou, 2), (multi, 1)):
-        assert puissance_par_cellule(positions, table, 2.0, 0.0, {11: geometrie})[11] == attendue
-
-
-def test_ancre_contenue_carte():
+def test_les_ancres_sont_des_points_et_ne_decident_aucune_cellule():
     from collections import Counter
     from sim.projection import projeter_epsg3035
     from sim.villes import point_dans_geometrie
 
     monde, table = World.charger(0), charger_table()
-    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
     vue = puissances_depuis_monde(monde)
-    # La règle de l'ancre contenue, seule ; la plus proche, sans la géométrie des cellules, en est la référence.
-    par_ancre = _par_ancre(monde, table)
-    ancienne = puissance_par_cellule(positions, table, charger_portee(), latitude)
-    declarees = charger_frontieres().declarees()
     ids = {p.nom: p.id for p in table.puissances}
-    # L'ancre contenue donne Constantinople (10374) à Byzance ; la table aussi, et la Bithynie (10032),
-    # que l'ancre donnait encore à Byzance, aux Ottomans.
-    assert [par_ancre[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
-    assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Ottomans"], ids["Ottomans"]]
-    # Seules les cellules de Constantinople et de Bruxelles, où l'ancre du Brabant est contenue sans être la
-    # plus proche du centroïde, changent par l'ancre contenue ; toutes deux sont de la table.
-    assert [c for c in par_ancre if par_ancre[c] != ancienne[c]] == [10374, 10427]
-    assert {10374, 10032, 10366, 10427} <= declarees
-    assert [c for c in vue if c not in declarees and vue[c] != par_ancre[c]] == []
-    assert [c for c in vue if c in declarees and vue[c] != par_ancre[c]]
     hors = {(a.id, a.nom) for a in table.ancres if not any(
         point_dans_geometrie(*projeter_epsg3035(a.lat, a.lon), cell["geometry"])
         for cell in monde.carte.values())}
     assert hors == {(25, "Venise"), (37, "Copenhague")}
-    # Par l'ancre seule, Byzance tient 24 cellules et les Ottomans 48 ; par la table, Byzance est réduite
-    # à Constantinople, à la Morée et aux îles du nord de l'Égée, et les Ottomans tiennent les deux côtés
-    # des Détroits.
-    comptes, comptes_ancre = Counter(vue.values()), Counter(par_ancre.values())
-    assert (comptes_ancre[ids["Byzance"]], comptes_ancre[ids["Ottomans"]]) == (24, 48)
+    # Byzance est réduite à Constantinople, à la Morée et aux îles du nord de l'Égée ; les Ottomans
+    # tiennent les deux côtés des Détroits. Les cellules sans pays sont les lacunes de la table et les
+    # partages dont le bourg est d'une ville sans pays.
+    comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; avec la table, 527 et 69 : ses lacunes et
-    # les cellules dont le bourg est d'une ville sans pays.
-    assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
     assert (sum(p is not None for p in vue.values()), comptes[None]) == (527, 69)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
-    assert vue[10209] == par_ancre[10209] == ids["Grenade"]
+    assert vue[10209] == ids["Grenade"]
+    # Contre-épreuve : l'ancre de Constantinople déplacée à Edirne, ou en Bithynie, ne change aucune cellule.
     edirne = next(a for a in table.ancres if a.nom == "Edirne")
-    for point, attendues in ((positions[10032], {10374: ids["Ottomans"], 10032: ids["Byzance"]}),
-                             ((edirne.lat, edirne.lon), {10366: ids["Byzance"]})):
+    for lat, lon in ((edirne.lat, edirne.lon), (40.77, 29.92)):
         alteree = dataclasses.replace(table, ancres=tuple(
-            dataclasses.replace(a, lat=point[0], lon=point[1]) if a.nom == "Constantinople" else a
-            for a in table.ancres))
-        # La règle de l'ancre suit le point déplacé ; la table, elle, garde ces cellules.
-        contre = _par_ancre(monde, alteree)
-        assert all(contre[c] == p for c, p in attendues.items())
+            dataclasses.replace(a, lat=lat, lon=lon) if a.nom == "Constantinople" else a for a in table.ancres))
         assert puissances_depuis_monde(monde, table=alteree) == vue
     print(f"Byzance={comptes[ids['Byzance']]}, Ottomans={comptes[ids['Ottomans']]}, hors_carte={hors}")
-
-
-@pytest.mark.parametrize("absence", ["champ", "cellule", "valeur_nulle"])
-def test_geometrie_absente(absence):
-    from sim.maisons import maisons_depuis_monde
-
-    monde = World.charger(0)
-    assert puissances_depuis_monde(monde) and maisons_depuis_monde(monde)
-    monde.carte = copy.deepcopy(monde.carte)
-    cellule = min(monde.cells)
-    if absence == "champ":
-        monde.carte[cellule].pop("geometry")
-    elif absence == "cellule":
-        monde.carte.pop(cellule)
-    else:
-        monde.carte[cellule]["geometry"] = None
-    for adapter in (puissances_depuis_monde, maisons_depuis_monde):
-        with pytest.raises(PuissanceInvalide, match=f"cellule {cellule}"):
-            adapter(monde)

@@ -1647,13 +1647,9 @@ puissances du Maghreb, `khanat` la Horde d'Or.
 Le Saint-Empire reste une puissance de la table, celle du roi des Romains,
 Venceslas de Luxembourg, mais il ne tient aucune cellule ni aucun lieu : chacune va
 au prince qui la tenait. Il garde une seule ancre, à Prague, au point même de celle
-de la Bohême et d'identifiant plus grand : à égalité exacte, l'ancre de la Bohême
-l'emporte, et celle de l'Empire ne décide jamais une cellule. La Pologne et la
-Lituanie sont deux pays, de Ladislas II Jagellon et de Vytautas, chacun chef au
-1er janvier 1400 ; la Bohême de Venceslas et la Hongrie de Sigismond aussi. Hors des cellules que
-décide la table des frontières (ci-dessous), le tracé qui découle des ancres est
-de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière réelle,
-ni enclave.
+de la Bohême. La Pologne et la Lituanie sont deux pays, de Ladislas II Jagellon et
+de Vytautas, chacun chef au 1er janvier 1400 ; la Bohême de Venceslas et la Hongrie
+de Sigismond aussi.
 
 Une puissance peut déclarer son `suzerain`, une puissance de la table, avec sa
 `source_suzerain` ; un suzerain inconnu ou une chaîne qui boucle est refusé. Les
@@ -1672,36 +1668,19 @@ princes d'Empire, la Bohême, Trèves, les cantons, Milan et la Savoie le décla
 ce sont des racines sans suzerain, et l'élection du roi des Romains, la diète et le
 lien d'Empire restent de **niveau 3**, pas simulés.
 
-À chaque consultation, une cellule retient d'abord une ancre contenue dans
-son polygone (bord compris, trous exclus). Les points EPSG:4326 des ancres
-sont projetés en **EPSG:3035** par `sim/projection.py` : Lambert azimutale
-équivalente ellipsoïdale GRS80, latitude authalique de Snyder, origine 52° N
-et 10° E, fausse abscisse 4 321 000 m et fausse ordonnée 3 210 000 m.
-Cette projection est vérifiée au centimètre sur les 58 villes et les 5 sièges.
-Si plusieurs ancres sont contenues, la plus proche du centroïde gagne ; sans
-ancre contenue, la plus proche parmi toutes gagne. Les distances gardent la
-projection et la latitude moyenne déclarées par la table ; la règle unique
-de `sim/aggregation.py` départage une égalité exacte par le plus petit `id`
-d'ancre, indépendamment de l'ordre de la table. La puissance est celle de
-l'ancre retenue. Les fonctions pures sans géométries gardent la règle du
-centroïde seul ; les adaptateurs lisent `world.carte[cell_id]["geometry"]`
-et refusent une géométrie absente en nommant la cellule.
-
-La portée mesurée de **4,0 degrés projetés**, environ 440 km, s'applique à
-l'ancre retenue, même si elle est contenue dans le polygone. Par la seule règle
-de l'ancre, sur les 596 cellules de la carte figée, 565 sont couvertes et
-31 sont non couvertes. Au-delà de la portée, la cellule est explicitement
-**non couverte** : elle n'est rattachée à aucune puissance par défaut. Cette
-vue donne la cellule de Constantinople à Byzance : celle du point de la ville,
-**10374**, et non plus seulement celle au centroïde le plus proche, 10032.
-Seule 10374 change : Edirne cède la place à Constantinople ; Byzance passe
-de 23 à 24 cellules et les Ottomans de 49 à 48. Venise (25) et Copenhague
-(37), les deux ancres hors des polygones de la carte, ne comptent que par
-la règle du centroïde. Grenade (16) et Malaga (17) sont dans la même cellule,
-10209, qui reste aux Nasrides. Les comptes 565/31 restent inchangés.
-Le point du Caire est dans le polygone **8992**, même si aucune ancre
-n'y est placée. Cette cellule relève des Mamelouks grâce aux ancres
-d'Alexandrie et de Damiette.
+**Les ancres sont des points.** Chaque puissance a au moins une ancre : un point
+sourcé, en EPSG:4326, projeté en **EPSG:3035** par `sim/projection.py` (Lambert
+azimutale équivalente ellipsoïdale GRS80, latitude authalique de Snyder, origine
+52° N et 10° E, fausse abscisse 4 321 000 m et fausse ordonnée 3 210 000 m ; vérifiée
+au centimètre sur les 58 villes et les 5 sièges). Une ancre place le siège d'une
+puissance sans maison (sa première) et sert de capitale à un pays dont le siège de
+la maison n'est pas dans ses lieux ; elle ne décide le pays d'**aucune** cellule. Le
+pays de chaque cellule est celui que la table des frontières décide (ci-dessous) :
+`puissances_depuis_monde` rend `frontieres.decisions_des_frontieres`, et refuse en la
+nommant une cellule du monde que la table ne décide pas. Échanger, déplacer, ajouter
+ou retirer une ancre ne change aucune cellule. Venise (25) et Copenhague (37) sont les
+deux ancres hors des polygones de la carte ; Grenade (16) et Malaga (17) sont dans la
+même cellule, 10209, aux Nasrides.
 
 **La table des frontières de 1400.** `data/frontieres-1400.json`, lue par
 `sim/frontieres.py`, déclare le pays de chaque cellule de la carte, en sept régions :
@@ -1753,6 +1732,14 @@ hors du siège ne sont pas simulées) ; la Frise libre ; Riga, Dorpat et Ösel-W
 Livonie ; Thèbes des Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin,
 Vonitsa des Tocco, Krujë des Thopia, Valona, Antivari de la Zeta et Raguse.
 
+Par région, les cellules entières et partagées de ses pays : `ouest` 166 et 38,
+`empire` 25 et 39, `nord` 91 et 1, `est` 65 et 25, `balkans` 48 et 13, `orient` 25
+et 8, `maghreb` 25 et aucune. Une cellule de Venise compte dans l'Ouest et dans
+l'Orient ; une cellule partagée compte dans chaque région de ses pays. Avec les 65
+lacunes, la table décide les 596 cellules de la carte figée, et le chargement refuse,
+en la nommant, une cellule de la carte qu'elle ne décide pas ; un monde d'épreuve qui
+ne porte qu'une part de la carte refuse de même une de ses cellules non décidée.
+
 **Un siège par cellule.** Le registre pose chaque maison au bourg de la cellule de
 sa capitale ou de son siège, et chaque maison posée tient ce bourg : deux sièges ne
 partagent jamais une cellule. Une principauté dont le siège partagerait la cellule
@@ -1785,20 +1772,26 @@ lacunes de la table et les cellules partagées dont le bourg est sans pays (la
 Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart). Chacune dit sa raison
 dans la table : sa lacune, ou la ville sans pays de son bourg.
 
-Les points de lacune de la table des puissances ont disparu : chaque cellule sans pays
-a sa lacune, ou la ville sans pays du bourg de son partage, dans la table des
+La table des puissances ne déclare ni portée ni point de lacune : une cellule sans
+pays a sa lacune, ou la ville sans pays du bourg de son partage, dans la table des
 frontières, avec sa raison.
 
-Les anomalies que l'ancre donnait sont corrigées par la table : Rhodes ne donne plus
-aux Hospitaliers les Cyclades orientales, l'est de la Crète et la côte carienne, ni
-Mistra à Byzance l'Attique, les îles Ioniennes et l'ouest de la Crète. Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et Damas
-sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés non
-déclarées et l'hommage, les tributs, le siège de Constantinople et l'Église de Bosnie restent de
-**niveau 3**, pas simulés, sauf les seuls liens de départ du registre ci-dessous.
+L'ancre la plus proche ne trace plus aucune frontière, et ses anomalies ont disparu :
+les Hospitaliers ne tiennent plus les Cyclades orientales, l'est de la Crète et la
+côte carienne, que l'ancre de Rhodes leur donnait, mais Rhodes et le Dodécanèse ;
+Byzance ne tient plus l'Attique, les îles Ioniennes et l'ouest de la Crète, que l'ancre
+de Mistra lui donnait, mais Constantinople, la Morée et les îles du nord de l'Égée ;
+la Crète est vénitienne, Athènes aussi, de 1395 à 1402. Autour du Zab, les voisins de
+Biskra sont les Hafsides, ses suzerains, et des terres du désert sans pays (voir « Les
+seigneuries de départ »). Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et
+Damas sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés non
+déclarées et l'hommage, les tributs, le siège de Constantinople et l'Église de Bosnie
+restent de **niveau 3**, pas simulés, sauf les seuls liens de départ du registre
+ci-dessous.
 
 La vue est pure, recalculée et vit hors de `sim.model`. Elle ne pose rien sur
-`Cell`, refuse une position absente en nommant la cellule, et **le tick ne la
-lit pas**, ni la table des frontières.
+`Cell`, refuse une cellule que la table ne décide pas en la nommant, et **le tick
+ne la lit pas**, ni la table des frontières.
 
 ---
 
@@ -1834,42 +1827,28 @@ les États de l'Église et les onze Églises d'Empire (Trèves, Cologne, Mayence
 Brême, Magdebourg, Salzbourg, Utrecht, Liège, Münster, Osnabrück, Aquilée) ; l'Ordre
 teutonique et les Hospitaliers. Leur ligne
 ne porte pas de champ `maison` ; une absence de ce champ sur une autre
-nature est refusée. Une maison qui ne tient ni puissance ni ancre est refusée.
+nature est refusée. Une maison qui ne tient aucune puissance est refusée.
 
-Une ancre peut déclarer une maison de grand vassal différente de celle de sa
-puissance ; plus aucune ancre livrée ne le fait. Munich, Heidelberg et Vienne sont
-les ancres de la Bavière, du Palatinat et de l'Autriche, comme Dijon, Bruges et
-Nantes celles de la Bourgogne et de la Bretagne : chaque prince d'Empire est un pays,
-dont sa maison est la tête. La règle se prouve sur une table d'épreuve qui déclare
-une ancre de vassal. Une ancre sans déclaration hérite de la maison de sa puissance,
-ou de son absence déclarée de maison. Déclarer une maison inconnue ou déjà
-celle de la puissance est refusé. L'ancre du vassal reste une ancre de sa
-puissance : la preuve vérifie que la cellule la plus proche de son point
-relève de cette puissance et de cette maison.
+Une ancre ne désigne pas de maison : elle est un point de sa puissance, et une
+ancre qui porte un champ `maison` est refusée en nommant l'ancre et le champ.
+Munich, Heidelberg et Vienne sont les ancres de la Bavière, du Palatinat et de
+l'Autriche, comme Dijon, Bruges et Nantes celles de la Bourgogne et de la Bretagne :
+chaque prince d'Empire est un pays, dont sa maison est la tête.
 
-Dans une cellule que la table des frontières décide, la maison tenante est celle
-de son pays (`par_puissance`), sans maison pour une république, une Église, un
-ordre ou une lacune. Ailleurs, la maison tenante d'une cellule lit **la même ancre
-retenue** que sa puissance,
-par la fonction commune `ancre_par_cellule` de `sim/puissances.py`. Une ancre
-contenue dans le polygone l'emporte ; entre ancres contenues, la plus proche
-du centroïde gagne, à égalité exacte le plus petit `id`. Sans ancre contenue,
-la règle du centroïde parmi toutes reste celle de `sim/aggregation.py`.
-La portée existante s'applique ensuite à l'ancre retenue. Venise et Copenhague,
-hors carte, gardent la règle du centroïde ; Grenade et Malaga partagent 10209,
-toujours aux Nasrides. La cellule du point de Constantinople, 10374, passe
-d'Osman à Paléologue ; 10032 reste à Paléologue, les comptes restent inchangés.
-Une cellule non couverte rend `None`, comme une cellule de république,
-d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
-puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
+La maison tenante de chaque cellule est celle de son pays (`par_puissance`), que la
+table des frontières décide ; une république, une Église, un ordre ou une lacune
+n'en ont pas. `maisons_depuis_monde` ne lit aucune ancre : échanger ou déplacer une
+ancre ne change la maison d'aucune cellule. La cellule du point de Constantinople,
+10374, est à Paléologue, la Bithynie (10032) à Osman.
 Sur les 596 cellules figées, **457** sont tenues par une maison, **70** sont
-sans maison par déclaration de nature, et **69** sont non couvertes.
+sans maison par déclaration de nature, et **69** sont sans pays (lacunes, et partages
+dont le bourg est d'une ville sans pays).
 Chacune des 56 maisons tient au moins une cellule.
 
 Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
 sources publiques. Leur étendue suit, sur toute la carte, la table des frontières,
 de **niveau 1**. Les anomalies que l'ancre
-y donnait se corrigent par la table et ses témoins : Innsbruck et Linz sont à
+donnait se sont corrigées par la table et ses témoins : Innsbruck et Linz sont à
 l'Autriche, Besançon au comté de Bourgogne et Lille à la Bourgogne. Luxembourg tient
 le Saint-Empire, mais aucune de ses cellules : chacune va au prince qui la tenait,
 et Luxembourg ne tient plus que la Bohême, ses terres comprises. Sur la carte
@@ -1877,16 +1856,15 @@ servie, aucun pays ne porte le nom d'une maison : la tenante d'une cellule reste
 qu'elle est ici, et Luxembourg règne sur deux pays servis, le Saint-Empire, sans
 terre, et la Bohême (voir « La carte et les terres servies, vue dérivée »).
 
-Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
+Le registre ajoute seulement les liens de départ décrits ci-dessous. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
 les personnes et la succession des dynasties, Naples disputée, Édigu derrière le
 khan, Marguerite derrière Éric, l'élection du roi des Romains, la diète et le lien
 d'Empire, les villes libres et les seigneuries de moins de deux lieux, et les
 familles des vingt-six chefs neufs (grandes maisons 31 à 56).
 
 La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
-Elle passe par `positions_du_monde`, refuse une position absente en nommant
-la cellule et ne pose rien sur `Cell`. **Le tick ne la lit pas** ; la règle
-des puissances, leurs ancres et leurs cellules restent identiques.
+Elle lit la vue des puissances, refuse comme elle une cellule que la table des
+frontières ne décide pas, et ne pose rien sur `Cell`. **Le tick ne la lit pas.**
 
 ---
 
@@ -2067,9 +2045,13 @@ Enfin, dans l'ordre des cellules et des rangs, les rangs libres se découpent
 par `LIEUX_PAR_SEIGNEUR_PLAUSIBLE = 3`, dernier groupe éventuellement incomplet.
 Chaque groupe crée une fiche `plausible-<cell_id>-<premier rang>` : nom et
 siège reprennent l'id, sorte `plausible`, rang initial, `hors_carte=None`.
-Dans une cellule couverte, son suzerain est la racine de la puissance de la
+Dans une cellule qui a un pays, son suzerain est la racine de la puissance de la
 cellule (`grande-<par_puissance[p]>` ou `institution-<p>`), même si une autre
-maison y tient des terres ; sans couverture, son suzerain est `None`.
+maison y tient des terres ; dans une lacune, son suzerain est `None` : c'est ainsi que
+les maîtres des terres du désert que l'histoire ne nomme pas, autour du Zab, sont des
+seigneurs libres. Le pays de chaque cellule venant de la table des frontières sur
+toute la carte, les seigneurs plausibles, et leurs personnes, suivent ses frontières :
+le monde compte 2 372 personnes.
 Dans une cellule partagée par la table des frontières, le pays de chaque lieu est
 le sien (`frontieres.puissances_des_lieux`) : une grande maison ou une institution
 n'y prend que les lieux libres du pays sur lequel elle règne, et les rangs libres
@@ -2079,7 +2061,7 @@ de personne pour un lieu sans pays. Une seigneurie de départ garde ses quatre l
 Le bourg y revient à la maison qui le place (`frontieres.maison_du_bourg`) ; s'il
 était d'un pays où elle ne règne pas, l'attribution est refusée en nommant le lieu.
 Dans le duché de Bar, les seigneurs plausibles se groupent ainsi entre la France et
-le Saint-Empire. Hors des cellules partagées, la règle est celle d'avant.
+le Saint-Empire. Hors des cellules partagées, chaque lieu suit le pays de sa cellule.
 Les constantes sont relues à chaque appel et exigent des entiers positifs.
 `valider_attribution` refuse l'échantillon vide, les couples absents ou en trop,
 les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple nommé ;
@@ -2643,7 +2625,7 @@ Changer de départ, sauvegarder et recharger ne sont pas simulés.
 
 La photographie lit les vues existantes sans modifier le monde. Chaque
 cellule porte `puissance` et `maison` (`id`, `nom`), issues de
-`puissances_depuis_monde` et `maisons_depuis_monde` : une cellule non couverte
+`puissances_depuis_monde` et `maisons_depuis_monde` : une cellule sans pays
 porte deux `null` ; une république, une Église ou un ordre porte une puissance
 et une maison `null`. `densite_hab_par_km2` lit population / surface par
 `densite_de_cellule`, avec l'arrondi commun de la photographie. `villes`
@@ -2785,12 +2767,13 @@ recalcul qu'avant. Les octets naissent à la première lecture de `/terres`
 triées. Le tick ne lit pas cette vue.
 
 **Niveau 1 :** trait des contours de la carte figée, puissances et leurs noms,
-maisons et villes avec leurs sources, pays des cellules de l'Ouest et suzerains
-déclarés. **Niveau 2, plausible :** simplification à 1 km, approximation de dessin,
-tracé à l'intérieur d'une cellule partagée, étendue des pays hors de l'Ouest, qui
-suit les ancres, et le seigneur libre hors couverture. **Niveau 3, pas simulé :**
-l'hommage et ses effets, frontières réelles et princes d'Empire hors de la table,
-que la vue ne découpe pas, comme dans la photographie.
+maisons et villes avec leurs sources, pays de chaque cellule de la carte, que la
+table des frontières décide, et suzerains déclarés. **Niveau 2, plausible :**
+simplification à 1 km, approximation de dessin, tracé à l'intérieur d'une cellule
+partagée, et le seigneur libre d'une cellule sans pays, dont les maîtres du désert
+que l'histoire ne nomme pas. **Niveau 3, pas simulé :** l'hommage et ses effets, et
+les seigneurs plus petits que deux lieux, que la vue ne découpe pas, comme dans la
+photographie.
 Le dessin plus fin des cellules et de leurs lieux est servi à part : voir « La forme
 des lieux, vue dérivée ». Les noms des fleuves, des mers, des régions et des sièges le
 sont aussi : voir « Les noms de l'atlas, vue dérivée ».

@@ -2,16 +2,6 @@
   "description": "Puissances de l'Ouest (dont les principautés vassales de France et d'Angleterre), l'Italie, l'Empire et ses princes, le Nord, l'Est et l'Orient au 1er janvier 1400 et leurs points d'ancrage.",
   "date": "1400-01-01",
   "fidelite": "Niveau 1, d'après des sources publiques ; les maisons tenantes sont de niveau 1 ; les suzerainetés déclarées portent leur source et ne sont pas simulées ; le Grand Schisme n'est pas simulé.",
-  "projection": {
-    "type": "equirectangular",
-    "mid_latitude": 47.5,
-    "comment": "x = lon * cos(mid_latitude), y = -lat"
-  },
-  "portee": {
-    "degres_projetes": 4.0,
-    "niveau": 2,
-    "note": "Frontière plausible, jamais sourcée ; au-delà, la cellule est déclarée non couverte."
-  },
   "maisons": [
     { "id": 1, "nom": "Lancastre", "source": "Wikipédia en anglais, article Henry IV of England : Henri IV, maison de Lancastre, roi d'Angleterre depuis le 30 septembre 1399 (https://en.wikipedia.org/wiki/Henry_IV_of_England)" },
     { "id": 2, "nom": "Stuart", "source": "Wikipédia en anglais, article Robert III of Scotland : Robert III, maison Stuart, roi d'Écosse de 1390 à 1406 (https://en.wikipedia.org/wiki/Robert_III_of_Scotland)" },
