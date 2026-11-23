@@ -17,14 +17,18 @@ namespace Forge.Interface.Tests
         const string A = "pays-a", B = "pays-b";
         GameObject racine, toile; CarteDessinee carte; CarteDeLaGuerre guerre; CalquesCarte calques; double horloge; RenderTexture ecran;
 
-        [SetUp] public void Ouvrir()
+        [SetUp] public void Ouvrir() => Monter(false);
+        // La carte témoin ; `terre20Coupee` coupe la terre 20 en deux lieux côte à côte : le bourg à l'ouest (rang 0), un lieu à l'est (rang 1).
+        void Monter(bool terre20Coupee)
         {
             horloge = 0;
             racine = new GameObject("Carte de la guerre témoin", typeof(CarteDessinee)); carte = racine.GetComponent<CarteDessinee>();
             var camera = new GameObject("Caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false);
             camera.orthographic = true; camera.orthographicSize = 20; camera.transform.SetPositionAndRotation(new Vector3(0, 100, 0), Quaternion.Euler(90, 0, 0)); carte.camera = camera;
-            var lue = new CarteLue(3, new[] { Carre(10, 0), Carre(20, 10000), Carre(30, 20000) }); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
+            var lue = new CarteLue(3, new[] { Carre(10, 0), Carre(20, 10000), Carre(30, 20000) }); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour,
+                terre20Coupee && c.CellId == 20 ? new[] { new FormeDeLieu(0, new[] { Moitie(10000) }), new FormeDeLieu(1, new[] { Moitie(15000) }) } : new[] { new FormeDeLieu(0, c.Contour) }))));
             Assert.That(carte.CellulesPosees, Is.EqualTo(3), "la carte témoin n'est pas posée");
+            if (terre20Coupee) Assert.That((carte.TeinteDuLieu(20, 0).HasValue, carte.TeinteDuLieu(20, 1).HasValue, carte.TeinteDuLieu(20, 2).HasValue), Is.EqualTo((true, true, false)), "la terre 20 n'a pas deux lieux");
             toile = new GameObject("Toile témoin", typeof(Canvas));
             calques = racine.AddComponent<CalquesCarte>(); calques.Initialiser(carte, toile.transform, () => null, () => null);
             guerre = racine.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); calques.Brancher(null, null, guerre);
@@ -40,6 +44,14 @@ namespace Forge.Interface.Tests
         static TerresDeLaCarte Terres(string p10, string p20, string p30, long jour = 6) => new TerresDeLaCarte(jour - 1, new DateDuMonde(1400, jour),
             new[] { new PaysDeLaCarte(A, "Avalon"), new PaysDeLaCarte(B, "Brume") }.Where(p => new[] { p10, p20, p30 }.Contains(p.Id)),
             new[] { new TerreLue(10, "m10", p10), new TerreLue(20, "m20", p20), new TerreLue(30, "m30", p30) });
+        // Les mêmes terres, la terre 20 portant en plus un lieu de rang 1 d'un autre pays (`lieuDe20` nul : aucun lieu d'un autre pays).
+        static TerresDeLaCarte TerresPartagees(string p10, string p20, string p30, string lieuDe20, long jour = 6) => new TerresDeLaCarte(jour - 1, new DateDuMonde(1400, jour),
+            new[] { new PaysDeLaCarte(A, "Avalon"), new PaysDeLaCarte(B, "Brume") }, // les deux pays toujours servis : seul le lieu change
+            new[] { new TerreLue(10, "m10", p10), new TerreLue(20, "m20", p20, null, lieuDe20 == null ? null : new[] { new LieuDAutrePays(1, "m20-1", lieuDe20) }), new TerreLue(30, "m30", p30) });
+        // La moitié, large de 5 km, d'une terre carrée de 10 km, de x0 à x0 + 5 km.
+        static PolygoneDeCarte Moitie(double x0) => new PolygoneDeCarte(new[] { new PointCarte(x0, 0), new PointCarte(x0 + 5000, 0), new PointCarte(x0 + 5000, 10000), new PointCarte(x0, 10000), new PointCarte(x0, 0) }, new IEnumerable<PointCarte>[0]);
+        // Une carte neuve où la terre 20 est coupée en deux lieux.
+        void CouperLaTerre20() { Fermer(); Monter(true); }
         static GuerresLues Guerres(params ArmeeLue[] armees) => new GuerresLues(5, new DateDuMonde(1400, 6), new GuerreLue[0], armees, new PriseLue[0], 0);
         static ArmeeLue Armee(long? siege, params PointCarte[] etapes) => new ArmeeLue(0, "m20", 20, 0, 1200, 500, siege,
             siege == null ? new LieuDuPays(30, 0) : null, siege == null ? new[] { 30L } : new long[0], new PointCarte(15000, 5000), etapes);
@@ -80,6 +92,45 @@ namespace Forge.Interface.Tests
             Assert.That(calques.Legende.text, Does.StartWith("Pays au jour 7 de 1400"));
             // Contre-épreuve : les mêmes pays relus ne recolorent rien.
             Servir(Terres(A, A, A, 8)); Assert.That(guerre.Version, Is.EqualTo(version + 1), "mêmes pays : pas de nouvelle version");
+        }
+
+        // Un lieu qui change seul de pays change la clé des terres : la version monte, et le terrain se retrace.
+        [Test] public void Un_lieu_qui_change_seul_de_pays_fait_monter_la_version()
+        {
+            CouperLaTerre20();
+            Servir(TerresPartagees(A, A, A, null)); int version = guerre.Version;
+            Servir(TerresPartagees(A, A, A, B, 7)); Assert.That(guerre.Version, Is.EqualTo(version + 1), "un lieu pris par un autre pays n'a pas changé la version");
+            Servir(TerresPartagees(A, A, A, B, 8)); Assert.That(guerre.Version, Is.EqualTo(version + 1), "mêmes lieux relus : pas de nouvelle version");
+            Servir(TerresPartagees(A, A, A, null, 9)); Assert.That(guerre.Version, Is.EqualTo(version + 2), "un lieu rendu à son pays n'a pas changé la version");
+        }
+
+        // Un lieu d'un autre pays que sa terre prend la teinte et le pays du sien, dans chaque mode ; le bourg de la terre garde les siens.
+        [Test] public void Un_lieu_d_un_autre_pays_prend_la_teinte_et_le_pays_du_sien_dans_chaque_mode()
+        {
+            CouperLaTerre20();
+            Servir(TerresPartagees(A, A, A, B)); Peindre();
+            Assert.That(DuPays(A), Is.Not.EqualTo(DuPays(B)), "deux pays de même teinte : échantillon vide");
+            Assert.That((carte.PaysDuLieu(20, 0), carte.PaysDuLieu(20, 1)), Is.EqualTo((A, B)), "le lieu n'est pas rattaché au pays de autres_pays");
+            Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(DuPays(A)), "le bourg de la terre a perdu la teinte de son pays");
+            Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(DuPays(B)), "le lieu n'a pas la teinte de son pays");
+            Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(A))), "une terre voisine a changé de teinte");
+            // Même en mode Habitants : le lieu passe par la même règle de teinte que la cellule.
+            var monde = new MondeLu(8, new DateDuMonde(1400, 9), 3, new[] { new CelluleDuMonde(10, 0, -1, -1), new CelluleDuMonde(20, 90, -1, -1), new CelluleDuMonde(30, 900, -1, -1) });
+            var toileHabitants = new GameObject("Toile des habitants", typeof(Canvas));
+            try
+            {
+                var habitants = racine.AddComponent<CalquesCarte>(); habitants.Initialiser(carte, toileHabitants.transform, () => monde, () => null); habitants.Brancher(null, null, guerre);
+                toileHabitants.transform.Find(CalquesCarte.BANDE + "/" + ModeDeCarte.Habitants).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+                Assert.That(habitants.Mode, Is.EqualTo(ModeDeCarte.Habitants));
+                typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(habitants, null);
+                float position = new RepartitionHabitants(monde).Position(20); Assert.That(position, Is.GreaterThan(0f), "échantillon vide : la terre 20 est la moins peuplée");
+                Color32 attendue = CalquesCarte.Teinte(ModeDeCarte.Habitants, false, CarteDeLaGuerre.CouleurDuPays(B), position);
+                Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(attendue), "le lieu n'a pas la teinte des habitants");
+                Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(attendue), "le bourg n'a pas la teinte des habitants");
+                Assert.That((Color32)carte.TeinteDe(10).Value, Is.Not.EqualTo(attendue), "échantillon vide : deux terres de peuplement différent de même teinte");
+                Assert.That((carte.PaysDuLieu(20, 0), carte.PaysDuLieu(20, 1)), Is.EqualTo((A, B)), "le mode Habitants a perdu le pays du lieu");
+            }
+            finally { Object.DestroyImmediate(toileHabitants); }
         }
 
         [Test] public void Une_frontiere_entre_deux_pays_aucune_dans_un_meme_pays()

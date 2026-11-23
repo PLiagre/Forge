@@ -63,6 +63,8 @@ namespace Forge.Pont
         // Le pays du lieu : celui que `autres_pays` lui donne (nul s'il n'en dit pas), sinon celui de la terre ; null aussi pour une terre que `/terres` ne sert pas.
         public string PaysDuLieu(long cellId, long rang) =>
             !parCellule.TryGetValue(cellId, out TerreLue t) ? null : t.AutrePaysDuLieu(rang) is LieuDAutrePays autre ? autre.Pays : t.Pays;
+        // Les lieux de la terre qui sont d'un autre pays que le sien ; vide pour une terre que `/terres` ne sert pas.
+        public IReadOnlyList<LieuDAutrePays> AutresPaysDe(long cellId) => parCellule.TryGetValue(cellId, out TerreLue t) ? t.AutresPays : (IReadOnlyList<LieuDAutrePays>)new LieuDAutrePays[0];
         // Le nom du pays, ou null : nom non dit, ou pays que `/terres` ne sert pas.
         public string NomDuPays(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Nom : null;
         // La maison du pays, ou null : maison non nommée, ou pays que `/terres` ne sert pas.
