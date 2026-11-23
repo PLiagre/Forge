@@ -304,12 +304,30 @@ def test_depuis_biskra_une_place_d_un_autre_maitre_reste_a_portee_de_marche(depa
     cid = min(places, key=lambda c: (places[c], c))
     biskra = _capitale(depart, ZAB)
     assert cid != biskra and G.chemin(depart, biskra, cid) is not None
+    # La plus proche est une voisine terrestre de Biskra, et aucune place d'un pays de la table n'est plus
+    # proche qu'elle : le voisinage du Zab se joue d'abord avec les terres du désert qui l'entourent.
+    voisines = {e["b"] if e["a"] == biskra else e["a"] for e in depart.adjacency
+                if e["kind"] == "land-land" and biskra in (e["a"], e["b"])}
+    assert cid in voisines, f"la place la plus proche, {cid}, n'est pas une voisine de Biskra"
+    vue = puissances_depuis_monde(depart)
+    d_un_pays = {c: jours for c, jours in places.items() if vue[c] is not None}
+    assert d_un_pays, "aucune place d'un pays de la table à portée de marche de Biskra"
+    pays_le_plus_proche = min(d_un_pays, key=lambda c: (d_un_pays[c], c))
+    assert places[cid] <= d_un_pays[pays_le_plus_proche]
     par_id = {m.id: m for m in depart.maisons}
     maitre = G._bourg(depart.cells[cid]).maitre
     noms = {p.id: p.nom for p in charger_table().puissances}
-    pays = noms.get(puissances_depuis_monde(depart)[cid])
     print(f"place={cid}, jours_de_marche={places[cid]}, maitre={maitre}, suzerain={par_id[maitre].suzerain}, "
-          f"pays={pays}, a_portee_de_l_ia={places[cid] <= regles.ia_jours_de_marche_max}")
+          f"pays={noms.get(vue[cid])}, a_portee_de_l_ia={places[cid] <= regles.ia_jours_de_marche_max} ; "
+          f"place d'un pays la plus proche={pays_le_plus_proche}, {noms[vue[pays_le_plus_proche]]}, "
+          f"{d_un_pays[pays_le_plus_proche]} jours")
+    # Contre-épreuve : les voisines de Biskra passées à son suzerain, la place la plus proche n'est plus une
+    # voisine.
+    voisinage = copy.deepcopy(depart)
+    for voisine in voisines:
+        G._bourg(voisinage.cells[voisine]).maitre = G.racine(par_id, ZAB)
+    restantes = _places_depuis_biskra(voisinage, regles)
+    assert min(restantes, key=lambda c: (restantes[c], c)) not in voisines
     # Contre-épreuve : chaque bourg qu'on atteint passé à la racine du Zab, il n'y a plus de place à prendre.
     monde = copy.deepcopy(depart)
     racine = G.racine(par_id, ZAB)
