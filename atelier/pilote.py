@@ -28,17 +28,18 @@ from typing import Callable
 from . import agents as agents_mod
 from . import captures, consignes, lfs, lots, traces
 from .depot import Depot, DepotErreur
+from .fabrique import CHEMIN_MANIFESTE, TYPES_ASSETS, ids_existants, machine_pour
 from .github import (AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, controles_de_la_pr, etat_des_controles,
                      travaux as travaux_du_workflow)
 from .lots import Lot, Question, marque
-from .projet import CHEF, CTO, LECTEUR, MACHINES, RELECTEUR, ROLES_MENEURS, TESTEUR, Projet
+from .projet import ARTISTE, CHEF, CTO, LECTEUR, MACHINES, RELECTEUR, ROLES_MENEURS, TESTEUR, Projet
 from .verrous import AucunVerrou
 
 _RUN = re.compile(r"/actions/runs/(\d+)/")
 _TRAVAIL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code))"
 NOMS = {CTO: "CTO", CHEF: "chef de lot", "developpeur": "développeur", RELECTEUR: "relecteur", LECTEUR: "lecteur",
-        TESTEUR: "testeur"}
+        TESTEUR: "testeur", ARTISTE: "artiste"}
 
 
 @dataclass
@@ -78,6 +79,7 @@ def _dit(mesure: dict) -> str:
     """Une mesure, en une ligne lisible."""
     return ", ".join(x for x in (
         f"{mesure['cout']:.2f} $" if isinstance(mesure.get("cout"), (int, float)) else "",
+        f"{mesure['images']} image(s)" if mesure.get("images") else "",
         f"{mesure['tours']} tours" if mesure.get("tours") else "",
         f"{mesure['duree']} s" if mesure.get("duree") else "",
         "coupé" if mesure.get("coupe") else "") if x)
@@ -86,8 +88,9 @@ def _dit(mesure: dict) -> str:
 def corps_de_pr(lot: Lot, projet: Projet, etapes: list[dict], faites: set[int], changes: dict[str, str],
                 non_declares: list[str] = ()) -> str:
     """Le texte de la PR d'un lot : son plan, coché à mesure, et ses tests changés."""
+    qui_noms = {"developpeur": "le développeur", "artiste": "l'artiste"}
     plan = "\n".join(f"- [{'x' if i in faites else ' '}] **{i}. {e.get('titre', '')}** — {e.get('quoi', '')} "
-                     f"({'le développeur' if e.get('qui') == 'developpeur' else 'le chef'})"
+                     f"({qui_noms.get(e.get('qui'), 'le chef')})"
                      for i, e in enumerate(etapes, start=1)) or "(en cours d'écriture)"
     tests = "\n".join(f"- `{f}` : {pourquoi}" for f, pourquoi in sorted(changes.items()))
     tests += "".join(f"\n- `{f}` : ⚠️ modifié sans raison donnée" for f in non_declares if f not in changes)
@@ -537,11 +540,62 @@ class Pilote:
             self.gh.commenter_pr(numero_pr, texte)
 
     # ------------------------------------------------------------ le plan
-    def _session(self, lot: Lot, liste: list[dict]) -> tuple[str, bool]:
-        """La session du lot, et si elle existe déjà (une marque la porte)."""
+    def _session(self, lot: Lot, liste: list[dict]) -> tuple[str | None, bool]:
+        """La session du lot, et si elle existe déjà (une marque la porte).
+        Sous Antigravity CLI, l'identifiant de conversation vient du serveur
+        au premier tour et se reprend par `--conversation`."""
+        if self.projet.agent(lot.meneur).outil == "antigravity":
+            connue = next((m["session"] for m in reversed(liste)
+                           if m.get("role") == lot.meneur and isinstance(m.get("session"), str) and m["session"]
+                           and m.get("machine", self.machine) == self.machine), None)
+            return connue, bool(connue)
         session = lots.session_du_lot(self.projet.depot, lot.numero)
         return session, any(m.get("session") == session and m.get("machine", self.machine) == self.machine
                             for m in liste)
+
+    def _ouvrir_demandes_assets(self, lot: Lot, demandes: list, chemin: Path) -> list[tuple[int, str, bool]]:
+        """Ouvre sur GitHub les lots d'assets déclarés par un lot de code, en
+        dédupliquant contre `assets/manifeste.json` et les issues déjà ouvertes."""
+        if not demandes or lot.est_un_asset:
+            return []
+        livres: set[str] = set()
+        for base in (self.projet.racine, chemin):
+            try:
+                livres |= ids_existants(base / CHEMIN_MANIFESTE)
+            except ValueError:
+                pass
+        ouvertes = [Lot.de(i) for i in self.gh.issues("open")]
+        deja_ouverts = {l.asset_id for l in ouvertes if l.asset_id}
+        crees: list[tuple[int, str, bool]] = []
+        bloquants: list[int] = []
+        for demande in demandes:
+            if not isinstance(demande, dict):
+                continue
+            asset_id = str(demande.get("id") or "").strip()
+            titre = str(demande.get("titre") or "").strip()
+            type_asset = str(demande.get("type") or "").strip()
+            destination = str(demande.get("destination") or "").strip()
+            if not asset_id or not titre or type_asset not in TYPES_ASSETS or not destination:
+                continue
+            if asset_id in livres or asset_id in deja_ouverts:
+                continue
+            deja_ouverts.add(asset_id)
+            etiquettes = [lots.ETIQUETTE_LOT, "pret", lots.ETIQUETTE_ASSET]
+            if machine_pour(type_asset) == "pc":
+                etiquettes.append(lots.ETIQUETTE_PC)
+            corps = consignes.corps_de_demande_asset(demande, demandeur=lot.numero)
+            numero = self.gh.creer_issue(titre, corps, etiquettes, lot.palier_titre)
+            bloquant = bool(demande.get("bloquant", False))
+            crees.append((numero, asset_id, bloquant))
+            if bloquant:
+                bloquants.append(numero)
+            self.noter(lot.numero, "demande asset", f"#{numero} ({asset_id}, {type_asset})")
+        if bloquants:
+            issue = self.gh.issue(lot.numero)
+            actuel = Lot.de(issue)
+            if lots.ferme_une_boucle(actuel, bloquants, ouvertes) is None:
+                self.gh.corps_de(lot.numero, lots.avec_dependances(actuel.corps, bloquants))
+        return crees
 
     def _planifier(self, lot: Lot, *, chantier: str | int | None = None, marquer_attente: bool = False) -> bool:
         """Le meneur ouvre sa session, lit la fiche et le code, et rend son
@@ -621,8 +675,12 @@ class Pilote:
         self.depot.pousser(chemin, branche)
         numero_pr = self.gh.creer_pr(branche, self.projet.branche_base, f"Lot #{lot.numero} — {lot.titre}",
                                      corps_de_pr(lot, self.projet, etapes, set(), prevus), brouillon=True)
+        assets_ouverts = self._ouvrir_demandes_assets(lot, sortie.get("demandes_assets") or [], chemin)
+        bloc_assets = ("\n\n**Assets demandés (chaîne visuelle parallèle)**"
+                       + "".join(f"\n- #{n} (`{aid}`)" + (" — bloquant" if bloq else "")
+                                 for n, aid, bloq in assets_ouverts)) if assets_ouverts else ""
         resume = f"\n\n{sortie['resume'].strip()}" if (sortie.get("resume") or "").strip() else ""
-        self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent}) — le plan, en {len(etapes)} étape(s).{resume}\n\n"
+        self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent}) — le plan, en {len(etapes)} étape(s).{resume}{bloc_assets}\n\n"
                              + marque(**self._champs(lot.meneur, res, etat=lots.PLAN, etapes=len(etapes),
                                                      detail=etapes, tests_prevus=prevus, sha=sha)))
         self.noter(lot.numero, "plan écrit", f"PR #{numero_pr}, {len(etapes)} étape(s)", str(res.agent))
@@ -719,8 +777,12 @@ class Pilote:
         joues = "".join(f"\n- `{t.get('commande', '')}` : {t.get('resultat', '')}" for t in sortie.get("tests_joues") or []
                         if isinstance(t, dict))
         confie = "".join(f"\n- {c}" for c in sortie.get("confie") or [] if isinstance(c, str))
+        assets_ouverts = self._ouvrir_demandes_assets(lot, sortie.get("demandes_assets") or [], chemin)
+        bloc_assets = ("\n\n**Assets demandés (chaîne visuelle parallèle)**"
+                       + "".join(f"\n- #{n} (`{aid}`)" + (" — bloquant" if bloq else "")
+                                 for n, aid, bloq in assets_ouverts)) if assets_ouverts else ""
         corps = (compte_rendu + (f"\n\n**Tests joués**{joues}" if joues else "")
-                 + (f"\n\n**Confié au développeur**{confie}" if confie else "") + retires)
+                 + (f"\n\n**Confié au développeur**{confie}" if confie else "") + bloc_assets + retires)
         declares = {t["fichier"]: t["pourquoi"] for t in sortie.get("tests_changes") or []
                     if isinstance(t, dict) and t.get("fichier")}
         if etat == "conteste" or (action.nom == "corriger_relecture" and etat == "faite" and not changes):
@@ -1296,6 +1358,8 @@ class Pilote:
                 etiquettes.append(lots.ETIQUETTE_PC)
             if fiche.get("meneur") == "developpeur":
                 etiquettes.append(lots.ETIQUETTE_SIMPLE)
+            if fiche.get("meneur") == "artiste" and lots.ETIQUETTE_ASSET not in etiquettes:
+                etiquettes.append(lots.ETIQUETTE_ASSET)
             if urgent:
                 etiquettes.append(lots.ETIQUETTE_URGENT)
             corps = consignes.corps_de_fiche(fiche, depend_de=attend, decoupe_de=decoupe_de) + en_plus

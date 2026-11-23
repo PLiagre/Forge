@@ -24,17 +24,20 @@ import re
 import unicodedata
 import uuid
 
-from .projet import CHEF, CTO, DEVELOPPEUR, RELECTEUR, ROLES_MENEURS
+from .projet import ARTISTE, CHEF, CTO, DEVELOPPEUR, RELECTEUR, ROLES_MENEURS
 
 ETATS = ("pret", "en-cours", "bloque", "livre")
 ETIQUETTE_LOT = "lot"
 ETIQUETTE_PC = "pc"
 # Le développeur mène seul ce lot (données, écran courant).
 ETIQUETTE_SIMPLE = "simple"
+# Un lot d'assets visuels : mené par l'artiste (chaîne parallèle Google).
+ETIQUETTE_ASSET = "asset"
 # Une réparation de master : elle passe avant tout autre lot.
 ETIQUETTE_URGENT = "urgent"
 # L'issue d'un palier : le propriétaire y écrit le samedi, le CTO y répond.
 ETIQUETTE_PALIER = "palier"
+DEMANDE_ASSET = "demande_asset"
 _MARQUE = re.compile(r"<!-- atelier (\{.*?\}) -->", re.S)
 _DEPEND = re.compile(r"^[ \t]*(?:#+[ \t]*)?D[ée]pend de[ \t]*:?[ \t]*(.*)$", re.I | re.M)
 _DECOUPE = re.compile(r"D[ée]coup[ée] du lot #(\d+)", re.I)
@@ -124,13 +127,32 @@ class Lot:
         return next((e for e in ETATS if e in self.etiquettes), "pret")
 
     @property
+    def est_un_asset(self) -> bool:
+        return ETIQUETTE_ASSET in self.etiquettes
+
+    @property
     def machine(self) -> str:
-        return "pc" if ETIQUETTE_PC in self.etiquettes else "vps"
+        if ETIQUETTE_PC in self.etiquettes:
+            return "pc"
+        if self.est_un_asset:
+            return "asset"
+        return "vps"
 
     @property
     def meneur(self) -> str:
-        """Le rôle qui mène le lot : le chef, ou le développeur seul pour un lot simple."""
+        """Le rôle qui mène le lot : l'artiste pour un lot d'assets, le
+        développeur seul pour un lot simple, sinon le chef."""
+        if self.est_un_asset:
+            return ARTISTE
         return DEVELOPPEUR if ETIQUETTE_SIMPLE in self.etiquettes else CHEF
+
+    @property
+    def asset_id(self) -> str | None:
+        """Identifiant d'asset porté par la marque de création de l'issue, s'il existe."""
+        for m in marques([{"body": self.corps}]):
+            if m.get("etat") == DEMANDE_ASSET and isinstance(m.get("asset_id"), str) and m["asset_id"].strip():
+                return m["asset_id"].strip()
+        return None
 
     @property
     def urgent(self) -> bool:

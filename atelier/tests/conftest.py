@@ -35,7 +35,7 @@ prefixe_branche = "lot/"
 proprietaire = "moi"
 interdits = ["atelier/", ".github/", "atelier.toml"]
 coeur = ["jeu/sim/engine.py"]
-pistes = ["monde", "ville", "interface"]
+pistes = ["monde", "ville", "interface", "asset"]
 corrections_max = 2
 coupures_max = 3
 deblocages_max = 2
@@ -47,6 +47,7 @@ developpeur = "claude/sonnet@high"
 relecteur   = "claude/opus@high"
 lecteur     = "claude/haiku@medium"
 testeur     = "claude/opus@high"
+artiste     = "antigravity/gemini-3.8-flash-medium"
 """
 
 PALIER = "Palier 1 — La première guerre"
@@ -382,6 +383,33 @@ def flux(*, texte: str = "", sortie: dict | None = None, cout: float = 0.5, sess
     return "\n".join(json.dumps(l, ensure_ascii=False) for l in lignes)
 
 
+def flux_agy(*, texte: str = "", sortie: dict | None = None, session: str = "conv-1",
+             modele: str = "gemini-3.8-flash-medium", images: int = 0, coupe: bool = False,
+             statut: str = "SUCCESS", erreur: str = "") -> str:
+    """Ce qu'Antigravity CLI (`agy`) écrit en flux NDJSON."""
+    lignes = [{"event": "init", "conversation_id": session, "init": {"model": modele}}]
+    for i in range(images):
+        lignes.append({"event": "step_update", "step_update": {
+            "conversation_id": session, "step_index": i + 1, "state": "DONE",
+            "step_type": "tool", "tool_name": "generate_image",
+        }})
+    lignes.append({"event": "step_update", "step_update": {
+        "conversation_id": session, "step_index": images + 2, "state": "DONE",
+        "step_type": "agent_response", "text_delta": texte or "je travaille",
+        "usage": {"input_tokens": 500, "output_tokens": 120, "cache_read_tokens": 200},
+    }})
+    if not coupe:
+        res: dict = {"conversation_id": session, "status": statut, "response": texte,
+                     "duration_seconds": 12.4, "num_turns": 2,
+                     "usage": {"input_tokens": 500, "output_tokens": 120, "cache_read_tokens": 200}}
+        if sortie is not None:
+            res["structured_output"] = sortie
+        if erreur:
+            res["error"] = erreur
+        lignes.append({"event": "result", "result": res})
+    return "\n".join(json.dumps(l, ensure_ascii=False) for l in lignes)
+
+
 class Agents:
     """Des agents dictés : chaque appel rend la réponse suivante de la liste,
     et peut écrire des fichiers dans le dossier du lot.
@@ -397,17 +425,26 @@ class Agents:
 
     def __call__(self, argv, cwd, env, delai, consigne, trace):
         reponse = dict(self.reponses.pop(0))
-        session = next((argv[i + 1] for i, a in enumerate(argv) if a in ("--resume", "--session-id")), "")
+        est_agy = bool(argv) and Path(argv[0]).stem == "agy"
+        session = next((argv[i + 1] for i, a in enumerate(argv) if a in ("--resume", "--session-id", "--conversation")), "")
         self.appels.append({"argv": argv, "cwd": Path(cwd), "env": env, "consigne": consigne, "trace": trace,
-                            "modele": argv[argv.index("--model") + 1], "reprise": "--resume" in argv,
+                            "modele": argv[argv.index("--model") + 1],
+                            "reprise": "--resume" in argv or "--conversation" in argv,
                             "session": session})
         for nom, contenu in (reponse.get("fichiers") or {}).items():
             cible = Path(cwd) / nom
             cible.parent.mkdir(parents=True, exist_ok=True)
             cible.write_text(contenu, encoding="utf-8")
         coupe = bool(reponse.get("coupe"))
-        ecrit = flux(texte=reponse.get("texte", ""), sortie=reponse.get("sortie"), cout=reponse.get("cout", 0.5),
-                     session=session or "s-1", coupe=coupe, modeles=reponse.get("modeles"))
+        if est_agy:
+            ecrit = flux_agy(texte=reponse.get("texte", ""), sortie=reponse.get("sortie"),
+                             session=reponse.get("session") or session or "conv-1",
+                             modele=argv[argv.index("--model") + 1], images=int(reponse.get("images", 0)),
+                             coupe=coupe, statut=reponse.get("statut", "SUCCESS"),
+                             erreur=reponse.get("erreur_flux", ""))
+        else:
+            ecrit = flux(texte=reponse.get("texte", ""), sortie=reponse.get("sortie"), cout=reponse.get("cout", 0.5),
+                         session=session or "s-1", coupe=coupe, modeles=reponse.get("modeles"))
         if reponse.get("brut") is not None:
             ecrit = reponse["brut"]
         if trace is not None:

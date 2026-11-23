@@ -44,8 +44,12 @@ from .projet import Agent
 
 WINDOWS = sys.platform.startswith("win")
 
-# Les clés qu'on retire avant de lancer un agent.
-CLES_API = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CURSOR_API_KEY")
+# Les clés qu'on retire avant de lancer un agent : aucune facture à l'unité,
+# seul l'abonnement (Claude ou Google Antigravity) tourne.
+CLES_API = (
+    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "CURSOR_API_KEY",
+    "GEMINI_API_KEY", "GOOGLE_API_KEY", "NANOBANANA_API_KEY",
+)
 
 # Le jeton longue durée de Claude Code (`claude setup-token`), rangé par le
 # propriétaire dans un fichier en mode 600. Il est lu ici et passé à l'enfant
@@ -75,7 +79,7 @@ GARDE = Path(__file__).resolve().parent / "garde_commandes.py"
 _QUOTA = re.compile(
     r"rate.?limit|usage limit|quota|too many requests|\b429\b|limit reached|"
     r"you'?ve hit your|out of credits|out of usage|insufficient_quota|credit balance|"
-    r"plan limit|overloaded", re.I)
+    r"plan limit|overloaded|resource_exhausted|quota_exhausted|individual quota", re.I)
 _AUTH = re.compile(
     r"unauthori[sz]ed|\b401\b|not logged in|log ?in required|please (log|sign) ?in|"
     r"invalid (api )?key|token (has )?expired|session expired|oauth|setup-token|"
@@ -83,10 +87,11 @@ _AUTH = re.compile(
 # Le harnais refuse l'appel tel que la chaîne le construit : une option qu'il
 # ne connaît pas, une valeur de réglage qu'il refuse. C'est le réglage ou la
 # version du harnais qui est en cause, pas l'agent.
-_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config",
-                    re.I)
+_APPEL = re.compile(r"error: unknown option '|error: unexpected argument '|unknown variant `|error loading config|"
+                    r"invalid model selection", re.I)
 # Ce que dit le harnais quand la session demandée n'est pas celle qu'on croit.
-_SESSION_INCONNUE = re.compile(r"No conversation found with session ID", re.I)
+_SESSION_INCONNUE = re.compile(r"No conversation found with session ID|conversation[^\n]*not found|unknown conversation",
+                               re.I)
 _SESSION_PRISE = re.compile(r"Session ID \S+ is already in use", re.I)
 
 # Les codes d'un outil qui n'a pas démarré : introuvable (127) ou refusé par
@@ -223,9 +228,34 @@ def reglages(appel: Appel) -> dict:
                                       "hooks": [{"type": "command", "command": commande}]}]}}
 
 
+def entree(agent: Agent, consigne: str) -> str:
+    """Ce qui part sur l'entrée standard du harnais. Antigravity CLI attend un
+    événement JSON par ligne sous `--input-format stream-json` ; Claude Code
+    lit la consigne en texte brut."""
+    if agent.outil == "antigravity":
+        return json.dumps({"event": "user", "message": {"content": consigne}}, ensure_ascii=False) + "\n"
+    return consigne
+
+
 def argv(agent: Agent, appel: Appel, *, reprise: bool, windows: bool | None = None) -> list[str]:
     """L'argv exact. Construit ici, exécuté par `invoquer`, jamais recomposé.
     La consigne n'y est pas : elle passe par l'entrée standard."""
+    if agent.outil == "antigravity":
+        # En flux des deux côtés : la consigne arrive sur stdin (jamais dans
+        # l'argv), et chaque étape/outil s'écrit dans la trace au fil de l'eau.
+        commande = [agent.binaire, "--input-format", "stream-json", "--output-format", "stream-json",
+                    "--model", agent.modele]
+        if agent.effort:
+            commande += ["--effort", agent.effort]
+        if appel.session and reprise:
+            commande += ["--conversation", appel.session]
+        if appel.schema:
+            commande += ["--json-schema", json.dumps(appel.schema, ensure_ascii=False)]
+        if appel.lecture_seule or appel.sans_outil:
+            commande += ["--sandbox"]
+        else:
+            commande += ["--dangerously-skip-permissions"]
+        return commande
     windows = WINDOWS if windows is None else windows
     # En flux : chaque message de l'agent s'écrit dès qu'il existe, avec ce
     # qu'il a coûté. Un appel coupé garde donc sa trace et sa mesure.
@@ -272,7 +302,8 @@ def _jetons(usage: dict) -> dict:
     """Les jetons d'un usage de l'API, sous nos noms."""
     return {"entree": usage.get("input_tokens") or usage.get("inputTokens") or 0,
             "sortie": usage.get("output_tokens") or usage.get("outputTokens") or 0,
-            "cache_lu": usage.get("cache_read_input_tokens") or usage.get("cacheReadInputTokens") or 0,
+            "cache_lu": (usage.get("cache_read_input_tokens") or usage.get("cacheReadInputTokens")
+                         or usage.get("cache_read_tokens") or 0),
             "cache_ecrit": usage.get("cache_creation_input_tokens") or usage.get("cacheCreationInputTokens") or 0}
 
 
@@ -287,18 +318,72 @@ class Lecture:
     fini: bool = False
 
 
+def _lire_flux_antigravity(evenements: list[dict]) -> Lecture:
+    """Le flux NDJSON d'Antigravity CLI (`init`, `step_update`, `result`)."""
+    lecture = Lecture()
+    modele_init = None
+    images = 0
+    for e in evenements:
+        if e.get("conversation_id") and not lecture.session:
+            lecture.session = e["conversation_id"]
+        if e.get("event") == "init" and isinstance(e.get("init"), dict):
+            modele_init = e["init"].get("model") or modele_init
+        if e.get("event") == "step_update" and isinstance(e.get("step_update"), dict):
+            su = e["step_update"]
+            if su.get("conversation_id") and not lecture.session:
+                lecture.session = su["conversation_id"]
+            if su.get("step_type") == "tool" and su.get("state") == "DONE" and su.get("tool_name") == "generate_image":
+                images += 1
+    mesure: dict = {}
+    if images:
+        mesure["images"] = images
+    resultat = next((e["result"] for e in reversed(evenements)
+                     if e.get("event") == "result" and isinstance(e.get("result"), dict)), None)
+    if resultat is not None:
+        lecture.fini = True
+        if resultat.get("conversation_id"):
+            lecture.session = resultat["conversation_id"]
+        statut = str(resultat.get("status") or "").upper()
+        erreur = bool(statut and statut != "SUCCESS") or bool(resultat.get("error"))
+        reponse = resultat.get("response") if isinstance(resultat.get("response"), str) else ""
+        err_msg = resultat.get("error") if isinstance(resultat.get("error"), str) else ""
+        lecture.texte = f"{reponse}\n{err_msg}".strip() if err_msg else reponse
+        if isinstance(resultat.get("structured_output"), dict):
+            lecture.sortie = resultat["structured_output"]
+        duree = resultat.get("duration_seconds")
+        usage = resultat.get("usage") if isinstance(resultat.get("usage"), dict) else None
+        modeles = {modele_init or "antigravity": _jetons(usage)} if usage else None
+        mesure |= {"tours": resultat.get("num_turns"),
+                   "duree": round(duree) if isinstance(duree, (int, float)) else None,
+                   "modeles": modeles, "erreur": erreur}
+    else:
+        textes: list[str] = []
+        totaux = {"entree": 0, "sortie": 0, "cache_lu": 0, "cache_ecrit": 0}
+        a_usage = False
+        for e in evenements:
+            if e.get("event") != "step_update" or not isinstance(e.get("step_update"), dict):
+                continue
+            su = e["step_update"]
+            if su.get("step_type") == "agent_response" and isinstance(su.get("text_delta"), str):
+                textes.append(su["text_delta"])
+            if su.get("state") == "DONE" and isinstance(su.get("usage"), dict):
+                a_usage = True
+                for cle, valeur in _jetons(su["usage"]).items():
+                    totaux[cle] += valeur
+        lecture.texte = "".join(textes).strip()
+        mesure |= {"modeles": {modele_init or "antigravity": totaux} if a_usage else None, "coupe": True}
+    lecture.mesure = {k: v for k, v in mesure.items() if v is not None and v is not False}
+    return lecture
+
+
 def lire_flux(sortie: str) -> Lecture:
     """Le texte de l'agent, sa sortie structurée et la mesure de l'appel.
 
-    La mesure : `cout` (dollars au prix de l'API, notionnels sous un
-    abonnement), `tours`, `duree` (secondes), `modeles` (pour chaque modèle
-    qui a travaillé, sous-agents compris : ses jetons et son coût), `limites`
-    (la part consommée de la limite de cinq heures et de la limite
-    hebdomadaire de l'abonnement, telle que le harnais la dit en dernier),
-    `erreur`. Un appel fini les rend dans son message « result ». Un appel
-    coupé ne l'a pas écrit : ses jetons se relèvent alors message par message,
-    son coût reste inconnu, et la mesure dit `coupe`."""
+    Lit aussi bien le flux de Claude Code (`type`: system/assistant/result)
+    que celui d'Antigravity CLI (`event`: init/step_update/result)."""
     evenements = _evenements(sortie)
+    if any("event" in e and "type" not in e for e in evenements):
+        return _lire_flux_antigravity(evenements)
     lecture = Lecture()
     lecture.session = next((e.get("session_id") for e in evenements if e.get("session_id")), None)
     limites = [e["rate_limit_info"]["unifiedWindows"] for e in evenements
@@ -456,7 +541,8 @@ def invoquer(agent: Agent, appel: Appel, cwd: Path, delai: int, *,
         env = environnement(agent.outil) | dict(appel.environnement)
         for essai in (1, 2):
             consigne = appel.suite if reprise and appel.suite else appel.consigne
-            code, brut, err = executeur(argv(agent, appel, reprise=reprise), Path(cwd), env, delai, consigne, trace)
+            code, brut, err = executeur(argv(agent, appel, reprise=reprise), Path(cwd), env, delai,
+                                        entree(agent, consigne), trace)
             if essai == 1 and appel.session and code not in (0, CODE_COUPE):
                 if reprise and _SESSION_INCONNUE.search(f"{brut}\n{err}"):
                     reprise = False
@@ -479,9 +565,10 @@ def invoquer(agent: Agent, appel: Appel, cwd: Path, delai: int, *,
         return Resultat(agent=None, code=code, attente=True, mesure=lecture.mesure,
                         raison=f"{agent} : {LIBELLES[cause]}" + (f" (« {pourquoi} »)" if pourquoi else ""))
     texte = lecture.texte if code == 0 else f"{lecture.texte}\n{err}".strip()
+    session_rendue = (lecture.session or appel.session) if agent.outil == "antigravity" else (appel.session or lecture.session)
     return Resultat(agent=agent, code=code, texte=texte, sortie=lecture.sortie if code == 0 else None,
                     raison=err.strip() if code == CODE_COUPE else "", mesure=lecture.mesure,
-                    session=appel.session or lecture.session, neuve=bool(appel.session) and not reprise,
+                    session=session_rendue, neuve=bool(session_rendue) and not reprise,
                     trace=str(trace) if trace else "")
 
 

@@ -20,24 +20,31 @@ class ProjetIncomplet(ValueError):
     """Un champ obligatoire manque ou se lit mal : on refuse, on n'invente pas."""
 
 
-# Le harnais que l'atelier sait appeler, et son binaire.
-OUTILS = {"claude": "claude"}
-HARNAIS = {"claude": "Claude Code"}
-# L'effort que le harnais sait recevoir par `--effort`. Un effort hors de
+# Les harnais que l'atelier sait appeler, et leur binaire.
+OUTILS = {"claude": "claude", "antigravity": "agy"}
+HARNAIS = {"claude": "Claude Code", "antigravity": "Antigravity CLI"}
+# L'effort que chaque harnais sait recevoir par `--effort`. Un effort hors de
 # cette liste se refuse : le harnais l'ignorerait à chaque appel.
-EFFORTS = {"claude": ("low", "medium", "high", "xhigh", "max")}
+EFFORTS = {
+    "claude": ("low", "medium", "high", "xhigh", "max"),
+    "antigravity": ("low", "medium", "high", "xhigh", "max"),
+}
 # Seuls les modèles de l'abonnement tournent : le chargement refuse le reste.
 _CLAUDE = re.compile(r"^(?:claude-)?(opus|sonnet|haiku|fable)\b", re.I)
+_GEMINI = re.compile(r"^gemini-[a-z0-9][a-z0-9._-]*$", re.I)
 
-# Les six rôles. Chacun a sa ligne dans [agents]. Les cinq premiers se
+# Les sept rôles. Chacun a sa ligne dans [agents]. Les cinq premiers se
 # répartissent par niveau de jugement sur le code ; le testeur ne voit jamais
-# le code : il joue le build d'une étape comme un joueur.
-CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR = "cto", "chef", "developpeur", "relecteur", "lecteur", "testeur"
-ROLES = (CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR)
+# le code ; l'artiste produit les assets visuels sur la chaîne parallèle Google.
+CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR, ARTISTE = (
+    "cto", "chef", "developpeur", "relecteur", "lecteur", "testeur", "artiste"
+)
+ROLES = (CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR, ARTISTE)
 # Ceux qui mènent un lot : ils écrivent des fichiers, dans la session du lot.
-ROLES_MENEURS = (CHEF, DEVELOPPEUR)
-# Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
-MACHINES = ("vps", "pc")
+ROLES_MENEURS = (CHEF, DEVELOPPEUR, ARTISTE)
+# Les files parallèles : le VPS (code Python), le PC (Unity, Blender) et
+# l'usine d'assets visuels (Google Antigravity, indépendante du quota Claude).
+MACHINES = ("vps", "pc", "asset")
 
 
 @dataclass(frozen=True)
@@ -127,9 +134,12 @@ def lire_agent(role: str, texte: object) -> Agent:
     if effort and effort not in EFFORTS[outil]:
         raise ProjetIncomplet(f"[agents].{role} : {HARNAIS[outil]} ne connaît pas l'effort {effort!r} "
                               f"(connus : {', '.join(EFFORTS[outil])})")
-    if not _CLAUDE.match(modele):
+    if outil == "claude" and not _CLAUDE.match(modele):
         raise ProjetIncomplet(f"[agents].{role} : {morceau} — seuls les modèles de l'abonnement Claude tournent "
                               "(fable, opus, sonnet, haiku)")
+    if outil == "antigravity" and not _GEMINI.match(modele):
+        raise ProjetIncomplet(f"[agents].{role} : {morceau} — seuls les modèles Gemini de l'abonnement Google "
+                              "tournent sous Antigravity (ex. gemini-3.8-flash-medium)")
     return Agent(outil=outil, modele=modele, effort=effort or None)
 
 
@@ -153,7 +163,7 @@ def charger(racine: Path | str) -> Projet:
     inconnus = sorted(set(agents) - set(ROLES))
     if inconnus:
         raise ProjetIncomplet(f"[agents] nomme des rôles inconnus : {', '.join(inconnus)} "
-                              f"(les six rôles : {', '.join(ROLES)})")
+                              f"(les sept rôles : {', '.join(ROLES)})")
     delais = doc.get("delais") or {}
     inconnus = sorted(set(delais) - set(ROLES))
     if inconnus:

@@ -49,7 +49,10 @@ atelier() { python3 -m atelier --projet "$ATELIER_PROJET" "$@"; }
 
 # Ce qu'on retire avant tout : une clé d'API bascule la facture de
 # l'abonnement vers l'unité. Python les retire aussi, agent par agent.
-sans_cles() { env -u ANTHROPIC_API_KEY -u CURSOR_API_KEY -u OPENAI_API_KEY "$@"; }
+sans_cles() {
+  env -u ANTHROPIC_API_KEY -u CURSOR_API_KEY -u OPENAI_API_KEY \
+      -u GEMINI_API_KEY -u GOOGLE_API_KEY -u NANOBANANA_API_KEY "$@"
+}
 
 # Un mot pour le journal, sur stderr : stdout appartient à ce que le script
 # rend, et un cron qui bavarde sur stdout envoie un courriel.

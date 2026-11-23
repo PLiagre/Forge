@@ -12,9 +12,11 @@ quand il veut, garde le droit de dire non ([CAP.md](CAP.md)). Tout s'écrit en
 
 ## 1. La chaîne — elle fait le travail d'une étape
 
-Six rôles : cinq répartis par niveau de jugement sur le code, et un testeur
-qui joue le build sans jamais le voir. Celui qui conçoit un lot le construit.
-Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
+Sept rôles : cinq répartis par niveau de jugement sur le code, un testeur
+qui joue le build sans jamais le voir, et un artiste sur la chaîne visuelle
+parallèle (abonnement Google, sans clé d'API). Celui qui conçoit un lot le
+construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md) et
+[docs/USINE_ASSETS.md](docs/USINE_ASSETS.md).
 
 | rôle | modèle | il fait | il ne fait jamais |
 |---|---|---|---|
@@ -24,6 +26,7 @@ Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 | **le relecteur** | Opus, autre session, lecture seule | lit la fiche et le diff, rejoue des tests, rend un verdict | écrire |
 | **le lecteur** | Haiku | résume un journal de CI, écrit le journal du matin | juger : ni verdict, ni tri d'un blocage |
 | **le testeur** | Opus, sur le PC, par l'écran seul | quand une étape n'a plus de lot ouvert, joue son build figé comme un joueur averti qui le découvre : il ne connaît que la promesse de l'étape, la vision et les ordres de grandeur de 1400 ; compte ses essais ; rend un récit prouvé par ses photos, les trois défauts à corriger d'abord, et un verdict que la chaîne recalcule d'après ce récit | lire le code, le service du monde ou un journal ; appuyer sur une touche dont l'écran ne parle pas ; proposer du code |
+| **l'artiste** | Gemini via Antigravity CLI (`agy`), abonnement Google | produit les assets visuels (planches d'icônes, blasons, textures PBR, illustrations de DA, vues de référence 3D) demandés par le CTO ou par un lot de code (`demandes_assets`), puis les normalise et les prouve via `atelier/fabrique/` | toucher au code métier ; utiliser une clé d'API payante |
 
 - **Un lot = une issue = une session = une PR.** La session du chef est
   reprise à chaque étape et à chaque correction, jamais relancée à froid.
@@ -32,9 +35,9 @@ Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
   (`python3 -m atelier tour`, sur le VPS).
 - **Un lot ne touche jamais** `atelier/`, `.github/`, `atelier.toml`,
   `AGENTS.md`, `CLAUDE.md`, `CAP.md` : le pilote retire ces changements.
-- **Les lots partent ensemble** : deux sur le VPS, deux sur le PC, tout ce
-  qui est prêt. Un lot n'attend que ce dont il dépend vraiment ; ce qui
-  touche les mêmes fichiers va dans le même lot.
+- **Les lots partent ensemble** : deux sur le VPS, deux sur le PC, et un sur
+  la file visuelle `asset`, tout ce qui est prêt. Un lot n'attend que ce dont
+  il dépend vraiment ; ce qui touche les mêmes fichiers va dans le même lot.
 - **Aucune question n'attend le propriétaire pendant une étape.** Le CTO
   prend le choix réversible, le note dans « à revoir à la démo », et le lot
   continue. Seuls l'irréversible, l'argent et les droits lui arrivent tout de
