@@ -59,7 +59,8 @@ code=0
 case "$role" in
   pilote)   sans_cles timeout -k 30 10800 python3 -m atelier --projet "$ATELIER_PROJET" tour || code=$? ;;
   journal)  sans_cles timeout -k 30 1800 python3 -m atelier --projet "$ATELIER_PROJET" journal || code=$? ;;
-  # La démo attend le build figé (50 minutes au plus), puis le CTO écrit sa note.
+  # La démo attend le build figé (50 minutes au plus) ; le CTO écrit sa note
+  # à un regard suivant, quand le testeur a rendu son verdict.
   demo)     sans_cles timeout -k 30 6000 python3 -m atelier --projet "$ATELIER_PROJET" demo || code=$? ;;
   veille)   sans_cles timeout -k 30 600 python3 -m atelier --projet "$ATELIER_PROJET" veille \
               | tee "${ATELIER_VEILLE:-$HOME/.atelier/veille.txt}" || code=$? ;;

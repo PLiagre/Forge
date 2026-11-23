@@ -281,6 +281,73 @@ def test_un_palier_qui_garde_un_lot_ouvert_ou_n_en_a_jamais_eu_n_est_pas_vide(pr
     assert journal.releve(gh, projet, MATIN).pour_toi == []
 
 
+def _etape_videe(gh):
+    """Le palier 1 a son issue, la #5, et n'a plus de lot ouvert."""
+    gh.ajouter_issue(5, PALIER, ("palier",), corps="Je lève une armée.\n\nSes lots : #10")
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "livre", "monde"), corps=FICHE, etat="CLOSED")
+
+
+def test_le_journal_resume_le_verdict_du_testeur_et_ce_qu_il_demande_de_corriger(projet, gh):
+    """Le défaut : ce qu'un joueur trouvait en jouant le build n'arrivait au propriétaire que s'il jouait lui-même."""
+    assert journal.releve(gh, projet, MATIN).testeur == []
+    assert "LE TESTEUR (il joue le build figé d'une étape par l'écran seul, avant le propriétaire) :\n- (il n'a rien joué depuis hier)" \
+        in journal.releve(gh, projet, MATIN).texte
+    _etape_videe(gh)
+    gh.commenter_issue(5, "# Le testeur a joué\n\n" + lots.marque(
+        role="testeur", etat="joue", verdict="NON_TENUE", a_corriger=["La France n'a pas de ville.", "Le tracé reste rouge"]))
+    r = journal.releve(gh, projet, MATIN)
+    assert r.testeur == ["il a joué « Palier 1 — La première guerre » (#5) : non tenue. À corriger d'abord : "
+                         "La France n'a pas de ville ; Le tracé reste rouge"]
+    assert "- il a joué « Palier 1 — La première guerre » (#5) : non tenue" in r.texte
+    redaction = journal.redaction_du_pilote(r)
+    assert "### Le testeur\n- il a joué « Palier 1 — La première guerre » (#5) : non tenue" in redaction
+    assert journal.infidele(redaction, r.texte) is None
+    assert "### Le testeur\n- il n'a rien joué depuis hier" in journal.redaction_du_pilote(journal.Releve())
+
+
+def test_un_testeur_qui_attend_l_ecran_est_dit_au_proprietaire(projet, gh):
+    _etape_videe(gh)
+    gh.commenter_issue(5, lots.marque(role="testeur", etat=lots.ENVOYE, build="palier-1"))
+    r = journal.releve(gh, projet, MATIN)
+    assert r.testeur == ["il joue « Palier 1 — La première guerre » (#5), ou attend que le PC le prenne"]
+    gh.commenter_issue(5, lots.marque(role="testeur", etat=lots.ATTENTE, raison="le propriétaire est au clavier"))
+    r = journal.releve(gh, projet, MATIN)
+    assert r.testeur == ["il attend pour jouer « Palier 1 — La première guerre » (#5) : le propriétaire est au clavier"]
+    assert any("le testeur attend l'écran du PC" in l and "dix minutes sans clavier ni souris" in l for l in r.pour_toi)
+
+
+def test_une_correction_que_la_chaine_n_ouvre_plus_seule_revient_au_proprietaire(projet, gh):
+    _etape_videe(gh)
+    gh.commenter_issue(5, lots.marque(role="testeur", etat="joue", verdict="NON_TENUE", a_corriger=[]))
+    gh.commenter_issue(5, "@moi : à toi\n\n" + lots.marque(role="pilote", etat="appel", refus=2))
+    r = journal.releve(gh, projet, MATIN)
+    assert any("la correction proposée sur son issue (#5) attend ton « oui »" in l for l in r.pour_toi)
+
+
+def test_le_verdict_qui_a_ferme_une_etape_depuis_hier_est_encore_dit(projet, gh):
+    _etape_videe(gh)
+    gh.commenter_issue(5, lots.marque(role="testeur", etat="joue", verdict="TENUE_AVEC_PEINE", a_corriger=[]))
+    gh.issues_[5]["state"] = "CLOSED"
+    assert journal.releve(gh, projet, MATIN).testeur == [], "fermée on ne sait quand : elle ne revient pas chaque matin"
+    gh.issues_[5]["closedAt"] = CE_MATIN
+    assert journal.releve(gh, projet, MATIN).testeur == ["il a joué « Palier 1 — La première guerre » (#5) : tenue avec peine"]
+    gh.issues_[5]["closedAt"] = "2026-11-10T08:00:00Z"
+    assert journal.releve(gh, projet, MATIN).testeur == []
+
+
+def test_quand_le_testeur_ouvre_la_suite_le_palier_vide_ne_demande_plus_de_oui(projet, gh):
+    from dataclasses import replace
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "livre", "monde"), corps=FICHE, etat="CLOSED")
+    r = journal.releve(gh, replace(projet, testeur_ouvre=True), MATIN)
+    assert len(r.pour_toi) == 1 and "la suite s'ouvre sur son verdict, sans t'attendre" in r.pour_toi[0]
+    assert "réponds « oui »" not in r.pour_toi[0] and "ce que tu écris sur son issue passe devant" in r.pour_toi[0]
+
+
+def test_le_cout_du_testeur_se_releve_comme_celui_des_autres_roles():
+    table = journal.table_des_couts([_mesure(5, "testeur", cout=2.74, duree=584), _mesure(5, "cto", cout=1.0)])
+    assert "| testeur | 1 | 9 min | 2.74 $ | — |" in table and "| **tous** | 2 |" in table
+
+
 def test_le_releve_rassemble_les_choix_du_cto_a_revoir_samedi(projet, gh):
     _livre(gh)
     gh.commenter_issue(10, lots.marque(role="cto", etat="decision", decision="trancher", a_revoir="un homme pour dix foyers"))

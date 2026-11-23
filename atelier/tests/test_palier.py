@@ -8,6 +8,8 @@ démo, la note du propriétaire, la proposition du CTO, le « oui ».
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import timedelta
 import json
 from pathlib import Path
 
@@ -16,7 +18,7 @@ import pytest
 from atelier import consignes, lots, palier
 from atelier.lots import Lot
 
-from conftest import PALIER, Agents, piloter
+from conftest import MAINTENANT, PALIER, Agents, piloter
 
 FICHE = "## Ce que je joue de plus\nJe lève une armée.\n\n## Ce que je vois à la démo\nUne armée sur la carte.\n"
 QUOTA = {"code": 1, "brut": "", "erreur": "You've hit your 5-hour limit"}
@@ -376,12 +378,15 @@ def _demo_posee(gh):
 
 
 def test_la_demo_part_des_que_l_etape_n_a_plus_de_lot_ouvert_quel_que_soit_le_jour(projet, gh, depot, tmp_path):
-    """Le défaut : trois lots livrés le dimanche, et un build figé le vendredi seulement."""
+    """Le défaut : trois lots livrés le dimanche, et un build figé le vendredi seulement. Le build se fige au
+    premier regard ; la note suit le verdict du testeur, qui joue ce build avant elle."""
     _vide(gh)
-    agents = Agents(NOTE)
-    corps = palier.demo_si_videe(piloter(projet, gh, depot, agents, tmp_path))
-    assert corps.startswith("# La démo du palier 1") and _marques(gh)[-1]["etat"] == palier.DEMO
+    pilote = piloter(projet, gh, depot, Agents(NOTE), tmp_path)
+    palier.demo_si_videe(pilote)
     assert ("lancer_workflow", "build-nuit.yml", {"nom": "palier-1"}) in gh.gestes
+    _verdict(gh, "TENUE")
+    corps = palier.demo_si_videe(pilote)
+    assert corps.startswith("# La démo du palier 1") and _marques(gh)[-1]["etat"] == palier.DEMO
 
 
 def test_la_demo_ne_part_pas_tant_qu_un_lot_de_l_etape_est_ouvert(projet, gh, depot, tmp_path):
@@ -399,8 +404,10 @@ def test_la_demo_ne_part_pas_pour_une_etape_sans_lot_ni_deux_fois(projet, gh, de
     assert palier.demo_si_videe(pilote) == "RIEN — l'étape n'a encore aucun lot"
     _vide(gh)
     palier.demo_si_videe(pilote)
+    _verdict(gh, "TENUE")
+    palier.demo_si_videe(pilote)
     assert palier.demo_si_videe(pilote) == "RIEN — la note de démo de l'étape est déjà posée"
-    assert len(agents.appels) == 1
+    assert len(agents.appels) == 1 and _envois_au_pc(gh) == ["build-nuit.yml", "testeur-pc.yml"], "un build, un testeur"
 
 
 def test_la_demo_posee_le_cto_propose_l_etape_suivante_sans_attendre_le_proprietaire(projet, gh, depot, tmp_path):
@@ -653,7 +660,11 @@ def test_une_etape_va_de_ses_lots_fermes_au_premier_lot_de_la_suivante_sur_un_se
     agents = Agents(NOTE, _proposition(), PLAN)
     pilote = piloter(projet, gh, depot, agents, tmp_path)
 
-    # L'étape n'a plus de lot ouvert : le build figé et la note de démo, sans attendre un jour de la semaine.
+    # L'étape n'a plus de lot ouvert : le build figé et le testeur, sans attendre un jour de la semaine ; puis la
+    # note de démo, dès qu'il a rendu son verdict.
+    palier.demo_si_videe(pilote)
+    assert _marques(gh)[-1]["etat"] == lots.ENVOYE
+    _verdict(gh, "TENUE")
     palier.demo_si_videe(pilote)
     assert _marques(gh)[-1]["etat"] == palier.DEMO
 
@@ -670,3 +681,228 @@ def test_une_etape_va_de_ses_lots_fermes_au_premier_lot_de_la_suivante_sur_un_se
     assert "en-cours" in gh.etiquettes(101) and "pret" in gh.etiquettes(102) and "pret" in gh.etiquettes(103)
     assert agents.modeles() == ["fable", "fable", "opus"] and "Je joue : Traiter la paix." in agents.appels[2]["consigne"]
     assert any(p["headRefName"] == "lot/101-traiter-la-paix" for p in gh.prs_.values())
+
+
+# ------------------------------------- le testeur joue le build figé avant la note de démo
+# Le défaut que ces tests gardent : le premier à jouer le build d'une étape était le propriétaire. La note de
+# démo partait dès le build construit, écrite par un CTO qui n'avait pas joué, et l'étape suivante se proposait
+# sur une étape que personne n'avait vue tourner.
+RAPPORT = ("# Le testeur a joué le palier 1 — La première guerre\n\n**Verdict : {clair}**\n\n## À corriger d'abord\n"
+           "1. La France n'a pas de ville, et rien ne mène au Zab.\n")
+
+
+def _il_y_a(**duree):
+    return (MAINTENANT - timedelta(**duree)).isoformat(timespec="seconds")
+
+
+def _testeur(gh, etat, *, quand=None, **champs):
+    """Une marque du testeur sur l'issue de l'étape : son envoi par le pilote, ou sa réponse du PC."""
+    gh.commenter_issue(5, "🤖 testeur\n\n" + lots.marque(role="testeur", etat=etat, quand=quand or _il_y_a(minutes=1),
+                                                        build="palier-1", **champs))
+
+
+def _verdict(gh, verdict):
+    clair = {"TENUE": "PROMESSE TENUE", "TENUE_AVEC_PEINE": "TENUE AVEC PEINE", "NON_TENUE": "NON TENUE"}[verdict]
+    gh.commenter_issue(5, RAPPORT.format(clair=clair) + "\n" + lots.marque(
+        role="testeur", etat="joue", verdict=verdict, build="palier-1", quand=_il_y_a(minutes=1),
+        a_corriger=["La France n'a pas de ville, et rien ne mène au Zab."]))
+
+
+def _envois_au_pc(gh):
+    return [g[1] for g in gh.gestes if g[0] == "lancer_workflow"]
+
+
+@pytest.fixture
+def projet_ouvert(projet):
+    """Le dépôt tel que `atelier.toml` le règle : le verdict du testeur ouvre l'étape suivante."""
+    return replace(projet, testeur_ouvre=True, testeur_refus_max=2)
+
+
+def test_l_etape_videe_fige_son_build_puis_envoie_le_testeur_avant_toute_note(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents()
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    dit = palier.demo_si_videe(pilote)
+    assert _envois_au_pc(gh) == ["build-nuit.yml", "testeur-pc.yml"], "le build figé d'abord, le testeur ensuite"
+    assert agents.appels == [], "le CTO n'écrit pas sa note avant que le testeur ait joué"
+    marque = _marques(gh)[-1]
+    assert (marque["role"], marque["etat"], marque["build"]) == ("testeur", lots.ENVOYE, "palier-1")
+    assert not [m for m in _marques(gh) if m.get("etat") == palier.DEMO] and "testeur" in dit
+
+
+def test_le_testeur_ne_part_pas_tant_qu_un_lot_de_l_etape_est_ouvert(projet, gh, depot, tmp_path):
+    _vide(gh)
+    gh.ajouter_issue(12, "La caserne", ("lot", "en-cours", "ville", "pc"), corps=FICHE)
+    palier.demo_si_videe(piloter(projet, gh, depot, Agents(), tmp_path))
+    assert _envois_au_pc(gh) == [] and _marques(gh) == []
+
+
+def test_tant_que_le_testeur_joue_la_note_attend_et_rien_ne_repart(projet, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents()
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    palier.demo_si_videe(pilote)
+    avant = list(gh.gestes)
+    assert palier.demo_si_videe(pilote).startswith("RIEN — le testeur")
+    assert gh.gestes == avant and agents.appels == []
+
+
+@pytest.mark.parametrize("etat, depuis, renvoye", [
+    (lots.ATTENTE, {"minutes": 5}, False), (lots.ATTENTE, {"minutes": 20}, True),
+    (lots.ENVOYE, {"hours": 2}, False), (lots.ENVOYE, {"hours": 4}, True),
+    (lots.ECHEC, {"minutes": 20}, True)],
+    ids=["attente fraîche", "attente d'un quart d'heure", "envoi en cours", "envoi resté sans réponse", "échec"])
+def test_un_testeur_qui_attend_ou_se_tait_est_renvoye_sans_refaire_le_build(projet, gh, depot, tmp_path, etat, depuis,
+                                                                            renvoye):
+    _vide(gh)
+    _testeur(gh, lots.ENVOYE, quand=_il_y_a(hours=5))
+    _testeur(gh, etat, quand=_il_y_a(**depuis), raison="le propriétaire est au clavier")
+    agents = Agents()
+    palier.demo_si_videe(piloter(projet, gh, depot, agents, tmp_path))
+    assert _envois_au_pc(gh) == (["testeur-pc.yml"] if renvoye else []) and agents.appels == []
+    assert (_marques(gh)[-1]["etat"] == lots.ENVOYE) == (renvoye or etat == lots.ENVOYE)
+
+
+def test_le_verdict_rendu_le_cto_ecrit_la_note_avec_le_rapport_du_testeur(projet, gh, depot, tmp_path):
+    _vide(gh)
+    _testeur(gh, lots.ENVOYE)
+    _verdict(gh, "TENUE_AVEC_PEINE")
+    agents = Agents(NOTE)
+    corps = palier.demo_si_videe(piloter(projet, gh, depot, agents, tmp_path))
+    consigne = agents.appels[0]["consigne"]
+    assert "CE QUE LE TESTEUR A TROUVÉ" in consigne and "La France n'a pas de ville, et rien ne mène au Zab." in consigne
+    assert "Le testeur l'a joué avant toi : **TENUE AVEC PEINE**" in corps
+    assert _envois_au_pc(gh) == [], "le build est déjà figé : il ne se refait pas"
+    assert _marques(gh)[-1]["etat"] == palier.DEMO
+
+
+@pytest.mark.parametrize("prepare, pourquoi", [
+    (lambda gh: (_testeur(gh, lots.ENVOYE, quand=_il_y_a(hours=7)),
+                 _testeur(gh, lots.ATTENTE, quand=_il_y_a(minutes=20), raison="le propriétaire est au clavier")),
+     "le propriétaire est au clavier"),
+    (lambda gh: (_testeur(gh, lots.ENVOYE, quand=_il_y_a(hours=1)), _testeur(gh, lots.ECHEC, raison="aucune photo"),
+                 _testeur(gh, lots.ENVOYE), _testeur(gh, lots.COUPE, raison="coupé par son délai")),
+     "coupé par son délai"),
+], ids=["six heures sans bureau", "deux passages sans récit"])
+def test_un_testeur_qui_ne_peut_pas_jouer_ne_retient_pas_la_note(projet, gh, depot, tmp_path, prepare, pourquoi):
+    """Une démo ne se tait jamais : sans testeur, la note part, dit qu'il n'a pas joué, et le propriétaire juge."""
+    _vide(gh)
+    prepare(gh)
+    agents = Agents(NOTE)
+    corps = palier.demo_si_videe(piloter(projet, gh, depot, agents, tmp_path))
+    assert "Le testeur n'a pas pu le jouer" in corps and pourquoi in corps
+    assert _marques(gh)[-1]["etat"] == palier.DEMO and _envois_au_pc(gh) == []
+
+
+def test_un_build_rate_part_en_note_sans_testeur(projet, gh, depot, tmp_path, monkeypatch):
+    monkeypatch.setattr(palier, "dormir", lambda secondes: None)
+    _vide(gh)
+    gh.builds_ = [{"status": "completed", "conclusion": "failure", "url": "https://x/run/9"}]
+    corps = palier.demo_si_videe(piloter(projet, gh, depot, Agents(NOTE), tmp_path))
+    assert _envois_au_pc(gh) == ["build-nuit.yml"], "il n'y a rien à jouer"
+    assert "sa construction a échoué" in corps and _marques(gh)[-1]["etat"] == palier.DEMO
+
+
+def _joue(projet, gh, depot, tmp_path, verdict, *reponses):
+    """L'étape est vidée, le testeur a rendu son verdict, et la note de démo est posée."""
+    _vide(gh)
+    _testeur(gh, lots.ENVOYE)
+    _verdict(gh, verdict)
+    agents = Agents(NOTE, *reponses)
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    palier.demo_si_videe(pilote)
+    return pilote, agents
+
+
+def test_tenue_ouvre_l_etape_suivante_sans_attendre_le_proprietaire(projet_ouvert, gh, depot, tmp_path):
+    pilote, agents = _joue(projet_ouvert, gh, depot, tmp_path, "TENUE_AVEC_PEINE", _proposition())
+    assert pilote.tour()[-1] == "#5 palier proposé [claude/fable@high] — palier 2, 3 lot(s)"
+    consigne = agents.appels[1]["consigne"]
+    assert "TENUE AVEC PEINE" in consigne and "La France n'a pas de ville, et rien ne mène au Zab." in consigne
+    assert pilote.tour() == [f"#104 palier ouvert — {SUIVANT} : #101, #102, #103"], "aucun « oui » n'a été écrit"
+    ouvert = next(m for m in lots.marques([{"body": gh.issues_[104]["body"]}]) if m.get("etat") == "ouvert")
+    assert (ouvert["par"], ouvert["verdict"], ouvert["refus"]) == ("testeur", "TENUE_AVEC_PEINE", 0)
+    assert "ton « non »" in gh.issues_[104]["body"], "le propriétaire sait qu'il peut encore refuser"
+    assert len(agents.appels) == 2, "ouvrir n'appelle personne"
+
+
+def test_sans_le_reglage_le_verdict_du_testeur_n_ouvre_rien(projet, gh, depot, tmp_path):
+    pilote, _ = _joue(projet, gh, depot, tmp_path, "TENUE", _proposition())
+    pilote.tour()
+    assert pilote.tour() == ["RIEN"] and "creer_jalon" not in gh.noms_des_gestes()
+    gh.commentaire_humain(5, "oui")
+    assert pilote.tour() == [f"#104 palier ouvert — {SUIVANT} : #101, #102, #103"]
+
+
+def test_non_tenue_bloque_l_etape_suivante_et_fait_proposer_la_correction(projet, gh, depot, tmp_path):
+    pilote, agents = _joue(projet, gh, depot, tmp_path, "NON_TENUE", _proposition())
+    assert "Le testeur l'a joué avant toi : **NON TENUE**" in gh.dits(5)
+    pilote.tour()
+    consigne = agents.appels[1]["consigne"]
+    assert "NON TENUE" in consigne and "corrige d'abord" in consigne and "rien ne mène au Zab" in consigne
+    assert "Propose d'avance le palier 2 : l'étape suivante de `CAP.md`" not in consigne
+    proposition = _marques(gh)[-1]
+    assert proposition["etat"] == palier.PROPOSITION and proposition["corrige"] is True
+    assert proposition["sortie"]["palier_atteint"] is False, "un palier non tenu n'est jamais dit atteint"
+    assert "le testeur a jugé l'étape non tenue" in gh.issues_[5]["comments"][-1]["body"]
+    assert pilote.tour() == ["RIEN"] and "creer_jalon" not in gh.noms_des_gestes(), "sans le réglage, rien ne s'ouvre"
+
+
+def test_non_tenue_ouvre_un_tour_de_correction_et_un_seul(projet_ouvert, gh, depot, tmp_path):
+    pilote, _ = _joue(projet_ouvert, gh, depot, tmp_path, "NON_TENUE", _proposition())
+    pilote.tour()
+    assert pilote.tour() == [f"#104 palier ouvert — {SUIVANT} : #101, #102, #103"]
+    corps = gh.issues_[104]["body"]
+    ouvert = next(m for m in lots.marques([{"body": corps}]) if m.get("etat") == "ouvert")
+    assert (ouvert["par"], ouvert["verdict"], ouvert["corrige"], ouvert["refus"]) == ("testeur", "NON_TENUE", 5, 1)
+    assert "corrige le palier 1" in corps and "non tenu" in corps
+
+
+def test_deux_non_tenue_de_suite_et_la_chaine_laisse_la_main_au_proprietaire(projet_ouvert, gh, depot, tmp_path):
+    gh.issues_[5]["body"] += "\n" + lots.marque(role="pilote", etat="ouvert", par="testeur", verdict="NON_TENUE",
+                                                corrige=3, refus=1)
+    pilote, agents = _joue(projet_ouvert, gh, depot, tmp_path, "NON_TENUE", _proposition())
+    pilote.tour()
+    lignes = pilote.tour()
+    assert "creer_jalon" not in gh.noms_des_gestes(), "un second tour de correction ne part pas seul"
+    assert "@moi" in gh.issues_[5]["comments"][-1]["body"] and any("propriétaire" in l for l in lignes)
+    avant = len(gh.issues_[5]["comments"])
+    assert pilote.tour() == ["RIEN"] and len(gh.issues_[5]["comments"]) == avant, "il n'est appelé qu'une fois"
+    gh.commentaire_humain(5, "oui")
+    assert pilote.tour() == [f"#104 palier ouvert — {SUIVANT} : #101, #102, #103"] and len(agents.appels) == 2
+
+
+def test_si_le_proprietaire_a_parle_le_verdict_du_testeur_n_ouvre_plus_rien(projet_ouvert, gh, depot, tmp_path):
+    pilote, agents = _joue(projet_ouvert, gh, depot, tmp_path, "TENUE", _proposition(), _proposition())
+    gh.commentaire_humain(5, "Non : la carte est laide. Corrige-la avant d'aller plus loin.")
+    pilote.tour()
+    assert "la carte est laide" in agents.appels[1]["consigne"]
+    assert pilote.tour() == ["RIEN"] and "creer_jalon" not in gh.noms_des_gestes(), "il a pris la main : son oui ouvre"
+    gh.commentaire_humain(5, "oui")
+    assert pilote.tour() == [f"#104 palier ouvert — {SUIVANT} : #101, #102, #103"]
+
+
+def test_ce_que_le_proprietaire_ecrit_pendant_que_le_testeur_joue_compte(projet_ouvert, gh, depot, tmp_path):
+    """Le build figé est prêt avant la note : s'il le joue et écrit avant elle, sa parole ne se perd pas."""
+    _vide(gh)
+    _testeur(gh, lots.ENVOYE)
+    gh.commentaire_humain(5, "J'ai joué : je n'ai pas su entrer dans la ville.")
+    agents = Agents(_proposition())
+    pilote = piloter(projet_ouvert, gh, depot, agents, tmp_path)
+    pilote.tour()
+    assert "je n'ai pas su entrer dans la ville" in agents.appels[0]["consigne"]
+
+
+def test_une_etape_va_de_ses_lots_fermes_a_la_suivante_sans_le_proprietaire(projet_ouvert, gh, depot, tmp_path):
+    _vide(gh)
+    agents = Agents(NOTE, _proposition(), PLAN)
+    pilote = piloter(projet_ouvert, gh, depot, agents, tmp_path)
+    palier.demo_si_videe(pilote)            # le build figé, puis le testeur envoyé au PC
+    _verdict(gh, "TENUE")                   # le PC répond : il a joué
+    palier.demo_si_videe(pilote)            # la note de démo, avec son rapport
+    pilote.tour()                           # le CTO propose l'étape suivante
+    pilote.tour()                           # le verdict l'ouvre
+    pilote.tour()                           # son premier lot est pris
+    assert lots.palier_courant(lots.paliers(gh.jalons())).numero == 2 and "en-cours" in gh.etiquettes(101)
+    assert agents.modeles() == ["fable", "fable", "opus"]
+    assert not [c for c in gh.issues_[5]["comments"] if lots.ecrit_par_le_proprietaire(c, "moi")]

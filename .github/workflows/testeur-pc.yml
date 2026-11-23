@@ -1,0 +1,110 @@
+name: testeur-pc
+
+# Le testeur joue le build figé d'une étape sur le PC du propriétaire, par
+# l'écran seul, comme un joueur qui le découvre (atelier/testeur.py).
+#
+# Le pilote du VPS le lance par `workflow_dispatch` quand une étape n'a plus
+# de lot ouvert et que son build est figé, jamais par `pull_request` : le
+# dépôt est public, et une fourche ne doit rien lancer sur le PC.
+#
+# Les runners tournent en service : ils n'ont pas de bureau, et le jeu y
+# reste bloqué au démarrage. Ce travail ne joue donc pas lui-même : il met le
+# code de la chaîne à jour (.atelier\pilote-testeur, sur master), puis démarre
+# la tâche planifiée « ForgeTesteur », que Windows lance dans la session
+# ouverte du propriétaire (pc\Testeur.cmd). C'est là que le passage attend
+# que l'écran soit libre, joue, et répond sur l'issue de l'étape. Ce travail
+# attend sa fin et affiche ce qu'il a dit.
+#
+# Si la tâche n'est pas inscrite (pc\Installer_Testeur.cmd, une fois), si la
+# session du propriétaire est fermée, ou si le passage tombe sans répondre,
+# l'issue reçoit une attente : le pilote renvoie le testeur au quart d'heure,
+# et pose la note de démo sans lui au bout de six heures.
+#
+# Un seul testeur à la fois : il n'y a qu'un écran.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sonde:
+        description: "« oui » : dire seulement si l'écran du PC est libre, sans rien lancer ni rien écrire"
+        required: false
+        default: "non"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testeur-pc
+  cancel-in-progress: false
+
+jobs:
+  testeur:
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 150
+    steps:
+      - name: Le testeur, dans la session ouverte du propriétaire
+        shell: powershell
+        # Les raisons passent par l'environnement : PowerShell 5.1 peut lire
+        # le script en ANSI, et abîmer ses accents.
+        env:
+          SONDE: ${{ inputs.sonde }}
+          SANS_TACHE: "la tâche planifiée « ForgeTesteur » n'est pas inscrite sur le PC : lancer pc\\Installer_Testeur.cmd, une fois"
+          SANS_SESSION: "le passage n'a pas démarré : la session Windows du propriétaire n'est pas ouverte sur le PC"
+          SANS_FIN: "le passage du testeur n'a pas fini en 135 minutes : il a été arrêté"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          git -C D:\Forge fetch --quiet --prune origin
+          $atelier = 'D:\Forge\.atelier\pilote-testeur'
+          if (-not (Test-Path "$atelier\.git")) { git -C D:\Forge worktree add --force --detach $atelier origin/master }
+          git -C $atelier checkout --quiet --force --detach origin/master
+          $env:PYTHONPATH = $atelier
+          $passage = 'D:\Forge\.atelier\testeur'
+          New-Item -ItemType Directory -Force $passage | Out-Null
+          $mode = if ($env:SONDE -eq 'oui') { 'sonde' } else { 'jouer' }
+          # La demande que lit pc\Testeur.cmd : un mot, jamais une commande.
+          Set-Content -Encoding ascii "$passage\demande.txt" $mode
+          Remove-Item "$passage\passage.code", "$passage\passage.log" -ErrorAction SilentlyContinue
+          # Sans passage, l'envoi du pilote reçoit quand même sa réponse.
+          function Attendre([string]$raison) {
+            Write-Output "::warning::$raison"
+            if ($mode -eq 'jouer') { py -m atelier --projet $atelier testeur --attente $raison }
+          }
+          if (-not (Get-ScheduledTask -TaskName ForgeTesteur -ErrorAction SilentlyContinue)) { Attendre $env:SANS_TACHE; exit 0 }
+          Start-ScheduledTask -TaskName ForgeTesteur
+          for ($i = 0; $i -lt 45 -and -not (Test-Path "$passage\passage.log"); $i++) { Start-Sleep -Seconds 2 }
+          if (-not (Test-Path "$passage\passage.log")) { Attendre $env:SANS_SESSION; exit 0 }
+          # Le passage attend l'écran trois quarts d'heure au plus, puis joue trois quarts d'heure au plus.
+          $fin = (Get-Date).AddMinutes(135)
+          while (-not (Test-Path "$passage\passage.code") -and (Get-Date) -lt $fin) { Start-Sleep -Seconds 10 }
+          Get-Content "$passage\passage.log" -Encoding UTF8
+          if (-not (Test-Path "$passage\passage.code")) {
+            Stop-ScheduledTask -TaskName ForgeTesteur
+            Attendre $env:SANS_FIN
+            exit 1
+          }
+          $code = [int](Get-Content "$passage\passage.code")
+          Write-Output "passage du testeur ($mode) : code $code"
+          # Une sonde qui trouve l'écran occupé a fait son travail : elle l'a dit.
+          if ($mode -eq 'sonde') { exit 0 }
+          exit $code
+
+  repondre:
+    needs: testeur
+    if: ${{ always() && needs.testeur.result != 'success' && inputs.sonde != 'oui' }}
+    runs-on: [self-hosted, Windows, unity]
+    timeout-minutes: 10
+    steps:
+      - name: L'attente, sur l'issue de l'étape
+        shell: powershell
+        env:
+          RAISON: "le passage du testeur est tombé sans répondre (travail `testeur` : ${{ needs.testeur.result }}, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          # Le code de la chaîne tel que `testeur` l'a laissé : pas de fetch, il
+          # a peut-être cassé là. Sans sa copie, celle du premier chantier répond.
+          $atelier = 'D:\Forge\.atelier\pilote-testeur'
+          if (-not (Test-Path "$atelier\atelier")) { $atelier = 'D:\Forge\.atelier\pilote-pc' }
+          $env:PYTHONPATH = $atelier
+          py -m atelier --projet $atelier testeur --attente $env:RAISON

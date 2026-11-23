@@ -3,7 +3,8 @@
 Les faits se relèvent en Python, sur GitHub : ce que chaque lot livré donne
 au joueur (sa fiche), où en est chaque lot en cours, ce qui est arrêté et
 pourquoi, ce que le CTO a décidé seul (« à revoir à la démo »), ce que le
-propriétaire doit faire lui-même, et ce que les appels ont coûté. Le lecteur
+testeur a trouvé en jouant le build figé d'une étape, ce que le propriétaire
+doit faire lui-même, et ce que les appels ont coûté. Le lecteur
 en fait un récit court, en mots de joueur ; il ne juge rien. S'il se tait ou
 sort du gabarit, le pilote écrit le journal seul, à partir des mêmes faits :
 un journal ne se tait jamais.
@@ -25,7 +26,7 @@ from . import agents as agents_mod
 from . import consignes, lots
 from .github import VARIABLE_PC, GitHub
 from .lots import Lot
-from .projet import CTO, LECTEUR, ROLES, Projet
+from .projet import CTO, LECTEUR, ROLES, TESTEUR, Projet
 
 ETIQUETTE_JOURNAL = "journal"
 _ENTETES = ("> **Avancé** :", "> **Arrêté** :", "> **Pour toi** :", "### Ce qui a changé dans le jeu")
@@ -114,11 +115,12 @@ def mesures_des_lots(gh: GitHub, projet: Projet, numeros: list[int]) -> list[Mes
 
 def issues_hors_lot(gh: GitHub) -> dict[int, str]:
     """Les issues où la chaîne laisse un coût sans que ce soit un lot :
-    celle du palier en cours (les propositions et la note de démo du CTO), et
-    les journaux du matin parus depuis qu'elle est ouverte (le lecteur)."""
+    celle du palier en cours (les propositions et la note de démo du CTO, les
+    passages du testeur), et les journaux du matin parus depuis qu'elle est
+    ouverte (le lecteur)."""
     ouvertes = gh.issues("open")
     du_palier = [i for i in ouvertes if lots.ETIQUETTE_PALIER in {e["name"] for e in i.get("labels") or []}]
-    trouvees = {i["number"]: "le palier (CTO)" for i in du_palier}
+    trouvees = {i["number"]: "le palier (CTO, testeur)" for i in du_palier}
     debuts = [d for d in (_date(i.get("createdAt")) for i in du_palier) if d is not None]
     if not du_palier:
         return trouvees
@@ -183,6 +185,7 @@ class Releve:
     en_cours: list[str] = field(default_factory=list)
     arretes: list[str] = field(default_factory=list)
     a_revoir: list[str] = field(default_factory=list)
+    testeur: list[str] = field(default_factory=list)
     pour_toi: list[str] = field(default_factory=list)
     couts: str = ""
 
@@ -212,11 +215,51 @@ def ou_en_est(liste: list[dict], etat_ci: str = "") -> str:
     return {"rouge": "en correction, la CI est rouge", "attente": "ses tests tournent"}.get(etat_ci, "en relecture")
 
 
-def palier_vide(palier, ouverts: list[Lot], fermees: list[dict]) -> str:
+# Ce que le testeur a rendu, en mots de joueur (`testeur.EN_CLAIR`, que ce module ne peut pas importer).
+_VERDICTS = {"TENUE": "promesse tenue", "TENUE_AVEC_PEINE": "tenue avec peine", "NON_TENUE": "non tenue"}
+
+
+def du_testeur(gh: GitHub, depuis: datetime) -> tuple[list[str], list[str]]:
+    """Ce que le testeur a fait du build figé d'une étape : sur l'issue de
+    l'étape en cours, où il en est ; sur celle d'une étape fermée depuis
+    `depuis`, le verdict qui l'a fermée. Rend les faits, et ce qui revient au
+    propriétaire : son écran, que le testeur attend, ou une correction que la
+    chaîne n'ouvre plus seule."""
+    faits, pour_toi = [], []
+    etapes = [(i, etat == "open") for etat in ("open", "closed") for i in gh.issues(etat)
+              if lots.ETIQUETTE_PALIER in {e["name"] for e in i.get("labels") or []}]
+    for issue, ouverte in sorted(etapes, key=lambda x: x[0]["number"]):
+        if not ouverte and (_date(issue.get("closedAt")) or depuis) <= depuis:
+            continue
+        commentaires = gh.issue(issue["number"]).get("comments") or []
+        siennes = [m for m in lots.marques(commentaires) if m.get("role") == TESTEUR]
+        if not siennes:
+            continue
+        nom = issue["title"]
+        verdicts = [m for m in siennes if m.get("verdict") in _VERDICTS]
+        if verdicts:
+            d_abord = " ; ".join(str(x).strip().rstrip(".") for x in verdicts[-1].get("a_corriger") or [])
+            faits.append(f"il a joué « {nom} » (#{issue['number']}) : {_VERDICTS[verdicts[-1]['verdict']]}"
+                         + (f". À corriger d'abord : {d_abord}" if d_abord else ""))
+            if ouverte and any(m.get("etat") == "appel" for m in lots.marques(commentaires)):
+                pour_toi.append(f"le testeur a jugé « {nom} » non tenue une fois de plus : la correction proposée sur "
+                                f"son issue (#{issue['number']}) attend ton « oui »")
+        elif ouverte and siennes[-1].get("etat") == lots.ATTENTE:
+            raison = (siennes[-1].get("raison") or "").strip()
+            faits.append(f"il attend pour jouer « {nom} » (#{issue['number']})" + (f" : {raison}" if raison else ""))
+            pour_toi.append(f"le testeur attend l'écran du PC pour jouer « {nom} » : il part après dix minutes sans "
+                            "clavier ni souris, session ouverte")
+        elif ouverte:
+            faits.append(f"il joue « {nom} » (#{issue['number']}), ou attend que le PC le prenne")
+    return faits, pour_toi
+
+
+def palier_vide(palier, ouverts: list[Lot], fermees: list[dict], ouvre: bool = False) -> str:
     """Ce que le journal dit au propriétaire quand le palier en cours a eu
     des lots et n'en a plus aucun d'ouvert : l'étape attend qu'il la joue,
-    et la chaîne tourne à vide jusqu'à ce qu'il réponde. Vide tant qu'un lot
-    du palier est ouvert, ou qu'il n'en a jamais eu."""
+    et la chaîne tourne à vide jusqu'à ce qu'il réponde ; ou, si le verdict
+    du testeur ouvre la suite (`ouvre`), il peut la jouer et dire non. Vide
+    tant qu'un lot du palier est ouvert, ou qu'il n'en a jamais eu."""
     if palier is None or any(l.palier == palier.numero for l in ouverts):
         return ""
     siens = [i for i in fermees if Lot.de(i).est_un_lot and Lot.de(i).palier == palier.numero]
@@ -224,6 +267,10 @@ def palier_vide(palier, ouverts: list[Lot], fermees: list[dict]) -> str:
         return ""
     dernier = max((d for d in (_date(i.get("closedAt")) for i in siens) if d is not None), default=None)
     depuis = f" depuis le {dernier:%d/%m}" if dernier else ""
+    if ouvre:
+        return (f"le palier « {palier.titre} » n'a plus aucun lot ouvert{depuis} : son build est figé, le testeur le "
+                "joue, et la suite s'ouvre sur son verdict, sans t'attendre. Joue-le quand tu veux : ce que tu écris "
+                "sur son issue passe devant")
     return (f"le palier « {palier.titre} » n'a plus aucun lot ouvert{depuis} : la chaîne n'a plus rien à faire. "
             "Son build figé et sa note de démo arrivent sur son issue : joue-le, puis réponds « oui » à l'étape "
             "suivante que le CTO y propose, ou écris ce qu'il faut changer")
@@ -293,11 +340,15 @@ def releve(gh: GitHub, projet: Projet, maintenant: datetime, *, heures: int = 24
                               f"({decisions[-1].get('pourquoi') or raison})")
         r.a_revoir += a_revoir_samedi(lot.numero, lot.titre, commentaires)
     lignes += [f"- {l}" for l in r.arretes] or ["- (aucun)"]
-    vide = palier_vide(palier, des_lots, gh.issues("closed"))
+    vide = palier_vide(palier, des_lots, gh.issues("closed"), projet.testeur_ouvre)
     if vide:
         r.pour_toi.append(vide)
+    r.testeur, du_proprietaire = du_testeur(gh, depuis)
+    r.pour_toi += du_proprietaire
     if not gh.pc_actif():
         r.pour_toi.append(f"le PC est en pause ({VARIABLE_PC} = non) : les lots de la ville et de l'interface attendent")
+    lignes += ["", "LE TESTEUR (il joue le build figé d'une étape par l'écran seul, avant le propriétaire) :"]
+    lignes += [f"- {l}" for l in r.testeur] or ["- (il n'a rien joué depuis hier)"]
     lignes += ["", "À REVOIR À LA DÉMO (les choix que le CTO a pris seul) :"] + ([f"- {l}" for l in r.a_revoir] or ["- (rien)"])
     lignes += ["", "POUR LE PROPRIÉTAIRE :"] + ([f"- {l}" for l in r.pour_toi] or ["- (rien)"])
     hors_lot = issues_hors_lot(gh)
@@ -351,6 +402,7 @@ def redaction_du_pilote(r: Releve) -> str:
     if not r.livres:
         lignes.append("Aucun lot livré depuis hier.")
     lignes += ["", "### En route"] + ([f"- {l}" for l in r.en_cours] or ["- rien"])
+    lignes += ["", "### Le testeur"] + ([f"- {l}" for l in r.testeur] or ["- il n'a rien joué depuis hier"])
     lignes += ["", "### À revoir à la démo"] + ([f"- {l}" for l in r.a_revoir] or ["- rien"])
     return "\n".join(lignes)
 

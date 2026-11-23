@@ -51,10 +51,10 @@ def _avec_chef(ligne):
 
 
 # ------------------------------------------------------- le vrai fichier
-def test_le_vrai_fichier_donne_son_modele_a_chacun_des_cinq_roles(vrai):
-    assert ROLES == ("cto", "chef", "developpeur", "relecteur", "lecteur") and set(vrai.agents) == set(ROLES)
+def test_le_vrai_fichier_donne_son_modele_a_chacun_des_six_roles(vrai):
+    assert ROLES == ("cto", "chef", "developpeur", "relecteur", "lecteur", "testeur") and set(vrai.agents) == set(ROLES)
     for role, modele in (("cto", "fable"), ("chef", "opus"), ("developpeur", "sonnet"), ("relecteur", "opus"),
-                         ("lecteur", "haiku")):
+                         ("lecteur", "haiku"), ("testeur", "opus")):
         assert modele in vrai.agent(role).modele and vrai.agent(role).outil == "claude", role
 
 
@@ -96,7 +96,7 @@ def test_un_role_manquant_se_refuse_par_son_nom(tmp_path):
     _refus(tmp_path, _sans("lecteur"), "[agents] ne nomme pas : lecteur")
 
 
-def test_un_sixieme_role_se_refuse(tmp_path):
+def test_un_role_inconnu_se_refuse(tmp_path):
     """Le défaut : un rôle d'avant (le dépanneur) restait dans le fichier, et rien ne disait qu'il ne jouait plus."""
     _refus(tmp_path, TOML + 'depanneur = "claude/opus@high"\n', "[agents] nomme des rôles inconnus : depanneur")
 
@@ -165,14 +165,29 @@ def test_le_delai_la_capacite_et_le_plafond_se_lisent_ou_prennent_leur_defaut(pr
         projet.agent("depanneur")
 
 
-def test_la_table_des_roles_a_cinq_lignes_et_dit_le_parallelisme(projet, vrai):
+def test_la_table_des_roles_a_six_lignes_et_dit_le_parallelisme_et_le_poids_du_testeur(projet, vrai):
     lignes = table_des_roles(vrai).splitlines()
-    assert [l.split()[0] for l in lignes[1:6]] == list(ROLES) and lignes[6] == ""
+    assert [l.split()[0] for l in lignes[1:7]] == list(ROLES) and lignes[7] == ""
     assert lignes[1].split() == ["cto", "claude-fable-5-2", "high", "1800", "s"]
     assert lignes[5].split() == ["lecteur", "claude-haiku-5-5", "medium", "600", "s"]
-    assert lignes[-2:] == ["lots en même temps : vps 2, pc 2", "agents en même temps : claude 4"]
-    assert table_des_roles(projet).splitlines()[-2:] == ["lots en même temps : vps 1, pc 1",
-                                                         "agents en même temps : sans plafond"]
+    assert lignes[6].split() == ["testeur", "claude-opus-5-5", "high", "2700", "s"]
+    assert lignes[-3:] == ["lots en même temps : vps 2, pc 2", "agents en même temps : claude 4",
+                           "verdict du testeur : il ouvre l'étape suivante ; après 2 « non tenue » de suite, le "
+                           "propriétaire décide"]
+    assert table_des_roles(projet).splitlines()[-3:] == [
+        "lots en même temps : vps 1, pc 1", "agents en même temps : sans plafond",
+        "verdict du testeur : il informe ; le « oui » du propriétaire ouvre l'étape suivante"]
+
+
+def test_le_poids_du_verdict_du_testeur_se_regle_et_se_refuse_s_il_se_lit_mal(tmp_path, vrai):
+    """Sans la section, le testeur informe et le propriétaire ouvre : un dépôt ne perd pas sa garde par oubli."""
+    assert (vrai.testeur_ouvre, vrai.testeur_refus_max) == (True, 2)
+    assert (_charger(tmp_path, TOML).testeur_ouvre, _charger(tmp_path, TOML).testeur_refus_max) == (False, 2)
+    regle = _charger(tmp_path, TOML + "\n[testeur]\nouvre = true\nrefus_max = 3\n")
+    assert (regle.testeur_ouvre, regle.testeur_refus_max) == (True, 3)
+    _refus(tmp_path, TOML + '\n[testeur]\nouvre = "oui"\n', "[testeur].ouvre doit être true ou false")
+    _refus(tmp_path, TOML + "\n[testeur]\nrefus_max = 0\n", "[testeur].refus_max doit être un entier ≥ 1, pas 0")
+    _refus(tmp_path, TOML + "\n[testeur]\nouvert = true\n", "[testeur] ne connaît pas 'ouvert'")
 
 
 def test_changer_un_role_de_modele_est_une_ligne(tmp_path):

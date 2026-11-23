@@ -46,6 +46,7 @@ chef        = "claude/opus@high"
 developpeur = "claude/sonnet@high"
 relecteur   = "claude/opus@high"
 lecteur     = "claude/haiku@medium"
+testeur     = "claude/opus@high"
 """
 
 PALIER = "Palier 1 — La première guerre"
