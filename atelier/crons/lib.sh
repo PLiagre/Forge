@@ -25,10 +25,13 @@ atelier_defauts() {
   : "${ATELIER_LOGS:="$HOME/.atelier/logs"}"
   export ATELIER_PROJET ATELIER_ETAT ATELIER_VERROUS ATELIER_LOGS
   # Le PATH de cron vaut /usr/bin:/bin : aucun agent n'y vit.
-  case ":$PATH:" in
-    *":$HOME/.local/bin:"*) : ;;
-    *) PATH="$HOME/.local/bin:$PATH" ;;
-  esac
+  local _dir
+  for _dir in "$HOME/.local/bin" "$HOME/.agy/bin"; do
+    case ":$PATH:" in
+      *":$_dir:"*) : ;;
+      *) PATH="$_dir:$PATH" ;;
+    esac
+  done
   # L'environnement Python de la chaîne (pytest, numpy, pillow), posé par
   # l'installateur : le Python du système ne les a pas, et apt demande root.
   if [[ -x "$HOME/.atelier/venv/bin/python3" ]]; then
