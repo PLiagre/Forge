@@ -38,7 +38,7 @@ namespace ForgeLocal3D.Captures
             var e = OuvrirLaCarte(); while (e.MoveNext()) yield return e.Current;
             var (carte, cabinet, guerre) = Lire();
             VerifierLesNoms(guerre);
-            // La Bohême cliquée sur la carte : sa fiche dit sa maison, Luxembourg, qui règne aussi sur deux autres pays.
+            // La Bohême cliquée sur la carte : sa fiche dit sa maison, Luxembourg, qui règne aussi sur le Saint-Empire.
             string boheme = guerre.Terres.Pays.Single(p => p.Nom == "Bohême").Id;
             cabinet.Accueil.Designer(guerre.Terres.Terres.First(t => t.Pays == boheme).CellId);
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.Contains("Habitants : ") && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture"),

@@ -1628,14 +1628,29 @@ lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 ## Les puissances de 1400, vue dérivée
 
 La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
-l'Italie, le Nord, le Centre et l'Orient : Byzance, les Ottomans, les Mamelouks,
-le Maghreb et la Russie de Novgorod. Ses 49 puissances et 83 ancres, vérifiées
-contre des sources publiques, sont de **niveau 1** : elles doivent être justes
-dans les grandes lignes au 1er janvier 1400. La nature `principauté` désigne
-une puissance tenue par un duc, un comte ou un prince, comme Milan, la
+l'Italie, l'Empire, le Nord, l'Est et l'Orient : Byzance, les Ottomans, les
+Mamelouks, le Maghreb et la Russie de Novgorod. Ses 81 puissances et 115 ancres,
+vérifiées contre des sources publiques, sont de **niveau 1** : elles doivent être
+justes dans les grandes lignes au 1er janvier 1400. La nature `principauté`
+désigne une puissance tenue par un duc, un comte ou un prince, comme Milan, la
 Savoie, la Bourgogne, la Bretagne, la Guyenne, Orléans, l'Anjou, le Berry, le
-Bourbonnais, Foix, l'Armagnac et la seigneurie d'Irlande ; `empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et
-les trois puissances du Maghreb, `khanat` la Horde d'Or. Hors des cellules que
+Bourbonnais, Foix, l'Armagnac, la seigneurie d'Irlande, les princes d'Empire
+(Autriche, Bavière, Palatinat, Saxe, Misnie, Thuringe, Brandebourg, duché de
+Luxembourg, Brabant, Hollande, Hainaut, Lorraine, Gueldre, Clèves, Hesse,
+Brunswick, Mecklembourg, Poméranie, Holstein, burgraviat de Nuremberg), la
+Lituanie et la Mazovie ; `Église` désigne les États de l'Église, les archevêchés
+de Trèves, Cologne, Mayence, Brême, Magdebourg et Salzbourg, les évêchés d'Utrecht,
+de Münster et d'Osnabrück, la principauté de Liège et le patriarcat d'Aquilée ;
+`empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et les trois
+puissances du Maghreb, `khanat` la Horde d'Or.
+
+Le Saint-Empire reste une puissance de la table, celle du roi des Romains,
+Venceslas de Luxembourg, mais il ne tient aucune cellule ni aucun lieu : chacune va
+au prince qui la tenait. Il garde une seule ancre, à Prague, au point même de celle
+de la Bohême et d'identifiant plus grand : à égalité exacte, l'ancre de la Bohême
+l'emporte, et celle de l'Empire ne décide jamais une cellule. La Pologne et la
+Lituanie sont deux pays, de Ladislas II Jagellon et de Vytautas, chacun chef au
+1er janvier 1400 ; la Bohême de Venceslas et la Hongrie de Sigismond aussi. Hors des cellules que
 décide la table des frontières (ci-dessous), le tracé qui découle des ancres est
 de **niveau 2**, plausible et jamais sourcé : il ne restitue ni frontière réelle,
 ni enclave.
@@ -1644,10 +1659,17 @@ Une puissance peut déclarer son `suzerain`, une puissance de la table, avec sa
 `source_suzerain` ; un suzerain inconnu ou une chaîne qui boucle est refusé. Les
 vassaux de la France (Bourgogne, Bretagne, Orléans, Anjou, Berry, Bourbonnais, Foix,
 Armagnac), Gênes, sous le roi de France depuis 1396, la Guyenne sous l'Angleterre,
-Milan et la Savoie sous le Saint-Empire, Naples sous l'Église en déclarent un. Le
+Naples sous l'Église, la Lituanie et la Mazovie sous la Pologne en déclarent un. Le
 suzerain se sert dans la fiche du pays ; il n'entre pas dans le registre des
 maisons : un pays vassal reste une racine, garde son nom et sa couleur, et
-l'hommage reste de **niveau 3**.
+l'hommage reste de **niveau 3**. Une puissance peut aussi déclarer l'`ensemble`
+dont elle est membre (« Saint-Empire »), un texte, avec sa `source_ensemble` ; un
+texte vide, une source absente ou vide, une source sans ensemble sont refusés en
+nommant la puissance et le champ. L'ensemble se sert dans la fiche du pays et
+n'entre ni dans le registre, ni dans la vue des puissances, ni dans le tick. Les
+princes d'Empire, la Bohême, Trèves, les cantons, Milan et la Savoie le déclarent :
+ce sont des racines sans suzerain, et l'élection du roi des Romains, la diète et le
+lien d'Empire restent de **niveau 3**, pas simulés.
 
 À chaque consultation, une cellule retient d'abord une ancre contenue dans
 son polygone (bord compris, trous exclus). Les points EPSG:4326 des ancres
@@ -1680,26 +1702,47 @@ Le point du Caire est dans le polygone **8992**, même si aucune ancre
 n'y est placée. Cette cellule relève des Mamelouks grâce aux ancres
 d'Alexandrie et de Damiette.
 
-**La table des frontières de l'Ouest.** `data/frontieres-1400.json`, lue par
-`sim/frontieres.py`, déclare le pays de chaque cellule tenue de la région `ouest` :
-la France et ses grands fiefs, les Îles, l'Ibérie et l'Italie. Pour ces cellules,
-l'ancre la plus proche ne décide plus rien. Elle porte 173 cellules entières, rangées
-par pays avec une source publique par pays (dont treize cellules du bord, rendues au
-Saint-Empire : Brabant, Hollande et Frise, Hainaut, Liège, Lorraine, Metz et
-Luxembourg, Tyrol) ; 29 cellules partagées ; 5 lacunes avec leur raison (Bologne,
-Ferrare et Ravenne ; Elbe ; Lastovo ; deux îlots du Sulcis) ; les pays plus petits
-que deux lieux, déclarés avec leur raison (Calais, Andorre, Saint-Marin, Piombino) ;
-et les villes témoins, chacune avec son pays de 1400 et sa source, que les preuves
-lisent. Une cellule partagée nomme une ville sourcée par pays, 95 en tout ; une ville
-sans pays (`pays: null`) dit sa raison (Padoue aux Carrara, Mantoue aux Gonzague,
-Lucques, Rimini et Urbino, l'Arborée). Chaque lieu de la cellule va au pays de la
+**La table des frontières de 1400.** `data/frontieres-1400.json`, lue par
+`sim/frontieres.py`, déclare le pays de chaque cellule tenue de quatre régions :
+`ouest` (la France et ses grands fiefs, les Îles, l'Ibérie et l'Italie), `empire`
+(l'Allemagne, les Pays-Bas d'Empire, la Suisse, l'Autriche, la Bohême avec la
+Moravie, la Silésie et les Lusaces), `nord` (l'Union de Kalmar, la Finlande, les
+Shetland et les Féroé comprises) et `est` (l'Ordre teutonique avec la Livonie et
+Gotland, la Pologne, la Mazovie, la Lituanie jusqu'au Dniepr, la Hongrie avec la
+Croatie, la Transylvanie et la Dalmatie, Novgorod et Pskov). Pour ces cellules,
+l'ancre la plus proche ne décide plus rien. Elle porte 329 cellules entières, rangées
+par pays avec une source publique par pays ; 86 cellules partagées ; 13 lacunes avec
+leur raison (Bologne, Ferrare et Ravenne ; Elbe ; Lastovo ; deux îlots du Sulcis ;
+deux îles frisonnes ; les îles d'Ösel-Wiek ; les Champs sauvages à l'est du Dniepr) ;
+22 pays plus petits que deux lieux, déclarés avec leur raison (Calais, Andorre,
+Saint-Marin, Piombino, Tournai et les villes libres d'Empire, dont Lübeck, Cologne,
+Francfort, Nuremberg et Metz, chacune avec le pays qui reçoit son lieu) ; et 106
+villes témoins, chacune avec son pays de 1400 et sa source, que les preuves lisent,
+d'une région chacune. Une cellule partagée nomme une ville sourcée par pays, 319 en
+tout, jamais une ville libre ; une ville sans pays (`pays: null`) dit sa raison, 20
+en tout : Padoue aux Carrara, Mantoue aux Gonzague, Lucques, Rimini et Urbino,
+l'Arborée ; Namur, Berg, Bade, Bamberg, Wurtzbourg, Verdun, Toul, Stuttgart (le
+Wurtemberg, terre de départ, dont les terres hors du siège ne sont pas simulées) ;
+la Frise libre ; Riga, Dorpat et Ösel-Wiek en Livonie.
+
+**Un siège par cellule.** Le registre pose chaque maison au bourg de la cellule de
+sa capitale ou de son siège, et chaque maison posée tient ce bourg : deux sièges ne
+partagent jamais une cellule. Une principauté dont le siège partagerait la cellule
+d'une autre capitale n'est pas une puissance de la table ; sa ville est sans pays,
+avec cette raison (Bade à Heidelberg, Bamberg à Cadolzbourg, Wurtzbourg à
+Aschaffenbourg). Utrecht a pour premier siège Coevorden, la ville d'Utrecht
+partageant la cellule de La Haye : ce choix est de **niveau 2**. Chaque prince d'Empire nommé
+par la fiche du lot est le pays d'au moins une terre, dont il tient le bourg : il a
+sa place sur la carte, et pas seulement des lieux dans la cellule d'un autre. Le
+Brandebourg tient ainsi la cellule de la Nouvelle-Marche, où Josse a sa capitale,
+Landsberg ; la cellule de Berlin a pour bourg Wittenberg, capitale de la Saxe. Chaque lieu de la cellule va au pays de la
 ville la plus proche de sa place (`sim/places.py`), dans le plan EPSG:3035 ; à
 égalité, la première déclarée. Le bourg est placé au siège de la maison qui le
 prendra (`frontieres.maison_du_bourg`, dans l'ordre même de l'attribution des
 maîtres), sinon à la plus grande ville placée : la place du bourg se connaît avant
 ses maîtres, et c'est celle du chargement. La puissance de la cellule, pour tout ce
 qui la lit déjà, est celle de son bourg ; `frontieres.puissances_des_lieux` rend
-celle de chacun des 483 lieux partagés (18 sans pays). C'est ainsi que la Navarre
+celle de chacun des 1 486 lieux partagés (72 sans pays). C'est ainsi que la Navarre
 tient 13 lieux, moins que les 20 de la cellule de Pampelune, et Venise les 2 lieux
 du Trévisan, sans aucune cellule entière ; une ancre de Trévise porte sa capitale,
 son siège institutionnel étant hors carte. Le chargement refuse une cellule
@@ -1709,12 +1752,15 @@ monde d'épreuve qui ne porte qu'une part de la carte ignore les cellules décla
 qu'il n'a pas (`frontieres_du_monde`). Le pays d'une cellule déclarée, et celui de
 chaque ville témoin, sont de **niveau 1**, d'après des sources publiques citées
 pays par pays ; le tracé à l'intérieur d'une cellule partagée est de **niveau 2**.
-Sur la carte figée, 558 cellules ont une puissance et 38 n'en ont pas : les
-lacunes de la table et les deux cellules partagées dont le bourg est sans pays (la
-Sardaigne d'Arborée ; Rimini et Urbino) s'ajoutent aux cellules hors de portée.
+Sur la carte figée, 571 cellules ont une puissance et 25 n'en ont pas : les
+lacunes de la table et les cellules partagées dont le bourg est sans pays (la
+Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart) s'ajoutent aux
+cellules hors de portée.
 
-Les huit `lacunes` déclarent des points nommés et une `raison` : Shetland,
-Féroé, Finlande, Hiiumaa, Dalécarlie, Tripolitaine, Cyrénaïque et Oued Righ.
+Les trois `lacunes` déclarent des points nommés et une `raison` : Tripolitaine,
+Cyrénaïque et Oued Righ. Les points des Shetland, des Féroé, de la Finlande, de
+Hiiumaa et de la Dalécarlie ont disparu : la table des frontières déclare ces
+cellules (à l'Union de Kalmar, ou en lacune avec sa raison pour Hiiumaa).
 Une cellule non couverte est expliquée par la lacune la plus proche de son
 centroïde, dans la même projection et la même portée ; une égalité exacte
 se départage par le plus petit identifiant de lacune. Au-delà, sa raison est
@@ -1740,7 +1786,7 @@ lit pas**, ni la table des frontières.
 
 ## Les maisons de 1400, vue dérivée
 
-La même table `data/puissances-1400.json` déclare 37 maisons, chacune avec
+La même table `data/puissances-1400.json` déclare 56 maisons, chacune avec
 un `id`, un `nom` et une `source` publique qui atteste sa tenure au
 1er janvier 1400 : Lancastre, Stuart, Valois, Aviz, Trastamare, Barcelone,
 Évreux, Nasrides, Luxembourg, Visconti, Anjou-Durazzo, Savoie, Poméranie,
@@ -1748,22 +1794,36 @@ Jagellon, Paléologue, Osman, Lazarević, Kotromanić, Basarab, Mușat,
 Djötchides, Barquq, Hafsides, Zayyanides, Mérinides, Lusignan,
 Valois-Bourgogne, Montfort, Wittelsbach, Habsbourg, Lancastre-Aquitaine (le duc
 d'Aquitaine, fils d'Henri IV), Valois-Orléans, Valois-Anjou, Valois-Berry, Bourbon,
-Foix-Grailly et Armagnac. Les sept dernières règnent sur les pays neufs de 1400 :
-Guyenne, Orléans, Anjou, Berry, Bourbonnais, Foix et Armagnac ; Valois-Bourgogne et
-Montfort règnent sur la Bourgogne et la Bretagne, et Lancastre aussi sur l'Irlande.
+Foix-Grailly, Armagnac, Wittelsbach-Bavière, Ascanie, Wettin, Wettin-Thuringe,
+Luxembourg-Moravie, Louvain, Wittelsbach-Straubing, Lorraine, Juliers, La Marck,
+Hesse, Welf, Mecklembourg, Poméranie-Stettin, Schauenbourg, Hohenzollern,
+Gediminides, Piast de Mazovie et Luxembourg-Hongrie. Lancastre-Aquitaine et les six
+suivantes règnent sur les pays neufs de l'Ouest (Guyenne, Orléans, Anjou, Berry,
+Bourbonnais, Foix, Armagnac) ; Valois-Bourgogne et Montfort sur la Bourgogne et la
+Bretagne, Lancastre aussi sur l'Irlande. Dans l'Empire, Habsbourg règne sur
+l'Autriche, Wittelsbach (l'électeur palatin) sur le Palatinat, Luxembourg (Venceslas)
+sur le Saint-Empire et la Bohême, Luxembourg-Moravie (Josse) sur le Brandebourg et
+le duché de Luxembourg, Wittelsbach-Straubing (Albert Ier) sur la Hollande et le
+Hainaut ; chacune des autres maisons neuves règne sur un pays. Luxembourg-Hongrie
+(Sigismond) règne sur la Hongrie, Gediminides (Vytautas) sur la Lituanie, Jagellon
+sur la Pologne.
 
-Chacune des 39 puissances de nature `royaume`, `principauté`, `empire`,
-`sultanat` ou `khanat` désigne une maison connue. Les dix autres se
+Chacune des 61 puissances de nature `royaume`, `principauté`, `empire`,
+`sultanat` ou `khanat` désigne une maison connue. Les vingt autres se
 **déclarent sans maison**, par leur nature `république`, `Église` ou `ordre` :
-Archevêché de Trèves, Confédération des cantons suisses, Venise, Florence,
-Gênes, Papauté, Ordre teutonique, Novgorod, Pskov et Hospitaliers. Leur ligne
+Confédération des cantons suisses, Venise, Florence, Gênes, Novgorod et Pskov ;
+les États de l'Église et les onze Églises d'Empire (Trèves, Cologne, Mayence,
+Brême, Magdebourg, Salzbourg, Utrecht, Liège, Münster, Osnabrück, Aquilée) ; l'Ordre
+teutonique et les Hospitaliers. Leur ligne
 ne porte pas de champ `maison` ; une absence de ce champ sur une autre
 nature est refusée. Une maison qui ne tient ni puissance ni ancre est refusée.
 
-Trois ancres déclarent une maison de grand vassal différente de celle de leur
-puissance : Munich et Heidelberg sont tenues par **Wittelsbach**, Vienne par
-**Habsbourg**. Dijon, Bruges et Nantes ne sont plus des ancres de vassal : elles
-sont les ancres de la Bourgogne et de la Bretagne, dont ces maisons sont les têtes. Une ancre sans déclaration hérite de la maison de sa puissance,
+Une ancre peut déclarer une maison de grand vassal différente de celle de sa
+puissance ; plus aucune ancre livrée ne le fait. Munich, Heidelberg et Vienne sont
+les ancres de la Bavière, du Palatinat et de l'Autriche, comme Dijon, Bruges et
+Nantes celles de la Bourgogne et de la Bretagne : chaque prince d'Empire est un pays,
+dont sa maison est la tête. La règle se prouve sur une table d'épreuve qui déclare
+une ancre de vassal. Une ancre sans déclaration hérite de la maison de sa puissance,
 ou de son absence déclarée de maison. Déclarer une maison inconnue ou déjà
 celle de la puissance est refusé. L'ancre du vassal reste une ancre de sa
 puissance : la preuve vérifie que la cellule la plus proche de son point
@@ -1784,26 +1844,27 @@ d'Osman à Paléologue ; 10032 reste à Paléologue, les comptes restent inchang
 Une cellule non couverte rend `None`, comme une cellule de république,
 d'Église ou d'ordre. Toute autre cellule couverte porte la maison de sa
 puissance ou d'un vassal ancré dans celle-ci, jamais une maison étrangère.
-Sur les 596 cellules figées, **478** sont tenues par une maison, **80** sont
-sans maison par déclaration de nature, et **38** sont non couvertes.
-Chacune des 37 maisons tient au moins une cellule.
+Sur les 596 cellules figées, **505** sont tenues par une maison, **66** sont
+sans maison par déclaration de nature, et **25** sont non couvertes.
+Chacune des 56 maisons tient au moins une cellule.
 
-Les attributions aux puissances et aux six villes de vassal sont de
-**niveau 1**, vérifiées contre des sources publiques. Leur étendue suit les
-ancres hors de l'Ouest, où elle est de **niveau 2**, plausible et jamais sourcée ;
-dans l'Ouest, elle suit la table des frontières, de **niveau 1**. Innsbruck tombe
-chez Wittelsbach et Linz en Bohême : ces anomalies sont acceptées. Luxembourg tient
-le Saint-Empire par les cellules du bord que la table lui rend, en plus de celles
-de la Bohême et de la Hongrie. Sur la carte servie, aucun pays ne
-porte le nom d'une maison : la tenante d'une cellule reste ce qu'elle est ici, et
-Luxembourg règne sur trois pays servis, le Saint-Empire, la Bohême et la Hongrie
-(voir « La carte et les terres servies, vue dérivée »).
+Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
+sources publiques. Leur étendue suit les ancres hors des régions de la table des
+frontières, où elle est de **niveau 2**, plausible et jamais sourcée ; dans
+l'Ouest, l'Empire, le Nord et l'Est, elle suit la table, de **niveau 1**. Les anomalies que l'ancre
+y donnait se corrigent par la table et ses témoins : Innsbruck et Linz sont à
+l'Autriche, Besançon au comté de Bourgogne et Lille à la Bourgogne. Luxembourg tient
+le Saint-Empire, mais aucune de ses cellules : chacune va au prince qui la tenait,
+et Luxembourg ne tient plus que la Bohême, ses terres comprises. Sur la carte
+servie, aucun pays ne porte le nom d'une maison : la tenante d'une cellule reste ce
+qu'elle est ici, et Luxembourg règne sur deux pays servis, le Saint-Empire, sans
+terre, et la Bohême (voir « La carte et les terres servies, vue dérivée »).
 
 Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
-les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
-disputée, Édigu derrière le khan, Marguerite derrière Éric, les vassaux sans
-ancre (Wettin, Hohenzollern, la Hollande des Wittelsbach), que le lot de l'Empire
-reprendra, et les familles des sept chefs neufs.
+les personnes et la succession des dynasties, Naples disputée, Édigu derrière le
+khan, Marguerite derrière Éric, l'élection du roi des Romains, la diète et le lien
+d'Empire, les villes libres et les seigneuries de moins de deux lieux, et les
+familles des vingt-six chefs neufs (grandes maisons 31 à 56).
 
 La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
 Elle passe par `positions_du_monde`, refuse une position absente en nommant
@@ -1855,7 +1916,12 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
 - `suzerain`, la `Puissance`, et `maison`, sa `Maison` selon `par_puissance`,
   ou `None` pour une république, une Église ou un ordre ;
 - `cellules_du_suzerain`, le nombre de cellules que `puissances_depuis_monde`
-  attribue au suzerain, et `habitants_du_suzerain`, la somme de leurs populations ;
+  attribue au suzerain, et `habitants_du_suzerain`, la somme de leurs populations.
+  Le Wurtemberg relève du Saint-Empire, qui ne tient aucune cellule : sa fiche
+  dit zéro cellule et zéro habitant au suzerain, et ses voisins sont des princes
+  d'Empire. La cellule de Stuttgart est partagée ; la ville de Stuttgart y est sans
+  pays, la terre de départ ne tenant que les quatre lieux de son siège, et la cellule
+  est sans puissance ;
 - `voisins`, cellules reliées au siège par une arête `land-land` de
   `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
   puissance (ou `None`) et ses habitants actuels.
@@ -1864,7 +1930,7 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
 des sources publiques ; seigneur quand il est sourcé, chef du Zab déclaré
 non sourcé. **Niveau 2**, plausible et jamais sourcé : seigneurie
 réduite à la cellule entière de son siège, habitants amorcés et production
-de cette cellule, étendue du suzerain suivant ses ancres. Les habitants de
+de cette cellule, étendue du suzerain suivant la table des frontières. Les habitants de
 la fiche mesurent la cellule actuelle, pas la ville historique. Les anomalies
 de cette réduction ne sont pas des défauts. **Niveau 3**, pas simulé :
 prélèvement et hommage, personnes, autres seigneuries.
@@ -1883,9 +1949,13 @@ une capitale par grande maison de la table des puissances, sans modifier
 celle-ci : `maison` (id), `nom`, `lat`, `lon` en EPSG:4326 et `source`
 publique du siège et de la tenure dynastique. Seul un point hors de tous
 les polygones porte `hors_carte`, sa raison textuelle. Sur la carte figée,
-**37** capitales sont déclarées : **36** placées, chacune dans une cellule
+**56** capitales sont déclarées : **55** placées, chacune dans une cellule
 que `maisons_depuis_monde` donne à sa propre maison, et **1** hors carte,
 Saraï des Djötchides sur la basse Volga, avec `cell_id = None` et sa raison.
+Deux capitales ne partagent jamais une cellule, chacune y prenant le bourg : Josse
+a la sienne à Landsberg, ville principale de la Nouvelle-Marche, dans ses pays et non à Brno : la cellule de Berlin a pour bourg Wittenberg, capitale de la Saxe, et le Brandebourg prend ainsi la cellule de la Nouvelle-Marche ; Juliers représente la
+Gueldre, Nimègue partageant la cellule de Clèves ; Celle, le Brunswick de Bernard
+Ier, Wolfenbüttel partageant celle de Magdebourg.
 
 `cellule_de_capitale` projette le point par `projeter_epsg3035`, puis lit
 `point_dans_geometrie` en parcourant les polygones par `cell_id` croissant ;
@@ -1914,8 +1984,9 @@ appliqué au tick ; le dépôt en attente n'y change rien (`ia.decider_intention
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
-Sans choix, **43** maisons ; après un choix appliqué au tick, **42**. Les sept
-maisons neuves de l'Ouest jouent par l'IA comme les autres, sans bonus.
+Sans choix, **62** maisons ; après un choix appliqué au tick, **61**. Les maisons
+neuves de l'Ouest, de l'Empire et de l'Est jouent par l'IA comme les autres, sans
+bonus ; l'IA de ces 62 maisons coûte 5,7 ms par jour sur le VPS, contre 4,8 pour 43.
 La branche Paléologue de Morée est distincte de celle de Constantinople :
 sans choix, toutes deux sont à l'IA ; choisir la Morée laisse la grande
 maison Paléologue à l'IA. La vue ne conserve rien entre deux appels,
@@ -1932,9 +2003,10 @@ Ces habitants actuels sont de niveau 2, plausible et jamais sourcé.
 
 **Niveau 1** : villes capitales et sources publiques, sièges des seigneuries
 déjà sourcés. **Niveau 2**, plausible et jamais sourcé : une maison réduite
-à une seule capitale, notamment Tolède pour la cour itinérante de Castille
-et Heidelberg pour la branche palatine Wittelsbach (Munich reste une ancre),
-et la cellule donnée par le polygone. **Niveau 3**, pas simulé : autres décisions
+à une seule capitale, notamment Tolède pour la cour itinérante de Castille,
+Landsberg pour Josse, La Haye pour Albert de Straubing (qui tient aussi le
+Hainaut), Juliers pour la Gueldre, et la cellule donnée par le polygone. Heidelberg
+et Munich sont les capitales de deux pays, le Palatinat et la Bavière. **Niveau 3**, pas simulé : autres décisions
 et gestes de l'IA, liens entre branches dynastiques, personnes, succession,
 capitales qui changent, autres seigneuries et vassaux sans ancre.
 Républiques, Église et ordres, sans maison, sont absents de cette vue.
@@ -1943,9 +2015,9 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
-`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée.
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée. Les vingt-neuf chefs des maisons et Églises de l'Empire, du Nord et de l'Est (grandes maisons 38 à 56, institutions 70 à 78 et 81) portent leur identité et leur fonction au départ, avec leur page ; leur naissance, que la page n'a pas été relue pour donner, est une lacune déclarée.
 Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
-Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges.
+Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges ; la Bohême (Venceslas) et la Hongrie (Sigismond), la Pologne (Ladislas II) et la Lituanie (Vytautas) ont chacune leur chef.
 `sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
 
 `World.parts` conserve séparément la fraction commune aux lieux de chaque maison, institutions et plausibles comprises, sans changer les huit champs gelés. Après attribution, chaque identifiant reçoit la coutume ; sans registre, `{}`. `to_dict()` omet la coutume et publie les autres parts triées sans arrondi (zéro compris), dans un dictionnaire indépendant ; sans différence, il omet `parts`.
@@ -2653,24 +2725,30 @@ Le pays d'une terre suit quatre cas, dans cet ordre :
 Une place prise par une maison d'un autre pays passe donc au pays du preneur.
 Une place prise par une terre de départ (Bar) entre dans le duché de Bar. Prise
 par la maison qui règne sur le pays, elle change de maître, pas de pays. Sur la
-graine 0, au départ, Luxembourg règne sur trois pays, le Saint-Empire (23
-terres), la Bohême (10) et la Hongrie (18) ; la Navarre a pour maison Évreux ; la
-France compte 28 terres, la Bourgogne 7 et la Bretagne 6 ; les six départs sont
-leurs propres pays ; les 38 terres hors de toute puissance ont pour pays leur
-seigneur libre, nommé par les noms plausibles.
+graine 0, au départ, Luxembourg règne sur deux pays, le Saint-Empire, sans aucune
+terre, et la Bohême (5 terres) ; Sigismond sur la Hongrie (22) ; la Navarre a pour
+maison Évreux ; la France compte 28 terres, la Bourgogne 7 et la Bretagne 6,
+l'Autriche 8, la Pologne 6 et la Lituanie 23 ; les six départs sont leurs propres
+pays ; les 24 terres hors de toute puissance ont pour pays leur seigneur libre (celle de
+Stuttgart, sans puissance, est au Wurtemberg),
+nommé par les noms plausibles.
 
-`pays` liste `{id, nom, maison: {id, nom}, suzerain}` de chaque pays présent et
+`pays` liste `{id, nom, maison: {id, nom}, suzerain, ensemble}` de chaque pays présent et
 de chaque suzerain cité, triés par identifiant (`fiches_des_pays`). Le nom d'une
 puissance vient de la table, celui d'une terre de départ de
 `seigneuries-1400.json`, celui d'un seigneur libre des noms servis (`null` s'il
 est absent). Une terre de départ a pour suzerain `puissance-<suzerain>`, la
 puissance dont elle relève ; une puissance a celui que la table déclare (la
 Bourgogne, la Bretagne et les grands fiefs relèvent de la France, la Guyenne de
-l'Angleterre, Milan et la Savoie du Saint-Empire, Naples de l'Église, Gênes de la
+l'Angleterre, Naples de l'Église, la Lituanie et la Mazovie de la Pologne, Gênes de la
 France), sans entrer dans le registre. La fiche du suzerain est servie avec celle
-du vassal. Une république, une Église ou un ordre a pour maison
-son institution. Les clés de premier niveau ne changent pas, et le client Unity
-n'en lit pas de neuve.
+du vassal. Une puissance qui déclare un `ensemble` (avec sa `source_ensemble`)
+le porte dans sa fiche : un prince d'Empire dit « Saint-Empire » sans relever
+d'aucun suzerain ; sans déclaration, et pour une terre de départ ou un seigneur
+libre, `ensemble` vaut `null`. L'ensemble n'a aucun effet dans le moteur : ni
+maître, ni pays, ni suzerain n'en dépendent (le lien d'Empire est de **niveau 3**).
+Une république, une Église ou un ordre a pour maison son institution. Les clés de
+premier niveau ne changent pas, et le client Unity n'en lit pas de neuve.
 
 Les tables des puissances et des maisons, les seigneuries, la vue des
 puissances et la puissance des lieux partagés sont lues une fois par monde servi
@@ -2798,9 +2876,12 @@ hors de la carte y est nommée par un lieu qui s'y trouve.
 **Un siège** est servi `{nom, maison, x_m, y_m}` : le nom du siège de chaque
 maison du registre (`charger_registre_maisons`) placée sur la carte, quand ce
 nom n'est pas celui d'une ville de `villes-1400.json` ; la ville est déjà
-nommée par la carte. Sur la graine 0, 30 sièges, dont Biskra, Bar-le-Duc,
-Mistra et les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
-Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes). Leur position est celle de `sieges_des_maisons`. Une maison hors carte
+nommée par la carte. Sur la graine 0, 57 sièges, dont Biskra, Bar-le-Duc,
+Mistra, les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
+Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes), et les capitales et
+sièges des princes d'Empire, du Nord et de l'Est (Munich, Wittenberg, Meissen, La
+Haye, Bonn, Aschaffenbourg, Cadolzbourg, Vilnius, Varsovie, Buda…) ; Prague,
+Cologne et les autres villes de `villes-1400.json` sont déjà nommées. Leur position est celle de `sieges_des_maisons`. Une maison hors carte
 (Saraï, Venise) et les maisons plausibles, dont le siège est un identifiant
 synthétique, n'en servent aucun. Le fichier des villes ne bouge pas : y ajouter
 Biskra déplacerait des bourgs et changerait des noms de lieux.
@@ -2844,16 +2925,18 @@ Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
 
 - `pays` `{id, nom}` : le pays de la maison, par la règle des terres, sur la chaîne
   de la maison et la puissance de la cellule de son siège (`pays_des_maisons`) ;
-- `regne` : les pays où elle est la maison régnante (Luxembourg : Saint-Empire,
-  Bohême, Hongrie ; une terre de départ : elle-même ; Valois-Bourgogne : aucun) ;
+- `regne` : les pays où elle est la maison régnante (Luxembourg : Saint-Empire et
+  Bohême ; Wittelsbach-Straubing : Hollande et Hainaut ; une terre de départ :
+  elle-même ; Valois-Bourgogne : aucun) ;
 - `siege` `{nom, lieu, cell_id}` : `nom` est celui du registre, sourcé (Pampelune,
   Dijon), `lieu` le nom servi du lieu ; un petit seigneur n'a que le nom servi ;
 - `suzerain` `{id, nom, pays}`, ou `null` : `pays` est celui au titre duquel le
   suzerain la tient (Wurtemberg relève de Luxembourg au titre du Saint-Empire, un
-  seigneur de Hongrie au titre de la Hongrie). Une maison racine qui règne sur un
+  seigneur de Hongrie de Sigismond au titre de la Hongrie). Une maison racine qui règne sur un
   pays dont la table déclare un suzerain sert la tête de ce pays suzerain, sans
   entrer dans le registre (Valois-Bourgogne relève de Valois au titre de la France,
-  Visconti de Luxembourg au titre du Saint-Empire) ;
+  Gediminides de Jagellon au titre de la Pologne). Un prince d'Empire n'a pas de
+  suzerain : son `ensemble` se lit dans la fiche du pays de `/terres` ;
 - `ville` `{batie, scene, raison}` : `batie` dit si la capitale a une ville bâtie
   en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas.
 

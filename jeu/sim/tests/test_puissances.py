@@ -65,8 +65,8 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 49 <= puissances_lues == len(brut["puissances"]) <= 50
-    assert 83 <= ancres_lues == len(brut["ancres"]) <= 90
+    assert 81 <= puissances_lues == len(brut["puissances"]) <= 82
+    assert 115 <= ancres_lues == len(brut["ancres"]) <= 120
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
 def _alterer(document, cas, id_navarre):
@@ -146,7 +146,7 @@ def _compter_ancrage(table):
 def test_ancrage_dans_la_carte(tmp_path):
     assert _compter_ancrage(charger_table()) == (0, 0)
     document = _document()
-    document["ancres"].append({"id": 24, "puissance": 1, "nom": "Calais", "lat": 50.95, "lon": 1.86, "source": "contre-épreuve"})
+    document["ancres"].append({"id": max(a["id"] for a in document["ancres"]) + 1, "puissance": 1, "nom": "Calais", "lat": 50.95, "lon": 1.86, "source": "contre-épreuve"})
     calais = _compter_ancrage(charger_table(_ecrire(tmp_path, document)))
     document = _document()
     paris = next(a for a in document["ancres"] if a["nom"] == "Paris")
@@ -324,14 +324,19 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     assert couvertes + non_couvertes == len(monde.cells)
     assert couvertes > 0 and non_couvertes > 0
     assert {valeur for valeur in vue.values() if valeur is not None} <= ids_puissances
-    # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée : Venise ne tient
-    # aucune cellule entière, seulement des lieux du Trévisan.
+    # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée, sauf le
+    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan. Le Brandebourg tient
+    # la cellule de la Nouvelle-Marche, où Josse a sa capitale ; celle de Berlin a pour bourg Wittenberg,
+    # capitale de la Saxe.
     lieux = puissances_des_lieux(monde)
     sans_cellule = [p.nom for p in table.puissances if p.id not in vue.values()]
     for puissance in table.puissances:
-        assert puissance.id in vue.values() or puissance.id in lieux.values(), puissance.nom
+        if puissance.nom != "Saint-Empire":
+            assert puissance.id in vue.values() or puissance.id in lieux.values(), puissance.nom
+    empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")
+    assert empire not in vue.values() and empire not in lieux.values()
     print(f"puissances_sans_cellule={sans_cellule}")
-    assert sans_cellule == ["Venise"]
+    assert sans_cellule == ["Saint-Empire", "Venise"]
 
     facteur = facteur_de_projection(latitude)
     carres = []
@@ -414,7 +419,7 @@ def test_lecture_des_douze_ajouts(tmp_path):
     attendues = {
         "Venise", "Milan", "Florence", "Gênes", "États de l'Église", "Naples",
         "Sicile", "Savoie", "Union de Kalmar", "Ordre teutonique",
-        "Pologne-Lituanie", "Hongrie",
+        "Pologne", "Hongrie",
     }
 
     def compter(table):
@@ -422,8 +427,8 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 49 <= len(table.puissances) == len(document["puissances"]) <= 50
-        assert 83 <= len(table.ancres) == len(document["ancres"]) <= 90
+        assert 81 <= len(table.puissances) == len(document["puissances"]) <= 82
+        assert 115 <= len(table.ancres) == len(document["ancres"]) <= 120
 
     table = charger_table()
     verifier_bornes(table, _document())
@@ -468,7 +473,7 @@ def test_nouvelles_puissances_connues(tmp_path):
         "Venise": "république", "Milan": "principauté", "Florence": "république",
         "Gênes": "république", "États de l'Église": "Église", "Naples": "royaume",
         "Sicile": "royaume", "Savoie": "principauté", "Union de Kalmar": "royaume",
-        "Ordre teutonique": "ordre", "Pologne-Lituanie": "royaume", "Hongrie": "royaume",
+        "Ordre teutonique": "ordre", "Pologne": "royaume", "Hongrie": "royaume",
     }
 
     def connues(table):
@@ -501,7 +506,7 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
         "Gênes": (44.41, 8.93), "Naples": (40.85, 14.27),
         "Sicile": (38.12, 13.36), "Savoie": (45.57, 5.92),
         "Union de Kalmar": (55.68, 12.57), "Ordre teutonique": (54.04, 19.03),
-        "Pologne-Lituanie": (50.06, 19.94), "Hongrie": (47.50, 19.04),
+        "Pologne": (50.06, 19.94), "Hongrie": (47.50, 19.04),
     }
     cellules = {nom: _cellule_la_plus_proche(point, positions, latitude)
                 for nom, point in points.items()}
@@ -526,8 +531,8 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     declarees = charger_frontieres().declarees()
     assert {cellules[nom] for nom in ("Venise", "Milan", "Florence", "Gênes", "États de l'Église",
                                       "Naples", "Sicile", "Savoie")} <= declarees
-    assert declarees.isdisjoint(cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique",
-                                                          "Pologne-Lituanie", "Hongrie"))
+    # Le Nord et l'Est sont aussi de la table : l'Union, l'Ordre, la Pologne et la Hongrie.
+    assert {cellules[nom] for nom in ("Union de Kalmar", "Ordre teutonique", "Pologne", "Hongrie")} <= declarees
     par_ancre = _par_ancre(monde, table)
     assert {nom: puissance_de_cellule(cellules[nom], par_ancre, table).nom
             for nom in ("Venise", "Milan")} == {"Venise": "Venise", "Milan": "Milan"}
@@ -608,7 +613,7 @@ def test_lecture_des_quinze_ajouts_orientaux(tmp_path):
     ajouts_lus = compter(table)
     print(f"ajouts_lus={ajouts_lus}")
     assert ajouts_lus == len(ORIENT_CONNU) == 15
-    lituanie = next(p.id for p in table.puissances if p.nom == "Pologne-Lituanie")
+    lituanie = next(p.id for p in table.puissances if p.nom == "Lituanie")
     assert {"Kiev", "Smolensk"} <= {a.nom for a in table.ancres if a.puissance == lituanie}
     document = _document()
     byzance = next(p for p in document["puissances"] if p["nom"] == "Byzance")
@@ -671,7 +676,7 @@ def test_geographie_et_compte_des_puissances_orientales():
         "Pskov": (57.82, 28.33, "Pskov"), "Qırq Yer": (44.74, 33.88, "Horde d'Or"),
         "Tunis": (36.81, 10.18, "Hafsides"), "Tlemcen": (34.88, -1.32, "Zayyanides"),
         "Fès": (34.03, -5.00, "Mérinides"), "Nicosie": (35.17, 33.36, "Chypre"),
-        "Rhodes": (36.43, 28.22, "Hospitaliers"), "Kiev": (50.45, 30.52, "Pologne-Lituanie"),
+        "Rhodes": (36.43, 28.22, "Hospitaliers"), "Kiev": (50.45, 30.52, "Lituanie"),
     }
     cellules = {nom: _cellule_la_plus_proche((lat, lon), positions, latitude)
                 for nom, (lat, lon, _) in points.items()}
@@ -710,7 +715,9 @@ def test_lacunes_expliquent_toutes_les_cellules_non_couvertes():
     monde, positions = World.charger(0), charger_positions()
     vue, lacunes = puissances_depuis_monde(monde), charger_lacunes()
     portee, latitude = charger_portee(), charger_latitude_moyenne_puissances()
-    assert len(lacunes) == 8 and all(l.raison.strip() for l in lacunes)
+    # Les points des Shetland, des Féroé, de la Finlande, de Hiiumaa et de la Dalécarlie ont disparu :
+    # la table des frontières déclare leurs cellules. Restent ceux du Maghreb et de la Libye.
+    assert len(lacunes) == 3 and all(l.raison.strip() for l in lacunes)
     assert tuple(l.id for l in lacunes) == tuple(sorted(l.id for l in lacunes))
 
     # Une cellule non couverte est expliquée par la table des frontières quand elle la décide : sa lacune,
@@ -922,7 +929,10 @@ def test_ancre_contenue_carte():
     ids = {p.nom: p.id for p in table.puissances}
     assert [vue[c] for c in (10374, 10032, 10366)] == [ids["Byzance"], ids["Byzance"], ids["Ottomans"]]
     assert [par_ancre[c] for c in (10374, 10032, 10366)] == [vue[c] for c in (10374, 10032, 10366)]
-    assert [c for c in par_ancre if par_ancre[c] != ancienne[c]] == [10374]
+    # Hors de la table, seule la cellule de Constantinople change ; dans la table, celle de Bruxelles, où
+    # l'ancre du Brabant est contenue sans être la plus proche du centroïde.
+    assert [c for c in par_ancre if par_ancre[c] != ancienne[c]] == [10374, 10427]
+    assert 10427 in declarees
     # Ces trois cellules ne sont pas de la table : l'ancre les décide, et la table décide les autres.
     assert declarees.isdisjoint((10374, 10032, 10366))
     assert [c for c in vue if c not in declarees and vue[c] != par_ancre[c]] == []
@@ -933,10 +943,11 @@ def test_ancre_contenue_carte():
     assert hors == {(25, "Venise"), (37, "Copenhague")}
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (24, 48)
-    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 207, dont 7 sans pays.
+    # 565 cellules couvertes et 31 sans pays par l'ancre seule ; la table en décide 428, dont 16 sans pays :
+    # ses lacunes et les cellules dont le bourg est d'une ville sans pays.
     comptes_ancre = Counter(par_ancre.values())
     assert (sum(p is not None for p in par_ancre.values()), comptes_ancre[None]) == (565, 31)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (558, 38)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (571, 25)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
