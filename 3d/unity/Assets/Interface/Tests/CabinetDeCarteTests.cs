@@ -306,7 +306,7 @@ namespace Forge.Interface.Tests
         // Une carte témoin posée pour de bon, sans service : une terre carrée de 10 km par numéro, d'ouest en est.
         void Dessiner(params long[] ids)
         {
-            carte = racine.GetComponent<CarteDessinee>(); carte.Montrer(new CarteLue(ids.Length, ids.Select((id, rang) => Carre(id, rang * 10000d)).ToArray()));
+            carte = racine.GetComponent<CarteDessinee>(); var lue = new CarteLue(ids.Length, ids.Select((id, rang) => Carre(id, rang * 10000d)).ToArray()); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
             Assert.That(carte.CellulesPosees, Is.EqualTo(ids.Length), "la carte témoin n'est pas posée");
         }
         static CelluleDeCarte Carre(long id, double x)

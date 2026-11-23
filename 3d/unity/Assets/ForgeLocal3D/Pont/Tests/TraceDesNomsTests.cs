@@ -12,7 +12,9 @@ using UnityEngine;
 namespace Forge.Pont.Tests {
     // Le tracé du nom d'un pays, tiré de la forme de sa terre : couché sur son grand axe, creusé comme elle, tenu sur
     // son plus grand morceau, et d'autant plus grand que la terre est étendue. Les terres témoins sont des carrés de
-    // 10 km ; la carte figée, lue par ClientCarte, donne les puissances de 1400 pour pays.
+    // 10 km, chacun d'un seul lieu ; la carte figée, lue par ClientCarte, donne les puissances de 1400 pour pays. Un nom
+    // suit le pays des cellules : sur la carte entière, chaque cellule se lève de son seul contour ; sur l'Ouest, de ses
+    // lieux servis.
     public sealed class TraceDesNomsTests {
         private const double COTE = 10000;
         // Ce que six capitales avancent chacune, en corps : un nom de six lettres.
@@ -27,7 +29,7 @@ namespace Forge.Pont.Tests {
         }
         // Le terrain de terres carrées et le tracé de leurs pays : `pays[k]` est le pays de la k-ième terre.
         private static Dictionary<int, TraceDeNom> Tracer(out TerrainDeCarte terrain, int[] pays, params (int colonne, int ligne)[] terres) {
-            terrain = TerrainDeCarte.Lever(new CarteLue(terres.Length, terres.Select((t, k) => Carre(k + 1, t.colonne, t.ligne)).ToArray()));
+            terrain = FormesDeTest.Lever(new CarteLue(terres.Length, terres.Select((t, k) => Carre(k + 1, t.colonne, t.ligne)).ToArray()));
             return TraceDesNoms.Tracer(terrain, pays);
         }
         // Le point local, en km, d'un point donné en dizaines de km des terres témoins.
@@ -93,7 +95,7 @@ namespace Forge.Pont.Tests {
             var est = new[] { new PointCarte(63000, 0), new PointCarte(123000, 0), new PointCarte(123000, 10000), new PointCarte(63000, 10000), new PointCarte(63000, 0) };
             var nord = new[] { new PointCarte(60000, 7000), new PointCarte(63000, 7000), new PointCarte(63000, 10000), new PointCarte(60000, 10000), new PointCarte(60000, 7000) };
             var sud = new[] { new PointCarte(60000, 0), new PointCarte(63000, 0), new PointCarte(63000, 3000), new PointCarte(60000, 3000), new PointCarte(60000, 0) };
-            TerrainDeCarte troue = TerrainDeCarte.Lever(new CarteLue(4, new[] { ouest, est, nord, sud }.Select((anneau, k) =>
+            TerrainDeCarte troue = FormesDeTest.Lever(new CarteLue(4, new[] { ouest, est, nord, sud }.Select((anneau, k) =>
                 new CelluleDeCarte(k + 1, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0])).ToArray()));
             TraceDeNom bande = TraceDesNoms.Tracer(troue, new int[4])[0];
             Assert.That(troue.CelluleEn(bande.Centre.x, bande.Centre.y), Is.Zero, "échantillon vide : le milieu de la bande n'est pas un lac");
@@ -139,7 +141,7 @@ namespace Forge.Pont.Tests {
             // Une terre de 600 km de côté fait lire le terrain un texel sur deux ; la terre de 4 km d'à côté est relue texel par texel.
             var grande = new[] { new PointCarte(0, 0), new PointCarte(600000, 0), new PointCarte(600000, 600000), new PointCarte(0, 600000), new PointCarte(0, 0) };
             var petite = new[] { new PointCarte(600000, 0), new PointCarte(604000, 0), new PointCarte(604000, 4000), new PointCarte(600000, 4000), new PointCarte(600000, 0) };
-            var terrain = TerrainDeCarte.Lever(new CarteLue(2, new[] {
+            var terrain = FormesDeTest.Lever(new CarteLue(2, new[] {
                 new CelluleDeCarte(1, new[] { new PolygoneDeCarte(grande, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0]),
                 new CelluleDeCarte(2, new[] { new PolygoneDeCarte(petite, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0]) }));
             Assert.That(terrain.TexelsDe(0), Is.GreaterThan(TraceDesNoms.ECHANTILLONS_VISES), "échantillon vide : le grand pays se lit texel par texel");
@@ -193,6 +195,31 @@ namespace Forge.Pont.Tests {
             Assert.That(plusGrand, Is.GreaterThan(4f * plusPetit), "les noms ne suivent pas l'étendue des puissances");
         }
 
+        // Sur le terrain des lieux de l'Ouest, chaque puissance servie porte son nom sur sa terre : les lieux d'une
+        // cellule portent le nom du pays de leur cellule.
+        [Test] public void Sur_le_terrain_des_lieux_chaque_puissance_a_son_trace_sur_sa_terre() {
+            CarteLue carte = FormesDeTest.CarteOuest; TerrainDeCarte terrain = FormesDeTest.TerrainOuest;
+            var cles = new Dictionary<long, int>(); var pays = new int[carte.Cellules.Count];
+            for (int r = 0; r < pays.Length; r++) {
+                IdentiteDeCarte puissance = carte.Cellules[r].Puissance;
+                if (puissance == null) { pays[r] = -1; continue; }
+                if (!cles.TryGetValue(puissance.Id, out int k)) { k = cles.Count; cles.Add(puissance.Id, k); }
+                pays[r] = k;
+            }
+            Assert.That(cles.Count, Is.GreaterThanOrEqualTo(6), "échantillon vide : l'Ouest ne sert presque aucune puissance");
+            Assert.That(terrain.NombreDeLieux, Is.GreaterThan(carte.Cellules.Count * 5), "échantillon vide : les cellules de l'Ouest n'ont pas leurs lieux");
+            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(terrain, pays);
+            Assert.That(traces.Keys, Is.EquivalentTo(cles.Values), "une puissance qui tient une terre n'a pas de tracé");
+            int lettres = 0, chezElle = 0;
+            foreach (KeyValuePair<int, TraceDeNom> paire in traces) {
+                TraceDeNom trace = paire.Value; NomCompose nom = trace.Composer(SIX_LETTRES);
+                Assert.That(nom, Is.Not.Null, "la puissance " + paire.Key + " n'a nulle part où écrire son nom");
+                Assert.That(Chez(terrain, pays, paire.Key, trace.Point(trace.Debut)) && Chez(terrain, pays, paire.Key, trace.Point(trace.Fin)), Is.True, "un bout du tracé de la puissance " + paire.Key + " est hors de sa terre");
+                lettres += 6; chezElle += nom.Lettres.Count(l => Chez(terrain, pays, paire.Key, l.Point));
+            }
+            Assert.That(chezElle, Is.GreaterThanOrEqualTo(lettres * 9 / 10), "plus d'une lettre sur dix est écrite hors de la terre de son pays");
+        }
+
         private static void Figer() {
             if (_terrain != null) return;
             byte[] octets = File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json");
@@ -211,7 +238,7 @@ namespace Forge.Pont.Tests {
                 using (var client = new ClientCarte(port, ClientCarte.DelaiMinimal))
                 { var lecture = client.Lire(); Assert.IsTrue(lecture.Presente, lecture.Absence); _carte = lecture.Carte; }
             } finally { ecoute.Close(); fil.Join(TimeSpan.FromSeconds(5)); }
-            _terrain = TerrainDeCarte.Lever(_carte);
+            _terrain = FormesDeTest.Lever(_carte);
         }
     }
 }

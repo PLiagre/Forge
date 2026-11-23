@@ -40,7 +40,7 @@ namespace Forge.Pont.Tests {
 
         private void Servir() {
             monde = Monde(1);
-            byte[] carteServie = Fixture; string lieuServi = LieuServi; var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
+            byte[] carteServie = Fixture, formesServies = FormesDeTest.UnLieuParCelluleServi(carteServie); string lieuServi = LieuServi; var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
             (fil = new Thread(() => {
                 try { while (true) {
                     HttpListenerContext ctx = auditeur.GetContext(); bool estCarte = ctx.Request.Url.AbsolutePath == "/carte";
@@ -48,6 +48,7 @@ namespace Forge.Pont.Tests {
                         ctx.Response.StatusCode = 200;
                         ctx.Response.Close(Encoding.UTF8.GetBytes(lieuServi.Replace("\"cell_id\":9922", "\"cell_id\":" + ctx.Request.QueryString["cell"])), true); continue;
                     }
+                    if (ctx.Request.Url.AbsolutePath == "/formes") { ctx.Response.StatusCode = 200; ctx.Response.Close(formesServies, true); continue; }
                     byte[] corps = estCarte ? carteServie : Encoding.UTF8.GetBytes(monde);
                     ctx.Response.StatusCode = estCarte ? 200 : statutMonde; ctx.Response.Close(corps, true);
                 } } catch (Exception) { }

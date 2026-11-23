@@ -173,6 +173,14 @@ namespace Forge.Interface
                     Color servie = guerre?.CouleurDe(paire.Key) ?? paire.Value; // le pays servi, sinon la puissance relevée au dessin
                     carte.Rattacher(paire.Key, guerre?.Terres != null ? guerre.Terres.PaysDe(paire.Key) : departs[paire.Key], Lisere(servie)); // la frontière suit le même pays que la teinte
                     carte.Teinter(paire.Key, Teinte(mode, paire.Key == retenu, servie, repartition?.Position(paire.Key) ?? 0f));
+                    // Un lieu d'un autre pays que sa terre prend la couleur et le pays du sien, par la même règle qu'une cellule.
+                    if (guerre?.Terres != null)
+                        foreach (var lieu in guerre.Terres.AutresPaysDe(paire.Key))
+                        {
+                            Color couleurDuLieu = CarteDeLaGuerre.CouleurDuPays(lieu.Pays);
+                            carte.RattacherLieu(paire.Key, lieu.Rang, lieu.Pays, Lisere(couleurDuLieu));
+                            carte.TeinterLieu(paire.Key, lieu.Rang, Teinte(mode, paire.Key == retenu, couleurDuLieu, repartition?.Position(paire.Key) ?? 0f));
+                        }
                 }
                 Recrire(repartition); repartie = repartition;
             }

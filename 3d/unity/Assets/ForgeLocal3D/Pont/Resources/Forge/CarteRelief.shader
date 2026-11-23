@@ -1,9 +1,11 @@
-// Le terrain de la carte, d'un seul tenant. La teinte de chaque cellule se lit dans la palette par le numéro de son
-// texel. Les traits ne viennent pas de la grille mais des distances mesurées aux côtés servis (`_Bords`, `_Frontieres`) :
-// entre quatre texels voisins, la distance signée à un bord se lit comme une pente, et le trait se pose là où elle
-// s'annule, large d'un nombre de pixels choisi. Un bord de cellule, une côte, une frontière restent donc des traits
-// nets à tout zoom, jamais un escalier. Du sol vers le dessus : la teinte, le liseré du pays le long de sa frontière,
-// le bord des cellules, la frontière, les lignes d'eau au large du rivage, la côte.
+// Le terrain de la carte, d'un seul tenant. La teinte de chaque lieu se lit dans la palette par le numéro de son
+// texel, et son pays dans la table des pays à la même case. Les traits ne viennent pas de la grille mais des distances
+// mesurées aux côtés servis (`_Bords`, `_Frontieres`) : entre quatre texels voisins, la distance signée à un bord se lit
+// comme une pente, et le trait se pose là où elle s'annule, large d'un nombre de pixels choisi. Un bord de lieu, une
+// côte, une frontière restent donc des traits nets à tout zoom, jamais un escalier. Du sol vers le dessus : la teinte,
+// le liseré du pays le long de sa frontière, le bord des lieux, la frontière, les lignes d'eau au large du rivage, la
+// côte. Le bord des lieux est un trait léger de près, qui s'efface quand un pixel couvre plus de `BORD_LOIN_KM` : de
+// loin, seules les frontières et la côte restent.
 // Le relief ombre la terre d'une lumière fixe du nord-ouest et pâlit les cimes ; la mer s'éclaircit vers le rivage et
 // rend au large la couleur exacte de `_Mer`, celle du fond de la caméra. Rien n'est éclairé par la scène : la carte
 // est mate. La lumière est un peu chaude sur les versants éclairés, un peu froide dans l'ombre. De près, quand un pixel
@@ -15,21 +17,21 @@ Shader "Forge/CarteRelief"
 {
     Properties
     {
-        [NoScaleOffset] _Cellules("Cellules", 2D) = "black" {}
+        [NoScaleOffset] _Lieux("Lieux", 2D) = "black" {}
         [NoScaleOffset] _Palette("Palette", 2D) = "black" {}
         [NoScaleOffset] _Relief("Relief", 2D) = "black" {}
-        [NoScaleOffset] _Bords("Distances au bord de la cellule et à la côte", 2D) = "white" {}
+        [NoScaleOffset] _Bords("Distances au bord du lieu et à la côte", 2D) = "white" {}
         [NoScaleOffset] _Frontieres("Distances à la frontière", 2D) = "white" {}
-        [NoScaleOffset] _Pays("Pays de chaque cellule", 2D) = "black" {}
+        [NoScaleOffset] _Pays("Pays de chaque lieu", 2D) = "black" {}
         [NoScaleOffset] _TeintesDesPays("Teinte de chaque pays", 2D) = "black" {}
         _Mer("Mer au large", Color) = (0.08, 0.16, 0.3, 1)
         _Rivage("Mer au rivage", Color) = (0.2, 0.3, 0.42, 1)
         _Roche("Cimes", Color) = (0.85, 0.83, 0.78, 1)
         _EncreDesCotes("Encre des côtes", Color) = (0.1, 0.08, 0.06, 1)
-        _EncreDesBords("Encre des bords de cellules", Color) = (0.1, 0.08, 0.06, 1)
+        _EncreDesBords("Encre des bords de lieux", Color) = (0.1, 0.08, 0.06, 1)
         _EncreDesFrontieres("Encre des frontières", Color) = (0.1, 0.08, 0.06, 1)
         _EncreDesEaux("Encre des lignes d'eau", Color) = (0.5, 0.6, 0.7, 1)
-        _Pas("Pas des cellules, en km", Float) = 1
+        _Pas("Pas des lieux, en km", Float) = 1
         _PorteeDesBords("Portée des distances aux bords, en km", Float) = 12
         _PorteeDesFrontieres("Portée des distances aux frontières, en km", Float) = 16
         _PasDuRelief("Pas du relief, en km", Float) = 2
@@ -47,7 +49,7 @@ Shader "Forge/CarteRelief"
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         CBUFFER_START(UnityPerMaterial)
-            float4 _Cellules_TexelSize, _Palette_TexelSize, _Relief_TexelSize;
+            float4 _Lieux_TexelSize, _Palette_TexelSize, _Relief_TexelSize;
             float4 _Mer, _Rivage, _Roche, _EncreDesCotes, _EncreDesBords, _EncreDesFrontieres, _EncreDesEaux;
             float4 _Table, _Filet, _Cadre;
             float _Pas, _PorteeDesBords, _PorteeDesFrontieres, _PasDuRelief, _Fond, _Plafond, _Vigueur, _Grain;
@@ -64,7 +66,7 @@ Shader "Forge/CarteRelief"
             #pragma target 4.5
             #pragma vertex Vert
             #pragma fragment Frag
-            TEXTURE2D(_Cellules); TEXTURE2D(_Palette); TEXTURE2D(_Relief); SAMPLER(sampler_Relief);
+            TEXTURE2D(_Lieux); TEXTURE2D(_Palette); TEXTURE2D(_Relief); SAMPLER(sampler_Relief);
             TEXTURE2D(_Bords); TEXTURE2D(_Frontieres); TEXTURE2D(_Pays); TEXTURE2D(_TeintesDesPays);
             static const float3 LUMIERE = float3(-0.5145, 0.686, 0.5145); // du nord-ouest, à mi-hauteur
             // En km : sous ce plancher, un texel posé sur un bord ne dit plus de quel côté il est.
@@ -73,6 +75,8 @@ Shader "Forge/CarteRelief"
             // côte ont une demi-largeur en km, et jamais moins que leur demi-largeur en pixels.
             static const float LISERE_PX = 18.0, LISERE_MIN_KM = 2.5, LISERE_MAX_KM = 14.0, FORCE_DU_LISERE = 0.8;
             static const float FRONTIERE_KM = 0.3, FRONTIERE_PX = 1.1, COTE_KM = 0.18, COTE_PX = 0.7, BORD_PX = 0.5;
+            // Le bord des lieux : sa force de près, et les km par pixel où il commence à s'effacer, puis a disparu.
+            static const float BORD_PRES = 0.45, BORD_PRES_KM = 0.35, BORD_LOIN_KM = 1.4;
             // Les lignes d'eau, en km du rivage, et ce que chacune couvre de la mer ; elles s'effacent quand un pixel
             // dépasse le km, où elles se toucheraient.
             static const float3 EAUX_KM = float3(2.5, 5.5, 9.0), EAUX = float3(0.34, 0.22, 0.12);
@@ -119,15 +123,15 @@ Shader "Forge/CarteRelief"
             half4 Frag(V i) : SV_Target
             {
                 // Les quatre texels autour du point, le poids de chacun, et ce que chaque grille dit d'eux.
-                float2 p = i.uv * _Cellules_TexelSize.zw - 0.5, base = floor(p), f = p - base;
-                int2 dernier = int2(_Cellules_TexelSize.zw) - 1; uint largeurPalette = (uint)_Palette_TexelSize.z;
+                float2 p = i.uv * _Lieux_TexelSize.zw - 0.5, base = floor(p), f = p - base;
+                int2 dernier = int2(_Lieux_TexelSize.zw) - 1; uint largeurPalette = (uint)_Palette_TexelSize.z;
                 float poids[4] = { (1 - f.x) * (1 - f.y), f.x * (1 - f.y), (1 - f.x) * f.y, f.x * f.y };
                 float numero[4], pays[4], bord[4], cote[4], frontiere[4], s[4], vote[4]; float4 teinte[4];
                 int k, a;
                 for (k = 0; k < 4; k++)
                 {
                     int2 q = clamp(int2(base) + int2(k & 1, k >> 1), int2(0, 0), dernier);
-                    numero[k] = round(LOAD_TEXTURE2D(_Cellules, q).r * 65535.0);
+                    numero[k] = round(LOAD_TEXTURE2D(_Lieux, q).r * 65535.0);
                     uint n = (uint)numero[k]; int2 rangee = int2(n % largeurPalette, n / largeurPalette);
                     teinte[k] = LOAD_TEXTURE2D(_Palette, rangee);
                     pays[k] = round(LOAD_TEXTURE2D(_Pays, rangee).r * 65535.0);
@@ -136,12 +140,12 @@ Shader "Forge/CarteRelief"
                     frontiere[k] = _PorteeDesFrontieres * v * v;
                 }
                 // Le point, en km de la carte, et ce qu'un pixel de l'écran en couvre.
-                float2 km = i.uv * _Cellules_TexelSize.zw * _Pas, dx = ddx(km), dy = ddy(km);
+                float2 km = i.uv * _Lieux_TexelSize.zw * _Pas, dx = ddx(km), dy = ddy(km);
                 float kmParPixel = max(max(length(dx), length(dy)), 1e-6);
 
-                // La cellule du point : celle dont la distance signée à son bord, lue entre les quatre texels, est la
-                // plus grande ; la suivante est celle d'en face, et quand les quatre texels sont de la même cellule,
-                // elle n'a pas de voisine ici.
+                // Le lieu du point : celui dont la distance signée à son bord, lue entre les quatre texels, est la
+                // plus grande ; le suivant est celui d'en face, et quand les quatre texels sont du même lieu, il n'a
+                // pas de voisin ici.
                 for (a = 0; a < 4; a++)
                 {
                     vote[a] = 0;
@@ -171,7 +175,7 @@ Shader "Forge/CarteRelief"
                 float cime = smoothstep(0.5 * _Plafond, 0.9 * _Plafond, h);
                 float3 mer = lerp(_Rivage.rgb, _Mer.rgb, saturate(-h / _Fond));
 
-                // La teinte de la cellule, fondue sur un pixel dans celle d'en face ; une cellule sans teinte rend la mer.
+                // La teinte du lieu, fondue sur un pixel dans celle d'en face ; un lieu sans teinte rend la mer.
                 bool terre = teinte[ici].a > 0.5;
                 float3 couleur = terre ? lerp(teinte[ici].rgb, _Roche.rgb, 0.4 * cime) * ombre : mer;
                 if (voisine)
@@ -180,7 +184,7 @@ Shader "Forge/CarteRelief"
                     couleur = lerp(autre, couleur, saturate(0.5 + auBord.px));
                 }
 
-                // La frontière du pays qui tient le point : la mer et les cellules sans teinte ne lui en font pas.
+                // La frontière du pays qui tient le point : la mer et les lieux sans teinte ne lui en font pas.
                 float lePays = pays[ici];
                 for (k = 0; k < 4; k++) s[k] = frontiere[k] * ((pays[k] == lePays || teinte[k].a < 0.5) ? 1.0 : -1.0);
                 Lecture aLaFrontiere = Lire(s, poids, f, dx, dy);
@@ -189,9 +193,9 @@ Shader "Forge/CarteRelief"
                 float bande = saturate(1.0 - aLaFrontiere.brute / clamp(LISERE_PX * kmParPixel, LISERE_MIN_KM, LISERE_MAX_KM));
                 float surTerre = terre ? 1.0 : 0.0;
                 couleur = lerp(couleur, teinteDuPays * ombre, surTerre * (c > 0 ? 1.0 : 0.0) * FORCE_DU_LISERE * bande);
-                // Le bord entre deux cellules de terre, plus discret quand la carte s'éloigne.
+                // Le bord entre deux lieux de terre, léger de près, effacé de loin.
                 float entreTerres = voisine && teinte[enFace].a > 0.5 ? surTerre : 0.0;
-                couleur = lerp(couleur, _EncreDesBords.rgb, entreTerres * lerp(0.5, 0.22, saturate((kmParPixel - 0.3) / 1.5)) * Trait(auBord.px, BORD_PX));
+                couleur = lerp(couleur, _EncreDesBords.rgb, entreTerres * BORD_PRES * (1.0 - smoothstep(BORD_PRES_KM, BORD_LOIN_KM, kmParPixel)) * Trait(auBord.px, BORD_PX));
                 couleur = lerp(couleur, _EncreDesFrontieres.rgb, surTerre * _EncreDesFrontieres.a * Trait(aLaFrontiere.px, max(FRONTIERE_PX, FRONTIERE_KM / kmParPixel)));
 
                 // La côte, et au large les lignes d'eau qui la suivent.

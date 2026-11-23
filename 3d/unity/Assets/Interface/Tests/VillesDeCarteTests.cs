@@ -20,7 +20,7 @@ namespace Forge.Interface.Tests
             racine = new GameObject("Carte des villes témoin", typeof(CarteDessinee)); carte = racine.GetComponent<CarteDessinee>(); ecran = new RenderTexture(1600, ECRAN_PX, 16);
             camera = new GameObject("Caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.targetTexture = ecran;
             camera.orthographic = true; camera.orthographicSize = 20; camera.transform.SetPositionAndRotation(new Vector3(0, 100, 0), Quaternion.Euler(90, 0, 0)); carte.camera = camera;
-            carte.Montrer(new CarteLue(3, VILLES.Select((v, k) => Carre(10 * (k + 1), 40000 * k, new VilleDeCarte(v.nom, v.habitants, new PointCarte(v.x, 20000)))).ToArray()));
+            var lue = new CarteLue(3, VILLES.Select((v, k) => Carre(10 * (k + 1), 40000 * k, new VilleDeCarte(v.nom, v.habitants, new PointCarte(v.x, 20000)))).ToArray()); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
             Assert.That(carte.CellulesPosees, Is.EqualTo(3), "la carte témoin n'est pas posée");
             villes = racine.AddComponent<VillesDeCarte>(); villes.Installer();
         }

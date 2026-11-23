@@ -37,7 +37,7 @@ namespace Forge.Pont.Tests {
             + s.x.ToString("R", CultureInfo.InvariantCulture) + ",\"y_m\":" + s.y.ToString("R", CultureInfo.InvariantCulture) + "}},\"lieux\":["
             + string.Join(",", Enumerable.Range(0, 4).Select(r => "{\"cell_id\":" + s.cell + ",\"rang\":" + r + "}")) + "],\"absents\":{}}";
         private void Servir() {
-            byte[] carteServie = Fixture("carte-graine0.json"), departsServis = Fixture("departs-graine0-tick3.json");
+            byte[] carteServie = Fixture("carte-graine0.json"), formesServies = FormesDeTest.UnLieuParCelluleServi(carteServie), departsServis = Fixture("departs-graine0-tick3.json");
             var auditeur = ecoute = new HttpListener(); auditeur.Prefixes.Add("http://127.0.0.1:" + port + "/"); auditeur.Start();
             (fil = new Thread(() => {
                 try { while (true) {
@@ -45,7 +45,7 @@ namespace Forge.Pont.Tests {
                     string depose = ici == "/intention" ? new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd() : null;
                     if (depose != null) { lock (recues) deposes.Add(depose); Thread.Sleep(lenteurIntention); }
                     var (statut, corps) = depose != null ? (reponses.TryDequeue(out var r) ? (r.statut, Encoding.UTF8.GetBytes(r.corps)) : (404, Encoding.UTF8.GetBytes("{\"erreur\":\"aucune réponse prévue\"}")))
-                        : ici == "/carte" ? (200, carteServie) : ici == "/departs" ? (statutDeparts, statutDeparts == 200 ? departsServis : Encoding.UTF8.GetBytes("{\"erreur\":\"panne\"}"))
+                        : ici == "/carte" ? (200, carteServie) : ici == "/formes" ? (200, formesServies) : ici == "/departs" ? (statutDeparts, statutDeparts == 200 ? departsServis : Encoding.UTF8.GetBytes("{\"erreur\":\"panne\"}"))
                         : maisons.TryGetValue(ici, out var m) ? (m.statut, Encoding.UTF8.GetBytes(m.corps)) : (404, Encoding.UTF8.GetBytes("{\"erreur\":\"maison inconnue\"}"));
                     ctx.Response.StatusCode = statut; ctx.Response.Close(corps, true);
                 } } catch (Exception) { }
@@ -85,9 +85,9 @@ namespace Forge.Pont.Tests {
                 cellules.Add(f.CellId); Assert.AreEqual(1, Recues("/maison?id=seigneurie-" + f.Id), f.Nom);
             }
             Assert.IsTrue(cellules.Count == 6 && carte.CellulesPosees == 596 && carte.Lue.Cellules.All(c => carte.TeinteDe(c.CellId) != ReperesDeDepart.COULEUR_REPERE), "des terres partagent une cellule, ou une cellule a la couleur des repères");
-            Assert.IsTrue(Recues("/departs") == 1 && Recues() == 2 + fiches.Count && reperes.TexteAffiche == null, Recues() + " requêtes ; " + reperes.TexteAffiche);
+            Assert.IsTrue(Recues("/departs") == 1 && Recues() == 3 + fiches.Count && reperes.TexteAffiche == null, Recues() + " requêtes ; " + reperes.TexteAffiche);
             for (int i = 1; i <= 20; i++) { carte.Pas(1 + 3 * i); reperes.Pas(1 + 3 * i); Assert.IsFalse(reperes.LectureEnVol, "une lecture repart à " + (1 + 3 * i) + " s"); }
-            Thread.Sleep(100); Assert.IsTrue(Recues() == 2 + fiches.Count && reperes.ReperesPoses == 6, Recues() + " requêtes après vingt pas");
+            Thread.Sleep(100); Assert.IsTrue(Recues() == 3 + fiches.Count && reperes.ReperesPoses == 6, Recues() + " requêtes après vingt pas");
         }
         [TestCase("statut 404")] [TestCase("siège hors carte, ")]
         public void Une_maison_absente_se_dit_sans_repere(string cause) {
@@ -107,7 +107,7 @@ namespace Forge.Pont.Tests {
         }
         [Test] public void Sans_departs_aucun_repere_et_aucune_maison_demandee() {
             Servir(); Lues(out _); statutDeparts = 500; Poser(); Avancer(1);
-            Assert.IsTrue(reperes.ReperesPoses == 0 && objet.transform.Find(RACINE) == null && Recues("/departs") == 1 && Recues() == 2, reperes.ReperesPoses + " repères, " + Recues() + " requêtes");
+            Assert.IsTrue(reperes.ReperesPoses == 0 && objet.transform.Find(RACINE) == null && Recues("/departs") == 1 && Recues() == 3, reperes.ReperesPoses + " repères, " + Recues() + " requêtes");
             StringAssert.StartsWith(ReperesDeDepart.MESSAGE_ABSENCE + "\ndeparts : statut 500", reperes.TexteAffiche);
         }
         [Test] public void Le_pas_n_attend_pas_les_departs() {
@@ -119,7 +119,7 @@ namespace Forge.Pont.Tests {
         }
         // La fiche d'une terre au survol de son repère, telle que le faux service la sert.
         private const string FICHE_MOREE = "Despotat de Morée\nMaison : Paléologue\nSiège : Mistra, cellule 10340\nHabitants de la cellule : 80919 au tick 3\nSuzerain : Byzance\nVoisins :\n"
-            + "  cellule 10335, Byzance, 77525 habitants\n  cellule 10347, Byzance, 55393 habitants\nLieux tenus : 4";
+            + "  cellule 10335, aucune puissance nommée, 77525 habitants\n  cellule 10347, Venise, 55393 habitants\nLieux tenus : 4";
         private Transform Repere(FicheDeDepart f) => objet.transform.Find(RACINE + "/Repère " + f.Nom);
         private MaisonLue Maison(long id) { using (var m = new ClientMaison(port, ClientDeparts.DelaiMinimal)) { var l = m.Lire("seigneurie-" + id); Assert.IsTrue(l.Presente, l.Absence); return l.Donnees; } }
         [Test] public void Le_survol_d_un_repere_ouvre_la_fiche_servie_de_sa_terre() {

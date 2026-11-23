@@ -144,7 +144,12 @@ namespace Forge.Interface
         static string Cle(TerresDeLaCarte terres)
         {
             var sb = new StringBuilder();
-            foreach (var t in terres.Terres) sb.Append(t.CellId.ToString(CultureInfo.InvariantCulture)).Append(':').Append(t.Pays).Append(';');
+            foreach (var t in terres.Terres)
+            {
+                sb.Append(t.CellId.ToString(CultureInfo.InvariantCulture)).Append(':').Append(t.Pays);
+                foreach (var lieu in t.AutresPays) sb.Append(',').Append(lieu.Rang.ToString(CultureInfo.InvariantCulture)).Append(':').Append(lieu.Pays); // un lieu qui change seul de pays change la clé
+                sb.Append(';');
+            }
             foreach (var p in terres.Pays) sb.Append('|').Append(p.Id).Append('=').Append(p.Nom).Append('/').Append(p.Maison?.Nom);
             return sb.ToString();
         }
