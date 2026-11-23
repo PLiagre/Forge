@@ -698,9 +698,20 @@ def test_la_grange_achevee_change_les_departs_de_sa_cellule_au_tick_pres(depart,
 
 # --- L'IA pèse les trois par le même chemin ------------------------------------
 
-def _au_jour_de_sa_part(depart):
+def _place_lue(monde, cle, cid):
+    """La place d'une autre racine à portée de marche de la cellule, lue sur le monde sans sim/ia.py."""
+    from sim import guerre
+    par_id = {m.id: m for m in monde.maisons}
+    sienne = guerre.racine(par_id, cle)
+    return guerre.place_a_prendre(monde, cle, cid, guerre.charger_regles(),
+                                  lambda maitre: guerre.racine(par_id, maitre) != sienne)
+
+
+def _au_jour_de_sa_part(depart, place):
     """Une grande maison au grenier de 1e8, au jour de sa part, sa cellule vidée de grain.
 
+    La maison est la première qui tient sa capitale et qui a une place à prendre
+    (`place`) ou n'en a aucune (`not place`) : c'est la place qui ouvre la caserne.
     Toute la cellule est vidée (pas seulement son bourg) : sans cela, les foyers
     qui partent vont vers un champ de la même cellule et le solde y reste nul.
     Vide, elle voit partir ses foyers vers ses voisines et reçoit leur grain.
@@ -713,7 +724,8 @@ def _au_jour_de_sa_part(depart):
         engine.tick(monde, rng, numero)
     maisons = toutes_les_maisons_de_l_ia(monde)
     grande = next(m for m in maisons if m.sorte == "grande maison" and m.cell_id is not None
-                  and monde.cells[m.cell_id].lieux[0].maitre == f"grande-{m.id}")
+                  and monde.cells[m.cell_id].lieux[0].maitre == f"grande-{m.id}"
+                  and (_place_lue(monde, f"grande-{m.id}", m.cell_id) is not None) == place)
     cle = f"grande-{grande.id}"
     monde.greniers[cle][NOURRITURE] = 1e8
     cellule = monde.cells[grande.cell_id]
@@ -724,6 +736,7 @@ def _au_jour_de_sa_part(depart):
                 if ia._jour_de_la_part(cle, t))
     while monde.ticks_ecoules < jour:
         engine.tick(monde, rng, monde.ticks_ecoules)
+    assert (_place_lue(monde, cle, grande.cell_id) is not None) == place
     return monde, rng, maisons, grande, cle
 
 
@@ -757,7 +770,7 @@ def _memes_octets(un, autre):
 
 def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart):
     from sim.tests.test_monde import _controler_raisons_du_pays, _lire_batiment
-    monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
+    monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart, place=True)
     cid = grande.cell_id
     t = monde.ticks_ecoules
     # Le moulin d'abord : le grain nourrit tout le reste.
@@ -798,7 +811,8 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
         _controler_raisons_du_pays(faux, lectures)
 
     # Le moulin et la grange achevés : le marché, si la province commerce.
-    monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
+    monde, rng, maisons, grande, meme = _au_jour_de_sa_part(depart, place=True)
+    assert meme == cle and grande.cell_id == cid
     _bati(monde, cle, cid, "moulin")
     _bati(monde, cle, cid, "caserne")
     _bati(monde, cle, cid, "grange")
@@ -828,9 +842,11 @@ def test_l_ia_pese_le_moulin_la_grange_puis_le_marche_par_le_meme_chemin(depart)
 
 
 def test_l_ia_ne_propose_rien_pendant_un_chantier_ni_sans_raison(depart):
-    monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart)
+    monde, rng, maisons, grande, cle = _au_jour_de_sa_part(depart, place=False)
     cid = grande.cell_id
     _bati(monde, cle, cid, "moulin")
+    # Sans place à prendre à portée, pas de caserne : la grange vient après le moulin.
+    assert [e["intention"]["nature"] for e in _proposees(copy.deepcopy(monde), maisons, cle)] == ["grange"]
     _bati(monde, cle, cid, "caserne")
     # Un chantier de province en cours : un chantier à la fois.
     en_cours = copy.deepcopy(monde)
