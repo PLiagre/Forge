@@ -474,9 +474,10 @@ def _voisines_ia(document):
 def test_capitales_ia_sans(photographies, formes):
     import hashlib
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
-    # Les frontières suivent les formes des lieux, et les frontières de 1400 redessinent les pays de l'Ouest.
-    empreintes = ["04cf37b8e1dca07eca8000e9bb4c16a7b73f944ce53e56c568e0d107b6dd131b",
-                  "793e829832eace1305a71f05fe81d4c516d7fd905fec1e8559aeea0a1d69b9d2"]
+    # Les frontières suivent les formes des lieux, et les frontières de 1400 redessinent les pays de l'Ouest,
+    # de l'Empire, du Nord et de l'Est : 78 pays dessinés, 25 cellules sans puissance.
+    empreintes = ["b5147bb4e0aaa80a185120352d7e478dab5d550da9c88b986bf0fbf807a43ed9",
+                  "142f63db29aa5bd83f238e369076b0abf90215d1b87a5ed623e166a8b1abc428"]
     cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
     for document, empreinte in zip(photographies, empreintes):
         image, compte = _rendre(document, formes)
@@ -490,9 +491,9 @@ def test_capitales_ia_voisines(photographie_ia, formes):
     from vues.relief.carte1400 import COULEUR_CAPITALE, COULEUR_VOISINE, lignes_de_l_ia
     from vues.relief.raster import _vers_pixel
     document, reference = photographie_ia, _voisines_ia(photographie_ia)
-    # Les voisines de Bar sont celles de ses vrais voisins de 1400 : la Champagne (Valois) et les terres
-    # d'Empire de Lorraine, Metz et Luxembourg (Luxembourg, tête du Saint-Empire), plus Dijon ni Heidelberg.
-    assert [m["nom"] for m in reference] == ["Valois", "Luxembourg"]
+    # Les voisines de Bar sont celles de ses vrais voisins de 1400 : la Champagne (Valois), le duché de
+    # Luxembourg (Luxembourg-Moravie, de Josse) et la Lorraine, princes d'Empire ; plus Dijon ni Heidelberg.
+    assert [m["nom"] for m in reference] == ["Valois", "Luxembourg-Moravie", "Lorraine"]
     def verifier(d):
         image, compte = _rendre(d, formes)
         voisines = _voisines_ia(d)
