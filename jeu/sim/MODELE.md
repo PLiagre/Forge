@@ -1792,16 +1792,17 @@ Sur les 596 cellules figées, **478** sont tenues par une maison, **80** sont
 sans maison par déclaration de nature, et **38** sont non couvertes.
 Chacune des 37 maisons tient au moins une cellule.
 
-Les attributions aux puissances et aux six villes de vassal sont de
-**niveau 1**, vérifiées contre des sources publiques. Leur étendue suit les
-ancres hors de l'Ouest, où elle est de **niveau 2**, plausible et jamais sourcée ;
-dans l'Ouest, elle suit la table des frontières, de **niveau 1**. Innsbruck tombe
-chez Wittelsbach et Linz en Bohême : ces anomalies sont acceptées. Luxembourg tient
-le Saint-Empire par les cellules du bord que la table lui rend, en plus de celles
-de la Bohême et de la Hongrie. Sur la carte servie, aucun pays ne
-porte le nom d'une maison : la tenante d'une cellule reste ce qu'elle est ici, et
-Luxembourg règne sur trois pays servis, le Saint-Empire, la Bohême et la Hongrie
-(voir « La carte et les terres servies, vue dérivée »).
+Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
+sources publiques. Leur étendue suit les ancres hors des régions de la table des
+frontières, où elle est de **niveau 2**, plausible et jamais sourcée ; dans
+l'Ouest et l'Empire, elle suit la table, de **niveau 1**. Les anomalies que l'ancre
+y donnait se corrigent par la table et ses témoins : Innsbruck et Linz sont à
+l'Autriche, Besançon au comté de Bourgogne et Lille à la Bourgogne. Luxembourg tient
+le Saint-Empire, mais aucune de ses cellules : chacune va au prince qui la tenait,
+et Luxembourg ne tient plus que la Bohême, ses terres comprises. Sur la carte
+servie, aucun pays ne porte le nom d'une maison : la tenante d'une cellule reste ce
+qu'elle est ici, et Luxembourg règne sur deux pays servis, le Saint-Empire, sans
+terre, et la Bohême (voir « La carte et les terres servies, vue dérivée »).
 
 Le registre ajoute seulement les liens de départ décrits ci-dessous ; cette vue reste inchangée. Restent de **niveau 3**, pas simulés : les autres liens de suzeraineté et l'hommage,
 les personnes et la succession des dynasties, Vytautas en Lituanie, Naples
