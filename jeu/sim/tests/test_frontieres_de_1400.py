@@ -1,13 +1,14 @@
 """Les frontières de 1400 (`sim/frontieres.py`, `data/frontieres-1400.json`).
 
-Les preuves de chaque région de la table (`ouest`, `empire`, `nord`, `est` ; `-k <région>`) jugent
-le monde livré :
+Les preuves de chaque région de la table (`ouest`, `empire`, `nord`, `est`, `balkans`, `orient`,
+`maghreb` ; `-k <région>`) jugent le monde livré :
 - chaque ville témoin de la région tombe dans un lieu du pays que la table lui donne ;
 - chaque cellule tenue de la région a un pays, un partage ou une lacune, et aucune ne doit son
   pays à l'ancre la plus proche ;
 - chaque pays de la région a un nom, une capitale dans ses lieux et un chef ou une lacune déclarée.
 Sur toute la table : chaque témoin est d'une région, et dans une cellule partagée chaque lieu est au
-pays de la ville la plus proche de sa place. Dans l'Ouest : la Navarre tient moins de lieux que sa
+pays de la ville la plus proche de sa place. Sur toute la carte : chaque cellule a un pays, un
+partage ou une lacune, et chaque suzerain déclaré est un pays servi, sans boucle. Dans l'Ouest : la Navarre tient moins de lieux que sa
 cellule n'en compte, et Bar a ses vrais voisins. Dans l'Empire : aucune terre ni aucun lieu n'a pour
 pays le Saint-Empire, le duché de Luxembourg tient au plus les lieux que la table lui donne, chaque
 prince servi porte son ensemble, et le Wurtemberg (Stuttgart) a ses vrais voisins. À l'Est : la
@@ -25,7 +26,6 @@ import pytest
 import sim.constants as constantes
 import sim.frontieres as frontieres_module
 import sim.puissances as puissances_module
-from sim.aggregation import charger_positions, positions_du_monde
 from sim.carte_servie import terres_et_pays
 from sim.frontieres import charger_frontieres, decisions_des_frontieres, maison_du_bourg, puissances_des_lieux
 from sim.jouables import maisons_jouables
@@ -38,10 +38,7 @@ from sim.pays_servis import (
 )
 from sim.places import places_du_monde
 from sim.projection import projeter_epsg3035
-from sim.puissances import (
-    PuissanceInvalide, charger_latitude_moyenne_puissances, charger_portee, charger_table, geometries_du_monde,
-    puissance_par_cellule, puissances_depuis_monde,
-)
+from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.registre_maisons import charger_registre_maisons
 from sim.seigneuries import charger_seigneuries, fiche_de_seigneurie, identifiant_de_seigneurie
 from sim.villes import point_dans_geometrie
@@ -57,12 +54,21 @@ TEMOINS_NOMMES = {
                "Lübeck", "Luxembourg", "Innsbruck", "Linz"),
     "nord": ("Roskilde", "Stockholm", "Bergen", "Kalmar"),
     "est": ("Cracovie", "Vilnius", "Buda", "Novgorod", "Pskov", "Marienbourg"),
+    "balkans": ("Constantinople", "Edirne", "Mistra", "Kruševac", "Bobovac", "Târgoviște", "Suceava",
+                "Thessalonique", "Sofia", "Brousse", "Konya"),
+    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer"),
+    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine"),
 }
 REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
 # que la table déclare la région, sa preuve passe, et la marque fait échouer le test tant qu'on ne
 # l'a pas retirée d'ici.
 EN_ATTENTE = frozenset()
+# Les vassaux que les fiches nomment, et le suzerain que leur fiche de pays sert.
+VASSAUX_NOMMES = {
+    "Serbie": "Ottomans", "Gênes": "France", "Naples": "États de l'Église", "Guyenne": "Angleterre",
+    "Bourgogne": "France", "Lituanie": "Pologne", "Mazovie": "Pologne",
+}
 # Un pays plus petit que deux lieux se déclare en lacune, avec sa raison.
 LIEUX_MIN_D_UN_PAYS = 2
 EMPIRE = "Saint-Empire"
@@ -162,44 +168,29 @@ def test_chaque_temoin_de_la_table_est_d_une_region(livre):
     assert _orphelins(temoins, {"vide": ()}) == sorted(t.nom for t in temoins)
 
 
-def _tenues(s, vue_par_l_ancre):
-    """Les cellules de la région : celles que l'ancre donnait à un pays de la région, et celles que la
-    table donne à un pays de la région, en propre ou en partage."""
+def _tenues(s):
+    """Les cellules de la région : celles que la table donne à un pays de la région, en propre ou en partage."""
     f = s.frontieres
-    return ({c for c, p in vue_par_l_ancre.items() if p in s.region}
-            | {c for c, p in f.cellules.items() if p in s.region}
+    return ({c for c, p in f.cellules.items() if p in s.region}
             | {c for c, villes in f.partages.items() if any(v.pays in s.region for v in villes)})
 
 
-def _verifier_couverture(s, vue, vue_par_l_ancre):
-    tenues = _tenues(s, vue_par_l_ancre)
+def _verifier_couverture(s, vue):
+    tenues = _tenues(s)
     assert tenues, "échantillon vide"
-    oubliees = sorted(tenues - s.frontieres.declarees())
-    assert not oubliees, f"cellules de la région laissées à l'ancre : {oubliees}"
-    for cid, pays in s.frontieres.cellules.items():
-        assert vue[cid] == pays, f"cellule {cid} : {vue[cid]} servi, {pays} déclaré"
-    for cid in s.frontieres.lacunes:
-        assert vue[cid] is None, f"cellule {cid} : en lacune mais au pays {vue[cid]}"
-    for cid in s.frontieres.partages:
-        assert vue[cid] == s.lieux[cid, 0], f"cellule {cid} : son pays n'est pas celui de son bourg"
-
-
-def _par_l_ancre(s, table):
-    retenues = positions_du_monde(s.monde, charger_positions())
-    return puissance_par_cellule(retenues, table, charger_portee(), charger_latitude_moyenne_puissances(),
-                                 geometries_du_monde(s.monde))
+    for cid in sorted(tenues):
+        attendu = s.frontieres.cellules[cid] if cid in s.frontieres.cellules else s.lieux[cid, 0]
+        assert vue.get(cid, -1) == attendu, f"cellule {cid} : {vue.get(cid, -1)} servi, {attendu} déclaré"
 
 
 @pytest.mark.parametrize("region", PAR_REGION)
-def test_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_ancre(livre, region):
+def test_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_ancre(livre, region, tmp_path):
     s = _region(livre, region)
-    par_l_ancre = _par_l_ancre(s, s.table)
-    _verifier_couverture(s, s.vue, par_l_ancre)
-    # Les ancres du premier pays ancré de la région qui a une maison, et d'un second (de la région,
-    # sinon le premier d'ailleurs), échangées, changent la règle de l'ancre, mais aucune cellule de la
-    # région : la table décide, pas l'ancre la plus proche. Le siège d'une institution est sa première
-    # ancre et place le bourg d'une cellule partagée : les pays échangés ont une maison, dont le siège
-    # est sa capitale.
+    _verifier_couverture(s, s.vue)
+    # Les ancres du premier pays de la région qui a une maison, et d'un second (de la région, sinon le
+    # premier d'ailleurs), échangées, ne changent aucune cellule de la carte : une ancre est un point,
+    # elle ne décide aucun pays. Le siège d'une institution est sa première ancre et place le bourg
+    # d'une cellule partagée : les pays échangés ont une maison, dont le siège est sa capitale.
     ancres = {a.puissance for a in s.table.ancres}
     avec_maison = sorted(p for p in ancres if s.maisons.par_puissance[p] is not None)
     dedans = [p for p in avec_maison if p in s.region]
@@ -207,16 +198,20 @@ def test_chaque_cellule_tenue_est_declaree_et_aucune_ne_doit_son_pays_a_l_ancre(
     echange = {premier: second, second: premier}
     table = dataclasses.replace(s.table, ancres=tuple(
         dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance)) for a in s.table.ancres))
-    assert _par_l_ancre(s, table) != par_l_ancre, "échange sans effet sur la règle de l'ancre"
-    echangee = puissances_depuis_monde(s.monde, table=table, frontieres=s.frontieres)
-    tenues = _tenues(s, par_l_ancre)
-    assert {c: echangee[c] for c in tenues} == {c: s.vue[c] for c in tenues}
-    # Contre-épreuve : une cellule de la région retirée de la table retombe à l'ancre, et la preuve le voit.
-    retiree = next(c for c, p in s.frontieres.cellules.items() if p in s.region and par_l_ancre[c] in s.region)
-    amputee = dataclasses.replace(s.frontieres, cellules={
-        c: p for c, p in s.frontieres.cellules.items() if c != retiree})
-    with pytest.raises(AssertionError, match="laissées à l'ancre"):
-        _verifier_couverture(SimpleNamespace(**{**vars(s), "frontieres": amputee}), s.vue, par_l_ancre)
+    assert table != s.table
+    assert puissances_depuis_monde(s.monde, table=table, frontieres=s.frontieres) == s.vue
+    # Contre-épreuves : une cellule de la région servie à un autre pays se voit ; retirée de la table, elle
+    # est refusée au chargement, en la nommant.
+    document = json.loads(TABLE_DES_FRONTIERES_LIVREE.read_text(encoding="utf-8"))
+    ligne = next(l for l in document["pays"] if l["pays"] in s.region and len(l["cellules"]) > 1)
+    retiree = ligne["cellules"].pop(0)
+    autre = next(p.id for p in s.table.puissances if p.id != ligne["pays"])
+    with pytest.raises(AssertionError, match=f"cellule {retiree} "):
+        _verifier_couverture(s, {**s.vue, retiree: autre})
+    chemin = tmp_path / "frontieres.json"
+    chemin.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(PuissanceInvalide, match=f"cellule {retiree}, champ cell_id : cellule de la carte sans pays"):
+        charger_frontieres(chemin, s.table, s.monde.carte)
 
 
 def _pays_le_plus_proche(place, villes):
@@ -274,15 +269,15 @@ def _voisins_de_bar(s, vue):
 
 def test_ouest_bar_a_ses_vrais_voisins(livre):
     # Le Barrois relève de la France ; autour, la Champagne royale, puis la Lorraine et le duché de
-    # Luxembourg, princes d'Empire : ni Bourgogne ni Trèves, que l'ancre la plus proche y mettait.
+    # Luxembourg, princes d'Empire : ni Bourgogne ni Trèves.
     fiche, voisins = _voisins_de_bar(livre, livre.vue)
     assert fiche.voisins, "échantillon vide"
     assert fiche.suzerain.nom == "France" and livre.vue[fiche.cell_id] == fiche.suzerain.id
     assert voisins == {"France", "Lorraine", DUCHE_DE_LUXEMBOURG}, voisins
-    # Contre-épreuve : sans la table, l'ancre la plus proche lui redonne des voisins bourguignons.
-    sans = dataclasses.replace(livre.frontieres, cellules={}, partages={}, lacunes={})
-    _, a_l_ancre = _voisins_de_bar(livre, puissances_depuis_monde(livre.monde, table=livre.table, frontieres=sans))
-    assert a_l_ancre != voisins and "Bourgogne" in a_l_ancre
+    # Contre-épreuve : un voisin de Bar passé à la Bourgogne se voit.
+    bourgogne = _puissance_nommee(livre.table, "Bourgogne")
+    _, faux = _voisins_de_bar(livre, {**livre.vue, fiche.voisins[0].cell_id: bourgogne})
+    assert faux != voisins and "Bourgogne" in faux
 
 
 def _capitale(s, puissance, par_id):
@@ -331,6 +326,79 @@ def test_chaque_pays_a_nom_capitale_et_chef(livre, region):
     tete = tete_de_puissance(min(s.region), s.maisons)
     sans_chef = {**s.monde.chefs, tete: {"personnage": None, "lacune": None}}
     assert any("ni chef ni lacune" in f for f in _fautes_des_pays(s, sans_chef))
+
+
+# --- Toute la carte -----------------------------------------------------------------------------
+
+def _non_declarees(s, frontieres):
+    return sorted(c for c in s.monde.cells if c not in frontieres.declarees())
+
+
+@pytest.mark.xfail(bool(EN_ATTENTE), strict=True, reason="des régions de la carte restent à déclarer")
+def test_toute_cellule_de_la_carte_a_son_pays_son_partage_ou_sa_lacune(livre):
+    assert livre.monde.cells, "échantillon vide"
+    oubliees = _non_declarees(livre, livre.frontieres)
+    assert not oubliees, f"cellules sans pays, partage ni lacune : {oubliees[:12]} ({len(oubliees)})"
+    # Aucune ne doit son pays à l'ancre : la puissance servie de chaque cellule est celle que la table décide.
+    assert livre.vue == decisions_des_frontieres(livre.monde, livre.table, livre.frontieres, livre.lieux)
+    # Contre-épreuve : une cellule retirée de la table se nomme.
+    cid = min(livre.frontieres.cellules)
+    amputee = dataclasses.replace(livre.frontieres, cellules={
+        c: p for c, p in livre.frontieres.cellules.items() if c != cid})
+    assert _non_declarees(livre, amputee) == [cid]
+
+
+def _suzerain_attendu(s, identifiant):
+    """Le suzerain que la table donne au pays servi : celui de la puissance, ou la puissance dont relève
+    une terre de départ ; aucun pour un seigneur libre."""
+    puissances = {identifiant_de_puissance(p.id): p for p in s.table.puissances}
+    departs = {identifiant_de_seigneurie(x.id): x for x in s.seigneuries}
+    if identifiant in puissances:
+        suzerain = puissances[identifiant].suzerain
+        return None if suzerain is None else identifiant_de_puissance(suzerain)
+    if identifiant in departs:
+        return identifiant_de_puissance(departs[identifiant].suzerain)
+    return None
+
+
+def _fautes_des_suzerains(s, fiches):
+    par_id = {f["id"]: f for f in fiches}
+    fautes = []
+    for fiche in fiches:
+        attendu = _suzerain_attendu(s, fiche["id"])
+        if fiche["suzerain"] != attendu:
+            fautes.append(f"{fiche['nom']} : suzerain {fiche['suzerain']}, {attendu} attendu")
+        if fiche["suzerain"] is not None and (fiche["suzerain"] not in par_id
+                                              or not fiche["suzerain"].startswith(identifiant_de_puissance(""))):
+            fautes.append(f"{fiche['nom']} : suzerain {fiche['suzerain']} non servi comme pays de la table")
+        courant, vus = fiche, set()
+        while courant is not None and courant["suzerain"] is not None:
+            if courant["id"] in vus:
+                fautes.append(f"{fiche['nom']} : boucle de suzerains")
+                break
+            vus.add(courant["id"])
+            courant = par_id.get(courant["suzerain"])
+    par_nom = {f["nom"]: f for f in fiches}
+    for vassal, suzerain in sorted(VASSAUX_NOMMES.items()):
+        fiche = par_nom.get(vassal)
+        servi = (par_id.get(fiche["suzerain"]) or {}).get("nom") if fiche is not None else None
+        if servi != suzerain:
+            fautes.append(f"{vassal} : sa fiche sert le suzerain {servi}, {suzerain} attendu")
+    return fautes
+
+
+def test_chaque_suzerain_declare_est_un_pays_servi_sans_boucle(livre):
+    fiches = livre.servie["pays"]
+    assert [f for f in fiches if f["suzerain"] is not None], "échantillon vide : aucun suzerain servi"
+    assert not _fautes_des_suzerains(livre, fiches), _fautes_des_suzerains(livre, fiches)
+    # Contre-épreuves : le suzerain de la Serbie qui la reconnaît pour suzeraine boucle ; un suzerain
+    # retiré des pays servis se voit.
+    par_nom = {f["nom"]: f for f in fiches}
+    serbie, ottomans = par_nom["Serbie"], par_nom["Ottomans"]
+    boucle = [dict(f, suzerain=serbie["id"]) if f is ottomans else f for f in fiches]
+    assert any("boucle" in f for f in _fautes_des_suzerains(livre, boucle))
+    sans = [f for f in fiches if f is not ottomans]
+    assert any("non servi" in f for f in _fautes_des_suzerains(livre, sans))
 
 
 # --- L'Empire -----------------------------------------------------------------------------------
@@ -389,11 +457,11 @@ def _verifier_luxembourg(s, vue):
 @_en_attente("empire")
 def test_empire_le_duche_de_luxembourg_tient_au_plus_les_lieux_que_la_table_lui_donne(livre):
     _verifier_luxembourg(livre, livre.vue)
-    # Contre-épreuve : une cellule que la table ne décide pas, donnée au duché, se voit.
+    # Contre-épreuve : une cellule que la table donne à un autre pays, donnée au duché, se voit.
     duche = _puissance_nommee(livre.table, DUCHE_DE_LUXEMBOURG)
-    libre = next(c for c in sorted(livre.vue) if c not in livre.frontieres.declarees())
+    autre = next(c for c, p in livre.frontieres.cellules.items() if p != duche)
     with pytest.raises(AssertionError, match="ne lui donne pas"):
-        _verifier_luxembourg(livre, {**livre.vue, libre: duche})
+        _verifier_luxembourg(livre, {**livre.vue, autre: duche})
 
 
 def _verifier_ensembles(s, fiches):
@@ -498,9 +566,9 @@ def test_est_la_boheme_et_la_hongrie_ont_chacune_leur_chef(livre):
 
 
 # ---------------------------------------------------------------------------------------------
-# Les preuves de la table et de ses effets sur un partage synthétique. Elles ne lisent pas la
-# table livrée pour le monde : chacune écrit la sienne dans `tmp_path`, et le monde se charge une
-# fois avec cette table, de sorte que la preuve tient quel que soit le contenu de la table livrée.
+# Les preuves de la table et de ses effets sur un partage synthétique. Elles partent de la table
+# livrée, trois cellules changées : chacune écrit la sienne dans `tmp_path`, et le monde se charge une
+# fois avec cette table, de sorte que la preuve tient quel que soit le pays de ces trois cellules.
 # ---------------------------------------------------------------------------------------------
 # Les fichiers livrés, lus avant que la fixture ne déplace le chemin de la table des frontières.
 TABLE_DES_FRONTIERES_LIVREE = frontieres_module._CHEMIN
@@ -532,25 +600,33 @@ def _ville(point, pays, raison=None):
 
 
 def _document_synthetique(c):
-    """Une table valide : une cellule déclarée au Portugal, un partage Navarre/Castille, une lacune."""
-    return {
-        "date": "1400-01-01",
-        "fidelite": SOURCE_SYNTHETIQUE,
-        "regions": {"peninsule": [c.navarre, c.castille, c.portugal]},
-        "pays": [{"pays": c.portugal, "source": SOURCE_SYNTHETIQUE, "cellules": [c.declaree]}],
-        "partages": [{"cell_id": c.partagee,
-                      "villes": [_ville(PAMPELUNE, c.navarre), _ville(LOGRONO, c.castille)]}],
-        "lacunes": [{"cell_id": c.lacune, "raison": "cellule sans pays d'épreuve"}],
-        "petits_pays": [{"nom": "Andorre", "raison": "plus petite qu'un lieu, d'épreuve"}],
-        "temoins": [{"nom": "Pampelune", "lat": PAMPELUNE[1], "lon": PAMPELUNE[2], "pays": c.navarre,
-                     "source": SOURCE_SYNTHETIQUE}],
-    }
+    """La table livrée, trois cellules changées : celle de Burgos déclarée au Portugal, celle de Pampelune
+    partagée entre la Navarre et la Castille, celle de Soria en lacune. Chacune vient en tête de sa liste,
+    comme le témoin de Pampelune et le petit pays d'Andorre, pour que les retouches les visent."""
+    document = json.loads(TABLE_DES_FRONTIERES_LIVREE.read_text(encoding="utf-8"))
+    changees = {c.declaree, c.partagee, c.lacune}
+    for ligne in document["pays"]:
+        ligne["cellules"] = [cid for cid in ligne["cellules"] if cid not in changees]
+    portugal = [cid for ligne in document["pays"] if ligne["pays"] == c.portugal for cid in ligne["cellules"]]
+    document["pays"] = [{"pays": c.portugal, "source": SOURCE_SYNTHETIQUE, "cellules": [c.declaree] + portugal}] + [
+        ligne for ligne in document["pays"] if ligne["cellules"] and ligne["pays"] != c.portugal]
+    document["partages"] = [{"cell_id": c.partagee,
+                             "villes": [_ville(PAMPELUNE, c.navarre), _ville(LOGRONO, c.castille)]}] + [
+        ligne for ligne in document["partages"] if ligne["cell_id"] not in changees]
+    document["lacunes"] = [{"cell_id": c.lacune, "raison": "cellule sans pays d'épreuve"}] + [
+        ligne for ligne in document["lacunes"] if ligne["cell_id"] not in changees]
+    document["regions"]["peninsule"] = [c.navarre, c.castille, c.portugal]
+    document["temoins"] = [{"nom": "Pampelune", "lat": PAMPELUNE[1], "lon": PAMPELUNE[2], "pays": c.navarre,
+                            "source": SOURCE_SYNTHETIQUE}] + [t for t in document["temoins"] if t["nom"] != "Pampelune"]
+    document["petits_pays"] = sorted(document["petits_pays"], key=lambda ligne: ligne["nom"] != "Andorre")
+    return document
 
 
 @pytest.fixture(scope="module")
 def partage(tmp_path_factory):
-    """Le vrai monde chargé avec une table synthétique : la cellule de Pampelune partagée entre la
-    Navarre et la Castille, une autre déclarée au Portugal, une troisième en lacune."""
+    """Le vrai monde chargé avec la table livrée, trois cellules changées : la cellule de Pampelune
+    partagée entre la Navarre et la Castille, celle de Burgos déclarée au Portugal, celle de Soria en
+    lacune."""
     document_carte = World.lire_carte()
     carte = {int(c["cell_id"]): c for c in document_carte["cellules"]}
     table = charger_table()
@@ -571,7 +647,7 @@ def partage(tmp_path_factory):
         patch.setattr(frontieres_module, "_CHEMIN", chemin)
         monde = World.charger(0, carte_doc=document_carte)
     frontieres = charger_frontieres(chemin, table, monde.carte)
-    sans = dataclasses.replace(frontieres, cellules={}, partages={}, lacunes={})
+    livree = charger_frontieres(TABLE_DES_FRONTIERES_LIVREE, table, monde.carte)
     base = copy.copy(monde)
     base.maisons = charger_registre_maisons(monde.carte)
     vue = puissances_depuis_monde(monde, table=table, frontieres=frontieres)
@@ -580,8 +656,8 @@ def partage(tmp_path_factory):
     seigneuries = charger_seigneuries(table=table)
     return SimpleNamespace(
         monde=monde, base=base, table=table, maisons=maisons, seigneuries=seigneuries, cellules=c,
-        document=document, frontieres=frontieres, sans=sans, vue=vue, lieux=lieux,
-        ancre=puissances_depuis_monde(monde, table=table, frontieres=sans),
+        document=document, frontieres=frontieres, livree=livree, vue=vue, lieux=lieux,
+        vue_livree=puissances_depuis_monde(monde, table=table, frontieres=livree),
         places=places_du_monde(monde), noms=noms_depuis_monde(monde, table=table, vue=vue),
         sources=SourcesDesPays(table, maisons, seigneuries, vue, lieux))
 
@@ -621,7 +697,7 @@ REFUS_DE_LA_TABLE = [
      lambda d, c: d["pays"][0].update(cellules=[str(c.declaree)]),
      lambda c: f"cellule '{c.declaree}', champ cell_id : entier attendu"),
     ("cellule déclarée à deux pays",
-     lambda d, c: _ajouter_un_pays(d, c.castille, [c.declaree]),
+     lambda d, c: d["pays"][1]["cellules"].append(c.declaree),
      lambda c: f"cellule {c.declaree}, champ cell_id : cellule déclarée deux fois"),
     ("cellule déclarée à un pays et en lacune",
      lambda d, c: d["lacunes"].append({"cell_id": c.declaree, "raison": "d'épreuve"}),
@@ -698,17 +774,20 @@ REFUS_DE_LA_TABLE = [
     ("aucun témoin",
      lambda d, c: d.update(temoins=[]),
      lambda c: "frontières, champ temoins : liste vide"),
+    ("cellule de la carte sans pays, partage ni lacune",
+     lambda d, c: d["lacunes"].pop(0),
+     lambda c: f"cellule {c.lacune}, champ cell_id : cellule de la carte sans pays, partage ni lacune"),
 ]
 
 
 def test_la_table_synthetique_valide_se_lit_et_garde_ses_lignes(partage, tmp_path):
     lue = _lire(tmp_path, partage.document, partage)
     c = partage.cellules
-    assert lue.cellules == {c.declaree: c.portugal}
-    assert lue.lacunes and set(lue.lacunes) == {c.lacune}
+    assert lue.cellules[c.declaree] == c.portugal
+    assert lue.lacunes[c.lacune] == "cellule sans pays d'épreuve"
     assert [v.pays for v in lue.partages[c.partagee]] == [c.navarre, c.castille]
-    assert lue.declarees() == {c.declaree, c.partagee, c.lacune}
-    assert lue.temoins and lue.regions == {"peninsule": tuple(sorted((c.navarre, c.castille, c.portugal)))}
+    assert lue.declarees() == set(partage.monde.carte)
+    assert lue.temoins and lue.regions["peninsule"] == tuple(sorted((c.navarre, c.castille, c.portugal)))
 
 
 def test_une_ville_sans_pays_dit_sa_raison_et_compte_pour_un_pays(partage, tmp_path):
@@ -739,28 +818,42 @@ def test_les_refus_de_la_table_sont_nombreux_et_chacun_vient_de_sa_retouche(part
 
 
 def test_sans_carte_la_table_ne_juge_ni_les_cellules_ni_les_villes(partage, tmp_path):
-    # La carte fait refuser une cellule inconnue et une ville hors de sa cellule ; sans elle, ces deux
-    # refus manquent, et les autres restent.
+    # La carte fait refuser une cellule inconnue, une ville hors de sa cellule et une cellule de la carte
+    # sans pays, partage ni lacune ; sans elle, ces refus manquent, et les autres restent.
+    c = partage.cellules
+    chemin = tmp_path / "frontieres.json"
+    for retouche, refus in (
+            (lambda d: d["pays"][0]["cellules"].append(c.inconnue), "cellule inconnue"),
+            (lambda d: _ville_au_portugal(d, c), "hors de sa cellule"),
+            (lambda d: d["lacunes"].pop(0), "cellule de la carte sans pays, partage ni lacune")):
+        document = copy.deepcopy(partage.document)
+        retouche(document)
+        chemin.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
+        assert charger_frontieres(chemin, partage.table).declarees()
+        with pytest.raises(PuissanceInvalide, match=refus):
+            charger_frontieres(chemin, partage.table, partage.monde.carte)
+
+
+def test_un_monde_partiel_refuse_une_de_ses_cellules_que_la_table_ne_decide_pas(partage, tmp_path):
+    # Un monde d'épreuve qui ne porte qu'une part de la carte : la table sans la lacune de Soria se lit
+    # sur une part qui ne contient pas Soria, et se refuse, en la nommant, sur une part qui la contient.
     c = partage.cellules
     document = copy.deepcopy(partage.document)
-    document["pays"][0]["cellules"] = [c.inconnue]
-    _ville_au_portugal(document, c)
+    document["lacunes"].pop(0)
     chemin = tmp_path / "frontieres.json"
     chemin.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
-    assert charger_frontieres(chemin, partage.table).cellules == {c.inconnue: c.portugal}
-    with pytest.raises(PuissanceInvalide, match="cellule inconnue"):
-        charger_frontieres(chemin, partage.table, partage.monde.carte)
-    document["pays"][0]["cellules"] = [c.declaree]
-    chemin.write_text(json.dumps(document, ensure_ascii=False), encoding="utf-8")
-    with pytest.raises(PuissanceInvalide, match="hors de sa cellule"):
-        charger_frontieres(chemin, partage.table, partage.monde.carte)
+    carte = partage.monde.carte
+    sans_soria = {cid: carte[cid] for cid in (c.partagee, c.declaree)}
+    assert charger_frontieres(chemin, partage.table, sans_soria, partielle=True).declarees() >= set(sans_soria)
+    with pytest.raises(PuissanceInvalide, match=f"cellule {c.lacune}, champ cell_id"):
+        charger_frontieres(chemin, partage.table, {**sans_soria, c.lacune: carte[c.lacune]}, partielle=True)
 
 
 def test_la_table_livree_se_lit_sans_refus(partage):
     livree = charger_frontieres(TABLE_DES_FRONTIERES_LIVREE, partage.table, partage.monde.carte)
     assert livree.temoins, "échantillon vide"
     assert livree.regions and livree.date == "1400-01-01"
-    assert livree.declarees() <= set(partage.monde.carte)
+    assert livree.declarees() == set(partage.monde.carte)
 
 
 # --- Les refus du suzerain d'une puissance -----------------------------------------------------
@@ -842,7 +935,7 @@ def test_chaque_lieu_d_une_cellule_partagee_prend_le_pays_de_la_ville_la_plus_pr
     cid, c = partage.cellules.partagee, partage.cellules
     villes = partage.frontieres.partages[cid]
     nombre = len(partage.monde.cells[cid].lieux)
-    assert nombre > 1 and set(partage.lieux) == {(cid, rang) for rang in range(nombre)}
+    assert nombre > 1 and {k for k in partage.lieux if k[0] == cid} == {(cid, rang) for rang in range(nombre)}
     for rang, place in enumerate(partage.places[cid]):
         assert partage.lieux[cid, rang] == _pays_le_plus_proche(place, villes), rang
     assert {partage.lieux[cid, rang] for rang in range(nombre)} == {c.navarre, c.castille}
@@ -866,26 +959,17 @@ def test_la_puissance_d_une_cellule_est_celle_de_son_bourg_ou_celle_que_la_table
     assert partage.vue[c.partagee] == partage.lieux[c.partagee, 0] == c.navarre
     assert partage.vue[c.declaree] == c.portugal
     assert partage.vue[c.lacune] is None
-    # Contre-épreuve : sans la table, l'ancre décide, et ne donne ni ces pays ni la lacune.
-    assert partage.ancre[c.declaree] != c.portugal
-    assert partage.ancre[c.lacune] is not None
-    # Quelle que soit l'ancre : les ancres du Portugal et de la puissance qui tient la cellule déclarée
-    # échangées, la table décide encore, et l'ancre seule changerait la cellule déclarée.
-    tenant = partage.ancre[c.declaree]
-    echange = {c.portugal: tenant, tenant: c.portugal}
+    # Contre-épreuve : avec la table livrée, ces trois cellules ont leurs pays de 1400, et la table d'épreuve
+    # ne change qu'elles.
+    assert partage.vue_livree[c.declaree] != c.portugal and partage.vue_livree[c.lacune] is not None
+    assert {k for k in partage.vue if partage.vue[k] != partage.vue_livree[k]} <= {c.partagee, c.declaree, c.lacune}
+    # Quelles que soient les ancres : celles du Portugal et de la Castille échangées, la table décide encore.
+    echange = {c.portugal: c.castille, c.castille: c.portugal}
     ancres = tuple(dataclasses.replace(a, puissance=echange.get(a.puissance, a.puissance))
                    for a in partage.table.ancres)
     echangee = dataclasses.replace(partage.table, ancres=ancres)
-    apres = puissances_depuis_monde(partage.monde, table=echangee, frontieres=partage.frontieres)
-    assert {k: apres[k] for k in (c.partagee, c.declaree, c.lacune)} == \
-        {k: partage.vue[k] for k in (c.partagee, c.declaree, c.lacune)}
-    seule = puissances_depuis_monde(partage.monde, table=echangee, frontieres=partage.sans)
-    assert seule[c.declaree] != partage.ancre[c.declaree]
-    # Seules les cellules déclarées changent par rapport à l'ancre.
-    assert decisions_des_frontieres(partage.monde, partage.table, partage.frontieres, partage.lieux) == \
-        {k: partage.vue[k] for k in (c.partagee, c.declaree, c.lacune)}
-    assert {k: v for k, v in partage.vue.items() if k not in partage.frontieres.declarees()} == \
-        {k: v for k, v in partage.ancre.items() if k not in partage.frontieres.declarees()}
+    assert puissances_depuis_monde(partage.monde, table=echangee, frontieres=partage.frontieres) == partage.vue
+    assert decisions_des_frontieres(partage.monde, partage.table, partage.frontieres, partage.lieux) == partage.vue
 
 
 def test_la_maison_de_chaque_cellule_suit_son_pays(partage):
@@ -895,9 +979,9 @@ def test_la_maison_de_chaque_cellule_suit_son_pays(partage):
     assert suivie[c.partagee] == par_puissance[c.navarre]
     assert suivie[c.declaree] == par_puissance[c.portugal]
     assert suivie[c.lacune] is None
-    # Contre-épreuve : sans la table, la cellule déclarée est tenue d'après l'ancre.
-    sans = maisons_depuis_monde(partage.monde, table=partage.table, frontieres=partage.sans)
-    assert sans[c.declaree] != suivie[c.declaree] and sans[c.lacune] is not None
+    # Contre-épreuve : avec la table livrée, la cellule déclarée est castillane et celle de la lacune a une maison.
+    livree = maisons_depuis_monde(partage.monde, table=partage.table, frontieres=partage.livree)
+    assert livree[c.declaree] != suivie[c.declaree] and livree[c.lacune] is not None
 
 
 def test_les_maitres_d_une_cellule_partagee_suivent_le_pays_de_chaque_lieu(partage):
@@ -936,9 +1020,10 @@ def test_une_attribution_faite_sans_les_lieux_du_partage_est_refusee(partage):
     assert {sans_partage[c.partagee, rang] for rang in range(len(s.monde.cells[c.partagee].lieux))} == {"grande-7"}
     with pytest.raises(AttributionInvalide, match="maître différent de la règle"):
         valider_attribution(s.base, maitres, plausibles, s.vue, s.maisons, {})
-    # Un partage faussé (chaque lieu hors du bourg passe à l'autre pays) change les maîtres.
+    # Un partage faussé (chaque lieu de la cellule de Pampelune hors du bourg passe à l'autre pays) change
+    # les maîtres.
     echange = {c.navarre: c.castille, c.castille: c.navarre}
-    faux = {k: (v if k[1] == 0 else echange[v]) for k, v in s.lieux.items()}
+    faux = {k: (echange[v] if k[0] == c.partagee and k[1] != 0 else v) for k, v in s.lieux.items()}
     faussee, _ = attribuer_maitres(s.base, s.vue, s.maisons, faux)
     assert faussee != maitres
     with pytest.raises(AttributionInvalide):
@@ -994,13 +1079,13 @@ def test_les_lieux_et_les_terres_servent_les_deux_pays_d_une_cellule_partagee(pa
     fiches = {f["id"]: f for f in servie["pays"]}
     assert fiches[identifiant_de_puissance(c.castille)]["nom"] == "Castille"
     assert fiches[identifiant_de_puissance(c.navarre)]["nom"] == "Navarre"
-    # Hors de la cellule partagée, une terre ne porte un lieu d'un autre pays que si son bourg est une
+    # Hors des cellules partagées, une terre ne porte un lieu d'un autre pays que si son bourg est une
     # terre de départ ou si sa cellule est sans pays (chaque seigneur libre y est son propre pays).
     par_id = {m.id: m for m in s.monde.maisons}
     autres = {t["cell_id"] for t in servie["terres"] if t["autres_pays"]}
     explique = {t["cell_id"] for t in servie["terres"] if s.vue[t["cell_id"]] is None
                 or par_id[t["maitre"]].sorte == "seigneurie"}
-    assert autres - {cid} <= explique and c.declaree not in autres
+    assert cid in autres and autres - set(s.frontieres.partages) <= explique and c.declaree not in autres
     assert next(t for t in servie["terres"] if t["cell_id"] == c.declaree)["pays"] == identifiant_de_puissance(c.portugal)
 
 

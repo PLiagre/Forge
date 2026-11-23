@@ -1,8 +1,8 @@
-"""Les frontières de 1400 : le pays de chaque cellule déclarée, et des lieux d'une cellule partagée.
+"""Les frontières de 1400 : le pays de chaque cellule de la carte, et des lieux d'une cellule partagée.
 
-Une vue pure, recalculée : la table `data/frontieres-1400.json` déclare le pays de chaque cellule
-tenue d'une région, d'après une source par pays. Pour ces cellules, l'ancre la plus proche
-(`sim/puissances.py`) ne décide plus rien. Une cellule que deux pays se partageaient nomme une
+Une vue pure, recalculée : la table `data/frontieres-1400.json` déclare, région par région, le pays
+de chaque cellule de la carte, d'après une source par pays, son partage ou sa lacune ; une cellule
+de la carte qu'elle ne décide pas est refusée. Une cellule que deux pays se partageaient nomme une
 ville par pays ; chaque lieu de la cellule va au pays de la ville la plus proche de sa place
 (`sim/places.py`), et la puissance de la cellule est celle de son bourg. Une ville de partage sans
 pays (`pays: null`, avec sa raison) laisse ses lieux sans pays. Une cellule en lacune n'a pas de
@@ -94,9 +94,10 @@ def charger_frontieres(path=None, table=None, carte=None, partielle=False) -> Ta
     """Lit la table, la valide entièrement et rend ses lignes triées.
 
     `carte` (cell_id → enregistrement de la carte figée), quand elle est donnée, fait refuser une
-    cellule inconnue et une ville de partage hors de sa cellule. `partielle` dit que la carte n'est
-    qu'une part de la carte figée, celle d'un monde d'épreuve : une cellule déclarée qui n'y est pas
-    est laissée de côté au lieu d'être refusée."""
+    cellule inconnue, une ville de partage hors de sa cellule et une cellule de la carte que la table
+    ne décide pas. `partielle` dit que la carte n'est qu'une part de la carte figée, celle d'un monde
+    d'épreuve : une cellule déclarée qui n'y est pas est laissée de côté au lieu d'être refusée, et
+    chaque cellule de cette part doit être décidée."""
     chemin = pathlib.Path(path) if path is not None else _CHEMIN
     document = json.loads(chemin.read_text(encoding="utf-8"))
     table = charger_table() if table is None else table
@@ -191,7 +192,7 @@ def charger_frontieres(path=None, table=None, carte=None, partielle=False) -> Ta
 
 def _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle):
     """Refuse une cellule absente de la carte (ou l'écarte si la carte n'est qu'une part de la carte
-    figée) et une ville de partage hors de sa cellule."""
+    figée), une ville de partage hors de sa cellule et une cellule de la carte que la table ne décide pas."""
     gardees = []
     for sorte, lignes in (("cellule", cellules), ("partage", partages), ("lacune", lacunes)):
         for cid in sorted(lignes):
@@ -202,6 +203,10 @@ def _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle):
         for ville in villes:
             if not point_dans_geometrie(*projeter_epsg3035(ville.lat, ville.lon), carte[cid]["geometry"]):
                 raise PuissanceInvalide(f"partage {cid}, champ villes : {ville.nom} hors de sa cellule")
+    decidees = set(cellules) | set(partages) | set(lacunes)
+    for cid in sorted(carte):
+        if cid not in decidees:
+            raise PuissanceInvalide(f"cellule {cid}, champ cell_id : cellule de la carte sans pays, partage ni lacune")
     return tuple(gardees)
 
 

@@ -1006,13 +1006,17 @@ def test_noms_purete_et_tick(monkeypatch):
 # Les frontières de 1400 changent tous les points : le registre des maisons (les pays neufs de l'Ouest,
 # puis les princes d'Empire, la Lituanie, la Mazovie et la Hongrie de Sigismond, et leurs chefs), les
 # maîtres des lieux des cellules partagées et des capitales neuves, et leurs greniers.
+# Celles des Balkans, de l'Orient et du Maghreb changent encore, à chaque point et pour les deux graines, deux
+# couches et elles seules : le registre (32 maisons plausibles neuves, 24 retirées, le suzerain de 242 maisons)
+# et le maître de 100 lieux de dix cellules partagées. Aucune cellule ne change hors du maître de ses lieux :
+# population, stocks, bassin, tirages et retours sont ceux d'avant.
 _PART_BASE = {
-    (0, 0): ('72598e060f10ccbfeebbbc4afdf7d17b644b541de09f0e903a20f6c30e387de8', 'dcaa50e114353035c53360fb3c6023d6dde90fccbc7a290fb5ea6291cfc144a5'),
-    (0, 1): ('8714286f0acb11792a1f6164f61060dc491fc56262a1973f5d4f3332db630929', '16e475af57d1670a7deb357784650d5791b368d402c02038d0183c2cc98cc264'),
-    (0, 3): ('93de2c39b0e3d6dfe458e446b613a952f206367f86255cf33515b32ad9ea3ba7', '85341342c6f32a7b8aefdd5558a67bd1f53f6f2179c80f3a50f7855663866ba1'),
-    (42, 0): ('8138c540a1aaa17e0b038d99083abbaa881c1dc6820a2f785605dba375a49d4d', 'f81de8b8e475ec0ee3c7cfcd9bb131676e9cf315b5d1292a61d518c1fac26e7a'),
-    (42, 1): ('900c9c63d7ff3d9d3423fe663f4ef812915ebcddd4a007c4f0955d34758e724d', '0ee4f4c0e60c301c158e16562439856345a7e9463687d5df6ec8a697b8d42c6a'),
-    (42, 3): ('372f019c8c357de067fed7d708b31a3d80c39293e60057e686ed4067a8e144b2', '5f1a814ea75804ad6971eefeae75f5903e2c2ca1679640c367162c30ba0bf064'),
+    (0, 0): ('520e381562388c68d13a060ab066385b441c8a6ecb2b9a1efe37ed4a79ec9eb5', '6c0244443ec6da9960b18dcc504b279f8b04332dae67ed8e3f0d924ac929813a'),
+    (0, 1): ('2b222b9f98aa168652c80aaf4725127840f6bbe43f8a0724cf951d5b2f6cf7d2', 'af425c8c2ec11da47b592d463277a474086f1cd6ee67a2ab88a538351dc63728'),
+    (0, 3): ('190e65609f482c2e565db53a9d91afeb23d4a709c6da8ac6be63535223520f1e', '768322240e00650a6df6b03d4fc53a5531d7a47ff82f799081db27c62f8f5a76'),
+    (42, 0): ('4501053bdc48cbd981701a9fcb8ae529cad1b482c29e7c5b7f7b9367afa1ffe7', '458375114cb8426e6242a291b7c4f6d502e31263246bde5a44084d1b9c46b7d9'),
+    (42, 1): ('78177a9ab4a33768a2327b414b63929ee5da1585981efa234ee9423821a93d87', '64a19b56cb22a570c5acca6679fa15a60100ae0e12be9093cab49f6472192064'),
+    (42, 3): ('9117454503baaff92023926e99e0f04773bda0e034c374b870dcf7d84d6786a1', '7e2b5cd12c291a83a7b531b904ac28c572955a17c646eefca3b8a5310b0f5f0c'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1043,13 +1047,17 @@ def test_part_bit_pres(monkeypatch):
 # Avec la soudure de 1400 et l'appel des villes affamées : tous les points. Les frontières de 1400
 # changent les maîtres des lieux, donc les greniers où va le prélèvement et les convois qui l'y portent ;
 # celles de l'Empire, du Nord et de l'Est en changent d'autres, et les suzerains des seigneurs plausibles.
+# Celles des Balkans, de l'Orient et du Maghreb changent, à chaque point, le registre (+32 et −24 maisons, 242
+# suzerains) et le maître de 100 lieux ; et, avec les maîtres, les greniers (32 neufs, 24 retirés, et aux points
+# 3 et 20 le contenu de 10 puis de 16 greniers) et les convois (le total de 9 groupes sur 12 au point 1, de 9
+# sur 14 ensuite). Les cellules, le bassin, les tirages et les retours sont inchangés.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('16f589a532fe0852ea455a1436b394a3970d7d4eb9a81bfd7fbf015f4e7ce774', '2f407b95ae325b7e57182fa9d38edbde51e8d1448fe1e56e226a5ee195f1d566'),
-    (0, 3): ('2b11b8caf1ddcf58f9ae99c581b4c22aff7635b8902c869c1f5f030a484161f1', 'dc95e9638ae1a3a106fffe91683413be9794e6c276fd4393abab8350a975e77b'),
-    (0, 20): ('8cc1efa1c0cac91e4d772ae26bfa3f76f5de7820f5e3575f84a0e722e0ed4a00', '2708a36060ac23914519623933117a1b23f8bd334e146f2062fc6ac6e76801e4'),
-    (42, 1): ('63cfd5dc7defd9f972388f8607c79fc8af9bd772e68e8dde5ed3f1292ac2a850', '5d9fd00ac73da99976765853c5705209da549c6bf79962543e21ea8cb8363c90'),
-    (42, 3): ('5587fe7bd17dc94942539277fa900919ff4f0354c463cbc7ce3d26c5ec53db3b', '124685313a45f17b1542e41889fdeb8da8750801c6e9050126a264e677df91df'),
-    (42, 20): ('7a7413cdf28dd05989c1716863147a4f02ad409549011df73322f95cb65f2bb4', 'c28020c0ebe734d773dffe30fca2c02c24d9f98992e5e22d9b401dc1292bc556'),
+    (0, 1): ('8d1b03710083bfc9023b9d3a4f917230a72d4b66305df9b236259867603df3a4', 'f94bf4efbab28e24555433d8ea06a877fd2260c83eb539bfe388177f3b79c50b'),
+    (0, 3): ('8f2fc4b97e230bb339270f23db34e0f319c516bc4d7fc6d70d685db16bc18d28', 'eff94257f4aaaff8bc31c97d7d72f5c0d0e51f1488da54594983e018172e4c25'),
+    (0, 20): ('d889d646c9bcf6bbab46b22723b841ec4f08810f2376bb062136345159a923f8', '4a72a050b13d3efc6270330aa25b99332572c4788c082f48bd586380715760af'),
+    (42, 1): ('269eb608b61a0576ce643eb9e4a9dd9c9dda8d243bc545a958d35e5ad3df926d', '49988141276f8b98e0f5882111cdd20f04fdf68a2ca5c97a73606265d644fdcd'),
+    (42, 3): ('5b913e97e0b5b756c78f0541e53c1a1f218333db8ae00dc588b2c3be946d14f0', 'a3ded5cf8715553a2fe8c033fd1142b391b94231c169fe451886c452cbca6a99'),
+    (42, 20): ('205dff708fe66c7e96ea4842e53d3117a1804b1f1b1d7c4d41ec247302231720', '1387b7f517d1b7cd1ca90147c12bc1fe679b0a4253f0dd31299095b5ac93fae4'),
 }
 
 
@@ -1109,12 +1117,15 @@ def test_prelevement_bit_pres(monkeypatch):
 # Monde avec dû : capturé une fois, JSON public et état physique sans arrondi.
 # Avec la soudure de 1400 et l'appel des villes affamées. Les frontières de 1400 changent les maîtres
 # et leurs suzerains, donc les dus des vassaux et les greniers des suzerains, à l'Ouest puis dans
-# l'Empire, au Nord et à l'Est.
+# l'Empire, au Nord et à l'Est. Ceux des Balkans, de l'Orient et du Maghreb changent, aux points 3 et 20,
+# le contenu de 187 puis de 201 greniers (32 neufs, 24 retirés) et les convois (76 groupes au lieu de 72 au
+# point 3, 99 au lieu de 111 au point 20, tous de total différent), avec le registre et le maître de 100 lieux ;
+# les cellules, le bassin, les tirages et les retours sont inchangés.
 _DU_BASE = {
-    (0, 3): ('85fc33a36653095a8f76c0c9afaf70443ce10f9bf3916b575229f7be43ff3ac4', 'f081235a73d2c783b1f7a9f1e5ea2b31024e3939bdcec2cf3686236c8ca35808'),
-    (0, 20): ('66e839cffc2818e96359403d664927a8bddcb0ae9add4e203002f8efa2886281', '7ca1bd7a3ceffcec567385439bd0c8490c4d9e3d9f394ebd806cb3723227da16'),
-    (42, 3): ('0cb0cabbe50f5d9fe80869a3b380b603baf382e3ecba78411c26c1492ca59516', '3262591dc9510b4771c72202ddab73b2365fcdec43c6d4e06a57815abe5cde26'),
-    (42, 20): ('36a78876d7d62c2273317217738234a12a4ca75b7a90c1f79bc65f70b9dae8e8', 'ead476372eaee1d93ad19969ffe281989abaeef374154a236523b0a0cc670f84'),
+    (0, 3): ('61d6b2e85f04d1034f805e3efb091cdcb57b7b904e2bdaf9cf544815a6a631f3', '6d82a63245d9c72f868600054cb80507296d01d32b424d6b0b6ba11be555e308'),
+    (0, 20): ('4778f0156825d7cc07008a51d4cd5cda301be8c565da3cd39e4457cb3b305870', '88c44a8ff665bed6239edcafb6ae7e80f79c059682b2f7b30e3817a9c15ff8dc'),
+    (42, 3): ('b670405a46532c2bf0cd6d802ac342cb271df090fc3c0667e4203396a47f87df', '4e304d77d23721972b7a4d10205823f48d9cf6e2c6ed276a7b7dd18d5d5897c6'),
+    (42, 20): ('48b634c72731a4da098e88c3559928aba93a61d1d1d7dd29b79f463626ea3d6c', '0ff37f8f6f3c6a120ee892b3be66d4bdf1ceb180bc9dd28b180d00bcde40adf2'),
 }
 
 

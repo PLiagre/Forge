@@ -1,20 +1,15 @@
-"""Lecture des puissances d'Europe et de Méditerranée et de leurs lacunes en 1400."""
+"""Lecture des puissances d'Europe et de Méditerranée en 1400, et le pays de chaque cellule.
+
+La table `data/puissances-1400.json` déclare les puissances et leurs ancres. Une ancre est un point
+sourcé : le siège d'une institution, le lieu d'une capitale ; elle ne décide le pays d'aucune cellule.
+Le pays de chaque cellule est celui que la table des frontières décide (`sim/frontieres.py`)."""
 
 import dataclasses
 import json
 import math
 import pathlib
 
-from sim.aggregation import (
-    charger_positions,
-    derive_appartenance,
-    facteur_de_projection,
-    positions_du_monde,
-    projeter,
-)
 from sim.model import _NoBadSpatialField
-from sim.projection import projeter_epsg3035
-from sim.villes import point_dans_geometrie
 
 _RACINE_DEPOT = pathlib.Path(__file__).parent.parent
 _CHEMIN_TABLE = _RACINE_DEPOT / "data" / "puissances-1400.json"
@@ -29,13 +24,7 @@ _CLE_PUISSANCE = "puissance"
 _CLE_LAT = "lat"
 _CLE_LON = "lon"
 _CLE_SOURCE = "source"
-_CLE_PROJECTION = "projection"
-_CLE_LATITUDE_MOYENNE = "mid_latitude"
-_CLE_PORTEE = "portee"
-_CLE_DEGRES_PROJETES = "degres_projetes"
-_CLE_NIVEAU = "niveau"
 _DATE_ATTENDUE = "1400-01-01"
-_NIVEAU_FRONTIERE = 2
 
 NATURES = frozenset({"royaume", "république", "Église", "ordre", "principauté", "empire", "sultanat", "khanat"})
 RELIGIONS = frozenset({"catholique", "orthodoxe", "musulmane"})
@@ -171,104 +160,6 @@ def charger_table(path=None) -> TableDesPuissances:
     )
 
 
-def charger_latitude_moyenne_puissances(path=None) -> float:
-    """Lit le paramètre fini de la projection propre à la table."""
-    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
-    document = json.loads(chemin.read_text(encoding="utf-8"))
-    projection = document.get(_CLE_PROJECTION)
-    if not isinstance(projection, dict):
-        raise PuissanceInvalide("champ projection : bloc absent")
-    latitude = projection.get(_CLE_LATITUDE_MOYENNE)
-    if (
-        isinstance(latitude, bool)
-        or not isinstance(latitude, (int, float))
-        or not math.isfinite(latitude)
-    ):
-        raise PuissanceInvalide(
-            "champ projection.mid_latitude : nombre fini attendu"
-        )
-    return latitude
-
-
-def charger_portee(path=None) -> float:
-    """Lit la portée plausible et refuse toute valeur inexploitable."""
-    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
-    document = json.loads(chemin.read_text(encoding="utf-8"))
-    declaration = document.get(_CLE_PORTEE)
-    if not isinstance(declaration, dict):
-        raise PuissanceInvalide("champ portee : bloc absent")
-    if declaration.get(_CLE_NIVEAU) != _NIVEAU_FRONTIERE:
-        raise PuissanceInvalide("champ portee.niveau : niveau 2 attendu")
-    portee = declaration.get(_CLE_DEGRES_PROJETES)
-    if (
-        isinstance(portee, bool)
-        or not isinstance(portee, (int, float))
-        or not math.isfinite(portee)
-        or portee <= 0
-    ):
-        raise PuissanceInvalide(
-            "champ portee.degres_projetes : nombre fini strictement positif attendu"
-        )
-    return portee
-
-
-def ancre_par_cellule(
-    positions, table, portee, latitude_moyenne, geometries=None,
-) -> dict:
-    """Retient l'ancre contenue la plus proche, sinon la plus proche de toutes.
-
-    Les distances et égalités suivent la règle unique d'agrégation ; la
-    portée s'applique ensuite à l'ancre retenue, même si elle est contenue.
-    """
-    if (
-        isinstance(portee, bool)
-        or not isinstance(portee, (int, float))
-        or math.isnan(portee)
-        or portee <= 0
-    ):
-        raise PuissanceInvalide("portee : nombre strictement positif attendu")
-
-    ancres_par_id = {ancre.id: ancre for ancre in table.ancres}
-    appartenance = derive_appartenance(
-        positions, table.ancres, latitude_moyenne
-    )
-    if geometries is not None:
-        points = {a.id: projeter_epsg3035(a.lat, a.lon) for a in table.ancres}
-        for cell_id in sorted(positions):
-            geometrie = geometries.get(cell_id)
-            if geometrie is None:
-                raise PuissanceInvalide(f"cellule {cell_id}, champ geometry : géométrie absente")
-            contenues = tuple(a for a in table.ancres
-                              if point_dans_geometrie(*points[a.id], geometrie))
-            if contenues:
-                appartenance[cell_id] = derive_appartenance(
-                    {cell_id: positions[cell_id]}, contenues, latitude_moyenne
-                )[cell_id]
-    facteur = facteur_de_projection(latitude_moyenne)
-    carre_portee = portee * portee
-    vue = {}
-    for cell_id in sorted(positions):
-        ancre = ancres_par_id[appartenance[cell_id]]
-        cellule_x, cellule_y = projeter(*positions[cell_id], facteur)
-        ancre_x, ancre_y = projeter(ancre.lat, ancre.lon, facteur)
-        ecart_x = cellule_x - ancre_x
-        ecart_y = cellule_y - ancre_y
-        carre_distance = ecart_x * ecart_x + ecart_y * ecart_y
-        vue[cell_id] = ancre.id if carre_distance <= carre_portee else None
-    return vue
-
-
-def puissance_par_cellule(
-    positions, table, portee, latitude_moyenne, geometries=None,
-) -> dict:
-    """Rend la puissance de l'ancre retenue, dans la portée donnée."""
-    ancres = {a.id: a for a in table.ancres}
-    return {c: ancres[a].puissance if a is not None else None
-            for c, a in ancre_par_cellule(
-                positions, table, portee, latitude_moyenne, geometries
-            ).items()}
-
-
 def geometries_du_monde(world) -> dict:
     """Lit les polygones des cellules chargées, refuse une géométrie absente."""
     geometries = {}
@@ -280,35 +171,19 @@ def geometries_du_monde(world) -> dict:
     return geometries
 
 
-def puissances_depuis_monde(
-    world,
-    positions=None,
-    table=None,
-    portee=None,
-    latitude_moyenne=None,
-    frontieres=None,
-) -> dict:
-    """La puissance de chaque cellule chargée, sans modifier le monde.
-
-    Une cellule que la table des frontières décide (`sim/frontieres.py`) prend son pays déclaré,
-    le pays de son bourg si elle est partagée, ou aucun si elle est en lacune ; l'ancre retenue
-    ne décide que des autres."""
+def puissances_depuis_monde(world, table=None, frontieres=None) -> dict:
+    """cell_id → puissance (ou `None`) de chaque cellule chargée, sans modifier le monde : son pays
+    déclaré, le pays de son bourg si elle est partagée, aucun si elle est en lacune. Une cellule du
+    monde que la table des frontières ne décide pas est refusée en la nommant."""
     from sim.frontieres import decisions_des_frontieres, frontieres_du_monde
-    if positions is None:
-        positions = charger_positions()
     if table is None:
         table = charger_table()
-    if portee is None:
-        portee = charger_portee()
-    if latitude_moyenne is None:
-        latitude_moyenne = charger_latitude_moyenne_puissances()
-    retenues = positions_du_monde(world, positions)
-    vue = puissance_par_cellule(
-        retenues, table, portee, latitude_moyenne, geometries_du_monde(world)
-    )
     if frontieres is None:
         frontieres = frontieres_du_monde(world, table)
-    vue.update(decisions_des_frontieres(world, table, frontieres))
+    vue = decisions_des_frontieres(world, table, frontieres)
+    for cell_id in sorted(world.cells):
+        if cell_id not in vue:
+            raise PuissanceInvalide(f"cellule {cell_id}, champ cell_id : cellule sans pays, partage ni lacune")
     return vue
 
 
@@ -326,55 +201,3 @@ def puissance_de_cellule(cell_id, vue, table):
 def cellules_non_couvertes(vue) -> tuple:
     """Rend, triés, les identifiants explicitement non couverts."""
     return tuple(sorted(cell_id for cell_id, puissance in vue.items() if puissance is None))
-
-
-@dataclasses.dataclass(frozen=True)
-class Lacune(_NoBadSpatialField):
-    id: int
-    nom: str
-    lat: float
-    lon: float
-    raison: str
-
-
-def charger_lacunes(path=None) -> tuple:
-    """Lit les raisons déclarées, indépendamment de la table des puissances."""
-    chemin = pathlib.Path(path) if path is not None else _CHEMIN_TABLE
-    document = json.loads(chemin.read_text(encoding="utf-8"))
-    brutes = document.get("lacunes")
-    if not isinstance(brutes, list) or not brutes:
-        raise PuissanceInvalide("champ lacunes : liste absente ou vide")
-    lacunes, ids = [], set()
-    for brute in brutes:
-        identifiant = _refuser_id(brute.get(_CLE_ID), "lacune", ids)
-        nom = _texte(brute.get(_CLE_NOM), "lacune", identifiant, _CLE_NOM)
-        raison = _texte(brute.get("raison"), "lacune", identifiant, "raison")
-        lat = _nombre(brute.get(_CLE_LAT), identifiant, _CLE_LAT, sorte="lacune")
-        lon = _nombre(brute.get(_CLE_LON), identifiant, _CLE_LON, sorte="lacune")
-        lacunes.append(Lacune(identifiant, nom, lat, lon, raison))
-    return tuple(sorted(lacunes, key=lambda lacune: lacune.id))
-
-
-def lacune_par_cellule(positions, vue, lacunes, portee, latitude_moyenne) -> dict:
-    """Explique uniquement les cellules non couvertes, sans rien attribuer."""
-    if (
-        isinstance(portee, bool)
-        or not isinstance(portee, (int, float))
-        or math.isnan(portee)
-        or portee <= 0
-    ):
-        raise PuissanceInvalide("portee : nombre strictement positif attendu")
-    retenues = {cell_id: positions[cell_id] for cell_id in cellules_non_couvertes(vue)}
-    appartenance = derive_appartenance(retenues, lacunes, latitude_moyenne)
-    par_id = {lacune.id: lacune for lacune in lacunes}
-    facteur = facteur_de_projection(latitude_moyenne)
-    carre_portee = portee * portee
-    raisons = {}
-    for cell_id, position in retenues.items():
-        lacune = par_id[appartenance[cell_id]]
-        cellule_x, cellule_y = projeter(*position, facteur)
-        lacune_x, lacune_y = projeter(lacune.lat, lacune.lon, facteur)
-        ecart_x, ecart_y = cellule_x - lacune_x, cellule_y - lacune_y
-        carre_distance = ecart_x * ecart_x + ecart_y * ecart_y
-        raisons[cell_id] = lacune.id if carre_distance <= carre_portee else None
-    return raisons

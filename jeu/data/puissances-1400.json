@@ -2,16 +2,6 @@
   "description": "Puissances de l'Ouest (dont les principautés vassales de France et d'Angleterre), l'Italie, l'Empire et ses princes, le Nord, l'Est et l'Orient au 1er janvier 1400 et leurs points d'ancrage.",
   "date": "1400-01-01",
   "fidelite": "Niveau 1, d'après des sources publiques ; les maisons tenantes sont de niveau 1 ; les suzerainetés déclarées portent leur source et ne sont pas simulées ; le Grand Schisme n'est pas simulé.",
-  "projection": {
-    "type": "equirectangular",
-    "mid_latitude": 47.5,
-    "comment": "x = lon * cos(mid_latitude), y = -lat"
-  },
-  "portee": {
-    "degres_projetes": 4.0,
-    "niveau": 2,
-    "note": "Frontière plausible, jamais sourcée ; au-delà, la cellule est déclarée non couverte."
-  },
   "maisons": [
     { "id": 1, "nom": "Lancastre", "source": "Wikipédia en anglais, article Henry IV of England : Henri IV, maison de Lancastre, roi d'Angleterre depuis le 30 septembre 1399 (https://en.wikipedia.org/wiki/Henry_IV_of_England)" },
     { "id": 2, "nom": "Stuart", "source": "Wikipédia en anglais, article Robert III of Scotland : Robert III, maison Stuart, roi d'Écosse de 1390 à 1406 (https://en.wikipedia.org/wiki/Robert_III_of_Scotland)" },
@@ -97,7 +87,7 @@
     { "id": 24, "nom": "Hongrie", "nature": "royaume", "religion": "catholique", "maison": 56 },
     { "id": 25, "nom": "Byzance", "nature": "empire", "religion": "orthodoxe", "maison": 15 },
     { "id": 26, "nom": "Ottomans", "nature": "sultanat", "religion": "musulmane", "maison": 16 },
-    { "id": 27, "nom": "Serbie", "nature": "principauté", "religion": "orthodoxe", "maison": 17 },
+    { "id": 27, "nom": "Serbie", "nature": "principauté", "religion": "orthodoxe", "maison": 17, "suzerain": 26, "source_suzerain": "Wikipédia en anglais, article Stefan Lazarević : après Kosovo (1389), Stefan Lazarević gouverne la Serbie en vassal du sultan Bayezid, pour qui il combat à Rovine (1395), à Nicopolis (1396) et à Ankara (1402) (https://en.wikipedia.org/wiki/Stefan_Lazarevi%C4%87)" },
     { "id": 28, "nom": "Bosnie", "nature": "royaume", "religion": "catholique", "maison": 18 },
     { "id": 29, "nom": "Valachie", "nature": "principauté", "religion": "orthodoxe", "maison": 19 },
     { "id": 30, "nom": "Moldavie", "nature": "principauté", "religion": "orthodoxe", "maison": 20 },
@@ -269,10 +259,5 @@
     { "id": 111, "puissance": 78, "nom": "Osnabrück", "lat": 52.28, "lon": 8.05, "source": "Wikipédia en anglais, article Osnabrück : Osnabrück est le siège des princes-évêques d'Osnabrück (https://en.wikipedia.org/wiki/Osnabr%C3%BCck)" },
     { "id": 114, "puissance": 81, "nom": "Udine", "lat": 46.06, "lon": 13.24, "source": "Wikipédia en anglais, article Udine : Udine est la résidence des patriarches d'Aquilée à partir du XIIIe siècle (https://en.wikipedia.org/wiki/Udine)" },
     { "id": 115, "puissance": 83, "nom": "Varsovie", "lat": 52.23, "lon": 21.01, "source": "Wikipédia en anglais, article Warsaw : Varsovie est la résidence des ducs de Mazovie, et la capitale du duché à partir de 1413 (https://en.wikipedia.org/wiki/Warsaw)" }
-  ],
-  "lacunes": [
-    { "id": 6, "nom": "Tripolitaine", "lat": 32.89, "lon": 13.19, "raison": "Marge du sultanat hafside, plus loin de Tunis que la portée." },
-    { "id": 7, "nom": "Cyrénaïque", "lat": 32.49, "lon": 20.83, "raison": "Terres bédouines entre Hafsides et Mamelouks, sans ville tenue par une puissance de la table." },
-    { "id": 8, "nom": "Oued Righ", "lat": 33.1, "lon": 6.07, "raison": "Oasis du Sahara, tribus hors de tout État de la table." }
   ]
 }

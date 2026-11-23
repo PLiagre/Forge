@@ -5,7 +5,10 @@
     "ouest": [1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18, 19, 20, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
     "empire": [10, 11, 12, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 81],
     "nord": [21],
-    "est": [22, 23, 24, 31, 32, 82, 83]
+    "est": [22, 23, 24, 31, 32, 82, 83],
+    "balkans": [25, 26, 27, 28, 29, 30],
+    "orient": [13, 33, 34, 38, 39],
+    "maghreb": [35, 36, 37]
   },
   "pays": [
     {"pays": 1, "source": "Wikipédia en anglais, article Kingdom of England : la conquête du pays de Galles par Édouard Ier, achevée en 1284, le met sous la couronne d'Angleterre (https://en.wikipedia.org/wiki/Kingdom_of_England); Wikipédia en anglais, article Isle of Man : l'île passe sous la seigneurie féodale de la couronne d'Angleterre en 1399 (https://en.wikipedia.org/wiki/Isle_of_Man); Wikipédia en anglais, article Channel Islands : Jean sans Terre perd la Normandie en 1204 mais garde les îles Anglo-Normandes (https://en.wikipedia.org/wiki/Channel_Islands)", "cellules": [10172, 10189, 10200, 10187, 10171, 10246, 10197, 10237, 10188, 10205, 2656, 10240, 10180, 10198, 1183, 10212, 10203, 10184, 10195, 1221, 10208, 10214, 1223, 1203, 1195]},
@@ -24,8 +27,8 @@
     {"pays": 14, "source": "Wikipédia en anglais, article Duchy of Milan : Jean Galéas Visconti étend ses domaines à Vérone et Vicence (1387), Feltre et Belluno (1388), Pise et Sienne (1399) (https://en.wikipedia.org/wiki/Duchy_of_Milan)", "cellules": [10466, 10454, 10255, 10265]},
     {"pays": 17, "source": "Wikipédia en anglais, article Papal States : au plus fort, les États de l'Église couvrent le Latium, les Marches, l'Ombrie et la Romagne ; des seigneurs locaux n'y reconnaissent le pape que de nom (https://en.wikipedia.org/wiki/Papal_States)", "cellules": [10277, 10271, 10276]},
     {"pays": 18, "source": "Wikipédia en anglais, article Abruzzo : à la paix de Caltabellotta (1302), la Sicile va à la couronne d'Aragon et le Sud continental au royaume de Naples (https://en.wikipedia.org/wiki/Abruzzo)", "cellules": [10278, 10288, 10283, 1311, 10298, 10287, 10302, 10296, 10292]},
-    {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily)", "cellules": [9905, 9914, 9921, 1313, 1318]},
-    {"pays": 16, "source": "Wikipédia en anglais, article Bastia : en 1370, la république de Gênes envoie deux gouverneurs en Corse ; la Maona gère l'île pour elle (https://en.wikipedia.org/wiki/Bastia)", "cellules": [2943]},
+    {"pays": 19, "source": "Wikipédia en anglais, article Kingdom of Sicily : le royaume insulaire (Trinacrie, 1282-1442) est gouverné par des parents de la maison d'Aragon (https://en.wikipedia.org/wiki/Kingdom_of_Sicily) ; Wikipédia en anglais, article Pantelleria : l'île est prise pour la couronne de Sicile en 1311 (https://en.wikipedia.org/wiki/Pantelleria)", "cellules": [9905, 9914, 9921, 1313, 1318, 1296]},
+    {"pays": 16, "source": "Wikipédia en anglais, article Bastia : en 1370, la république de Gênes envoie deux gouverneurs en Corse ; la Maona gère l'île pour elle (https://en.wikipedia.org/wiki/Bastia) ; Wikipédia en anglais, article Maona of Chios : la Maona des Giustiniani, compagnie génoise, tient Chios et Samos pour la république depuis 1346 (https://en.wikipedia.org/wiki/Maona_of_Chios)", "cellules": [2943, 1428, 1435]},
     {"pays": 5, "source": "Wikipédia en anglais, article Santiago de Compostela : les royaumes de León et de Galice s'unissent au royaume de Castille (https://en.wikipedia.org/wiki/Santiago_de_Compostela); Wikipédia en anglais, article Seville : Séville entre dans la Castille en 1248 (https://en.wikipedia.org/wiki/Seville); Wikipédia en anglais, article Soria : Soria est castillane définitivement en 1134 (https://en.wikipedia.org/wiki/Soria)", "cellules": [10222, 10210, 10217, 10220, 10204, 10216]},
     {"pays": 4, "source": "Wikipédia en anglais, article Porto : en 1387, Porto accueille le mariage de Jean Ier de Portugal et de Philippa de Lancastre (https://en.wikipedia.org/wiki/Porto); Wikipédia en anglais, article Elvas : Elvas est portugaise depuis 1226 (https://en.wikipedia.org/wiki/Elvas)", "cellules": [10231, 10229]},
     {"pays": 6, "source": "Wikipédia en anglais, article Crown of Aragon : union du royaume d'Aragon et du comté de Barcelone, qui tient aux XIVe et XVe siècles les Baléares, la Sardaigne et la Sicile (https://en.wikipedia.org/wiki/Crown_of_Aragon); Wikipédia en anglais, article Balearic Islands : les îles reviennent à la couronne d'Aragon (https://en.wikipedia.org/wiki/Balearic_Islands); Wikipédia en anglais, article La Seu d'Urgell : siège de l'évêque d'Urgell, en Catalogne (https://en.wikipedia.org/wiki/La_Seu_d%27Urgell)", "cellules": [10313, 10238, 10179, 10245, 1494, 1368, 1266, 1267, 1547]},
@@ -45,9 +48,22 @@
     {"pays": 23, "source": "Wikipédia en anglais, article Kingdom of Poland (1385–1569) : le royaume de Pologne réunit la Grande et la Petite-Pologne et, depuis 1387, la Ruthénie rouge avec Lviv (https://en.wikipedia.org/wiki/Crown_of_the_Kingdom_of_Poland)", "cellules": [10327, 10345, 10351]},
     {"pays": 83, "source": "Wikipédia en anglais, article Duchy of Masovia : la Mazovie, de Płock à Varsovie, est aux ducs piastes Siemowit IV et Janusz Ier, vassaux de la Pologne (https://en.wikipedia.org/wiki/Duchy_of_Masovia)", "cellules": [10328]},
     {"pays": 82, "source": "Wikipédia en anglais, article Grand Duchy of Lithuania : le grand-duché de Lituanie s'étend de la Samogitie au Dniepr, avec la Ruthénie blanche, la Volhynie, la Podolie, Kiev et Smolensk (https://en.wikipedia.org/wiki/Grand_Duchy_of_Lithuania)", "cellules": [10358, 10360, 10363, 10373, 10375, 10377, 10378, 10380, 10381, 10394, 10395, 10396, 10397, 10398, 10401, 10406, 10408, 10409, 10414]},
-    {"pays": 24, "source": "Wikipédia en anglais, article Kingdom of Hungary (1301–1526) : le royaume de Hongrie tient la Transylvanie, la Slavonie et, en union, le royaume de Croatie (https://en.wikipedia.org/wiki/Kingdom_of_Hungary_(1301%E2%80%931526)) ; Wikipédia en anglais, article Dalmatia : la Dalmatie et ses îles sont à la couronne de Hongrie de 1358 jusqu'à leur vente à Venise en 1409 (https://en.wikipedia.org/wiki/Dalmatia)", "cellules": [10325, 10342, 10301, 10309, 10332, 10299, 10349, 10291, 10286, 1316, 1317, 1320, 1321, 1324, 1326, 1328]},
+    {"pays": 24, "source": "Wikipédia en anglais, article Kingdom of Hungary (1301–1526) : le royaume de Hongrie tient la Transylvanie, la Slavonie et, en union, le royaume de Croatie (https://en.wikipedia.org/wiki/Kingdom_of_Hungary_(1301%E2%80%931526)) ; Wikipédia en anglais, article Dalmatia : la Dalmatie et ses îles sont à la couronne de Hongrie de 1358 jusqu'à leur vente à Venise en 1409 (https://en.wikipedia.org/wiki/Dalmatia)", "cellules": [10325, 10342, 10301, 10309, 10332, 10299, 10349, 10291, 10286, 1316, 1317, 1320, 1321, 1324, 1326, 1328, 1331, 1334, 1337, 1339, 1341]},
     {"pays": 31, "source": "Wikipédia en anglais, article Novgorod Republic : la république de Novgorod s'étend du lac Ladoga à la mer Blanche ; Korela et Orechek gardent sa frontière avec la Suède (https://en.wikipedia.org/wiki/Novgorod_Republic)", "cellules": [10399, 10403, 10407, 10410, 10412, 1458, 1472, 1473, 1474, 1477, 1478, 1480, 1481, 1488]},
-    {"pays": 32, "source": "Wikipédia en anglais, article Pskov Republic : la république de Pskov tient Pskov, Izborsk, Ostrov et Opotchka, entre Novgorod et la Livonie, avec les îles du lac Peïpous (https://en.wikipedia.org/wiki/Pskov_Republic)", "cellules": [10386, 1443]}
+    {"pays": 32, "source": "Wikipédia en anglais, article Pskov Republic : la république de Pskov tient Pskov, Izborsk, Ostrov et Opotchka, entre Novgorod et la Livonie, avec les îles du lac Peïpous (https://en.wikipedia.org/wiki/Pskov_Republic)", "cellules": [10386, 1443]},
+    {"pays": 25, "source": "Wikipédia en anglais, article Byzantine Empire under the Palaiologos dynasty : à la fin du XIVe siècle, l'Empire ne tient plus que Constantinople et ses abords, le despotat de Morée et des îles du nord de l'Égée (https://en.wikipedia.org/wiki/Byzantine_Empire_under_the_Palaiologos_dynasty) ; Wikipédia en anglais, article Lemnos : Lemnos reste byzantine jusqu'en 1453 (https://en.wikipedia.org/wiki/Lemnos) ; Wikipédia en anglais, article Imbros : Imbros reste byzantine jusqu'à la chute de Constantinople (https://en.wikipedia.org/wiki/Imbros) ; Wikipédia en anglais, article Thasos : Thasos est byzantine jusqu'à sa cession aux Gattilusi en 1414 (https://en.wikipedia.org/wiki/Thasos) ; Wikipédia en anglais, article Samothrace : l'île passe aux Gattilusi au XVe siècle seulement (https://en.wikipedia.org/wiki/Samothrace) ; Wikipédia en anglais, article Skiathos : les Sporades du Nord, reprises pour Byzance vers 1276, restent byzantines jusqu'en 1453, où elles se donnent à Venise (https://en.wikipedia.org/wiki/Skiathos) ; Wikipédia en anglais, article Skyros : Skyros reste byzantine jusqu'en 1453 (https://en.wikipedia.org/wiki/Skyros)", "cellules": [1393, 1397, 1399, 1405, 1406, 1417, 1424, 1425]},
+    {"pays": 26, "source": "Wikipédia en anglais, article Bayezid I : Bayezid soumet la Bulgarie de Tarnovo (1393), le tsarat de Vidin (1396), la Thessalie (1393) et Thessalonique, et annexe en Anatolie les beyliks de Saruhan, d'Aydın, de Menteşe, de Germiyan et de Hamid (1390), de Candar à Kastamonu (1392), puis Karaman et Sivas (1397–1398) (https://en.wikipedia.org/wiki/Bayezid_I) ; TDV İslâm Ansiklopedisi, article BAYEZİD I : Konya et les terres de Karaman passent sous les Ottomans à l'automne 1397 (https://islamansiklopedisi.org.tr/bayezid-i) ; Wikipédia en anglais, article Skopje : Skopje est ottomane depuis 1392 (https://en.wikipedia.org/wiki/Skopje) ; Wikipédia en anglais, article Đurađ Branković : Đurađ tient au Kosovo les terres de son père en vassal du sultan (https://en.wikipedia.org/wiki/%C4%90ura%C4%91_Brankovi%C4%87) ; Wikipédia en anglais, article Dobruja : après la mort du despote Ivanko (1388), les Ottomans prennent les forteresses de la Dobroudja, Silistra comprise (https://en.wikipedia.org/wiki/Dobruja) ; Wikipédia en anglais, article Niš : Niš est prise par Murad Ier en 1386 (https://en.wikipedia.org/wiki/Ni%C5%A1)", "cellules": [10366, 10361, 10348, 10355, 10370, 10376, 10343, 10334, 10337, 10350, 10341, 1445, 10032, 10021, 10011, 10016, 10025, 10027, 10046, 10043, 10054, 10071, 10055, 10075, 10057, 10033, 10050, 10019, 10052, 10056, 10073, 10074]},
+    {"pays": 27, "source": "Wikipédia en anglais, article Moravian Serbia : la principauté serbe des Lazarević, de Kruševac, tient la Morava occidentale et la Šumadija (https://en.wikipedia.org/wiki/Moravian_Serbia)", "cellules": [10329]},
+    {"pays": 28, "source": "Wikipédia en anglais, article Kingdom of Bosnia : le royaume de Bosnie, de Bobovac à Jajce, tient aussi le Hum, de Mostar, dont les seigneurs Kosača sont ses vassaux (https://en.wikipedia.org/wiki/Kingdom_of_Bosnia)", "cellules": [10300]},
+    {"pays": 29, "source": "Wikipédia en anglais, article Wallachia : la principauté de Valachie s'étend des Carpates au Danube, de l'Olténie à la Grande-Valachie (https://en.wikipedia.org/wiki/Wallachia)", "cellules": [10352, 10362]},
+    {"pays": 30, "source": "Wikipédia en anglais, article Moldavia : la principauté de Moldavie s'étend des Carpates au Dniestr et, depuis la fin du XIVe siècle, jusqu'à la mer Noire (https://en.wikipedia.org/wiki/Moldavia) ; Wikipédia en anglais, article Bilhorod-Dnistrovskyi : Cetatea Albă, aux bouches du Dniestr, est moldave depuis la fin du XIVe siècle (https://en.wikipedia.org/wiki/Bilhorod-Dnistrovskyi)", "cellules": [10371, 10385, 10379, 1457]},
+    {"pays": 13, "source": "Wikipédia en anglais, article Kingdom of Candia : la Crète est vénitienne de 1211 à 1669 (https://en.wikipedia.org/wiki/Kingdom_of_Candia) ; Wikipédia en anglais, article Corfu : Corfou se donne à Venise en 1386 (https://en.wikipedia.org/wiki/Corfu) ; Wikipédia en anglais, article Kythira : Cythère est vénitienne depuis 1363 (https://en.wikipedia.org/wiki/Kythira) ; Wikipédia en anglais, article Negroponte : l'Eubée est la seigneurie vénitienne de Négrepont (https://en.wikipedia.org/wiki/Negroponte) ; Wikipédia en anglais, article Tinos : Tinos et Mykonos passent à Venise en 1390, au legs de Georges III Ghisi (https://en.wikipedia.org/wiki/Tinos) ; Wikipédia en anglais, article Karpathos : Karpathos et Kasos appartiennent aux Cornaro, nobles vénitiens, de 1306 à 1538 (https://en.wikipedia.org/wiki/Karpathos)", "cellules": [1355, 1389, 1398, 1415, 1419, 9989, 9996, 10003, 1440, 1437]},
+    {"pays": 39, "source": "Wikipédia en anglais, article Knights Hospitaller : l'ordre tient Rhodes et le Dodécanèse de 1310 à 1522 (https://en.wikipedia.org/wiki/Knights_Hospitaller) ; Wikipédia en anglais, article Kos : le château de Kos est hospitalier (https://en.wikipedia.org/wiki/Kos)", "cellules": [1448, 1439, 1436, 1438, 1441, 1447]},
+    {"pays": 34, "source": "Wikipédia en anglais, article Mamluk Sultanate : le sultanat tient l'Égypte, avec Alexandrie et Damiette, et la Syrie jusqu'à Gaza (https://en.wikipedia.org/wiki/Mamluk_Sultanate)", "cellules": [8992, 9008, 10168, 10169]},
+    {"pays": 33, "source": "Wikipédia en anglais, article Golden Horde : la Horde tient la steppe pontique et la Crimée intérieure (https://en.wikipedia.org/wiki/Golden_Horde)", "cellules": [10411, 10402, 1479, 10404, 1492]},
+    {"pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Abu Faris Abd al-Aziz II (1394–1434) tient l'Ifriqiya, de Tunis au Djérid, et le Constantinois avec Constantine et Bougie (https://en.wikipedia.org/wiki/Hafsid_dynasty) ; Wikipédia en anglais, article Biskra : le Zab, de Biskra, relève des Hafsides (https://en.wikipedia.org/wiki/Biskra)", "cellules": [10143, 9876, 10137, 1283, 1285, 1287, 10119, 10131, 9879, 10128, 10122, 10108, 10090, 10103]},
+    {"pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : le royaume zayyanide de Tlemcen s'étend d'Oran et de Tlemcen à Alger et à Médéa (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)", "cellules": [9788, 9861, 9957, 10041]},
+    {"pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : le sultanat mérinide de Fès tient le Maroc atlantique et méditerranéen, de Ceuta et Tanger à Marrakech, jusqu'à la prise de Ceuta par le Portugal en 1415 (https://en.wikipedia.org/wiki/Marinid_dynasty)", "cellules": [9831, 9836, 9813, 9848, 9841, 9839, 9827]}
   ],
   "partages": [
     { "cell_id": 10430, "villes": [
@@ -539,6 +555,58 @@
     { "cell_id": 10400, "villes": [
       {"nom": "Toropets", "lat": 56.5, "lon": 31.63, "pays": 82, "source": "Wikipédia en anglais, article Toropets : Toropets est une ville du grand-duché de Lituanie (https://en.wikipedia.org/wiki/Toropets)"},
       {"nom": "Velikie Louki", "lat": 56.34, "lon": 30.53, "pays": 31, "source": "Wikipédia en anglais, article Velikiye Luki : Velikie Louki est une ville de la république de Novgorod (https://en.wikipedia.org/wiki/Velikiye_Luki)"}
+    ] },
+    { "cell_id": 10374, "villes": [
+      {"nom": "Constantinople", "lat": 41.01, "lon": 28.98, "pays": 25, "source": "Wikipédia en anglais, article Constantinople : capitale byzantine de 1261 à la conquête ottomane de 1453 (https://en.wikipedia.org/wiki/Constantinople)"},
+      {"nom": "Sélymbria", "lat": 41.08, "lon": 28.25, "pays": 25, "source": "Wikipédia en anglais, article Silivri : Sélymbria, apanage de Jean VII Paléologue, reste byzantine jusqu'en 1453 (https://en.wikipedia.org/wiki/Silivri)"},
+      {"nom": "Çorlu", "lat": 41.16, "lon": 27.8, "pays": 26, "source": "Wikipédia en anglais, article Çorlu : Çorlu est prise par les Ottomans sous Murad Ier, dans les années 1360 (https://en.wikipedia.org/wiki/%C3%87orlu)"},
+      {"nom": "Kırk Kilise", "lat": 41.73, "lon": 27.22, "pays": 26, "source": "Wikipédia en anglais, article Kırklareli : Kırk Kilise est ottomane depuis les années 1360 (https://en.wikipedia.org/wiki/K%C4%B1rklareli)"}
+    ] },
+    { "cell_id": 10340, "villes": [
+      {"nom": "Mistra", "lat": 37.07, "lon": 22.37, "pays": 25, "source": "Wikipédia en anglais, article Mystras : résidence des despotes de la Morée byzantine de 1349 à 1460 (https://en.wikipedia.org/wiki/Mystras)"},
+      {"nom": "Monemvasia", "lat": 36.69, "lon": 23.04, "pays": 25, "source": "Wikipédia en anglais, article Monemvasia : Monemvasia est une ville du despotat de Morée (https://en.wikipedia.org/wiki/Monemvasia)"},
+      {"nom": "Coron", "lat": 36.8, "lon": 21.96, "pays": 13, "source": "Wikipédia en anglais, article Koroni : Coron, avec Modon, est vénitienne depuis 1207 (https://en.wikipedia.org/wiki/Koroni)"},
+      {"nom": "Argos", "lat": 37.63, "lon": 22.73, "pays": 13, "source": "Wikipédia en anglais, article Argos : Argos est vénitienne depuis 1394 (https://en.wikipedia.org/wiki/Argos)"},
+      {"nom": "Nauplie", "lat": 37.57, "lon": 22.8, "pays": 13, "source": "Wikipédia en anglais, article Nafplio : Nauplie est vénitienne depuis 1388 (https://en.wikipedia.org/wiki/Nafplio)"}
+    ] },
+    { "cell_id": 10347, "villes": [
+      {"nom": "Athènes", "lat": 37.98, "lon": 23.73, "pays": 13, "source": "Wikipédia en anglais, article Duchy of Athens : à la mort de Nerio Ier Acciaioli (1394), Athènes passe à Venise, qui la tient de 1395 à 1402 (https://en.wikipedia.org/wiki/Duchy_of_Athens)"},
+      {"nom": "Thèbes", "lat": 38.32, "lon": 23.32, "pays": null, "raison": "Antonio Ier Acciaioli tient Thèbes avant de prendre Athènes en 1402 (article Duchy of Athens) : puissance absente de la table.", "source": "Wikipédia en anglais, article Duchy of Athens (https://en.wikipedia.org/wiki/Duchy_of_Athens)"},
+      {"nom": "Corinthe", "lat": 37.94, "lon": 22.93, "pays": 25, "source": "Wikipédia en anglais, article Theodore I Palaiologos : Corinthe est au despotat de Morée jusqu'à sa cession aux Hospitaliers, en 1400 (https://en.wikipedia.org/wiki/Theodore_I_Palaiologos)"}
+    ] },
+    { "cell_id": 10335, "villes": [
+      {"nom": "Salona", "lat": 38.53, "lon": 22.38, "pays": 26, "source": "Wikipédia en anglais, article County of Salona : Bayezid prend Salona en 1394 (https://en.wikipedia.org/wiki/County_of_Salona)"},
+      {"nom": "Clarentza", "lat": 37.9, "lon": 21.27, "pays": null, "raison": "Principauté d'Achaïe de Pierre de Saint-Superan et de la Compagnie navarraise (article Principality of Achaea) : puissance absente de la table.", "source": "Wikipédia en anglais, article Principality of Achaea (https://en.wikipedia.org/wiki/Principality_of_Achaea)"},
+      {"nom": "Patras", "lat": 38.25, "lon": 21.73, "pays": null, "raison": "Seigneurie de l'archevêque latin de Patras (article Latin Archbishopric of Patras) : puissance absente de la table.", "source": "Wikipédia en anglais, article Latin Archbishopric of Patras (https://en.wikipedia.org/wiki/Latin_Archbishopric_of_Patras)"},
+      {"nom": "Vonitsa", "lat": 38.92, "lon": 20.89, "pays": null, "raison": "Terres de Carlo Ier Tocco, comte palatin de Céphalonie et duc de Leucade (article Carlo I Tocco) : puissance absente de la table.", "source": "Wikipédia en anglais, article Carlo I Tocco (https://en.wikipedia.org/wiki/Carlo_I_Tocco)"}
+    ] },
+    { "cell_id": 10326, "villes": [
+      {"nom": "Durazzo", "lat": 41.32, "lon": 19.45, "pays": 13, "source": "Wikipédia en anglais, article Durrës : Durazzo est vénitienne depuis 1392 (https://en.wikipedia.org/wiki/Durr%C3%ABs)"},
+      {"nom": "Krujë", "lat": 41.51, "lon": 19.79, "pays": null, "raison": "Principauté d'Albanie des Thopia, de Niketa Thopia (article Principality of Albania) : puissance absente de la table.", "source": "Wikipédia en anglais, article Principality of Albania (medieval) (https://en.wikipedia.org/wiki/Principality_of_Albania_(medieval))"},
+      {"nom": "Valona", "lat": 40.47, "lon": 19.49, "pays": null, "raison": "Principauté de Valona, de Rugina Balšić (article Principality of Valona) : puissance absente de la table.", "source": "Wikipédia en anglais, article Principality of Valona (https://en.wikipedia.org/wiki/Principality_of_Valona)"},
+      {"nom": "Ohrid", "lat": 41.12, "lon": 20.8, "pays": 26, "source": "Wikipédia en anglais, article Ohrid : Ohrid passe aux Ottomans à la fin du XIVe siècle (https://en.wikipedia.org/wiki/Ohrid)"}
+    ] },
+    { "cell_id": 10311, "villes": [
+      {"nom": "Scutari", "lat": 42.07, "lon": 19.51, "pays": 13, "source": "Wikipédia en anglais, article Shkodër : Georges II Balšić cède Scutari à Venise en 1396 (https://en.wikipedia.org/wiki/Shkod%C3%ABr)"},
+      {"nom": "Antivari", "lat": 42.09, "lon": 19.1, "pays": null, "raison": "Zeta des Balšić, de Georges II Balšić (article Zeta under the Balšići) : puissance absente de la table.", "source": "Wikipédia en anglais, article Zeta under the Balšići (https://en.wikipedia.org/wiki/Zeta_under_the_Bal%C5%A1i%C4%87i)"}
+    ] },
+    { "cell_id": 10308, "villes": [
+      {"nom": "Vrhbosna", "lat": 43.86, "lon": 18.41, "pays": 28, "source": "Wikipédia en anglais, article Vrhbosna : Vrhbosna, terre centrale du royaume de Bosnie (https://en.wikipedia.org/wiki/Vrhbosna)"},
+      {"nom": "Raguse", "lat": 42.65, "lon": 18.09, "pays": null, "raison": "République de Raguse, sous la protection du roi de Hongrie (article Republic of Ragusa) : puissance absente de la table.", "source": "Wikipédia en anglais, article Republic of Ragusa (https://en.wikipedia.org/wiki/Republic_of_Ragusa)"}
+    ] },
+    { "cell_id": 10012, "villes": [
+      {"nom": "Manisa", "lat": 38.61, "lon": 27.43, "pays": 26, "source": "Wikipédia en anglais, article Manisa : les terres de Saruhan, dont Manisa, sont incorporées aux Ottomans en 1390 (https://en.wikipedia.org/wiki/Manisa)"},
+      {"nom": "Ayasoluk", "lat": 37.95, "lon": 27.37, "pays": 26, "source": "Wikipédia en anglais, article Aydinids : le beylik d'Aydın, d'Ayasoluk, est annexé par Bayezid en 1390 (https://en.wikipedia.org/wiki/Aydinids)"},
+      {"nom": "Smyrne", "lat": 38.42, "lon": 27.14, "pays": 39, "source": "Wikipédia en anglais, article Smyrniote crusades : les Hospitaliers tiennent le château du port de Smyrne de 1344 à la prise de Tamerlan en 1402 (https://en.wikipedia.org/wiki/Smyrniote_crusades)"}
+    ] },
+    { "cell_id": 10059, "villes": [
+      {"nom": "Nicosie", "lat": 35.17, "lon": 33.36, "pays": 38, "source": "Wikipédia en anglais, article Nicosia : capitale des Lusignan (https://en.wikipedia.org/wiki/Nicosia)"},
+      {"nom": "Limassol", "lat": 34.68, "lon": 33.04, "pays": 38, "source": "Wikipédia en anglais, article Limassol : ville du royaume de Chypre (https://en.wikipedia.org/wiki/Limassol)"},
+      {"nom": "Famagouste", "lat": 35.12, "lon": 33.94, "pays": 16, "source": "Wikipédia en anglais, article Famagusta : ville génoise de 1373 à 1464 (https://en.wikipedia.org/wiki/Famagusta)"}
+    ] },
+    { "cell_id": 10415, "villes": [
+      {"nom": "Qırq Yer", "lat": 44.74, "lon": 33.88, "pays": 33, "source": "Wikipédia en anglais, article Chufut-Kale : garnison tatare de la Horde depuis 1299 (https://en.wikipedia.org/wiki/Chufut-Kale)"},
+      {"nom": "Cembalo", "lat": 44.5, "lon": 33.6, "pays": 16, "source": "Wikipédia en anglais, article Balaklava : Cembalo, ville génoise depuis 1345 (https://en.wikipedia.org/wiki/Balaklava)"}
     ] }
   ],
   "lacunes": [
@@ -554,7 +622,59 @@
     {"cell_id": 1390, "raison": "Île de l'évêché d'Ösel-Wiek (article Bishopric of Ösel–Wiek) : puissance absente de la table."},
     {"cell_id": 1391, "raison": "Île de l'évêché d'Ösel-Wiek (article Bishopric of Ösel–Wiek) : puissance absente de la table."},
     {"cell_id": 10405, "raison": "Champs sauvages à l'est du Dniepr, steppe entre la Lituanie et la Horde d'Or, sans ville tenue par une puissance de la table (article Wild Fields)."},
-    {"cell_id": 10413, "raison": "Champs sauvages de la boucle du Dniepr, steppe entre la Lituanie et la Horde d'Or, sans ville tenue par une puissance de la table (article Wild Fields)."}
+    {"cell_id": 10413, "raison": "Champs sauvages de la boucle du Dniepr, steppe entre la Lituanie et la Horde d'Or, sans ville tenue par une puissance de la table (article Wild Fields)."},
+    {"cell_id": 10331, "raison": "Épire : despotat d'Ésaü Buondelmonti à Ioannina, despotat albanais des Spata à Arta, seigneurs Zenevisi à Gjirokastër (article Despotate of Epirus) : puissances absentes de la table."},
+    {"cell_id": 1343, "raison": "Mljet, île de la république de Raguse (article Mljet) : puissance absente de la table."},
+    {"cell_id": 1370, "raison": "Céphalonie, du comté palatin de Céphalonie et Zante des Tocco (article County palatine of Cephalonia and Zakynthos) : puissance absente de la table."},
+    {"cell_id": 1373, "raison": "Ithaque, du comté palatin de Céphalonie et Zante des Tocco (article County palatine of Cephalonia and Zakynthos) : puissance absente de la table."},
+    {"cell_id": 1374, "raison": "Zante, du comté palatin de Céphalonie et Zante des Tocco (article County palatine of Cephalonia and Zakynthos) : puissance absente de la table."},
+    {"cell_id": 1371, "raison": "Leucade, duché de Carlo Ier Tocco (article Carlo I Tocco) : puissance absente de la table."},
+    {"cell_id": 1422, "raison": "Naxos, siège du duché de l'Archipel des Crispo (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1416, "raison": "Paros, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1404, "raison": "Milos, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1411, "raison": "Syros, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1418, "raison": "Ios, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1414, "raison": "Sikinos, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1420, "raison": "Santorin, du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1426, "raison": "Amorgos, aux seigneurs vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1410, "raison": "Andros, aux Zeno, vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1401, "raison": "Kéa, aux seigneurs vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1402, "raison": "Kythnos, aux seigneurs vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1403, "raison": "Sérifos, aux seigneurs vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1407, "raison": "Siphnos, aux seigneurs vassaux du duché de l'Archipel (article Duchy of the Archipelago) : puissance absente de la table."},
+    {"cell_id": 1396, "raison": "Égine, aux seigneurs catalans Caopena (article Aegina) : puissance absente de la table."},
+    {"cell_id": 1395, "raison": "Salamine, de l'ancien duché d'Athènes, entre Venise et les Acciaioli : non départagée."},
+    {"cell_id": 1394, "raison": "Hydra, île presque déserte de l'Argolide, sans maître établi au 1er janvier 1400 par une source publique : non départagée."},
+    {"cell_id": 1429, "raison": "Lesbos, seigneurie des Gattilusi depuis 1355 (article Gattilusio) : puissance absente de la table."},
+    {"cell_id": 1430, "raison": "Ténédos, vidée de ses habitants après la paix de Turin (1381) (article Tenedos) : aucune puissance n'y tient de lieu."},
+    {"cell_id": 1423, "raison": "Psara, îlot au large de Chios, sans maître établi au 1er janvier 1400 par une source publique : non départagé."},
+    {"cell_id": 1431, "raison": "Icarie, aux seigneurs génois Arangio (article Ikaria) : puissance absente de la table."},
+    {"cell_id": 1413, "raison": "Ágios Efstrátios, îlot voisin de Lemnos, sans maître établi au 1er janvier 1400 par une source publique : non départagé."},
+    {"cell_id": 8924, "raison": "Cyrénaïque : terres bédouines entre Hafsides et Mamelouks, sans ville tenue par une puissance de la table."},
+    {"cell_id": 10167, "raison": "Marmarique, de Tobrouk à Sollum : terres bédouines aux confins des Mamelouks, sans ville tenue par une puissance de la table."},
+    {"cell_id": 1433, "raison": "Astypalée, seigneurie des Querini, nobles vénitiens (article Astypalaia) : puissance absente de la table."},
+    {"cell_id": 9902, "raison": "Tripolitaine, de Tripoli : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 9916, "raison": "Tripolitaine, de Misrata et du Djebel : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 9887, "raison": "Tripolitaine, de la Djeffara : Tripoli et son arrière-pays sont aux Banou Thabit, que les Hafsides ne chassent qu'en 1401 (article Hafsid dynasty) : puissance absente de la table."},
+    {"cell_id": 10095, "raison": "Oued Righ, de Touggourt : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10107, "raison": "Souf, d'El Oued : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10087, "raison": "Zab occidental, d'Ouled Djellal : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10115, "raison": "Grand Erg oriental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10134, "raison": "Erg au nord de Ghadamès : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10078, "raison": "Mzab, de Ghardaïa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9961, "raison": "Chebka du Mzab occidental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9866, "raison": "Gourara et grand erg occidental : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10037, "raison": "Steppes de Laghouat et de Djelfa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9872, "raison": "Djebel Amour : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9854, "raison": "Steppes d'El Bayadh : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9781, "raison": "Monts des Ksour : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9797, "raison": "Hautes plaines au sud de Tlemcen : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9812, "raison": "Haute Moulouya : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9801, "raison": "Figuig : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9820, "raison": "Tafilalt, de Sijilmassa, ruinée à la fin du XIVe siècle : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9832, "raison": "Dadès et Drâa : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 9849, "raison": "Sous, de Taroudant : tribus et oasis dont les maîtres au 1er janvier 1400 ne sont pas nommés par l'histoire ; seigneurs plausibles de niveau 2, sans pays de la table."},
+    {"cell_id": 10082, "raison": "Hodna, de M'Sila, aux confins des Hafsides de Bougie et des Zayyanides : non départagé."}
   ],
   "petits_pays": [
     {"nom": "Andorre", "raison": "Coseigneurie de l'évêque d'Urgell et du comte de Foix depuis les paréages de 1278, moins de 500 km² : plus petite qu'un lieu (https://fr.wikipedia.org/wiki/Andorre)."},
@@ -578,7 +698,9 @@
     {"nom": "Strasbourg", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va aux terres sans pays de Bade, puissance absente de la table (https://en.wikipedia.org/wiki/Strasbourg)."},
     {"nom": "Bâle", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va à l'Autriche antérieure ; la principauté épiscopale de Bâle est plus petite qu'un lieu (https://en.wikipedia.org/wiki/Basel)."},
     {"nom": "Besançon", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au comté de Bourgogne, que Philippe le Hardi tient depuis 1384 (https://en.wikipedia.org/wiki/Besan%C3%A7on)."},
-    {"nom": "Tournai", "raison": "Ville du roi de France enclavée dans le Hainaut, plus petite qu'un lieu : son lieu va au Hainaut (https://en.wikipedia.org/wiki/Tournai)."}
+    {"nom": "Tournai", "raison": "Ville du roi de France enclavée dans le Hainaut, plus petite qu'un lieu : son lieu va au Hainaut (https://en.wikipedia.org/wiki/Tournai)."},
+    {"nom": "Péra", "raison": "Colonie génoise de Galata, face à Constantinople, plus petite qu'un lieu : son lieu va à Byzance (https://en.wikipedia.org/wiki/Galata)."},
+    {"nom": "Théodoro", "raison": "Principauté de Gothie, autour de Mangup, à 17 km de Qırq Yer : le seul lieu qu'elle pourrait tenir est celui de la capitale tatare de la Horde, où il va (https://en.wikipedia.org/wiki/Principality_of_Theodoro)."}
   ],
   "temoins": [
     {"nom": "Paris", "lat": 48.86, "lon": 2.35, "pays": 3, "source": "Wikipédia, article Royaume de France : Paris, capitale du royaume de Charles VI (https://fr.wikipedia.org/wiki/Royaume_de_France)"},
@@ -686,6 +808,34 @@
     {"nom": "Zagreb", "lat": 45.81, "lon": 15.98, "pays": 24, "source": "Wikipédia en anglais, article Zagreb : Zagreb est une ville du royaume de Croatie, uni à la Hongrie (https://en.wikipedia.org/wiki/Zagreb)"},
     {"nom": "Kolozsvár", "lat": 46.77, "lon": 23.59, "pays": 24, "source": "Wikipédia en anglais, article Cluj-Napoca : Kolozsvár est une ville de Transylvanie, au royaume de Hongrie (https://en.wikipedia.org/wiki/Cluj-Napoca)"},
     {"nom": "Novgorod", "lat": 58.52, "lon": 31.27, "pays": 31, "source": "Wikipédia en anglais, article Novgorod Republic : Novgorod est la capitale de la république de Novgorod (https://en.wikipedia.org/wiki/Novgorod_Republic)"},
-    {"nom": "Pskov", "lat": 57.82, "lon": 28.33, "pays": 32, "source": "Wikipédia en anglais, article Pskov Republic : Pskov est la capitale de la république de Pskov (https://en.wikipedia.org/wiki/Pskov_Republic)"}
+    {"nom": "Pskov", "lat": 57.82, "lon": 28.33, "pays": 32, "source": "Wikipédia en anglais, article Pskov Republic : Pskov est la capitale de la république de Pskov (https://en.wikipedia.org/wiki/Pskov_Republic)"},
+    {"nom": "Constantinople", "lat": 41.01, "lon": 28.98, "pays": 25, "source": "Wikipédia en anglais, article Constantinople : capitale byzantine de 1261 à la conquête ottomane de 1453 (https://en.wikipedia.org/wiki/Constantinople)"},
+    {"nom": "Mistra", "lat": 37.07, "lon": 22.37, "pays": 25, "source": "Wikipédia en anglais, article Mystras : résidence des despotes de la Morée byzantine de 1349 à 1460 (https://en.wikipedia.org/wiki/Mystras)"},
+    {"nom": "Edirne", "lat": 41.68, "lon": 26.56, "pays": 26, "source": "Wikipédia en anglais, article Edirne : prise par les Ottomans dans les années 1360, puis capitale ottomane jusqu'à 1453 (https://en.wikipedia.org/wiki/Edirne)"},
+    {"nom": "Thessalonique", "lat": 40.64, "lon": 22.94, "pays": 26, "source": "Wikipédia en anglais, article Thessaloniki : tenue par les Ottomans de 1387 à 1403 (https://en.wikipedia.org/wiki/Thessaloniki)"},
+    {"nom": "Sofia", "lat": 42.7, "lon": 23.32, "pays": 26, "source": "Wikipédia en anglais, article Sofia : conquise par les Ottomans dans les années 1380 (https://en.wikipedia.org/wiki/Sofia)"},
+    {"nom": "Brousse", "lat": 40.19, "lon": 29.06, "pays": 26, "source": "Wikipédia en anglais, article Bursa : prise par Orhan en 1326, première capitale ottomane (https://en.wikipedia.org/wiki/Bursa)"},
+    {"nom": "Konya", "lat": 37.87, "lon": 32.48, "pays": 26, "source": "TDV İslâm Ansiklopedisi, article BAYEZİD I : Konya et les terres de Karaman passent sous les Ottomans à l'automne 1397 (https://islamansiklopedisi.org.tr/bayezid-i)"},
+    {"nom": "Kruševac", "lat": 43.58, "lon": 21.33, "pays": 27, "source": "Wikipédia en anglais, article Moravian Serbia : capitale de la principauté serbe de Lazar et Stefan Lazarević, de 1371 à 1402 (https://en.wikipedia.org/wiki/Moravian_Serbia)"},
+    {"nom": "Bobovac", "lat": 44.14, "lon": 18.22, "pays": 28, "source": "Wikipédia en anglais, article Bobovac : siège des souverains bosniens aux XIVe et XVe siècles, jusqu'à 1463 (https://en.wikipedia.org/wiki/Bobovac)"},
+    {"nom": "Mostar", "lat": 43.34, "lon": 17.81, "pays": 28, "source": "Wikipédia en anglais, article Kingdom of Bosnia : le Hum, de Mostar, relève du roi de Bosnie (https://en.wikipedia.org/wiki/Kingdom_of_Bosnia)"},
+    {"nom": "Târgoviște", "lat": 44.93, "lon": 25.46, "pays": 29, "source": "Wikipédia en anglais, article Târgoviște : mentionnée comme résidence valaque par Johann Schiltberger en 1396 (https://en.wikipedia.org/wiki/T%C3%A2rgovi%C8%99te)"},
+    {"nom": "Suceava", "lat": 47.65, "lon": 26.26, "pays": 30, "source": "Wikipédia en anglais, article Suceava : capitale de la principauté de Moldavie depuis 1388 (https://en.wikipedia.org/wiki/Suceava)"},
+    {"nom": "Athènes", "lat": 37.98, "lon": 23.73, "pays": 13, "source": "Wikipédia en anglais, article Duchy of Athens : Venise tient Athènes de 1395 à 1402 (https://en.wikipedia.org/wiki/Duchy_of_Athens)"},
+    {"nom": "Candie", "lat": 35.34, "lon": 25.13, "pays": 13, "source": "Wikipédia en anglais, article Kingdom of Candia : Candie est la capitale de la Crète vénitienne de 1211 à 1669 (https://en.wikipedia.org/wiki/Kingdom_of_Candia)"},
+    {"nom": "Rhodes", "lat": 36.43, "lon": 28.22, "pays": 39, "source": "Wikipédia en anglais, article Knights Hospitaller : l'ordre tient Rhodes de 1310 à 1522 (https://en.wikipedia.org/wiki/Knights_Hospitaller)"},
+    {"nom": "Nicosie", "lat": 35.17, "lon": 33.36, "pays": 38, "source": "Wikipédia en anglais, article Nicosia : capitale des Lusignan (https://en.wikipedia.org/wiki/Nicosia)"},
+    {"nom": "Famagouste", "lat": 35.12, "lon": 33.94, "pays": 16, "source": "Wikipédia en anglais, article Famagusta : ville génoise de 1373 à 1464 (https://en.wikipedia.org/wiki/Famagusta)"},
+    {"nom": "Le Caire", "lat": 30.04, "lon": 31.24, "pays": 34, "source": "Wikipédia en anglais, article Mamluk Sultanate : Le Caire est la capitale du sultanat (https://en.wikipedia.org/wiki/Mamluk_Sultanate)"},
+    {"nom": "Alexandrie", "lat": 31.2, "lon": 29.92, "pays": 34, "source": "Wikipédia en anglais, article Alexandria : Alexandrie est mamelouke (https://en.wikipedia.org/wiki/Alexandria)"},
+    {"nom": "Qırq Yer", "lat": 44.74, "lon": 33.88, "pays": 33, "source": "Wikipédia en anglais, article Chufut-Kale : garnison tatare de la Horde depuis 1299 (https://en.wikipedia.org/wiki/Chufut-Kale)"},
+    {"nom": "Tunis", "lat": 36.81, "lon": 10.18, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Tunis est la capitale des Hafsides (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Constantine", "lat": 36.37, "lon": 6.61, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Constantine est la capitale du Constantinois hafside (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Bougie", "lat": 36.75, "lon": 5.08, "pays": 35, "source": "Wikipédia en anglais, article Hafsid dynasty : Bougie est hafside (https://en.wikipedia.org/wiki/Hafsid_dynasty)"},
+    {"nom": "Tlemcen", "lat": 34.88, "lon": -1.32, "pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : Tlemcen est la capitale du royaume zayyanide (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)"},
+    {"nom": "Alger", "lat": 36.75, "lon": 3.06, "pays": 36, "source": "Wikipédia en anglais, article Kingdom of Tlemcen : Alger relève du royaume zayyanide de Tlemcen (https://en.wikipedia.org/wiki/Kingdom_of_Tlemcen)"},
+    {"nom": "Fès", "lat": 34.06, "lon": -4.97, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Fès est la capitale du sultanat mérinide (https://en.wikipedia.org/wiki/Marinid_dynasty)"},
+    {"nom": "Marrakech", "lat": 31.63, "lon": -7.99, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Marrakech est mérinide (https://en.wikipedia.org/wiki/Marinid_dynasty)"},
+    {"nom": "Ceuta", "lat": 35.89, "lon": -5.32, "pays": 37, "source": "Wikipédia en anglais, article Marinid dynasty : Ceuta est mérinide jusqu'à sa prise par le Portugal en 1415 (https://en.wikipedia.org/wiki/Marinid_dynasty)"}
   ]
 }

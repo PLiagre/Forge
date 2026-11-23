@@ -11,18 +11,15 @@ from collections import Counter
 
 import pytest
 
-from sim.aggregation import PositionCelluleInconnue, charger_positions, derive_appartenance
+from sim.aggregation import PositionCelluleInconnue, charger_latitude_moyenne, charger_positions
 from sim import engine, world as etat_monde
 from sim.frontieres import charger_frontieres, puissances_des_lieux
-from sim.maisons import (
-    charger_maisons, maison_de_cellule, maison_par_cellule, maisons_depuis_monde,
-)
-from sim.puissances import (
-    PuissanceInvalide, charger_table, charger_portee,
-    charger_latitude_moyenne_puissances, puissances_depuis_monde,
-)
+from sim.maisons import charger_maisons, maison_de_cellule, maisons_depuis_monde
+from sim.puissances import PuissanceInvalide, charger_table, puissances_depuis_monde
 from sim.tests.test_puissances import _cellule_la_plus_proche
+from sim.projection import projeter_epsg3035
 from sim.registre_maisons import charger_registre_maisons
+from sim.villes import point_dans_geometrie
 from sim.world import World
 
 TABLE = pathlib.Path(__file__).parents[2] / "data" / "puissances-1400.json"
@@ -42,7 +39,7 @@ COUPLES = {
     "Hollande": "Wittelsbach-Straubing", "Hainaut": "Wittelsbach-Straubing",
     "Brandebourg": "Luxembourg-Moravie", "Duché de Luxembourg": "Luxembourg-Moravie",
 }
-# La maison de chaque ancre connue : celle de son pays, depuis que les princes d'Empire en sont un.
+# La maison de chaque ancre connue : celle de son pays ; une ancre ne désigne pas de maison.
 ANCRES_CONNUES = {
     "Dijon": "Valois-Bourgogne", "Bruges": "Valois-Bourgogne", "Nantes": "Montfort",
     "Munich": "Wittelsbach-Bavière", "Heidelberg": "Wittelsbach", "Vienne": "Habsbourg",
@@ -78,26 +75,24 @@ def _ecrire(tmp_path, document):
 @pytest.fixture
 def carte():
     monde, table, maisons = World.charger(0), charger_table(), charger_maisons()
-    positions, latitude = charger_positions(), charger_latitude_moyenne_puissances()
+    positions, latitude = charger_positions(), charger_latitude_moyenne()
     cellules = {nom: _cellule_la_plus_proche(p[:2], positions, latitude)
                 for nom, p in POINTS.items()}
+    # Le centroïde le plus proche de Constantinople est celui de la Bithynie, ottomane : la ville se
+    # juge dans la cellule de son point.
+    cellules["Constantinople"] = next(c for c in sorted(monde.carte) if point_dans_geometrie(
+        *projeter_epsg3035(*POINTS["Constantinople"][:2]), monde.carte[c]["geometry"]))
     return monde, table, maisons, positions, latitude, cellules
 
 
 def test_lecture(tmp_path):
     table, maisons = charger_table(), charger_maisons()
     sans = [p for p in table.puissances if maisons.par_puissance[p.id] is None]
-    vassaux = sum(maisons.par_ancre[a.id] != maisons.par_puissance[a.puissance]
-                 for a in table.ancres)
     print(f"maisons_lues={len(maisons.maisons)}, puissances_lues={len(maisons.par_puissance)}, "
-          f"avec_maison={len(table.puissances) - len(sans)}, sans_maison={len(sans)}, "
-          f"vassaux_declares={vassaux}")
+          f"avec_maison={len(table.puissances) - len(sans)}, sans_maison={len(sans)}")
     assert len(maisons.maisons) == 56
     assert len(maisons.par_puissance) == 81 and len(sans) == 20
     assert all(p.nature in NATURES_SANS_MAISON for p in sans)
-    # Plus aucune ancre ne déclare de maison de vassal : chaque prince d'Empire est un pays.
-    assert vassaux == 0
-    assert set(maisons.par_ancre) == {a.id for a in table.ancres}
     assert list(m.id for m in maisons.maisons) == sorted(m.id for m in maisons.maisons)
     document = _document()
     document["maisons"] = [m for m in document["maisons"] if m["nom"] != "Visconti"]
@@ -153,7 +148,7 @@ def test_refus(tmp_path, cas, liste, nom, champ):
 def _connues(table, maisons):
     noms = {m.id: m.nom for m in maisons.maisons}
     puissances = {p.nom: noms.get(maisons.par_puissance[p.id]) for p in table.puissances}
-    ancres = {a.nom: noms.get(maisons.par_ancre[a.id]) for a in table.ancres}
+    ancres = {a.nom: noms.get(maisons.par_puissance[a.puissance]) for a in table.ancres}
     return (bool(COUPLES) and bool(ANCRES_CONNUES)
             and all(puissances.get(p) == m for p, m in COUPLES.items())
             and all(ancres.get(a) == m for a, m in ANCRES_CONNUES.items()))
@@ -174,50 +169,6 @@ def test_connues(tmp_path):
     print(f"couples_vus={len(COUPLES)}, ancres_connues={len(ANCRES_CONNUES)}, contre_épreuves_fausses=2")
 
 
-def _vassaux(monde, table, maisons, positions, latitude, frontieres=None):
-    puissances = puissances_depuis_monde(monde, positions, table, frontieres=frontieres)
-    vue = maisons_depuis_monde(monde, positions, table, maisons, frontieres=frontieres)
-    declares = [a for a in table.ancres
-                if maisons.par_ancre[a.id] != maisons.par_puissance[a.puissance]]
-    hors = 0
-    for ancre in declares:
-        cellule = _cellule_la_plus_proche((ancre.lat, ancre.lon), positions, latitude)
-        hors += (puissances[cellule] != ancre.puissance
-                 or vue[cellule] != maisons.par_ancre[ancre.id])
-    assert declares
-    return len(declares), hors
-
-
-def test_vassaux(carte, tmp_path):
-    monde, table, maisons, positions, latitude, cellules = carte
-    # Plus aucune ancre livrée ne déclare de maison de vassal : chaque prince d'Empire est un pays.
-    assert all(maisons.par_ancre[a.id] == maisons.par_puissance[a.puissance] for a in table.ancres)
-    # La règle se juge sur une table qui en déclare une, Munich tenue par les Wittelsbach du Palatinat,
-    # sans la table des frontières : l'ancre y décide chaque cellule.
-    document = _document()
-    _ligne(document, "ancres", "Munich")["maison"] = _ligne(document, "maisons", "Wittelsbach")["id"]
-    chemin = _ecrire(tmp_path, document)
-    table, maisons = charger_table(chemin), charger_maisons(chemin)
-    sans = dataclasses.replace(charger_frontieres(), cellules={}, partages={}, lacunes={})
-    vus, hors = _vassaux(monde, table, maisons, positions, latitude, sans)
-    assert (vus, hors) == (1, 0)
-    prague = next(a for a in table.ancres if a.nom == "Prague" and a.puissance == next(
-        p.id for p in table.puissances if p.nom == "Bohême"))
-    munich = next(a for a in table.ancres if a.nom == "Munich")
-    intruse = dataclasses.replace(prague, id=max(a.id for a in table.ancres) + 1,
-                                 puissance=munich.puissance, nom="Vassal intrus à Prague")
-    alteree = dataclasses.replace(table, ancres=table.ancres + (intruse,))
-    tenantes = dataclasses.replace(maisons, par_ancre={**maisons.par_ancre,
-                                  intruse.id: maisons.par_ancre[munich.id]})
-    contre_vus, contre_hors = _vassaux(monde, alteree, tenantes, positions, latitude, sans)
-    assert contre_hors == 1 and contre_vus == vus + 1
-    assert puissances_depuis_monde(monde, table=alteree)[cellules["Prague"]] == prague.puissance
-    assert derive_appartenance({cellules["Prague"]: (prague.lat, prague.lon)},
-                              alteree.ancres, latitude)[cellules["Prague"]] == prague.id
-    print(f"vassaux_vus={vus}, vassaux_hors={hors}, intrus_hors={contre_hors}, "
-          "égalité_Prague_gagnée=1")
-
-
 def test_geographie(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
@@ -230,7 +181,10 @@ def test_geographie(carte):
     milan = next(p for p in table.puissances if p.nom == "Milan")
     assert maisons.par_puissance[venise.id] is None
     assert puissances_depuis_monde(monde)[cellules["Venise"]] == milan.id
-    assert venise.id not in puissances_depuis_monde(monde).values()
+    # En Italie, Venise ne tient que des lieux ; ses cellules sont celles d'outre-mer, sans maison.
+    de_la_republique = [c for c, p in puissances_depuis_monde(monde).items() if p == venise.id]
+    assert de_la_republique and all(vue[c] is None and monde.carte[c]["centroid"]["lat"] < 43
+                                    for c in de_la_republique)
     pays_des_lieux = puissances_des_lieux(monde)
     de_venise = [couple for couple, pays in pays_des_lieux.items()
                  if couple[0] == cellules["Venise"] and pays == venise.id]
@@ -242,10 +196,8 @@ def test_geographie(carte):
     bourgogne = next(p for p in table.puissances if p.nom == "Bourgogne")
     assert maisons.par_puissance[bourgogne.id] == ids["Valois-Bourgogne"]
     assert all(vue[cellules[n]] == ids["Valois-Bourgogne"] for n in ("Dijon", "Bruges"))
-    tenantes = {a.id: ids["Valois"] if a.puissance == bourgogne.id else maisons.par_ancre[a.id]
-                for a in table.ancres}
     sans_bourgogne = maisons_depuis_monde(monde, maisons=dataclasses.replace(
-        maisons, par_puissance={**maisons.par_puissance, bourgogne.id: ids["Valois"]}, par_ancre=tenantes))
+        maisons, par_puissance={**maisons.par_puissance, bourgogne.id: ids["Valois"]}))
     assert all(sans_bourgogne[cellules[n]] == ids["Valois"] for n in ("Dijon", "Bruges"))
     assert ids["Valois-Bourgogne"] not in sans_bourgogne.values()
     # Vienne et Munich sont des cellules de la table : leur maison suit celle de leur pays.
@@ -275,9 +227,7 @@ def _compter(monde, table, maisons, vue):
         else:
             avec += 1
             assert maison is not None
-            permises = {maisons.par_puissance[puissance]} | {
-                maisons.par_ancre[a.id] for a in table.ancres if a.puissance == puissance}
-            incoherentes += maison not in permises
+            incoherentes += maison != maisons.par_puissance[puissance]
     return avec, sans, non_couvertes, incoherentes
 
 
@@ -292,18 +242,15 @@ def test_compte(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
     avec, sans, non_couvertes, incoherentes = _compter(monde, table, maisons, vue)
-    assert (avec, sans, non_couvertes) == (505, 66, 25)
+    assert (avec, sans, non_couvertes) == (457, 70, 69)
     assert avec + sans + non_couvertes == len(monde.cells) and incoherentes == 0
     _chaque_maison(vue, maisons)
     ids = {m.nom: m.id for m in maisons.maisons}
     fausse = {**vue, cellules["Paris"]: ids["Habsbourg"]}
     assert _compter(monde, table, maisons, fausse)[-1] == 1
     chypriote = next(p for p in table.puissances if p.nom == "Chypre")
-    # Recalcul des tenantes héritées après l'altération de la puissance.
-    tenantes = {a.id: ids["Lancastre"] if a.puissance == chypriote.id else maisons.par_ancre[a.id]
-                for a in table.ancres}
     alteree = dataclasses.replace(maisons, par_puissance={**maisons.par_puissance,
-                                 chypriote.id: ids["Lancastre"]}, par_ancre=tenantes)
+                                 chypriote.id: ids["Lancastre"]})
     with pytest.raises(AssertionError, match="Lusignan"):
         _chaque_maison(maisons_depuis_monde(monde, maisons=alteree), alteree)
     print(f"avec_maison={avec}, sans_maison_declaree={sans}, non_couvertes={non_couvertes}, "
@@ -314,17 +261,12 @@ def test_pure(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     avant = copy.deepcopy(monde.to_dict())
     attributs = {c: copy.deepcopy(vars(cellule)) for c, cellule in monde.cells.items()}
-    tables = copy.deepcopy((table, maisons, positions))
-    vue = maisons_depuis_monde(monde, positions, table, maisons)
-    assert vue == maisons_depuis_monde(monde, positions, table, maisons)
+    tables = copy.deepcopy((table, maisons))
+    vue = maisons_depuis_monde(monde, table, maisons)
+    assert vue == maisons_depuis_monde(monde, table, maisons)
     assert monde.to_dict() == avant
     assert {c: vars(cellule) for c, cellule in monde.cells.items()} == attributs
-    assert (table, maisons, positions) == tables
-    cellule = cellules["Paris"]
-    incompletes = dict(positions)
-    incompletes.pop(cellule)
-    with pytest.raises(PositionCelluleInconnue, match=f"cellule {cellule}"):
-        maisons_depuis_monde(monde, positions=incompletes)
+    assert (table, maisons) == tables
     sim = TABLE.parents[1] / "sim"
     comptes = []
     for fichier in ("engine.py", "model.py", "maisons.py"):
@@ -342,64 +284,40 @@ def test_pure(carte):
     print(f"cellules_pures={len(vue)}, lectures_tick={comptes[:-1]}, module_lisible={comptes[-1]}")
 
 
-def test_refus_ancre_absente_de_la_vue(carte):
+def test_la_maison_de_chaque_cellule_est_celle_de_son_pays(carte):
     monde, table, maisons, positions, latitude, cellules = carte
-    ancre = next(a for a in table.ancres if a.nom == "Paris")
-    tenantes = dict(maisons.par_ancre)
-    tenantes.pop(ancre.id)
-    with pytest.raises(PuissanceInvalide, match=f"ancre {ancre.id}, champ maison"):
-        maison_par_cellule(positions, table, dataclasses.replace(maisons, par_ancre=tenantes),
-                           charger_portee(), latitude)
-    print("ancre_absente_refusée=1")
-
-
-def test_ancre_contenue(carte):
-    from sim.projection import projeter_epsg3035
-    from sim.puissances import ancre_par_cellule
-    from sim.villes import point_dans_geometrie
-
-    monde, table, maisons, positions, latitude, cellules = carte
-    geometries = {c: ligne["geometry"] for c, ligne in monde.carte.items()}
-    ancres = ancre_par_cellule(positions, table, charger_portee(), latitude, geometries)
     vue = maisons_depuis_monde(monde)
     ids = {m.nom: m.id for m in maisons.maisons}
-    assert vue[10374] == ids["Paléologue"]
-    assert _compter(monde, table, maisons, vue) == (505, 66, 25, 0)
-    # Une cellule que la table des frontières déclare a le pays de la table (celui de son bourg si
-    # elle est partagée, aucun si elle est en lacune) ; toutes les autres suivent l'ancre contenante
-    # ou la plus proche.
+    assert vue[10374] == ids["Paléologue"] and vue[10032] == ids["Osman"]
+    assert _compter(monde, table, maisons, vue) == (457, 70, 69, 0)
+    # La table des frontières décide le pays de chaque cellule (celui de son bourg si elle est partagée,
+    # aucun si elle est en lacune), et la maison est celle de ce pays.
     frontieres = charger_frontieres()
-    declarees = frontieres.declarees()
     pays_des_lieux = puissances_des_lieux(monde)
 
-    def attendue(cellule, ancre):
+    def attendue(cellule):
         if cellule in frontieres.cellules:
             pays = frontieres.cellules[cellule]
         elif cellule in frontieres.partages:
             pays = pays_des_lieux[cellule, 0]
-        elif cellule in frontieres.lacunes:
-            pays = None
         else:
-            return maisons.par_ancre[ancre] if ancre is not None else None
+            pays = None
         return maisons.par_puissance[pays] if pays is not None else None
 
-    assert ancres and declarees and declarees < set(ancres)
-    assert all(vue[c] == attendue(c, a) for c, a in ancres.items())
+    assert frontieres.declarees() == set(monde.cells)
+    assert vue == {c: attendue(c) for c in monde.cells}
+    # Contre-épreuve : une ancre de Constantinople déplacée en Bithynie, ou une ancre ajoutée dans la
+    # cellule de la ville, ne change la maison d'aucune cellule.
     deplacee = dataclasses.replace(table, ancres=tuple(
         dataclasses.replace(a, lat=positions[10032][0], lon=positions[10032][1])
         if a.nom == "Constantinople" else a for a in table.ancres))
-    assert maisons_depuis_monde(monde, table=deplacee)[10374] == ids["Osman"]
     constantinople = next(a for a in table.ancres if a.nom == "Constantinople")
-    lat, lon = positions[10374]
-    assert point_dans_geometrie(*projeter_epsg3035(lat, lon), geometries[10374])
     intruse = dataclasses.replace(constantinople, id=max(a.id for a in table.ancres) + 1,
-                                 nom="Ancre synthétique", lat=lat, lon=lon)
+                                 nom="Ancre synthétique", lat=positions[10374][0], lon=positions[10374][1])
     alteree = dataclasses.replace(table, ancres=table.ancres + (intruse,))
-    tenantes = dataclasses.replace(maisons, par_ancre={**maisons.par_ancre,
-                                  intruse.id: ids["Wittelsbach"]})
-    assert maisons_depuis_monde(monde, table=alteree, maisons=tenantes)[10374] == ids["Wittelsbach"]
-    assert puissances_depuis_monde(monde, table=alteree)[10374] == constantinople.puissance
-    print(f"ancres_vérifiées={sum(a is not None for a in ancres.values())}, comptes=(505, 66, 25)")
+    for autre in (deplacee, alteree):
+        assert maisons_depuis_monde(monde, table=autre) == vue
+    print(f"cellules={len(vue)}, comptes=(457, 70, 69)")
 
 
 # Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.
@@ -3970,7 +3888,7 @@ def test_familles_historiques_palatinat():
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2364
+    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4243,7 +4161,7 @@ def test_familles_historiques_bar():
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
-    assert len(monde.personnages) == 2364
+    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4561,7 +4479,7 @@ def test_familles_historiques_wurtemberg():
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
-    assert len(monde.personnages) == 2364
+    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4922,7 +4840,7 @@ def test_familles_historiques_brankovic():
         if c['maison'] in CHEFS_TROIS: _chef_trois(c)
     _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
-    assert len(monde.personnages) == 2364
+    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
     _preuve_monde_brankovic(list(monde.personnages))
     ids = {CHEF_BRANKOVIC, BRANKOVIC}
     _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
