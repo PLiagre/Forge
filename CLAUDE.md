@@ -88,3 +88,11 @@ la version étant celle de `3d/unity/ProjectSettings/ProjectVersion.txt`.
 python3 -m atelier agents          # les rôles, leurs modèles, leurs délais
 python3 -m atelier tour --a-sec    # ce que le pilote ferait, sans rien faire
 ```
+
+Le testeur joue un build figé par l'écran, sur le PC seulement, dans la
+session ouverte ; il ne lance rien tant que le propriétaire est au clavier :
+
+```powershell
+pc\Testeur.cmd --sonde                                       # l'écran est-il libre ? ne lance rien
+pc\Testeur.cmd --palier 2 --maintenant --sans-publier        # jouer builds\palier-2, le rapport s'affiche
+```

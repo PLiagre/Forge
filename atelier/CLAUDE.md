@@ -37,6 +37,17 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
   réponse, ni une consigne, ni un « oui », et n'arrive jamais à un agent.
   Le pilote écrit sous le même compte : tout commentaire qu'il pose sur une
   issue porte une marque, sinon il serait lu comme la parole du propriétaire.
+- **Le testeur ne sait que ce qu'un joueur sait.** Il tourne hors du dépôt
+  (`~/.atelier/testeur/<passage>`), avec deux outils, et `garde_testeur.py`
+  refuse tout appel qui n'est ni son outil de jeu, écrit comme sa consigne
+  l'écrit, ni la lecture de son dossier. Sa promesse ne porte ni « ce que je
+  vois à la démo » ni la règle du monde. Ce qui lui donnerait le chemin
+  (une touche, un nom de bouton, une coordonnée) n'entre jamais dans sa
+  consigne.
+- **Son verdict se recalcule** (`testeur.verdict_qui_pese`) : la chaîne ne
+  garde que le plus dur de ce qu'il dit et de ce que son récit impose, et
+  une réussite sans photo ne compte pas. Ses repères d'histoire
+  (`reperes-1400.md`) et son outil vivent ici, hors de portée d'un lot.
 
 ## Les tests
 
@@ -80,8 +91,21 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
 - **Une session d'agent ne se reprend que sur sa machine, dans le dossier
   du lot** : un lot ne change ni de machine ni de chantier en cours de route.
 - **La démo ne suit pas la semaine** : le cron regarde toutes les dix
-  minutes (`demo`), et elle part quand l'étape n'a plus de lot ouvert. Le
-  tour suivant fait proposer l'étape d'après au CTO, d'avance.
+  minutes (`demo`), et fait à chaque regard le pas que les marques de
+  l'issue de l'étape disent venu : figer le build, envoyer le testeur, le
+  renvoyer, poser la note. Le tour suivant fait proposer la suite au CTO,
+  et le suivant l'ouvre sur le verdict du testeur (`[testeur] ouvre`).
+- **Le testeur joue dans la session ouverte du propriétaire**, la seule où
+  le jeu a un écran : un runner en service n'a pas de bureau. `testeur-pc.yml`
+  démarre la tâche planifiée « ForgeTesteur » (`pc\Installer_Testeur.cmd`,
+  une fois, sans élévation), qui lance `pc\Testeur.cmd` sans fenêtre. Le
+  passage guette l'écran trois quarts d'heure, joue, et répond toujours sur
+  l'issue : son rapport, ou une attente.
+- **L'écran est au propriétaire** : `jouer_le_build.ps1` ne lance rien tant
+  qu'il est au clavier (dix minutes sans entrée), qu'une application tient
+  tout l'écran, que la session est verrouillée ou qu'un Forge tourne ; il
+  n'envoie aucun geste hors de la fenêtre du jeu, et s'arrête dès qu'une
+  autre main touche la souris.
 
 ## Les pièges
 
@@ -91,3 +115,13 @@ Elle ne se change qu'en mode direct. Chaque mécanisme qu'on y ajoute répond
   retient un lot, calculer `lots.bloquantes` avec les issues fermées.
 - **La branche `journal` se pousse après un `fetch`** : sans lui, une image
   publiée entre-temps par l'autre machine fait refuser la poussée.
+- **Windows compte les gestes du testeur comme des entrées** : sans la
+  mémoire de sa propre main (`%TEMP%\forge-testeur-main.txt`), l'outil se
+  prend pour le propriétaire et refuse de relancer le jeu.
+- **Une fenêtre lancée par une tâche de fond ne vient pas devant** : l'outil
+  s'attache à la file d'entrée de la fenêtre qui y est, puis presse Alt.
+- **Un passage de lot qui fait tourner le jeu en service tient le port
+  8000** : le testeur attend qu'il le rende.
+- **`pc\Testeur.cmd --sonde`** dit si l'écran est libre sans rien lancer ;
+  `gh workflow run testeur-pc.yml -f sonde=oui` le dit par le chemin de la
+  chaîne, du runner jusqu'à la session ouverte.

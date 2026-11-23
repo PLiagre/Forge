@@ -49,6 +49,10 @@ developpeur = "claude/claude-sonnet-5-5@high"
 relecteur   = "claude/claude-opus-5-5@high"
 # Il résume un journal de CI et écrit le journal du matin. Il ne juge jamais.
 lecteur     = "claude/claude-haiku-5-5@medium"
+# Il joue le build figé d'une étape par l'écran seul, sur le PC, comme un
+# joueur qui le découvre : ni le code, ni le service, ni les journaux. Son
+# modèle doit voir les images et juger une règle ou un chiffre de 1400.
+testeur     = "claude/claude-opus-5-5@high"
 
 # Combien de lots chaque machine fait avancer en même temps. Le VPS n'a que
 # deux processeurs. Le PC mène deux lots Unity, chacun dans son chantier
@@ -72,6 +76,20 @@ chef = 3600
 developpeur = 3600
 relecteur = 1800
 lecteur = 600
+# Soixante gestes au plus, regardés un à un : l'étape 0 en a pris vingt-deux
+# en cinq minutes et demie.
+testeur = 2700
+
+# Ce que pèse le verdict du testeur. `ouvre = true` : « tenue » ou « tenue avec
+# peine » ouvre l'étape suivante que le CTO a proposée, et « non tenue » ouvre
+# le tour de correction, sans attendre le « oui » du propriétaire, qui garde
+# le droit de dire non à tout moment sur l'issue de l'étape. `ouvre = false` :
+# le testeur informe, et le « oui » du propriétaire ouvre, comme avant lui.
+# `refus_max` : après tant de « non tenue » de suite, la chaîne n'ouvre plus
+# seule un tour de correction : le propriétaire décide.
+[testeur]
+ouvre = true
+refus_max = 2
 
 # Ce qu'un agent n'a pas le droit de lancer pendant un lot : la suite entière
 # du jeu, et une simulation plus longue que ce nombre de jours. La CI joue la

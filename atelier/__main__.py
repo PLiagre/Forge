@@ -11,6 +11,8 @@
     pc         un pas du meneur d'un lot « pc » (appelé par lot-pc.yml)
     marquer-attente
                la réponse d'un passage du PC tombé sans répondre (lot-pc.yml)
+    testeur    le testeur joue le build figé de l'étape, dans la session ouverte du PC
+               (appelé par la tâche planifiée « ForgeTesteur », que lance testeur-pc.yml)
     traces     ce qui fait rougir les contrôles d'une PR
 """
 
@@ -191,6 +193,31 @@ def _cmd_marquer_attente(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_testeur(args: argparse.Namespace) -> int:
+    from . import testeur
+    from .verrous import Verrous
+    projet = charger(_racine(args))
+    gh = GitHub(projet.depot)
+    if args.attente:
+        print(testeur.repondre_au_silence(gh, raison=args.attente))
+        return 0
+    local = Path(args.depot_local or projet.racine).resolve()
+    builds = Path(args.builds).resolve() if args.builds else local / "builds"
+    if args.sonde:
+        # Le bureau seul, sans rien lancer : la preuve que ce processus tourne dans une session qui a un écran.
+        libre, dit = testeur.Bureau(build=builds / "sonde", sortie=Path.home() / ".atelier" / "testeur" / "sonde").sonde()
+        print(dit)
+        return 0 if libre else 4
+    verrous = Verrous()
+    lignes = testeur.jouer(projet, gh, Depot(local, projet.branche_base, verrous=verrous), journal=journal_local(),
+                           builds=builds, palier=args.palier, build=args.build,
+                           force=args.maintenant or args.palier is not None, publication=not args.sans_publier,
+                           verrous=verrous, **({"attente": 0} if args.sans_attendre else {}))
+    for ligne in lignes:
+        print(ligne)
+    return 0
+
+
 def _cmd_traces(args: argparse.Namespace) -> int:
     code, texte = traces.rapport(args.pr, args.lignes, args.depot)
     print(texte)
@@ -231,6 +258,19 @@ def main(argv: list[str] | None = None) -> int:
     attente.add_argument("--issue", type=int, required=True)
     attente.add_argument("--raison", required=True)
     attente.set_defaults(f=_cmd_marquer_attente)
+    joueur = sous.add_parser("testeur", help="le testeur joue le build figé de l'étape (sur le PC, session ouverte)")
+    joueur.add_argument("--depot-local", help="le dépôt du PC (D:\\Forge) : ses builds, sa branche des captures")
+    joueur.add_argument("--builds", help="le dossier des builds (défaut : <dépôt du PC>\\builds)")
+    joueur.add_argument("--palier", type=int, help="jouer ce palier, même fermé, sans attendre l'envoi du pilote")
+    joueur.add_argument("--build", help="le nom du build à jouer (défaut : palier-<n>)")
+    joueur.add_argument("--maintenant", action="store_true", help="jouer sans attendre l'envoi du pilote")
+    joueur.add_argument("--sans-publier", action="store_true", help="ne rien écrire sur GitHub : le rapport s'affiche ici")
+    joueur.add_argument("--sans-attendre", action="store_true",
+                        help="si le bureau est occupé, répondre tout de suite au lieu d'attendre qu'il se libère")
+    joueur.add_argument("--sonde", action="store_true", help="dire seulement si le bureau est libre, sans rien lancer")
+    joueur.add_argument("--attente", metavar="RAISON",
+                        help="répondre par une attente à l'envoi du pilote : le passage n'a pas pu partir")
+    joueur.set_defaults(f=_cmd_testeur)
     tr = sous.add_parser("traces", help="ce qui fait rougir les contrôles d'une PR")
     tr.add_argument("--pr", type=int, required=True)
     tr.add_argument("--lignes", type=int, default=60)

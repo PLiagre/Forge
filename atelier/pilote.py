@@ -31,13 +31,14 @@ from .depot import Depot, DepotErreur
 from .github import (AGREGATS, VARIABLE_PC, GitHub, GitHubErreur, controles_de_la_pr, etat_des_controles,
                      travaux as travaux_du_workflow)
 from .lots import Lot, Question, marque
-from .projet import CHEF, CTO, LECTEUR, MACHINES, RELECTEUR, ROLES_MENEURS, Projet
+from .projet import CHEF, CTO, LECTEUR, MACHINES, RELECTEUR, ROLES_MENEURS, TESTEUR, Projet
 from .verrous import AucunVerrou
 
 _RUN = re.compile(r"/actions/runs/(\d+)/")
 _TRAVAIL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 SIGNATURE = "\n\n🤖 Généré par la chaîne de Forge ([Claude Code](https://claude.com/claude-code))"
-NOMS = {CTO: "CTO", CHEF: "chef de lot", "developpeur": "développeur", RELECTEUR: "relecteur", LECTEUR: "lecteur"}
+NOMS = {CTO: "CTO", CHEF: "chef de lot", "developpeur": "développeur", RELECTEUR: "relecteur", LECTEUR: "lecteur",
+        TESTEUR: "testeur"}
 
 
 @dataclass
@@ -230,15 +231,17 @@ class Pilote:
         return bool(parti) and not (appels and appels == self.attentes - attentes)
 
     def _palier(self, vue: "_Vue") -> bool:
-        """La parole du propriétaire sur l'issue de l'étape, ou l'étape
-        suivante proposée d'avance. Un seul tour à la fois : le CTO y
-        travaille de longues minutes, et un tour parti entre-temps relirait la
-        même issue, sans sa réponse, et l'appellerait de nouveau."""
+        """La parole du propriétaire sur l'issue de l'étape, puis le verdict
+        du testeur qui ouvre la suite, ou la suite proposée d'avance. Un seul
+        tour à la fois : le CTO y travaille de longues minutes, et un tour
+        parti entre-temps relirait la même issue, sans sa réponse, et
+        l'appellerait de nouveau."""
         from . import palier
         if not self.verrous.prendre("palier"):
             return False
         try:
             return (palier.reponse(self, vue.palier, vue.ouvertes, vue.fermes)
+                    or palier.accord_du_testeur(self, vue.palier, vue.ouvertes, vue.fermes)
                     or palier.d_avance(self, vue.palier, vue.ouvertes, vue.fermes))
         finally:
             self.verrous.lacher("palier")

@@ -60,10 +60,12 @@ trois minutes après son ouverture.
    relecture compris ; une étape dure donc son plus long enchaînement de lots
    qui s'attendent, pas la somme de ses lots.
 2. **Une étape s'enchaîne dès que la précédente est jouée**, quel que soit le
-   jour. Dès qu'une étape n'a plus de lot ouvert, le PC en fige un build et le
-   CTO pose sa note de démo ; aussitôt après, il propose l'étape suivante,
-   d'avance. Le propriétaire joue quand il veut, répond « oui », et les lots
-   suivants partent dans la minute.
+   jour. Dès qu'une étape n'a plus de lot ouvert, le PC en fige un build et
+   **le testeur le joue** : par l'écran seul, sans guide, comme un joueur
+   averti qui le découvre. Son rapport, puis la note de démo du CTO, arrivent
+   sur l'issue de l'étape ; le CTO propose la suite, et elle s'ouvre sur le
+   verdict du testeur : l'étape suivante s'il la dit tenue, ce qui la corrige
+   sinon. Le propriétaire joue quand il veut.
 3. **Tout part en parallèle**, sauf ce qui dépend vraiment d'un autre lot. Le
    VPS mène deux lots à la fois, le PC deux lots Unity, chacun dans son
    chantier. Deux lots menés ensemble ne touchent ni le même écran, ni la même
@@ -72,10 +74,24 @@ trois minutes après son ouverture.
 4. **Les retouches vues en jouant se font en mode direct, dans la journée** :
    un bouton qui ne répond pas, un texte faux, un réglage. Un système complet
    reste un lot de la chaîne.
-5. **Le critère de fin ne bouge pas.** Une étape est finie quand le
-   propriétaire l'a jouée **seul, sans guide et sans touche à connaître**, et
-   qu'il dit oui. S'il dit non, l'étape suivante attend : le CTO repropose
-   d'abord ce qui la corrige, et ce tour de correction compte un à deux jours.
+5. **Le critère de fin ne s'adoucit pas : c'est celui qui le juge en premier
+   qui change.** Une étape est tenue quand elle a été jouée **seul, sans
+   guide et sans touche à connaître** : par le testeur d'abord, qui ne
+   connaît que sa promesse et l'écran, jamais le code. Avoir fini par trouver
+   ne compte pas : un objectif qu'il ne trouve pas en cinq essais est bloqué,
+   un défaut qui arrête ou trompe un joueur est bloquant, et l'étape n'est
+   alors pas tenue. Le CTO repropose d'abord ce qui la corrige, et ce tour de
+   correction, qui compte un à deux jours, part sans attendre. Après deux
+   « non tenue » de suite, la chaîne n'ouvre plus rien seule : elle appelle le
+   propriétaire.
+6. **Le propriétaire garde le dernier mot.** Il joue quand il veut. Ce qu'il
+   écrit sur l'issue de l'étape passe devant le verdict du testeur, à tout
+   moment : son « non » fait reproposer d'abord ce qui corrige, et dès qu'il
+   a parlé, rien ne s'y ouvre plus sans son « oui ». Le testeur juge ce qu'un
+   joueur trouve seul et ce qui est faux ou incohérent ; le goût (« la carte
+   est belle », « on est au niveau d'Europa ») reste celui du propriétaire.
+   Une ligne d'`atelier.toml` (`[testeur] ouvre = false`) rend son « oui » de
+   nouveau nécessaire à chaque étape.
 
 Ce qui ne change pas : la qualité avant l'étendue, la carte et son interface
 avant la ville, une étape jugée à l'œil contre Europa Universalis IV ou Manor
@@ -87,7 +103,8 @@ Lords, rien de neuf hors de l'interface (décisions 51 à 54).
 |---|---|---|
 | **l'abonnement** | un lot prend 35 à 50 % d'une fenêtre de cinq heures et 3 à 6 % de la limite de la semaine : deux lots menés sans arrêt remplissent une fenêtre, et la semaine porte une vingtaine de lots, une quinzaine avec des sessions directes à côté | un abonnement plus large : au propriétaire |
 | **le PC** | il ne travaille qu'allumé ; ses deux runners mènent deux lots Unity ensemble, pas plus | le laisser allumé pendant une étape : au propriétaire |
-| **le jeu du propriétaire** | une étape attend qu'il ait joué ; un refus coûte un tour de correction d'un à deux jours | rien, et c'est voulu |
+| **l'écran du PC** | le jeu n'a d'écran que dans la session Windows ouverte du propriétaire : le testeur n'y joue que lorsqu'il a quitté clavier et souris depuis dix minutes, et lui rend la main dès qu'il y touche. Il attend six heures au plus ; après, la note de démo part sans verdict, et le « oui » du propriétaire redevient nécessaire | laisser la session ouverte et non verrouillée quand on s'éloigne : au propriétaire |
+| **le jugement du testeur** | prouvé sur une seule étape (l'étape 0, où il a retrouvé les critiques du propriétaire) ; un « tenue » complaisant ouvrirait une étape sur une base qui ne l'est pas, un « non tenue » à tort coûterait un tour de correction d'un à deux jours | le « non » du propriétaire, à tout moment ; comparer son verdict au sien sur l'étape 1 ; `[testeur] ouvre = false` |
 | **l'art de la ville** | la chaîne écrit du code, pas des maisons : la ville ne vaudra pas Manor Lords avec le seul kit du désert | un kit de village d'Occident, acheté : au propriétaire, à la fin de l'étape 2 |
 | le VPS | deux processeurs : deux lots au plus | une machine plus grosse ; inutile tant que l'abonnement borne avant lui |
 
@@ -99,7 +116,9 @@ essai : trente-six lots, une quarantaine avec les corrections, soit deux à
 trois semaines de l'abonnement.
 Les lots de l'étape en cours font foi sur GitHub ; ceux des étapes suivantes
 sont préparés dans [docs/etapes/](docs/etapes/), et le CTO les reprend quand
-il propose l'étape.
+il propose l'étape. Chaque « fini quand » ci-dessous est d'abord joué par le
+testeur ; ce qui y tient du goût (« trouve la carte belle », « a envie d'y
+passer une heure ») reste jugé par le propriétaire, quand il joue.
 
 | étape | jours | lots | ce qui part en parallèle |
 |---|---|---|---|
@@ -229,6 +248,7 @@ choix, la bataille.
 | décision | ce qu'elle coûte | ce qu'elle fait gagner | ce que je recommande |
 |---|---|---|---|
 | laisser le PC allumé tant qu'une étape tourne | l'électricité d'une nuit | douze heures sur vingt-quatre : la nuit du palier 1 a coûté 11 h 50 à elle seule | oui, dès l'étape 0 |
+| laisser sa session Windows ouverte et non verrouillée quand il s'éloigne, quand une étape se termine | le jeu s'ouvre sur son bureau pendant son absence, et se ferme dès qu'il touche la souris | le testeur joue le build sans lui ; sinon la note de démo part sans verdict au bout de six heures | oui |
 | un abonnement plus large | le prix du palier au-dessus de l'abonnement Max en place, ou d'un second abonnement | la seule borne qui reste une fois le PC réglé : plus de deux lots menés sans arrêt, plus de vingt par semaine | attendre la mesure de l'étape 1 : si le journal du matin montre la limite de la semaine au-dessus de 70 % avant le cinquième jour, oui |
 | le décor de la ville : rester au désert, ou passer à un village d'Occident | un kit de l'Asset Store | la ville jugée contre Manor Lords, que le désert ne donnera pas | décider à la fin de l'étape 2, comme prévu (décision 54) |
 | donner une forme aux lieux, ou refaire la maille | — | — | les lieux d'abord : le moteur ne bouge pas ; la preuve du lot 4 de l'étape 1 tranche |

@@ -7,7 +7,7 @@ La seule pièce qui a besoin d'une machine allumée. Le reste décide en Python
 |---|---|
 | `installer.sh` | installer ou réinstaller, sans sudo, rejouable |
 | `repartiteur.sh` | appelé chaque minute par la crontab ; lit le profil, lance les rôles du moment |
-| `profils/jour.sh` | la cadence : pilote toutes les 2 min, veille 06:45, journal 07:15, démo regardée toutes les 10 min (elle part quand l'étape n'a plus de lot ouvert) |
+| `profils/jour.sh` | la cadence : pilote toutes les 2 min, veille 06:45, journal 07:15, démo regardée toutes les 10 min (quand l'étape n'a plus de lot ouvert : le build figé, le testeur envoyé au PC, puis la note quand il a rendu son verdict) |
 | `tour.sh <rôle>` | un verrou par rôle (sauf le pilote, dont les tours tournent en même temps sous les verrous de `atelier/verrous.py`), la base à jour, puis Python |
 | `atelier-boucle <jour\|arret\|etat>` | armer, désarmer, regarder |
 | `veille.sh` | ce qui manque pour tourner, à la main |

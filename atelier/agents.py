@@ -62,6 +62,9 @@ GESTES_DU_PILOTE = (
 # Ce qu'un rôle en lecture seule peut lancer : lire, et rejouer un test.
 LECTURE = ("Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(ls:*),Bash(cat:*),"
            "Bash(grep:*),Bash(head:*),Bash(wc:*),Bash(python3 -m pytest:*),Bash(py -m pytest:*)")
+# Ce qu'un rôle qui nomme ses outils (`Appel.outils`) n'a jamais : écrire,
+# chercher dans des fichiers, ouvrir le réseau, appeler un autre agent.
+HORS_DU_JEU = "Edit,Write,NotebookEdit,Agent,Bash,Glob,Grep,WebFetch,WebSearch"
 
 # La garde des commandes, appelée par Claude Code avant chaque commande de
 # shell d'un agent ou de son sous-agent (`garde_commandes.py`).
@@ -184,7 +187,12 @@ class Appel:
     est ce que reçoit une session reprise, qui se souvient du reste ; sans
     elle, la session reprise reçoit la consigne entière. `schema` : la forme
     de ce que l'agent doit rendre, que le harnais vérifie. `sous_agents` : ceux
-    que la session peut appeler (le développeur, pour le chef)."""
+    que la session peut appeler (le développeur, pour le chef).
+
+    Le testeur ne lit pas le dépôt et n'y écrit pas : `outils` nomme ses
+    seuls outils, `garde` le script qui juge chacun de leurs appels avec ses
+    arguments (à la place de la garde des commandes), et `environnement` ce
+    que son outil de jeu lit (le build, le dossier de ses photos)."""
 
     role: str
     consigne: str
@@ -196,11 +204,20 @@ class Appel:
     sous_agents: dict | None = None
     sans_outil: bool = False
     jours_max: int = 400
+    outils: tuple[str, ...] = ()
+    garde: tuple[str, ...] = ()
+    environnement: tuple[tuple[str, str], ...] = ()
 
 
 def reglages(appel: Appel) -> dict:
-    """Les réglages passés à Claude Code pour cet appel : la garde des
-    commandes, jouée avant chaque commande de shell."""
+    """Les réglages passés à Claude Code pour cet appel : la garde, jouée
+    avant chaque commande de shell ; pour un rôle qui a sa propre garde,
+    avant chaque appel d'outil."""
+    if appel.garde:
+        from .garde_testeur import JUGES
+        commande = " ".join(f'"{morceau}"' for morceau in (sys.executable, *appel.garde))
+        return {"hooks": {"PreToolUse": [{"matcher": "|".join(JUGES),
+                                          "hooks": [{"type": "command", "command": commande}]}]}}
     commande = f'"{sys.executable}" "{GARDE}" {appel.jours_max}'
     return {"hooks": {"PreToolUse": [{"matcher": "Bash|PowerShell",
                                       "hooks": [{"type": "command", "command": commande}]}]}}
@@ -224,6 +241,9 @@ def argv(agent: Agent, appel: Appel, *, reprise: bool, windows: bool | None = No
     if appel.sans_outil:
         return commande + ["--tools", ""]
     commande += ["--settings", json.dumps(reglages(appel), ensure_ascii=False)]
+    if appel.outils:
+        return commande + ["--permission-mode", "default", "--allowedTools", ",".join(appel.outils),
+                           "--disallowedTools", HORS_DU_JEU + "," + ",".join(GESTES_DU_PILOTE)]
     if appel.lecture_seule:
         return commande + ["--permission-mode", "default", "--allowedTools", LECTURE,
                            "--disallowedTools", "Edit,Write,NotebookEdit,Agent," + ",".join(GESTES_DU_PILOTE)]
@@ -433,7 +453,7 @@ def invoquer(agent: Agent, appel: Appel, cwd: Path, delai: int, *,
             return Resultat(agent=None, code=-1, attente=True,
                             raison=f"{agent} : occupé ({agent.outil} a déjà tous ses agents en route)")
         reprise = bool(appel.session and appel.reprendre)
-        env = environnement(agent.outil)
+        env = environnement(agent.outil) | dict(appel.environnement)
         for essai in (1, 2):
             consigne = appel.suite if reprise and appel.suite else appel.consigne
             code, brut, err = executeur(argv(agent, appel, reprise=reprise), Path(cwd), env, delai, consigne, trace)

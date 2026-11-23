@@ -1,11 +1,11 @@
 """Le branchement du dépôt sur l'atelier : `atelier.toml`. L'atelier ne devine rien.
 
 Le fichier dit le projet (dépôt, base, ce qu'un lot ne touche jamais, le
-cœur du moteur, les pistes), les cinq rôles (une ligne chacun :
-harnais/modèle@effort), leurs délais, et le parallélisme : combien de lots
+cœur du moteur, les pistes), les six rôles (une ligne chacun :
+harnais/modèle@effort), leurs délais, le parallélisme : combien de lots
 chaque machine tient en même temps (`[machines]`), combien d'agents tournent
-ensemble (`[outils]`). Un champ obligatoire qui manque se refuse, il ne
-s'invente pas.
+ensemble (`[outils]`), et ce que pèse le verdict du testeur (`[testeur]`). Un
+champ obligatoire qui manque se refuse, il ne s'invente pas.
 """
 
 from __future__ import annotations
@@ -29,9 +29,11 @@ EFFORTS = {"claude": ("low", "medium", "high", "xhigh", "max")}
 # Seuls les modèles de l'abonnement tournent : le chargement refuse le reste.
 _CLAUDE = re.compile(r"^(?:claude-)?(opus|sonnet|haiku|fable)\b", re.I)
 
-# Les cinq rôles, par niveau de jugement. Chacun a sa ligne dans [agents].
-CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR = "cto", "chef", "developpeur", "relecteur", "lecteur"
-ROLES = (CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR)
+# Les six rôles. Chacun a sa ligne dans [agents]. Les cinq premiers se
+# répartissent par niveau de jugement sur le code ; le testeur ne voit jamais
+# le code : il joue le build d'une étape comme un joueur.
+CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR = "cto", "chef", "developpeur", "relecteur", "lecteur", "testeur"
+ROLES = (CTO, CHEF, DEVELOPPEUR, RELECTEUR, LECTEUR, TESTEUR)
 # Ceux qui mènent un lot : ils écrivent des fichiers, dans la session du lot.
 ROLES_MENEURS = (CHEF, DEVELOPPEUR)
 # Les machines d'un lot : le VPS (Python) et le PC (Unity, Blender).
@@ -73,6 +75,12 @@ class Projet:
     machines: dict[str, int] = field(default_factory=lambda: {m: 1 for m in MACHINES})
     plafonds: dict[str, int] = field(default_factory=dict)
     jours_max: int = 400
+    # Le verdict du testeur ouvre-t-il l'étape suivante sans attendre le
+    # « oui » du propriétaire ? Sans la section [testeur], non.
+    testeur_ouvre: bool = False
+    # Verdicts « non tenue » de suite après lesquels la chaîne n'ouvre plus
+    # seule un tour de correction : le propriétaire décide.
+    testeur_refus_max: int = 2
 
     def agent(self, role: str) -> Agent:
         if role not in self.agents:
@@ -145,12 +153,17 @@ def charger(racine: Path | str) -> Projet:
     inconnus = sorted(set(agents) - set(ROLES))
     if inconnus:
         raise ProjetIncomplet(f"[agents] nomme des rôles inconnus : {', '.join(inconnus)} "
-                              f"(les cinq rôles : {', '.join(ROLES)})")
+                              f"(les six rôles : {', '.join(ROLES)})")
     delais = doc.get("delais") or {}
     inconnus = sorted(set(delais) - set(ROLES))
     if inconnus:
         raise ProjetIncomplet(f"[delais] nomme des rôles inconnus : {', '.join(inconnus)}")
     gardes = _entiers_positifs("gardes", doc.get("gardes") or {}, ("jours_max",))
+    testeur = dict(doc.get("testeur") or {})
+    ouvre = testeur.pop("ouvre", False)
+    if not isinstance(ouvre, bool):
+        raise ProjetIncomplet(f"[testeur].ouvre doit être true ou false, pas {ouvre!r}")
+    testeur = _entiers_positifs("testeur", testeur, ("refus_max",))
     return Projet(
         racine=racine,
         nom=str(bloc["nom"]),
@@ -169,6 +182,8 @@ def charger(racine: Path | str) -> Projet:
         machines={m: 1 for m in MACHINES} | _entiers_positifs("machines", doc.get("machines") or {}, MACHINES),
         plafonds=_entiers_positifs("outils", doc.get("outils") or {}, tuple(OUTILS)),
         jours_max=gardes.get("jours_max", 400),
+        testeur_ouvre=ouvre,
+        testeur_refus_max=testeur.get("refus_max", 2),
     )
 
 
@@ -188,7 +203,8 @@ def _entiers_positifs(section: str, bloc: dict, connus: tuple[str, ...]) -> dict
 
 def table_des_roles(projet: Projet) -> str:
     """Ce que `python3 -m atelier agents` imprime : chaque rôle, son modèle,
-    son effort, son délai ; puis le parallélisme."""
+    son effort, son délai ; puis le parallélisme, et ce que pèse le verdict
+    du testeur."""
     lignes = [f"{'rôle':14} {'modèle':22} {'effort':8} délai"]
     for role in ROLES:
         agent = projet.agents[role]
@@ -197,4 +213,7 @@ def table_des_roles(projet: Projet) -> str:
     lignes.append("lots en même temps : " + ", ".join(f"{m} {projet.capacite(m)}" for m in MACHINES))
     lignes.append("agents en même temps : " + (", ".join(f"{o} {n}" for o, n in sorted(projet.plafonds.items()))
                                                or "sans plafond"))
+    lignes.append("verdict du testeur : " + (
+        f"il ouvre l'étape suivante ; après {projet.testeur_refus_max} « non tenue » de suite, le propriétaire décide"
+        if projet.testeur_ouvre else "il informe ; le « oui » du propriétaire ouvre l'étape suivante"))
     return "\n".join(lignes)

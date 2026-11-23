@@ -104,6 +104,33 @@ SCHEMA_ARBITRAGE = _objet({
 }, ("decision", "pourquoi"))
 
 
+# Ce que le testeur rend. Son verdict ne pèse pas seul : `testeur.verdict_qui_pese`
+# le recalcule d'après ses objectifs et ses défauts, et ne garde que le plus dur.
+VERDICTS_DU_TESTEUR = ("TENUE", "TENUE_AVEC_PEINE", "NON_TENUE", "INTERROMPU")
+SCHEMA_TESTEUR = _objet({
+    "verdict": {"type": "string", "enum": list(VERDICTS_DU_TESTEUR)},
+    "resume": _chaine("ce que tu as vécu, en trois phrases de joueur"),
+    "objectifs": _liste(_objet({
+        "objectif": _chaine("ce que la promesse demande, en une phrase"),
+        "resultat": {"type": "string", "enum": ["premier_coup", "apres_essais", "bloque", "non_joue"]},
+        "essais": {"type": "integer", "description": "combien d'essais tu as faits pour lui"},
+        "recit": _chaine("ce que tu as essayé, dans l'ordre, et ce que l'écran a répondu"),
+        "photos": _liste(_chaine("le nom d'une photo qui le montre, sans extension : p07")),
+    }, ("objectif", "resultat", "essais", "recit", "photos"))),
+    "non_explique": _liste(_objet({
+        "quoi": _chaine("ce qu'il a fallu deviner, et où"), "photo": _chaine("le nom de la photo"),
+    }, ("quoi", "photo"))),
+    "defauts": _liste(_objet({
+        "quoi": _chaine("ce qui est faux, incohérent ou brouillon, et à quoi un joueur le voit"),
+        "nature": {"type": "string", "enum": ["regle", "histoire", "chiffre", "ecran", "finition"]},
+        "gravite": {"type": "string", "enum": ["bloquant", "genant", "mineur"]},
+        "photo": _chaine("le nom de la photo"),
+    }, ("quoi", "nature", "gravite", "photo"))),
+    "a_corriger_d_abord": _liste(_chaine("un défaut, du plus gênant au moins gênant ; trois au plus")),
+    "interruption": _chaine("pour INTERROMPU : ce que l'outil a répondu"),
+}, ("verdict", "resume", "objectifs", "non_explique", "defauts", "a_corriger_d_abord"))
+
+
 def schema_fiche(projet: Projet) -> dict:
     return _objet({
         "titre": _chaine("court, en mots de joueur"),
@@ -434,20 +461,34 @@ Ce que le meneur conteste, et pourquoi :
 Rends `meneur` s'il a raison sur tous les constats bloquants qu'il conteste : le lot est alors accepté tel quel. Rends `relecteur` sinon, avec ta `consigne` : ce que le meneur doit faire. Dis pourquoi, en citant la règle ou le code. {_FRONTIERE}"""
 
 
+_VERDICTS_EN_CLAIR = {"TENUE": "PROMESSE TENUE", "TENUE_AVEC_PEINE": "TENUE AVEC PEINE", "NON_TENUE": "NON TENUE"}
+
+
 def palier(projet: Projet, *, numero: int, note_du_proprietaire: str, etat_du_palier: str, a_revoir: str,
-           proposition: str = "", remarques: str = "", d_avance: bool = False) -> str:
+           proposition: str = "", remarques: str = "", d_avance: bool = False, rapport_du_testeur: str = "",
+           verdict_du_testeur: str = "") -> str:
     """Le CTO, quand une étape est finie : tirer les lots de l'étape suivante, d'après `CAP.md` et ce que le
-    propriétaire a dit ; `d_avance`, avant qu'il ait joué."""
+    propriétaire a dit ; `d_avance`, avant qu'il ait joué. Si le testeur a joué le build figé, son verdict
+    décide de ce qui se propose d'avance : l'étape suivante, ou ce qui corrige celle-ci."""
     reprise = (f"\nTa proposition précédente :\n-----\n{proposition.strip()[:8000]}\n-----\n"
                f"Ce que le propriétaire en a dit :\n-----\n{remarques.strip()[:4000]}\n-----\nRefais-la en en tenant compte.\n"
                if proposition.strip() else "")
-    moment = (f"Les lots du palier {numero} sont tous fermés, son build est figé et sa note de démo est posée. Le propriétaire n'a pas encore joué. Propose d'avance le palier {numero + 1} : l'étape suivante de `CAP.md`, pour qu'un « oui » l'ouvre dès qu'il aura joué."
-              if d_avance else
-              f"Le propriétaire a joué la démo du palier {numero} et a écrit ce qu'il veut. Tire de sa note et de `CAP.md` le palier {numero + 1}.")
+    verdict = _VERDICTS_EN_CLAIR.get(verdict_du_testeur, "")
+    if d_avance and verdict_du_testeur == "NON_TENUE":
+        moment = (f"Les lots du palier {numero} sont tous fermés et son build est figé. Le testeur l'a joué par l'écran seul, comme un joueur qui le découvre, sans connaître le code : son verdict est NON TENUE. L'étape n'est pas tenue, et le palier {numero + 1} ne passe pas à l'étape suivante de `CAP.md` : il corrige d'abord ce que le testeur a trouvé, comme pour un refus du propriétaire. Chaque objectif bloqué et chaque défaut bloquant de son rapport a sa fiche, ou sa place dans une fiche ; ses trois défauts « à corriger d'abord » partent en premier. `palier_atteint` est faux. Vérifie dans le code la cause de chaque défaut avant d'écrire la fiche : le testeur dit ce qu'un joueur voit, pas d'où cela vient.")
+    elif d_avance and verdict:
+        moment = (f"Les lots du palier {numero} sont tous fermés, son build est figé, et le testeur l'a joué par l'écran seul, comme un joueur qui le découvre : son verdict est {verdict}. Le propriétaire n'a pas encore joué. Propose le palier {numero + 1} : l'étape suivante de `CAP.md`. Les défauts que le testeur demande de corriger d'abord ne se perdent pas : chacun entre dans la fiche qui touche le même écran, ou dans une fiche de retouches qui part tout de suite, sans rien attendre ; dis dans `note` ce que tu as fait de chacun.")
+    elif d_avance:
+        moment = f"Les lots du palier {numero} sont tous fermés, son build est figé et sa note de démo est posée. Le propriétaire n'a pas encore joué. Propose d'avance le palier {numero + 1} : l'étape suivante de `CAP.md`, pour qu'un « oui » l'ouvre dès qu'il aura joué."
+    else:
+        moment = f"Le propriétaire a joué la démo du palier {numero} et a écrit ce qu'il veut. Tire de sa note et de `CAP.md` le palier {numero + 1}."
+    du_testeur = (f"\nCe que le testeur a trouvé en jouant le build figé du palier {numero} (un récit prouvé par ses photos ; "
+                  f"il ne connaît pas le code, et la parole du propriétaire prime sur la sienne) :\n-----\n"
+                  f"{rapport_du_testeur.strip()[:12000]}\n-----\n" if rapport_du_testeur.strip() else "")
     return f"""{_contexte_cto(projet)}
 
 {moment}
-
+{du_testeur}
 Ce que le propriétaire a écrit :
 -----
 {note_du_proprietaire.strip()[:8000] or "(rien)"}
@@ -472,11 +513,16 @@ Les étapes, leur ordre, leur durée en jours et la règle d'un lot sont dans `C
 - `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, ce que tu reportes, et ce qui part en parallèle. {_FRONTIERE}"""
 
 
-def note_de_demo(projet: Projet, *, numero: int, titre: str, faits: str) -> str:
-    """Le CTO, quand l'étape n'a plus de lot ouvert : la note d'une page qui accompagne le build figé."""
+def note_de_demo(projet: Projet, *, numero: int, titre: str, faits: str, joue_par_le_testeur: bool = False) -> str:
+    """Le CTO, quand l'étape n'a plus de lot ouvert : la note d'une page qui accompagne le build figé.
+    `joue_par_le_testeur` : les faits portent le rapport de celui qui l'a joué avant le propriétaire."""
+    joue = ("\n\nLe testeur a joué ce build avant le propriétaire, par l'écran seul, et son rapport est dans les faits. Il "
+            "prime sur ce que le code te laisse croire : dans « Quoi essayer », ne promets aucun geste qu'il n'a pas "
+            "réussi sans le dire ; dans « Ce qui manque », reprends chaque objectif bloqué et chaque défaut bloquant "
+            "ou gênant qu'il a trouvés, sans les adoucir." if joue_par_le_testeur else "")
     return f"""{_contexte_cto(projet)}
 
-Tous les lots du palier {numero} « {titre} » sont fermés, et son build est figé. Écris la note d'une page que le propriétaire lira avant de le jouer, seul et sans guide. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes. Les faits disent si le build a été construit : s'il ne l'a pas été, dis-le en tête de « Ce qui manque ».
+Tous les lots du palier {numero} « {titre} » sont fermés, et son build est figé. Écris la note d'une page que le propriétaire lira avant de le jouer, seul et sans guide. Tu réponds de cette démo : n'écris que ce qui est vrai sur master, vérifie dans le code ce dont tu doutes. Les faits disent si le build a été construit : s'il ne l'a pas été, dis-le en tête de « Ce qui manque ».{joue}
 
 Les faits, relevés par le pilote sur GitHub :
 -----
@@ -501,6 +547,73 @@ Les choix que tu as pris seul pendant l'étape, chacun en une ligne, avec ce qu'
 Le tableau des coûts des faits, tel quel.
 
 Rien d'autre que ces parties."""
+
+
+def testeur(*, numero: int, titre: str, promesse: str, outil: str, dossier: str, minutes: int,
+            gestes_max: int, essais_max: int) -> str:
+    """Le testeur, quand le build d'une étape est figé : il le joue par l'écran, comme un joueur qui le
+    découvre, et rend un récit prouvé par ses photos. Il ne reçoit ni le code, ni le chemin dans l'interface."""
+    return f"""Tu es le testeur de Forge : tu joues un jeu vidéo que tu n'as jamais vu, et tu dis s'il tient ce qu'il promet. Forge est un jeu de grande stratégie sur l'Europe de 1400 : une carte à la manière d'Europa Universalis IV, une ville à bâtir à la manière de Manor Lords. Tu es un joueur exigeant qui connaît bien ces deux jeux et l'histoire de la fin du Moyen Âge. Tu n'es pas un développeur, et tu ne connais pas le code.
+
+Tu joues le build de l'étape « {titre} » (palier {numero}). Personne n'a encore joué ce build : le propriétaire du jeu ne veut plus être le premier à trouver ce qui ne va pas.
+
+## Ce que tu sais, et rien d'autre
+
+1. La promesse de l'étape, ci-dessous : c'est ce que ce build doit tenir, et rien de plus.
+2. Deux textes rangés dans ton dossier `{dossier}`, à lire avant de jouer :
+   - `vision.md` : ce que le jeu veut être et les règles de son monde, écrits par son auteur. Il te sert à juger si ce que tu vois est cohérent (une économie où rien ne naît de rien, une IA qui joue avec les mêmes gestes que toi, des modificateurs qui changent un taux). Ce que la vision annonce et que la promesse ne promet pas n'est pas un défaut de cette étape.
+   - `reperes-1400.md` : les ordres de grandeur de l'histoire, pour reconnaître un chiffre ou une carte absurdes.
+3. Ce que l'écran te montre.
+
+Tu ne lis rien d'autre : ni le dépôt, ni un fichier du jeu, ni un journal, ni le service du monde. Tu n'as d'ailleurs aucun autre outil. Si tu as besoin d'une information que l'écran ne donne pas, c'est un défaut à noter, pas une raison d'aller la chercher. Tu n'appuies sur aucune touche dont l'écran ne parle pas.
+
+La promesse :
+-----
+{promesse.strip()[:12000] or "(aucune promesse écrite : dis-le, et juge ce que l'écran annonce lui-même)"}
+-----
+
+## Tes outils
+
+Un seul script, par l'outil PowerShell, appelé exactement ainsi :
+
+```powershell
+& "{outil}" -Action lancer
+& "{outil}" -Action gestes -Gestes "clic 960 540; attendre 2; photo p01"
+& "{outil}" -Action fermer
+```
+
+`lancer` ouvre le jeu comme le propriétaire le lancera, et attend qu'il soit prêt. Les gestes, séparés par « ; » : `clic x y`, `droit x y`, `double x y`, `survol x y`, `molette x y crans` (négatif : dézoomer), `glisser x0 y0 x1 y1`, `touche <code de balayage en hexa>` (Échap 01, Entrée 1C, Espace 39), `attendre s`, `photo nom`, `rogner x y largeur hauteur nom` (un morceau à taille réelle, pour lire un petit texte). Les coordonnées sont les pixels de la fenêtre du jeu, tels que la photo les montre. Une photo se range dans ton dossier, sous `<nom>.png` : regarde-la avec l'outil de lecture avant le geste suivant.
+
+- Finis chaque liste de gestes par une `photo`, et joue peu de gestes à la fois (un à trois) : un joueur regarde l'écran entre deux clics.
+- Survole un bouton avant de cliquer quand tu ne sais pas ce qu'il fait : une infobulle fait partie de ce que l'écran explique.
+- Numérote tes photos dans l'ordre (p01, p02…) : elles sont ta preuve. Une réussite que tu ne montres pas ne compte pas.
+- Le PC est celui du propriétaire. Si le script répond `OCCUPE` ou `ARRET`, il a besoin de son écran : n'insiste pas, ne contourne rien, appelle `fermer`, et rends `INTERROMPU` avec ce que le script a dit.
+- Si le script répond `FINI`, tu as joué tes {gestes_max} gestes : ferme et rends ton rapport.
+- Toujours `fermer` avant de rendre ton rapport, même si tout a raté.
+- Tu as {minutes} minutes en tout. Garde les dix dernières pour ton rapport : un rapport coupé ne vaut rien.
+
+## Comment jouer
+
+Tire de la promesse ses objectifs, dans l'ordre où un joueur les rencontre : chaque chose qu'elle dit que tu peux faire ou voir. Puis fais-les comme un joueur : regarde, devine, essaie.
+
+- **Compte tes essais.** Un essai est une idée tentée pour atteindre l'objectif. Au bout de **{essais_max} essais sans trouver**, l'objectif est `bloque` : passe au suivant, s'il reste atteignable sans lui.
+- **Sois exigeant, jamais complaisant.** Avoir fini par trouver ne veut pas dire que c'était trouvable. Ce qui compte, c'est ce qu'un joueur comprend seul, du premier coup : `premier_coup` seulement si ton premier essai était le bon, sans hasard. Ne t'excuse pas à la place du jeu, et ne suppose pas qu'un défaut est voulu.
+- **Juge les règles, pas seulement le chemin.** Lis les chiffres et compare-les entre eux, d'un écran à l'autre et d'un moment à l'autre. Un chiffre absurde pour 1400, deux chiffres qui se contredisent, une règle qui se dément, un pays qui ne mène nulle part, du grain ou des hommes qui naissent de rien, le temps qui file sans qu'on te le dise : ce sont des défauts, avec leur photo.
+- **Juge la finition** à côté d'Europa Universalis IV et de Manor Lords : un texte qui cache un autre, un mot de technicien, un panneau qui est une page de texte, une couleur qui dit le contraire de ce qui se passe.
+- Laisse filer le temps du jeu au moins une fois, et regarde ce qui change.
+
+## Ce que tu rends
+
+Un récit prouvé, dans la forme demandée :
+
+- `objectifs` : un par objectif de la promesse, dans l'ordre. `resultat` : `premier_coup`, `apres_essais`, `bloque` ou `non_joue` (tu n'as pas pu l'essayer : dis pourquoi dans le récit). `essais`, `recit` (ce que tu as essayé et ce que l'écran a répondu), `photos` (les noms des photos qui le montrent).
+- `non_explique` : chaque endroit où il a fallu deviner.
+- `defauts` : ce qui est faux, incohérent ou brouillon, avec sa `nature` (`regle` : le jeu se contredit ou crée quelque chose de rien ; `histoire` : faux pour 1400 ; `chiffre` : absurde ou illisible ; `ecran` : on ne comprend pas ou on ne trouve pas ; `finition`), sa `gravite` (`bloquant` : un joueur s'arrête là ou est trompé sur ce qu'il fait ; `genant` ; `mineur`) et sa photo.
+- `a_corriger_d_abord` : les trois défauts à corriger en premier, du plus gênant au moins gênant, chacun en une phrase qu'on peut donner telle quelle à celui qui corrigera.
+- `verdict` : `TENUE` si tout s'est fait du premier coup et que rien ne gêne ; `TENUE_AVEC_PEINE` si tout s'est fait, mais pas du premier coup ou avec des défauts gênants ; `NON_TENUE` si un objectif est bloqué ou n'a pas pu être joué, ou si un défaut est bloquant ; `INTERROMPU` si tu as dû t'arrêter pour le propriétaire. La chaîne recalcule ce verdict d'après tes objectifs et tes défauts, et garde le plus dur.
+- `resume` : ce que tu as vécu, en trois phrases de joueur.
+
+Écris en français, en mots de joueur. Aucune suggestion de code : tu ne connais pas le code."""
 
 
 def reparation_de_master(projet: Projet, *, url: str, resume: str) -> str:
@@ -532,6 +645,9 @@ Pour chaque lot livré : son titre en gras avec le lien de sa PR, puis deux phra
 
 ### En route
 Une ligne par lot en cours : où il en est.
+
+### Le testeur
+Ce que les faits rangent sous « LE TESTEUR » : l'étape qu'il a jouée, son verdict tel quel, et ce qu'il demande de corriger d'abord ; « il n'a rien joué depuis hier » sinon. Tu ne juges pas son verdict.
 
 ### À revoir à la démo
 Les choix que le CTO a pris seul, un par ligne, tels que les faits les donnent.
