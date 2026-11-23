@@ -277,13 +277,22 @@ namespace Forge.Pont {
         }
         // Hors du fil principal : la carte servie, la forme de ses lieux, puis son terrain. Sans carte, le monde ne répond
         // pas ; sans formes, ou des formes que le levé refuse, la carte dit pourquoi elle ne se dessine pas, et ne se
-        // dessine jamais sans elles.
+        // dessine jamais sans elles. Le journal dit ce qu'a pris chaque temps : la lecture de la carte, celle des formes,
+        // et le levé du terrain.
         private static (CarteLue, FormesLues, TerrainDeCarte, string) Lire(ClientCarte lecteur, ClientFormes desLieux) {
+            var montre = System.Diagnostics.Stopwatch.StartNew();
             LectureCarte lecture = lecteur.Lire();
             if (!lecture.Presente) return (null, null, null, MESSAGE_ABSENCE + "\n" + lecture.Absence);
+            long carte = montre.ElapsedMilliseconds;
             LectureFormes formes = desLieux.Lire();
             if (!formes.Presente) return (null, null, null, NON_DESSINEE + formes.Absence);
-            try { return (lecture.Carte, formes.Formes, TerrainDeCarte.Lever(lecture.Carte, formes.Formes), null); }
+            long lues = montre.ElapsedMilliseconds;
+            try {
+                TerrainDeCarte terrain = TerrainDeCarte.Lever(lecture.Carte, formes.Formes);
+                Debug.Log("CARTE : /carte lue en " + carte + " ms, /formes en " + (lues - carte) + " ms, terrain de " + terrain.NombreDeLieux + " lieux levé en "
+                    + (montre.ElapsedMilliseconds - lues) + " ms (" + terrain.Largeur + " × " + terrain.Hauteur + " texels au pas de " + terrain.Pas.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " km)");
+                return (lecture.Carte, formes.Formes, terrain, null);
+            }
             catch (System.ArgumentException erreur) { return (null, null, null, NON_DESSINEE + "formes : " + erreur.Message); }
         }
         private void Poser(CarteLue lue, FormesLues formes, TerrainDeCarte terrain) {
