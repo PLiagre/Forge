@@ -17,9 +17,10 @@ namespace Forge.Pont.Tests
         // Les ordres de la maison seigneurie-2 avec la terre 10461 visée et son armée en marche, puis sans terre ni armée.
         const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
         const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
-        // Quatre terres, trois pays, dans la forme servie : la maison du pays (sa tête) et la maison de chaque terre (la tête de la suzeraineté de son maître).
+        // Quatre terres, trois pays, dans la forme servie : la maison du pays (sa tête), son suzerain et son ensemble (le Wurtemberg est vassal du Saint-Empire, seul à porter un ensemble),
+        // et la maison de chaque terre (la tête de la suzeraineté de son maître).
         // La terre 10452 est de la maison Wittelsbach mais du pays Saint-Empire, dont la tête est Luxembourg ; son lieu de rang 2 est du pays Bohême (`autres_pays`), les autres terres n'en ont aucun.
-        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"autres_pays\":[],\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}],\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"autres_pays\":[],\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
+        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"ensemble\":null,\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"ensemble\":\"Saint-Empire\",\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"ensemble\":null,\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"autres_pays\":[],\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}],\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"autres_pays\":[],\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
         const string Maison = "seigneurie-2";
         const double Delai = 5;
         int port, statut = 200; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
@@ -54,6 +55,10 @@ namespace Forge.Pont.Tests
                     t.Terres.Select(x => (x.CellId, x.Maitre, x.Pays, x.Maison)).ToArray());
                 CollectionAssert.AreEqual(new[] { ("puissance-10", "Bohême", "grande-9", "Luxembourg"), ("puissance-9", "Saint-Empire", "grande-9", "Luxembourg"), ("seigneurie-2", "Comté de Wurtemberg", "seigneurie-2", "Wurtemberg") },
                     t.Pays.Select(x => (x.Id, x.Nom, x.Maison.Id, x.Maison.Nom)).ToArray());
+                CollectionAssert.AreEqual(new[] { ("puissance-10", (string)null, (string)null), ("puissance-9", (string)null, "Saint-Empire"), ("seigneurie-2", "puissance-9", (string)null) },
+                    t.Pays.Select(x => (x.Id, x.Suzerain, x.Ensemble)).ToArray());
+                Assert.AreEqual("puissance-9", t.SuzerainDe("seigneurie-2")); Assert.IsNull(t.SuzerainDe("puissance-9")); Assert.AreEqual("Saint-Empire", t.EnsembleDe("puissance-9")); Assert.IsNull(t.EnsembleDe("seigneurie-2"));
+                Assert.IsNull(t.SuzerainDe("grande-1")); Assert.IsNull(t.SuzerainDe(null)); Assert.IsNull(t.EnsembleDe("grande-1")); Assert.IsNull(t.EnsembleDe(null));
                 Assert.AreEqual("seigneurie-2", t.PaysDe(10461)); Assert.AreEqual("Comté de Wurtemberg", t.NomDuPays(t.PaysDe(10461))); Assert.AreEqual("seigneurie-2", t.MaitreDe(10461));
                 Assert.IsTrue(t.MaisonDuPays("puissance-10").Id == "grande-9" && t.MaisonDuPays("puissance-10").Nom == "Luxembourg" && t.MaisonDuPays(t.PaysDe(10461)).Nom == "Wurtemberg");
                 Assert.AreEqual("grande-29", t.Terres[1].Maison); Assert.AreEqual("grande-9", t.MaisonDuPays(t.PaysDe(10452)).Id);
@@ -134,6 +139,37 @@ namespace Forge.Pont.Tests
                 Assert.IsNull(t.PaysDe(10452)); Assert.IsNull(t.MaitreDe(10452)); Assert.IsNull(t.Terres[1].Maison); Assert.IsNull(t.NomDuPays("puissance-9")); Assert.AreEqual(4, t.Terres.Count);
                 Assert.IsNull(t.MaisonDuPays("puissance-10")); Assert.AreEqual("grande-9", t.MaisonDuPays("puissance-9").Id); Assert.IsNull(t.MaisonDuPays("seigneurie-2").Nom); Assert.AreEqual("seigneurie-2", t.MaisonDuPays("seigneurie-2").Id);
             }
+        }
+
+        // Un suzerain absent de la liste pays ou égal au pays lui-même est refusé en nommant la clé ; un suzerain servi après son vassal est admis, la liste étant lue en entier d'abord.
+        [Test] public void Un_suzerain_inconnu_ou_egal_au_pays_est_refuse_et_un_suzerain_servi_plus_loin_est_admis()
+        {
+            Servir(Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":\"puissance-30\""), Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":\"seigneurie-2\""),
+                Muter(Terres, "\"suzerain\":null},{\"ensemble\":\"Saint-Empire\"", "\"suzerain\":\"puissance-9\"},{\"ensemble\":\"Saint-Empire\""));
+            using (var c = Client())
+            {
+                var inconnu = c.LireTerres(); Assert.IsFalse(inconnu.Presente); StringAssert.StartsWith("terres : ", inconnu.Absence);
+                StringAssert.Contains("pays[2].suzerain", inconnu.Absence); StringAssert.Contains("puissance-30", inconnu.Absence); StringAssert.Contains("absent de la liste pays", inconnu.Absence);
+                var lui = c.LireTerres(); Assert.IsFalse(lui.Presente); StringAssert.Contains("pays[2].suzerain", lui.Absence); StringAssert.Contains("pays lui-même", lui.Absence);
+                var apres = c.LireTerres(); Assert.IsTrue(apres.Presente, apres.Absence);
+                Assert.AreEqual("puissance-9", apres.Donnees.SuzerainDe("puissance-10")); Assert.AreEqual("puissance-9", apres.Donnees.SuzerainDe("seigneurie-2"));
+            }
+        }
+
+        // Les pays de l'Europe figée : le suzerain et l'ensemble lus sont ceux du corps servi, entrée par entrée et dans l'ordre.
+        [Test] public void Le_suzerain_et_l_ensemble_de_chaque_pays_de_l_Europe_sont_ceux_du_corps_servi()
+        {
+            var brutes = (List<object>)LecteurJson.LireObjet(EuropeDeTest.Corps(EuropeDeTest.TERRES))["pays"]; var lus = EuropeDeTest.TerresEurope.Pays;
+            Assert.Greater(brutes.Count, 0, "aucun pays servi"); Assert.AreEqual(brutes.Count, lus.Count);
+            int suzerains = 0, ensembles = 0;
+            for (int i = 0; i < brutes.Count; i++)
+            {
+                var brut = (Dictionary<string, object>)brutes[i]; var pays = lus[i]; string suzerain = (string)brut["suzerain"], ensemble = (string)brut["ensemble"];
+                Assert.AreEqual((string)brut["id"], pays.Id, "pays[" + i + "].id"); Assert.AreEqual(suzerain, pays.Suzerain, "pays[" + i + "].suzerain"); Assert.AreEqual(ensemble, pays.Ensemble, "pays[" + i + "].ensemble");
+                Assert.AreEqual(suzerain, EuropeDeTest.TerresEurope.SuzerainDe(pays.Id), "SuzerainDe " + pays.Id); Assert.AreEqual(ensemble, EuropeDeTest.TerresEurope.EnsembleDe(pays.Id), "EnsembleDe " + pays.Id);
+                if (suzerain != null) suzerains++; if (ensemble != null) ensembles++;
+            }
+            Assert.Greater(suzerains, 0, "aucun suzerain lu"); Assert.Greater(ensembles, 0, "aucun ensemble lu");
         }
 
         [Test] public void Les_guerres_se_lisent_avec_l_armee_en_marche()
@@ -265,6 +301,9 @@ namespace Forge.Pont.Tests
                 (Muter(Terres, "\"tick\":6", "\"tickk\":6"), "tick"), (Muter(Terres, "\"annee\":1400", "\"an\":1400"), "date.annee"),
                 (Muter(Terres, "\"pays\":[", "\"payss\":["), "pays"), (Muter(Terres, "\"id\":\"puissance-9\"", "\"identifiant\":\"puissance-9\""), "pays[1].id"),
                 (Muter(Terres, "\"nom\":\"Saint-Empire\"", "\"noms\":\"Saint-Empire\""), "pays[1].nom"),
+                (Muter(Terres, "\"suzerain\":null},{\"ensemble\":\"Saint-Empire\"", "\"suzerains\":null},{\"ensemble\":\"Saint-Empire\""), "pays[0].suzerain"),
+                (Muter(Terres, "\"ensemble\":null,\"id\":\"puissance-10\"", "\"ensembles\":null,\"id\":\"puissance-10\""), "pays[0].ensemble"),
+                (Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerains\":\"puissance-9\""), "pays[2].suzerain"), (Muter(Terres, "\"ensemble\":\"Saint-Empire\"", "\"ensembles\":\"Saint-Empire\""), "pays[1].ensemble"),
                 (Muter(Terres, "\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"maisons\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison"),
                 (Muter(Terres, "{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "{\"identifiant\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.id"),
                 (Muter(Terres, "\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"noms\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.nom"),
@@ -378,6 +417,9 @@ namespace Forge.Pont.Tests
                 (Muter(Terres, "\"rang\":2}", "\"rang\":0}"), "terres[1].autres_pays[0].rang"),
                 (Muter(Terres, "\"rang\":2}", "\"rang\":-1}"), "terres[1].autres_pays[0].rang"),
                 (Muter(Terres, "\"rang\":2}", "\"rang\":1.5}"), "terres[1].autres_pays[0].rang"),
+                (Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":\"puissance-30\""), "pays[2].suzerain"), (Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":\"seigneurie-2\""), "pays[2].suzerain"),
+                (Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":\"\""), "pays[2].suzerain"), (Muter(Terres, "\"suzerain\":\"puissance-9\"", "\"suzerain\":3"), "pays[2].suzerain"),
+                (Muter(Terres, "\"ensemble\":\"Saint-Empire\"", "\"ensemble\":\"\""), "pays[1].ensemble"), (Muter(Terres, "\"ensemble\":\"Saint-Empire\"", "\"ensemble\":[]"), "pays[1].ensemble"),
             };
             Servir(fautes.Select(f => f.corps).ToArray());
             using (var c = Client())

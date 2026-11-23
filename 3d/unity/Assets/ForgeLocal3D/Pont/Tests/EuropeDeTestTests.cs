@@ -23,7 +23,7 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(jouables.Tick, terres.Tick, "les terres et les jouables ne disent pas le même tick");
             Assert.Greater(jouables.Fiches.Count, 0, "aucune fiche jouable");
 
-            // Le suzerain et l'ensemble d'un pays : `PaysDeLaCarte` ne les lit pas encore, on les compte dans le corps brut.
+            // Le suzerain et l'ensemble d'un pays se comptent dans le corps brut ; `ClientGuerreTests` juge que `PaysDeLaCarte` les lit à l'identique.
             var brutes = (List<object>)LecteurJson.LireObjet(EuropeDeTest.Corps(EuropeDeTest.TERRES))["pays"];
             Assert.AreEqual(terres.Pays.Count, brutes.Count, "les pays lus et les pays servis ne se comptent pas pareil");
             Assert.Greater(terres.Pays.Count, 0, "aucun pays lu");
