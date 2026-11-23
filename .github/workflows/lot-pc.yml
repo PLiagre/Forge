@@ -49,9 +49,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           # Le service ne voit pas le PATH de la session : on y remet les agents
-          # (claude). Les .cmd ne se lancent pas
+          # (claude, agy). Les .cmd ne se lancent pas
           # tels quels : `atelier.agents.lancement` appelle leur node.exe.
-          $env:PATH = "$env:USERPROFILE\.local\bin;$env:APPDATA\npm;$env:PATH"
+          $env:PATH = "$env:USERPROFILE\.local\bin;$env:LOCALAPPDATA\agy\bin;$env:APPDATA\npm;$env:PATH"
           # Le nom du chantier entre dans un chemin : seuls ceux que le pilote
           # nomme passent.
           if ($env:CHANTIER -notmatch '^pc(-[0-9]+)?$') { throw "chantier inconnu : $env:CHANTIER" }
