@@ -422,6 +422,25 @@ def test_empire_chaque_prince_servi_porte_son_ensemble(livre):
         _verifier_ensembles(livre, [dict(f, ensemble=None) if f is premier else f for f in fiches])
 
 
+def _princes_sans_terre(servie):
+    """Les princes nommés qui ne sont le pays d'aucune terre servie : sans cellule à eux sur la carte."""
+    par_nom = {f["nom"]: f["id"] for f in servie["pays"]}
+    pays_des_terres = {t["pays"] for t in servie["terres"]}
+    return [nom for nom in PRINCES_D_EMPIRE if par_nom.get(nom) not in pays_des_terres]
+
+
+def test_empire_chaque_prince_nomme_a_sa_place_sur_la_carte(livre):
+    # Un prince présent par les seuls lieux d'une terre d'un autre pays (`autres_pays`) n'a aucune
+    # cellule à lui : la carte le peint aux couleurs du voisin.
+    assert not _princes_sans_terre(livre.servie), _princes_sans_terre(livre.servie)
+    # Contre-épreuve : les terres du Brandebourg passées à la Saxe, il n'a plus de place sur la carte.
+    par_nom = {f["nom"]: f["id"] for f in livre.servie["pays"]}
+    brandebourg, saxe = par_nom["Brandebourg"], par_nom["Saxe"]
+    sans = dict(livre.servie, terres=[dict(t, pays=saxe) if t["pays"] == brandebourg else t
+                                      for t in livre.servie["terres"]])
+    assert _princes_sans_terre(sans) == ["Brandebourg"]
+
+
 def _wurtemberg(s, vue):
     wurtemberg = next(x for x in s.seigneuries if x.nom == "Comté de Wurtemberg")
     return wurtemberg, fiche_de_seigneurie(wurtemberg.id, s.monde, s.seigneuries, s.table, s.maisons, vue)

@@ -325,9 +325,9 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     assert couvertes > 0 and non_couvertes > 0
     assert {valeur for valeur in vue.values() if valeur is not None} <= ids_puissances
     # Chaque puissance tient une cellule, ou au moins un lieu d'une cellule partagée, sauf le
-    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan, et le Brandebourg
-    # des lieux de cellules dont le bourg est à un autre pays : la Saxe à Wittenberg, sa capitale, la
-    # Pologne en Nouvelle-Marche.
+    # Saint-Empire, rendu à ses princes. Venise ne tient que des lieux du Trévisan. Le Brandebourg tient
+    # la cellule de la Nouvelle-Marche, où Josse a sa capitale ; celle de Berlin a pour bourg Wittenberg,
+    # capitale de la Saxe.
     lieux = puissances_des_lieux(monde)
     sans_cellule = [p.nom for p in table.puissances if p.id not in vue.values()]
     for puissance in table.puissances:
@@ -336,7 +336,7 @@ def test_compte_de_toutes_les_cellules_et_de_toutes_les_puissances():
     empire = next(p.id for p in table.puissances if p.nom == "Saint-Empire")
     assert empire not in vue.values() and empire not in lieux.values()
     print(f"puissances_sans_cellule={sans_cellule}")
-    assert sans_cellule == ["Saint-Empire", "Venise", "Brandebourg"]
+    assert sans_cellule == ["Saint-Empire", "Venise"]
 
     facteur = facteur_de_projection(latitude)
     carres = []

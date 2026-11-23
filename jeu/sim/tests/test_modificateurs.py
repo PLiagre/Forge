@@ -37,10 +37,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # Quand le registre des personnages change, seule la clé `personnages` de
 # `World.to_dict()` diffère de l'empreinte d'avant, et la photographie est identique.
 # Les frontières de 1400 changent le registre des maisons, les maîtres de 345 lieux et, par eux, les
-# greniers, les convois et leurs cumuls ; aucune population ne change en un an.
+# greniers, les convois et leurs cumuls ; aucune population ne change en un an. Celles de l'Empire, du
+# Nord et de l'Est changent de même le registre, les maîtres et les greniers ; la population au bout
+# d'un an reste 37 481 793.
 EMPREINTES_365 = {
-    "linux": ("7bda64df56a337f28b5e8bb665e5118b8df8888b8e656a78ac671038ca4174fc",
-              "cecbb54ff294b6c61d09b50fe382669ae5edc662fefda4630ca148e09c468781"),
+    "linux": ("1b9e7c95c0520a8633b0afa4da06a18ffcabdc2ffc54a4de690a8319c328bb2c",
+              "c325e091bb37a232f983a36b8d2e007d5e4a245c6bc843bd012cf0f86f66a82f"),
 }
 
 

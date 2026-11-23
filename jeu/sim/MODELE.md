@@ -1731,7 +1731,11 @@ partagent jamais une cellule. Une principauté dont le siège partagerait la cel
 d'une autre capitale n'est pas une puissance de la table ; sa ville est sans pays,
 avec cette raison (Bade à Heidelberg, Bamberg à Cadolzbourg, Wurtzbourg à
 Aschaffenbourg). Utrecht a pour premier siège Coevorden, la ville d'Utrecht
-partageant la cellule de La Haye : ce choix est de **niveau 2**. Chaque lieu de la cellule va au pays de la
+partageant la cellule de La Haye : ce choix est de **niveau 2**. Chaque prince d'Empire nommé
+par la fiche du lot est le pays d'au moins une terre, dont il tient le bourg : il a
+sa place sur la carte, et pas seulement des lieux dans la cellule d'un autre. Le
+Brandebourg tient ainsi la cellule de la Nouvelle-Marche, où Josse a sa capitale,
+Landsberg ; la cellule de Berlin a pour bourg Wittenberg, capitale de la Saxe. Chaque lieu de la cellule va au pays de la
 ville la plus proche de sa place (`sim/places.py`), dans le plan EPSG:3035 ; à
 égalité, la première déclarée. Le bourg est placé au siège de la maison qui le
 prendra (`frontieres.maison_du_bourg`, dans l'ordre même de l'attribution des
@@ -1949,7 +1953,7 @@ les polygones porte `hors_carte`, sa raison textuelle. Sur la carte figée,
 que `maisons_depuis_monde` donne à sa propre maison, et **1** hors carte,
 Saraï des Djötchides sur la basse Volga, avec `cell_id = None` et sa raison.
 Deux capitales ne partagent jamais une cellule, chacune y prenant le bourg : Josse
-a la sienne à Luxembourg, dans ses pays, et non à Brno ; Juliers représente la
+a la sienne à Landsberg, ville principale de la Nouvelle-Marche, dans ses pays et non à Brno : la cellule de Berlin a pour bourg Wittenberg, capitale de la Saxe, et le Brandebourg prend ainsi la cellule de la Nouvelle-Marche ; Juliers représente la
 Gueldre, Nimègue partageant la cellule de Clèves ; Celle, le Brunswick de Bernard
 Ier, Wolfenbüttel partageant celle de Magdebourg.
 
@@ -2000,7 +2004,7 @@ Ces habitants actuels sont de niveau 2, plausible et jamais sourcé.
 **Niveau 1** : villes capitales et sources publiques, sièges des seigneuries
 déjà sourcés. **Niveau 2**, plausible et jamais sourcé : une maison réduite
 à une seule capitale, notamment Tolède pour la cour itinérante de Castille,
-Luxembourg pour Josse, La Haye pour Albert de Straubing (qui tient aussi le
+Landsberg pour Josse, La Haye pour Albert de Straubing (qui tient aussi le
 Hainaut), Juliers pour la Gueldre, et la cellule donnée par le polygone. Heidelberg
 et Munich sont les capitales de deux pays, le Palatinat et la Bavière. **Niveau 3**, pas simulé : autres décisions
 et gestes de l'IA, liens entre branches dynastiques, personnes, succession,

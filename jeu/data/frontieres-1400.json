@@ -235,7 +235,6 @@
       {"nom": "Thionville", "lat": 49.36, "lon": 6.17, "pays": 57, "source": "Wikipédia en anglais, article Thionville : Thionville appartient au duché de Luxembourg jusqu'en 1643 (https://en.wikipedia.org/wiki/Thionville)"},
       {"nom": "Arlon", "lat": 49.68, "lon": 5.82, "pays": 57, "source": "Wikipédia en anglais, article Arlon : Arlon est une ville du duché de Luxembourg (https://en.wikipedia.org/wiki/Arlon)"},
       {"nom": "Trèves", "lat": 49.75, "lon": 6.64, "pays": 11, "source": "Wikipédia en anglais, article Trier : Trèves est le siège de l'archevêque-électeur de Trèves (https://en.wikipedia.org/wiki/Trier)"},
-      {"nom": "Boulay", "lat": 49.18, "lon": 6.49, "pays": 61, "source": "Wikipédia en anglais, article Boulay-Moselle : Boulay est une seigneurie du duché de Lorraine (https://en.wikipedia.org/wiki/Boulay-Moselle)"},
       {"nom": "Sarreguemines", "lat": 49.11, "lon": 7.07, "pays": 61, "source": "Wikipédia en anglais, article Sarreguemines : Sarreguemines est une ville du duché de Lorraine (https://en.wikipedia.org/wiki/Sarreguemines)"}
     ] },
     { "cell_id": 10391, "villes": [
@@ -575,7 +574,7 @@
     {"nom": "Worms", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au Palatinat (https://en.wikipedia.org/wiki/Worms)."},
     {"nom": "Dortmund", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au comté de La Marck, des ducs de Clèves (https://en.wikipedia.org/wiki/Dortmund)."},
     {"nom": "Aix-la-Chapelle", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au duché de Juliers, uni à la Gueldre (https://en.wikipedia.org/wiki/Aachen)."},
-    {"nom": "Metz", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va à la Lorraine (https://en.wikipedia.org/wiki/Metz)."},
+    {"nom": "Metz", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au duché de Luxembourg (https://en.wikipedia.org/wiki/Metz)."},
     {"nom": "Strasbourg", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va aux terres sans pays de Bade, puissance absente de la table (https://en.wikipedia.org/wiki/Strasbourg)."},
     {"nom": "Bâle", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va à l'Autriche antérieure ; la principauté épiscopale de Bâle est plus petite qu'un lieu (https://en.wikipedia.org/wiki/Basel)."},
     {"nom": "Besançon", "raison": "Ville libre d'Empire, non simulée : plus petite qu'un lieu, son lieu va au comté de Bourgogne, que Philippe le Hardi tient depuis 1384 (https://en.wikipedia.org/wiki/Besan%C3%A7on)."},
@@ -655,7 +654,7 @@
     {"nom": "Breslau", "lat": 51.11, "lon": 17.03, "pays": 10, "source": "Wikipédia en anglais, article Wrocław : Breslau passe à la couronne de Bohême en 1335 (https://en.wikipedia.org/wiki/Wroc%C5%82aw)"},
     {"nom": "Francfort", "lat": 50.11, "lon": 8.68, "pays": 71, "source": "Wikipédia en anglais, article Frankfurt : Francfort, ville libre d'Empire plus petite qu'un lieu, non simulée : son lieu va à l'archevêché de Mayence (https://en.wikipedia.org/wiki/Frankfurt)"},
     {"nom": "Nuremberg", "lat": 49.45, "lon": 11.08, "pays": 69, "source": "Wikipédia en anglais, article Nuremberg : Nuremberg, ville libre d'Empire plus petite qu'un lieu, non simulée : son lieu va au burgraviat, dont les Hohenzollern tiennent encore le château (https://en.wikipedia.org/wiki/Nuremberg)"},
-    {"nom": "Metz", "lat": 49.12, "lon": 6.18, "pays": 61, "source": "Wikipédia en anglais, article Metz : Metz, ville libre d'Empire plus petite qu'un lieu, non simulée : son lieu va à la Lorraine voisine (https://en.wikipedia.org/wiki/Metz)"},
+    {"nom": "Metz", "lat": 49.12, "lon": 6.18, "pays": 57, "source": "Wikipédia en anglais, article Metz : Metz, ville libre d'Empire plus petite qu'un lieu, non simulée : son lieu va au duché de Luxembourg voisin (https://en.wikipedia.org/wiki/Metz)"},
     {"nom": "Ulm", "lat": 48.4, "lon": 9.99, "pays": 50, "source": "Wikipédia en anglais, article Ulm : Ulm, ville libre d'Empire plus petite que deux lieux, non simulée : son lieu va à l'Autriche antérieure voisine (https://en.wikipedia.org/wiki/Ulm)"},
     {"nom": "Augsbourg", "lat": 48.37, "lon": 10.9, "pays": 51, "source": "Wikipédia en anglais, article Augsburg : Augsbourg, ville libre d'Empire plus petite qu'un lieu, non simulée : son lieu va à la Bavière (https://en.wikipedia.org/wiki/Augsburg)"},
     {"nom": "Hambourg", "lat": 53.55, "lon": 9.99, "pays": 65, "source": "Wikipédia en anglais, article Hamburg : Hambourg, ville hanséatique plus petite qu'un lieu, non simulée : son lieu va au Brunswick voisin (https://en.wikipedia.org/wiki/Hamburg)"},

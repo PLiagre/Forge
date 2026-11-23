@@ -418,7 +418,7 @@ CELLULES_CAPITALES = (
     10283, 10433, 9892, 10327, 10374, 10366, 10329, 10300, 10362, 10371,
     None, 8992, 10143, 9788, 9831, 10059, 10420, 10191, 10452, 10294,
     10176, 10316, 10174, 10318, 10388, 10319, 10239, 10264, 10272, 10280,
-    10257, 10437, 10427, 10425, 10443, 10440, 10439, 10459, 10462, 10269,
+    10257, 10290, 10427, 10425, 10443, 10440, 10439, 10459, 10462, 10269,
     10281, 10464, 10261, 10358, 10328, 10325,
 )
 
@@ -3970,7 +3970,7 @@ def test_familles_historiques_palatinat():
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2365
+    assert len(monde.personnages) == 2364
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4243,7 +4243,7 @@ def test_familles_historiques_bar():
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
-    assert len(monde.personnages) == 2365
+    assert len(monde.personnages) == 2364
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4561,7 +4561,7 @@ def test_familles_historiques_wurtemberg():
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
-    assert len(monde.personnages) == 2365
+    assert len(monde.personnages) == 2364
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4922,7 +4922,7 @@ def test_familles_historiques_brankovic():
         if c['maison'] in CHEFS_TROIS: _chef_trois(c)
     _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
-    assert len(monde.personnages) == 2365
+    assert len(monde.personnages) == 2364
     _preuve_monde_brankovic(list(monde.personnages))
     ids = {CHEF_BRANKOVIC, BRANKOVIC}
     _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
