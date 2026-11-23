@@ -18,8 +18,8 @@ namespace Forge.Pont.Tests
         const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
         const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
         // Quatre terres, trois pays, dans la forme servie : la maison du pays (sa tête) et la maison de chaque terre (la tête de la suzeraineté de son maître).
-        // La terre 10452 est de la maison Wittelsbach mais du pays Saint-Empire, dont la tête est Luxembourg.
-        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
+        // La terre 10452 est de la maison Wittelsbach mais du pays Saint-Empire, dont la tête est Luxembourg ; son lieu de rang 2 est du pays Bohême (`autres_pays`), les autres terres n'en ont aucun.
+        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"autres_pays\":[],\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}],\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"autres_pays\":[],\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
         const string Maison = "seigneurie-2";
         const double Delai = 5;
         int port, statut = 200; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
@@ -60,8 +60,67 @@ namespace Forge.Pont.Tests
                 Assert.IsNull(t.PaysDe(999)); Assert.IsNull(t.MaitreDe(999)); Assert.IsNull(t.NomDuPays("grande-1")); Assert.IsNull(t.NomDuPays(null)); Assert.IsNull(t.MaisonDuPays("grande-1")); Assert.IsNull(t.MaisonDuPays(null));
                 Assert.Throws<NotSupportedException>(() => ((IList<TerreLue>)t.Terres).Add(null));
                 Assert.Throws<NotSupportedException>(() => ((IList<PaysDeLaCarte>)t.Pays).Add(null));
+                // Les lieux d'un autre pays : un seul, dans la terre 10452, le bourg et les autres lieux gardant le pays de la terre.
+                CollectionAssert.AreEqual(new[] { 0, 1, 0, 0 }, t.Terres.Select(x => x.AutresPays.Count).ToArray());
+                var autre = t.Terres[1].AutresPays[0]; Assert.IsTrue(autre.Rang == 2 && autre.Maitre == "plausible-10452-2" && autre.Pays == "puissance-10");
+                Assert.AreEqual("puissance-10", t.PaysDuLieu(10452, 2)); Assert.AreEqual("puissance-9", t.PaysDuLieu(10452, 0)); Assert.AreEqual("puissance-9", t.PaysDuLieu(10452, 3));
+                Assert.AreEqual("seigneurie-2", t.PaysDuLieu(10461, 2)); Assert.AreEqual("puissance-10", t.PaysDuLieu(10284, 0)); Assert.IsNull(t.PaysDuLieu(999, 0)); Assert.IsNull(t.PaysDuLieu(999, 2));
+                Assert.Throws<NotSupportedException>(() => ((IList<LieuDAutrePays>)t.Terres[1].AutresPays).Add(null));
             }
             CollectionAssert.AreEqual(new[] { "GET /terres" }, Recues());
+        }
+
+        // Un lieu d'un autre pays sans maître ni pays est une mesure : le lieu n'a alors aucun pays, pas celui de la terre.
+        [Test] public void Un_lieu_d_un_autre_pays_sans_maitre_ni_pays_est_une_mesure()
+        {
+            Servir(Muter(Terres, "{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}", "{\"maitre\":null,\"pays\":null,\"rang\":2}"));
+            using (var c = Client())
+            {
+                var l = c.LireTerres(); Assert.IsTrue(l.Presente, l.Absence); var t = l.Donnees;
+                Assert.IsTrue(t.Terres[1].AutresPays.Count == 1 && t.Terres[1].AutresPays[0].Maitre == null && t.Terres[1].AutresPays[0].Pays == null);
+                Assert.IsNull(t.PaysDuLieu(10452, 2)); Assert.AreEqual("puissance-9", t.PaysDuLieu(10452, 1));
+            }
+        }
+
+        // Le rang 0 est le bourg, qui porte le pays de la terre ; un rang servi deux fois est une faute : l'absence le dit.
+        [Test] public void Un_autre_pays_au_rang_0_ou_servi_deux_fois_dit_pourquoi()
+        {
+            Servir(Muter(Terres, "\"rang\":2}", "\"rang\":0}"), Muter(Terres, "\"rang\":2}", "\"rang\":2},{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}"));
+            using (var c = Client())
+            {
+                var zero = c.LireTerres(); Assert.IsFalse(zero.Presente); StringAssert.Contains("terres[1].autres_pays[0].rang", zero.Absence); StringAssert.Contains("bourg", zero.Absence);
+                var deux = c.LireTerres(); Assert.IsFalse(deux.Presente); StringAssert.Contains("terres[1].autres_pays[1].rang", deux.Absence); StringAssert.Contains("deux fois", deux.Absence);
+            }
+        }
+
+        // Une terre bâtie sans lieux d'un autre pays en a une liste vide, en lecture seule.
+        [Test] public void Une_terre_batie_sans_autres_pays_en_a_une_liste_vide()
+        {
+            var sans = new TerreLue(10, "m", "p"); var avec = new TerreLue(11, "m", "p", "h", new[] { new LieuDAutrePays(3, "m3", "q") });
+            Assert.IsNotNull(sans.AutresPays); Assert.AreEqual(0, sans.AutresPays.Count); Assert.Throws<NotSupportedException>(() => ((IList<LieuDAutrePays>)sans.AutresPays).Add(null));
+            Assert.AreEqual("h", avec.Maison); Assert.IsTrue(avec.AutresPays.Count == 1 && avec.AutresPays[0].Rang == 3);
+            var t = new TerresDeLaCarte(1, new DateDuMonde(1400, 1), new[] { new PaysDeLaCarte("p", "P"), new PaysDeLaCarte("q", "Q") }, new[] { sans, avec });
+            Assert.AreEqual("p", t.PaysDuLieu(10, 3)); Assert.AreEqual("q", t.PaysDuLieu(11, 3)); Assert.AreEqual("p", t.PaysDuLieu(11, 0));
+            Assert.Throws<ArgumentNullException>(() => new TerreLue(12, "m", "p", null, new LieuDAutrePays[] { null }));
+        }
+
+        // Le relevé du vrai service (graine 0, tick 24) : la Navarre partage la cellule de Pampelune avec des lieux castillans.
+        const long Pampelune = 10192; const string Navarre = "puissance-7", Castille = "puissance-5"; const long TickDuReleve = 24, TerresDuReleve = 596, TerresAvecAutresPays = 49;
+        [Test] public void Le_releve_du_service_donne_la_Navarre_et_ses_lieux_castillans()
+        {
+            Servir(System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/terres-graine0-tick24.json", Encoding.UTF8));
+            using (var c = Client())
+            {
+                var l = c.LireTerres(); Assert.IsTrue(l.Presente && l.Absence == null, l.Absence); var t = l.Donnees;
+                Assert.AreEqual(TickDuReleve, t.Tick); Assert.AreEqual(TerresDuReleve, t.Terres.Count); Assert.AreEqual(TerresAvecAutresPays, t.Terres.Count(x => x.AutresPays.Count > 0));
+                Assert.AreEqual(Navarre, t.PaysDe(Pampelune)); Assert.AreEqual("Navarre", t.NomDuPays(t.PaysDe(Pampelune)));
+                Assert.AreEqual("Castille", t.NomDuPays(Castille));
+                var terre = t.Terres.Single(x => x.CellId == Pampelune); Assert.IsTrue(terre.AutresPays.Count > 0, "la cellule de Pampelune est partagée");
+                var castillans = terre.AutresPays.Where(a => t.NomDuPays(t.PaysDuLieu(Pampelune, a.Rang)) == "Castille").ToArray();
+                Assert.IsTrue(castillans.Length > 0 && castillans.All(a => t.PaysDuLieu(Pampelune, a.Rang) == Castille), "aucun lieu castillan dans la cellule de Pampelune");
+                Assert.AreNotEqual(t.PaysDe(Pampelune), t.PaysDuLieu(Pampelune, castillans[0].Rang));
+                Assert.AreEqual(Navarre, t.PaysDuLieu(Pampelune, 0)); Assert.IsTrue(terre.AutresPays.All(a => a.Rang > 0));
+            }
         }
 
         [Test] public void Une_terre_sans_maitre_ni_pays_et_un_pays_sans_nom_ni_maison_sont_des_mesures()
@@ -210,9 +269,13 @@ namespace Forge.Pont.Tests
                 (Muter(Terres, "{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "{\"identifiant\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.id"),
                 (Muter(Terres, "\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "\"noms\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.nom"),
                 (Muter(Terres, "\"terres\":[", "\"terress\":["), "terres"), (Muter(Terres, "\"cell_id\":10461", "\"cell\":10461"), "terres[2].cell_id"),
-                (Muter(Terres, "{\"cell_id\":10284,\"maison\":", "{\"cell_id\":10284,\"maisons\":"), "terres[0].maison"),
+                (Muter(Terres, "\"cell_id\":10284,\"maison\":", "\"cell_id\":10284,\"maisons\":"), "terres[0].maison"),
                 (Muter(Terres, "\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\"", "\"cell_id\":10465,\"maison\":\"grande-9\",\"maitres\":\"seigneurie-2\""), "terres[3].maitre"),
-                (Muter(Terres, "\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"cell_id\":10465", "\"maitre\":\"seigneurie-2\",\"payss\":\"seigneurie-2\"},{\"cell_id\":10465"), "terres[2].pays"),
+                (Muter(Terres, "\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465", "\"maitre\":\"seigneurie-2\",\"payss\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465"), "terres[2].pays"),
+                (Muter(Terres, "\"autres_pays\":[],\"cell_id\":10284", "\"autre\":[],\"cell_id\":10284"), "terres[0].autres_pays"),
+                (Muter(Terres, "\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}]", "\"autres_pays\":[{\"maitres\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}]"), "terres[1].autres_pays[0].maitre"),
+                (Muter(Terres, "\"pays\":\"puissance-10\",\"rang\":2", "\"payss\":\"puissance-10\",\"rang\":2"), "terres[1].autres_pays[0].pays"),
+                (Muter(Terres, "\"rang\":2}", "\"rangs\":2}"), "terres[1].autres_pays[0].rang"),
             };
             Servir(fautes.Select(f => f.corps).ToArray());
             using (var c = Client())
@@ -306,6 +369,15 @@ namespace Forge.Pont.Tests
                 (Muter(Terres, "{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\"", "{\"id\":\"\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\""), "pays[0].maison.id"),
                 (Muter(Terres, "\"maison\":\"grande-9\",\"maitre\":\"grande-9\"", "\"maison\":7,\"maitre\":\"grande-9\""), "terres[0].maison"),
                 (Muter(Terres, "\"maison\":\"grande-9\",\"maitre\":\"grande-9\"", "\"maison\":\"\",\"maitre\":\"grande-9\""), "terres[0].maison"),
+                (Muter(Terres, "\"autres_pays\":[],\"cell_id\":10284", "\"autres_pays\":3,\"cell_id\":10284"), "terres[0].autres_pays"),
+                (Muter(Terres, "\"autres_pays\":[{\"maitre\":\"plausible-10452-2\"", "\"autres_pays\":[3,{\"maitre\":\"plausible-10452-2\""), "terres[1].autres_pays[0]"),
+                (Muter(Terres, "\"pays\":\"puissance-10\",\"rang\":2", "\"pays\":\"puissance-99\",\"rang\":2"), "terres[1].autres_pays[0].pays"),
+                (Muter(Terres, "\"pays\":\"puissance-10\",\"rang\":2", "\"pays\":\"\",\"rang\":2"), "terres[1].autres_pays[0].pays"),
+                (Muter(Terres, "\"maitre\":\"plausible-10452-2\"", "\"maitre\":\"\""), "terres[1].autres_pays[0].maitre"),
+                (Muter(Terres, "\"rang\":2}", "\"rang\":2},{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}"), "terres[1].autres_pays[1].rang"),
+                (Muter(Terres, "\"rang\":2}", "\"rang\":0}"), "terres[1].autres_pays[0].rang"),
+                (Muter(Terres, "\"rang\":2}", "\"rang\":-1}"), "terres[1].autres_pays[0].rang"),
+                (Muter(Terres, "\"rang\":2}", "\"rang\":1.5}"), "terres[1].autres_pays[0].rang"),
             };
             Servir(fautes.Select(f => f.corps).ToArray());
             using (var c = Client())

@@ -17,11 +17,30 @@ namespace Forge.Pont
         public string Id { get; } public string Nom { get; } public IdentiteDeMaison Maison { get; }
         public PaysDeLaCarte(string id, string nom, IdentiteDeMaison maison = null) { Id = id; Nom = nom; Maison = maison; }
     }
+    // Un lieu d'une terre qui n'est pas du pays de la terre : son rang (jamais 0, le bourg porte le pays de la terre),
+    // son maître et son pays, nuls quand le monde ne les dit pas.
+    public sealed class LieuDAutrePays
+    {
+        public long Rang { get; } public string Maitre { get; } public string Pays { get; }
+        public LieuDAutrePays(long rang, string maitre, string pays) { Rang = rang; Maitre = maitre; Pays = pays; }
+    }
     // Une terre, son maître (nul : terre sans maître), sa maison (la tête de la suzeraineté du maître ; nulle : terre sans maître) et son pays (nul : terre sans pays).
+    // AutresPays : ses lieux d'un autre pays que le sien, par rang ; vide quand tous ses lieux sont du pays de la terre.
     public sealed class TerreLue
     {
         public long CellId { get; } public string Maitre { get; } public string Maison { get; } public string Pays { get; }
-        public TerreLue(long cellId, string maitre, string pays, string maison = null) { CellId = cellId; Maitre = maitre; Pays = pays; Maison = maison; }
+        public IReadOnlyList<LieuDAutrePays> AutresPays { get; }
+        readonly Dictionary<long, LieuDAutrePays> parRang;
+        public TerreLue(long cellId, string maitre, string pays, string maison = null, IEnumerable<LieuDAutrePays> autresPays = null)
+        {
+            CellId = cellId; Maitre = maitre; Pays = pays; Maison = maison;
+            var liste = new List<LieuDAutrePays>(autresPays ?? new LieuDAutrePays[0]);
+            parRang = new Dictionary<long, LieuDAutrePays>(liste.Count);
+            foreach (var lieu in liste) parRang.Add((lieu ?? throw new ArgumentNullException(nameof(autresPays))).Rang, lieu);
+            AutresPays = new ReadOnlyCollection<LieuDAutrePays>(liste);
+        }
+        // Le lieu de ce rang quand il est d'un autre pays que la terre, sinon null.
+        internal LieuDAutrePays AutrePaysDuLieu(long rang) => parRang.TryGetValue(rang, out LieuDAutrePays lieu) ? lieu : null;
     }
     // Les terres de la carte telles que `/terres` les sert : à qui est chaque terre et de quel pays elle est, dans l'ordre servi.
     public sealed class TerresDeLaCarte
@@ -41,6 +60,9 @@ namespace Forge.Pont
         public string PaysDe(long cellId) => parCellule.TryGetValue(cellId, out TerreLue t) ? t.Pays : null;
         // Le maître de la terre, ou null : terre sans maître, ou terre que `/terres` ne sert pas.
         public string MaitreDe(long cellId) => parCellule.TryGetValue(cellId, out TerreLue t) ? t.Maitre : null;
+        // Le pays du lieu : celui que `autres_pays` lui donne (nul s'il n'en dit pas), sinon celui de la terre ; null aussi pour une terre que `/terres` ne sert pas.
+        public string PaysDuLieu(long cellId, long rang) =>
+            !parCellule.TryGetValue(cellId, out TerreLue t) ? null : t.AutrePaysDuLieu(rang) is LieuDAutrePays autre ? autre.Pays : t.Pays;
         // Le nom du pays, ou null : nom non dit, ou pays que `/terres` ne sert pas.
         public string NomDuPays(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Nom : null;
         // La maison du pays, ou null : maison non nommée, ou pays que `/terres` ne sert pas.
@@ -193,9 +215,24 @@ namespace Forge.Pont
                 long cell = ServiceLocal.Entier(t, chemin + ".cell_id", 0); string maitre = TexteOuNul(t, chemin + ".maitre"), maison = TexteOuNul(t, chemin + ".maison"), paysDeLaTerre = TexteOuNul(t, chemin + ".pays");
                 if (!vues.Add(cell)) throw new ServiceLocal.Refusee("clé " + chemin + ".cell_id : la terre " + cell + " est servie deux fois");
                 if (paysDeLaTerre != null && !ids.Contains(paysDeLaTerre)) throw new ServiceLocal.Refusee("clé " + chemin + ".pays : \"" + paysDeLaTerre + "\" absent de la liste pays");
-                terres.Add(new TerreLue(cell, maitre, paysDeLaTerre, maison));
+                terres.Add(new TerreLue(cell, maitre, paysDeLaTerre, maison, AutresPays(t, chemin + ".autres_pays", ids)));
             }
             return new TerresDeLaCarte(tick, date, pays, terres);
+        }
+        // Les lieux d'un autre pays : la clé est toujours servie (`[]` : aucun). Un rang ≥ 1 servi une seule fois (le rang 0 est le bourg,
+        // qui porte le pays de la terre) ; le maître et le pays sont des textes ou null, un pays servi est dans la liste `pays`.
+        static List<LieuDAutrePays> AutresPays(Dictionary<string, object> terre, string chemin, HashSet<string> ids)
+        {
+            var lieux = new List<LieuDAutrePays>(); var rangs = new HashSet<long>();
+            foreach (var (c, a) in Objets(terre, chemin))
+            {
+                long rang = ServiceLocal.Entier(a, c + ".rang", 0); string maitre = TexteOuNul(a, c + ".maitre"), pays = TexteOuNul(a, c + ".pays");
+                if (rang == 0) throw new ServiceLocal.Refusee("clé " + c + ".rang : le rang 0 est le bourg, il porte le pays de la terre et n'est jamais un autre pays");
+                if (!rangs.Add(rang)) throw new ServiceLocal.Refusee("clé " + c + ".rang : le rang " + rang + " est servi deux fois dans cette terre");
+                if (pays != null && !ids.Contains(pays)) throw new ServiceLocal.Refusee("clé " + c + ".pays : \"" + pays + "\" absent de la liste pays");
+                lieux.Add(new LieuDAutrePays(rang, maitre, pays));
+            }
+            return lieux;
         }
         // La maison d'un pays : null, ou un objet dont l'identifiant est un texte et le nom un texte ou null.
         static IdentiteDeMaison MaisonDuPays(Dictionary<string, object> pays, string chemin)
