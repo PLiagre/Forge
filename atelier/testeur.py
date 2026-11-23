@@ -91,13 +91,13 @@ def verdict_qui_pese(sortie: dict, photos: set[str]) -> tuple[str, list[str]]:
                   if not any(str(p).strip() in photos for p in o.get("photos") or [])]
     if sans_photo:
         return SANS_PREUVE, [f"aucune photo ne montre « {o} »" for o in sans_photo]
-    impose, raisons = TENUE, []
+    impose, relevees = TENUE, []
 
     def durcir(verdict: str, raison: str) -> None:
         nonlocal impose
         if VERDICTS.index(verdict) > VERDICTS.index(impose):
             impose = verdict
-        raisons.append(raison)
+        relevees.append((verdict, raison))
 
     for o in objectifs:
         nom, resultat, essais = o.get("objectif", "?"), o.get("resultat"), int(o.get("essais") or 0)
@@ -116,7 +116,8 @@ def verdict_qui_pese(sortie: dict, photos: set[str]) -> tuple[str, list[str]]:
         elif isinstance(d, dict) and d.get("gravite") == "genant":
             durcir(AVEC_PEINE, f"défaut gênant : {d.get('quoi', '?')}")
     if VERDICTS.index(impose) > VERDICTS.index(dit):
-        return impose, raisons
+        # Seules les raisons qui portent le verdict retenu : les autres sont déjà dans le récit.
+        return impose, [raison for verdict, raison in relevees if verdict == impose]
     return dit, []
 
 

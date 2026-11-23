@@ -59,6 +59,14 @@ def test_un_verdict_complaisant_est_durci_par_ce_que_le_recit_rapporte(recit, at
     assert verdict == attendu and any(raison in r for r in raisons)
 
 
+def test_seules_les_raisons_qui_portent_le_verdict_retenu_sont_dites():
+    """Le défaut : un « non tenue » s'expliquait par dix-sept raisons, dont chaque défaut gênant du récit."""
+    recit = _recit("TENUE", [_objectif("apres_essais", 2), _objectif("bloque", 5, (), "Entrer dans la ville")],
+                   defauts=[_defaut("genant"), _defaut("bloquant", "Le monde reste en pause.")])
+    assert testeur.verdict_qui_pese(recit, {"p01", "p02"}) == (
+        "NON_TENUE", ["« Entrer dans la ville » est bloqué", "défaut bloquant : Le monde reste en pause."])
+
+
 def test_un_verdict_plus_dur_que_son_recit_est_garde():
     assert testeur.verdict_qui_pese(_recit("NON_TENUE"), {"p01"}) == ("NON_TENUE", [])
     assert testeur.verdict_qui_pese(_recit("TENUE_AVEC_PEINE", defauts=[_defaut("mineur")]), {"p01"})[0] == "TENUE_AVEC_PEINE"
