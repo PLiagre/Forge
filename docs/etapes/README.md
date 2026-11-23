@@ -10,10 +10,12 @@ avec, pour chacune, ce que je joue de plus, ce que je vois à la démo, la
 règle du monde, les preuves, la machine, et les rangs des fiches qu'elle
 attend (`apres`).
 
-Quand une étape n'a plus de lot ouvert, le CTO pose sa note de démo, puis
-propose l'étape suivante sur son issue : il part du fichier préparé, le
-corrige de ce que le code est devenu, et le propriétaire l'ouvre d'un « oui »
-quand il a joué. Un fichier se retire quand son étape est ouverte.
+Quand une étape n'a plus de lot ouvert, le testeur joue son build figé, le
+CTO pose sa note de démo, puis propose l'étape suivante sur son issue : il
+part du fichier préparé, le corrige de ce que le code est devenu et de ce que
+le testeur demande de corriger d'abord. Elle s'ouvre sur le verdict du
+testeur, ou sur le « oui » du propriétaire s'il a écrit sur l'issue. Un
+fichier se retire quand son étape est ouverte.
 
 | fichier | étape | lots | ce qui part ensemble |
 |---|---|---|---|

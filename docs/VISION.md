@@ -546,3 +546,17 @@ décisions 51 à 54 restent : seules leurs durées changent.
 | 56 | dès qu'une étape n'a plus de lot ouvert, son build est figé et sa note de démo posée, à toute heure, et le CTO propose aussitôt l'étape suivante, d'avance : un seul « oui » du propriétaire, quand il a joué, l'ouvre | un build figé le vendredi soir ; une étape suivante proposée seulement après la note du propriétaire ; une chaîne qui attend quatre jours à vide |
 | 57 | tout lot prêt part : deux à la fois sur le VPS, deux lots Unity à la fois sur le PC, chacun dans son chantier ; un lot n'attend que ce dont il dépend vraiment, et ce qui touche les mêmes fichiers va dans le même lot | des lots mis à la file pour un seul Unity ; des dépendances posées pour ranger |
 | 58 | le mode direct sert aussi aux retouches que le propriétaire voit en jouant : une retouche qui tient en une PR entre dans la journée ; un système complet reste un lot de la chaîne (révise la décision 44) | une retouche d'un bouton qui attend un lot, sa relecture et l'étape suivante |
+
+## Les décisions du 23 novembre 2026
+
+Le propriétaire veut que Forge fonctionne comme un studio de jeu vidéo : le
+jeu sort jouable sans qu'il ait à le tester, et il n'est plus le premier à
+jouer un build. « Théoriquement je ne sers à rien. » La décision 59 est la
+sienne ; les décisions 60 et 61 sont la manière de la tenir, et il les corrige
+s'il le veut.
+
+| # | décision | ce qu'elle a écarté |
+|---|---|---|
+| 59 | un sixième rôle, le testeur : il joue le build figé de chaque étape par l'écran seul, comme un joueur averti qui le découvre, sans le code, le service ni les journaux ; il est exigeant (cinq essais sans trouver, c'est bloqué), juge les règles et les ordres de grandeur de 1400 autant que le chemin, et rend un récit prouvé par ses photos, que la chaîne recalcule en verdict (complète la décision 45) | un build que personne n'a joué avant le propriétaire ; une démo dite réussie par un script qui connaît le chemin |
+| 60 | le verdict du testeur ouvre la suite : l'étape suivante s'il dit l'étape tenue, ce qui la corrige sinon, une fois seule ; le propriétaire joue quand il veut, et ce qu'il écrit sur l'issue de l'étape passe devant tout verdict (révise les décisions 52, 55 et 56) | une étape qui attend que le propriétaire ait joué |
+| 61 | le goût reste au propriétaire : le testeur juge ce qu'un joueur trouve seul et ce qui est faux ou incohérent, pas si la carte est belle ; une ligne d'`atelier.toml` rend le « oui » du propriétaire de nouveau nécessaire à chaque étape | un testeur qui jugerait à la place du propriétaire ce qui se juge à l'œil |

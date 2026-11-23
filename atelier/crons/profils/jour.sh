@@ -11,7 +11,9 @@
 # Le journal s'écrit à 07:15 ; la veille regarde les outils à 06:45, avant
 # tout le monde. La démo se regarde toutes les dix minutes, jour et nuit :
 # elle ne part que si l'étape n'a plus aucun lot ouvert et n'a pas encore sa
-# note, et une étape finie un mardi se joue donc le mardi. Ces minutes sont
+# note, et une étape finie un mardi se joue donc le mardi. Chaque regard fait
+# un pas : figer le build, envoyer le testeur au PC, le renvoyer s'il attend
+# l'écran, poser la note quand il a rendu son verdict. Ces minutes sont
 # impaires : elles ne tombent jamais sur un tour du pilote.
 
 PAS_DU_PILOTE=2

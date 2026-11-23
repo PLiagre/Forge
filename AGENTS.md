@@ -6,21 +6,24 @@ Lords, et plus tard la bataille à la manière de Total War, dans **une seule
 simulation** ([docs/VISION.md](docs/VISION.md)). On avance par **étapes
 comptées en jours, jugées à l'œil contre leur modèle**, la carte et son
 interface d'abord, la ville ensuite ; une étape s'enchaîne dès que le
-propriétaire a joué la précédente ([CAP.md](CAP.md)). Tout s'écrit en
+testeur a joué la précédente et la dit tenue, et le propriétaire, qui joue
+quand il veut, garde le droit de dire non ([CAP.md](CAP.md)). Tout s'écrit en
 **français clair**.
 
 ## 1. La chaîne — elle fait le travail d'une étape
 
-Cinq rôles, répartis par niveau de jugement. Celui qui conçoit un lot le
-construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
+Six rôles : cinq répartis par niveau de jugement sur le code, et un testeur
+qui joue le build sans jamais le voir. Celui qui conçoit un lot le construit.
+Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 | rôle | modèle | il fait | il ne fait jamais |
 |---|---|---|---|
-| **le CTO** | Fable | quand une étape n'a plus de lot ouvert, écrit sa note de démo et propose l'étape suivante d'avance ; quand le propriétaire a joué, la refait d'après ce qu'il a dit ; pendant l'étape, tranche les questions, débloque ou redécoupe un lot, relit après le relecteur ce qui touche le cœur du moteur. Appelé à ces moments, il ne surveille pas. | coder |
+| **le CTO** | Fable | quand le testeur a joué le build figé d'une étape, écrit sa note de démo et propose la suite : l'étape suivante, ou ce qui corrige celle-ci s'il la dit non tenue ; quand le propriétaire a écrit, la refait d'après ce qu'il a dit ; pendant l'étape, tranche les questions, débloque ou redécoupe un lot, relit après le relecteur ce qui touche le cœur du moteur. Appelé à ces moments, il ne surveille pas. | coder |
 | **le chef de lot** | Opus | conçoit, écrit le plan dans la PR, code le difficile, confie le reste, tient la PR jusqu'à la fusion ; mène aussi les lots de la ville 3D | relire son propre lot |
 | **le développeur** | Sonnet | les tâches bornées que le chef lui confie, dans la session du chef ; mène seul les lots simples (données, écran courant) | décider d'une règle du monde |
 | **le relecteur** | Opus, autre session, lecture seule | lit la fiche et le diff, rejoue des tests, rend un verdict | écrire |
 | **le lecteur** | Haiku | résume un journal de CI, écrit le journal du matin | juger : ni verdict, ni tri d'un blocage |
+| **le testeur** | Opus, sur le PC, par l'écran seul | quand une étape n'a plus de lot ouvert, joue son build figé comme un joueur averti qui le découvre : il ne connaît que la promesse de l'étape, la vision et les ordres de grandeur de 1400 ; compte ses essais ; rend un récit prouvé par ses photos, les trois défauts à corriger d'abord, et un verdict que la chaîne recalcule d'après ce récit | lire le code, le service du monde ou un journal ; appuyer sur une touche dont l'écran ne parle pas ; proposer du code |
 
 - **Un lot = une issue = une session = une PR.** La session du chef est
   reprise à chaque étape et à chaque correction, jamais relancée à froid.
@@ -36,8 +39,14 @@ construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md).
   prend le choix réversible, le note dans « à revoir à la démo », et le lot
   continue. Seuls l'irréversible, l'argent et les droits lui arrivent tout de
   suite.
-- **Une étape n'est finie que quand le propriétaire l'a jouée seul et dit
-  oui.** Aller vite ne change pas ce critère.
+- **Une étape est tenue quand le testeur l'a jouée seul et que son récit le
+  prouve** : la suivante s'ouvre alors sans attendre. Un objectif qu'il ne
+  trouve pas en cinq essais est bloqué, et l'étape n'est pas tenue : la
+  chaîne corrige d'abord, une fois seule, puis s'arrête. Aller vite
+  n'adoucit pas ce critère.
+- **Le propriétaire garde le dernier mot.** Il joue quand il veut ; ce qu'il
+  écrit sur l'issue de l'étape passe devant tout verdict, et rien ne s'y
+  ouvre plus sans son « oui ». Le goût reste le sien.
 - **Ce que le propriétaire écrit sur une issue suit le lot** : le chef et le
   relecteur le reçoivent comme une consigne, avec ses raisons.
 - Les rôles, leurs modèles et leurs délais : `python3 -m atelier agents`.
