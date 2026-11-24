@@ -1,16 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Forge.Pont;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D.Captures
 {
     // Les gestes qu'un scénario de capture ou une épreuve fait au monde et à la ville : déposer une
-    // intention, pousser un jour, lire le plan, cliquer avec l'outil du joueur. Tout appel direct au
+    // intention, pousser un jour, lire le plan, cliquer avec l'outil du joueur ou presser un bouton au pointeur. Tout appel direct au
     // service de `sim/` passe par ici.
     static class GestesDeCapture
     {
@@ -88,6 +91,26 @@ namespace ForgeLocal3D.Captures
 
         internal static Vector3 Milieu(Terrain t, RueDuPlan rue, int i) =>
             Monde(t, (rue.Points[i].X + rue.Points[i + 1].X) / 2, (rue.Points[i].Y + rue.Points[i + 1].Y) / 2);
+
+        // Un clic de pointeur au centre du bouton, tel que l'écran le montre sous `camera` (celle sur laquelle la toile est posée) : ce
+        // qui est sous le pointeur reçoit le clic, et ce doit être le bouton, actif.
+        internal static void CliquerAuPointeur(Camera camera, Button bouton)
+        {
+            var systeme = EventSystem.current ?? Object.FindFirstObjectByType<EventSystem>() ?? throw new InvalidOperationException("aucun système d'événements dans la scène");
+            Canvas.ForceUpdateCanvases();
+            var coins = new Vector3[4]; ((RectTransform)bouton.transform).GetWorldCorners(coins);
+            Vector2 ici = RectTransformUtility.WorldToScreenPoint(camera, (coins[0] + coins[2]) / 2f);
+            var pointeur = new PointerEventData(systeme) { position = ici, button = PointerEventData.InputButton.Left };
+            var touches = new List<RaycastResult>(); systeme.RaycastAll(pointeur, touches);
+            if (touches.Count == 0) throw new InvalidOperationException("rien sous le pointeur en " + ici + " pour « " + bouton.name + " »");
+            GameObject sous = ExecuteEvents.GetEventHandler<IPointerClickHandler>(touches[0].gameObject);
+            if (sous != bouton.gameObject) throw new InvalidOperationException("sous le pointeur en " + ici + " : « " + (sous != null ? sous.name : touches[0].gameObject.name) + " », et non « " + bouton.name + " »");
+            if (!bouton.interactable) throw new InvalidOperationException("« " + bouton.name + " » est inactif");
+            pointeur.pointerCurrentRaycast = pointeur.pointerPressRaycast = touches[0]; pointeur.pointerPress = sous; pointeur.rawPointerPress = touches[0].gameObject;
+            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerEnterHandler); ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerDownHandler);
+            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerUpHandler); ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerClickHandler);
+            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerExitHandler);
+        }
 
         // Vise de haut `vise`, puis clique chaque point avec l'outil du joueur. La caméra est rendue ensuite.
         internal static void Cliquer(Camera camera, DesertCityCamera ville, DesertRoadTool outil, Vector3 vise, params (double x, double y)[] points)
