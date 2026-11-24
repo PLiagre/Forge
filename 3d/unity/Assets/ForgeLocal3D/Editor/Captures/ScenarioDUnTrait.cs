@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Forge.Interface;
@@ -16,7 +17,9 @@ namespace ForgeLocal3D.Captures
     //             01 l'accueil, sur un service relancé (un choix ne se défait pas) ; 02 la fiche du pays, cliqué sur la carte après l'avoir
     //             amené sous la souris d'un glisser et rapproché à la molette ; 03 « Commencer » ; 04 « Reprendre », la date avance ;
     //             05 la pause ; 06 un glisser ; 07 la molette jusqu'à la province du siège, ses lieux peints ; 08 à 12 les cinq modes de carte,
-    //             la vue reculée sur le pays ; 13 « Ma capitale ».
+    //             la vue reculée sur le pays ; 13 « Ma capitale » ;
+    //   40        un lieu qui change de pays, lui seul, sur un service relancé : la veille de la chute de la place, puis le jour de la prise
+    //             (`PasDeLaPrise`), le chemin que le joueur ne joue pas encore à la souris faute d'armée à l'écran.
     // Tout passe par la souris : les boutons par un clic de pointeur (`GestesDeCapture.CliquerAuPointeur`), la terre par le chemin du clic
     // du cabinet, le glisser et la molette par le geste que `ParcoursDeCarte` joue avec la vraie souris (`ParcoursDeVue`).
     // Chaque pas échoue si un texte écrit à la place d'un pays un nom des listes de noms-1400.json (`TextesDeCapture`) ou celui d'une
@@ -86,6 +89,12 @@ namespace ForgeLocal3D.Captures
         [ScenarioDeCapture(GROUPE, "30-zab-11-vivres", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator Z11(Camera c) => Pas(ZAB, Etape.Vivres);
         [ScenarioDeCapture(GROUPE, "30-zab-12-guerres", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator Z12(Camera c) => Pas(ZAB, Etape.Guerres);
         [ScenarioDeCapture(GROUPE, "30-zab-13-ma-capitale", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator Z13(Camera c) => Pas(ZAB, Etape.MaCapitale);
+        [ScenarioDeCapture(GROUPE, "40-prise-1-depart", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L1(Camera c) => PasDeLaPrise(1);
+        [ScenarioDeCapture(GROUPE, "40-prise-2-caserne", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L2(Camera c) => PasDeLaPrise(2);
+        [ScenarioDeCapture(GROUPE, "40-prise-3-siege", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L3(Camera c) => PasDeLaPrise(3);
+        [ScenarioDeCapture(GROUPE, "40-prise-4-chute-mesuree", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L4(Camera c) => PasDeLaPrise(4);
+        [ScenarioDeCapture(GROUPE, "40-prise-5-la-veille", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L5(Camera c) => PasDeLaPrise(5);
+        [ScenarioDeCapture(GROUPE, "40-prise-6-la-prise", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator L6(Camera c) => PasDeLaPrise(6);
 
         // Une planche de l'atlas ; la première ouvre la carte, celle du monde frais, et attend ses couleurs et les noms de l'atlas.
         static IEnumerator Planche(string cadre, bool ouvrir)
@@ -137,6 +146,18 @@ namespace ForgeLocal3D.Captures
         // Le service relancé, la carte rouverte sur l'accueil, en pause au jour poussé.
         static IEnumerator Accueil(string nom)
         {
+            var o = Rouvrir(); while (o.MoveNext()) yield return o.Current;
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            var horloge = Horloge(carte);
+            for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null && guerre.Couleurs != null, () => "horloge ou couleurs non servies : " + horloge.Absence); a.MoveNext();) yield return null;
+            if (!horloge.EnPause) throw Faux(nom + " : le jeu ne s'ouvre pas en pause (" + horloge.Lue.JoursParSeconde + " jours par seconde)");
+            if (horloge.Lue.Tick != Capture.JoursPousses) throw Faux(nom + " : l'horloge sert le tick " + horloge.Lue.Tick + " à l'ouverture, le service a été poussé à " + Capture.JoursPousses);
+            enCours = new Partie { Nom = nom, TickOuvert = horloge.Lue.Tick, Faite = Etape.Accueil };            var s = ScenarioAccueil.Stabiliser(cabinet); while (s.MoveNext()) yield return null;
+        }
+
+        // Le service relancé et la carte rouverte, sa caméra rendant dans un écran de la taille de la photo.
+        static IEnumerator Rouvrir()
+        {
             Capture.RelancerLeService();
             var o = ScenarioAccueil.OuvrirLaCarte(); while (o.MoveNext()) yield return o.Current;
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
@@ -145,11 +166,6 @@ namespace ForgeLocal3D.Captures
             carte.camera.aspect = (float)LARGEUR / HAUTEUR; carte.Vue.Changer(carte.camera.aspect); Poser(carte, cabinet, guerre);
             // La vraie souris ne lit rien : le scénario joue le même geste que `ParcoursDeCarte`.
             var parcours = carte.GetComponent<ParcoursDeCarte>(); if (parcours != null) parcours.automatique = true;
-            var horloge = Horloge(carte);
-            for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null && guerre.Couleurs != null, () => "horloge ou couleurs non servies : " + horloge.Absence); a.MoveNext();) yield return null;
-            if (!horloge.EnPause) throw Faux(nom + " : le jeu ne s'ouvre pas en pause (" + horloge.Lue.JoursParSeconde + " jours par seconde)");
-            if (horloge.Lue.Tick != Capture.JoursPousses) throw Faux(nom + " : l'horloge sert le tick " + horloge.Lue.Tick + " à l'ouverture, le service a été poussé à " + Capture.JoursPousses);
-            enCours = new Partie { Nom = nom, TickOuvert = horloge.Lue.Tick, Faite = Etape.Accueil };            var s = ScenarioAccueil.Stabiliser(cabinet); while (s.MoveNext()) yield return null;
         }
 
         // Le pays amené sous la souris (glisser, molette), puis cliqué sur la carte : sa fiche s'ouvre dans l'accueil, « Commencer » actif.
@@ -372,6 +388,207 @@ namespace ForgeLocal3D.Captures
             bool ecrit = guerre.NomsDesPays.Any(n => n.Pays == pays && n.Texte == carte);
             if (p.NomDeLAccueil != p.Nom || carte != p.Nom || partie != p.Nom || !ecrit)
                 throw Faux("le pays ne porte pas le même nom partout : accueil « " + p.NomDeLAccueil + " », carte « " + carte + " »" + (ecrit ? "" : " (non écrit)") + ", partie « " + partie + " », attendu « " + p.Nom + " »");
+        }
+
+        // La prise d'un lieu, jouée par les intentions du joueur (le geste n'a pas encore d'écran : il n'y a pas d'armée à la souris), sur
+        // un service relancé : 1 le départ choisi et la caserne commandée ; 2 la caserne achevée ; 3 l'armée levée, la guerre déclarée, la
+        // marche jusqu'à la place et le siège ; 4 les jours par paquets jusqu'à la chute, dont `/guerres` sert le jour ; 5 le service relancé
+        // et les mêmes intentions rejouées aux mêmes jours (le monde est déterministe) jusqu'à la veille de ce jour ; 6 un jour de plus : la
+        // prise, au même jour et des mêmes lieux que la première fois. Entre la veille et la prise, les lieux pris prennent la teinte du pays
+        // du preneur, et aucun autre lieu de l'image ne change de teinte, hors ceux du joueur dont l'alerte des départs a basculé ce jour-là.
+        sealed class Prise { public int Fait; public string Maison; public long Capitale, Tick; public long Armee = -1; public PriseLue Mesuree;
+            public readonly List<(long tick, string[] intentions)> Journal = new List<(long, string[])>();
+            public Dictionary<(long, long), Color32> Veille; public HashSet<(long, long)> AlertesDeLaVeille; }
+        static Prise prise;        const float DEMI_DE_LA_PRISE_KM = 220f; const int IMAGES_DE_PEINTURE = 3;
+
+        static IEnumerator PasDeLaPrise(int n)
+        {
+            if (n > 1 && (prise == null || prise.Fait != n - 1)) throw Faux("prise, pas " + n + " : le pas d'avant n'a pas réussi");
+            IEnumerator geste = n == 1 ? Depart() : n == 2 ? Caserne() : n == 3 ? AuSiege() : n == 4 ? Chute() : n == 5 ? LaVeille() : LaPrise();
+            while (geste.MoveNext()) yield return geste.Current;
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            TextesDeCapture.Verifier(guerre, cabinet, "prise, pas " + n); ScenarioAccueil.VerifierLesNoms(guerre);
+            prise.Fait = n;
+            Debug.Log("CAPTURE d'un trait : prise, pas " + n + " au tick " + prise.Tick + ", " + prise.Maison + (prise.Armee >= 0 ? ", armée " + prise.Armee : ""));
+            Poser(carte, cabinet, guerre);
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            yield return carte.camera;
+        }
+
+        // Les intentions du joueur déposées au tick servi, et gardées pour être rejouées au même tick.
+        static void Deposer(int port, params string[] intentions)
+        {
+            GestesDeCapture.Deposer(port, intentions);
+            prise.Journal.Add((prise.Tick, intentions));
+        }
+
+        static IEnumerator Depart()
+        {
+            prise = new Prise { Tick = Capture.JoursPousses };
+            var o = Rouvrir(); while (o.MoveNext()) yield return o.Current;
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            Deposer(carte.port, "{\"type\":\"choisir_depart\",\"seigneurie\":" + ScenarioGuerre.SEIGNEURIE + "}");
+            for (var e = ScenarioGuerre.Pousser(1, t => prise.Tick = t); e.MoveNext();) yield return null;
+            for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) != null && cabinet.Partie.Maison?.Presente == true && !cabinet.Accueil.Ouvert,
+                () => "aucune maison du joueur servie après le choix de la seigneurie " + ScenarioGuerre.SEIGNEURIE); a.MoveNext();) yield return null;
+            prise.Maison = ScenarioAccueil.Servie(cabinet);
+            prise.Capitale = cabinet.Partie.Maison.Donnees.Siege.CellId ?? throw Faux("la maison " + prise.Maison + " n'a pas de siège servi");
+            Deposer(carte.port, "{\"type\":\"batir_dans_une_province\",\"maison\":\"" + prise.Maison + "\",\"cell\":" + prise.Capitale.ToString(CultureInfo.InvariantCulture) + ",\"nature\":\"caserne\"}");
+            Viser(carte, cabinet, guerre, Siege(carte, cabinet));
+        }
+
+        // Les jours passent par paquets jusqu'à ce que le devis dise la levée ouverte.
+        static IEnumerator Caserne()
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            for (int jours = 0; ; jours += ScenarioGuerre.PAQUET)
+            {
+                if (jours > ScenarioGuerre.JOURS_MAX_CASERNE) throw Faux("la caserne n'est pas achevée en " + ScenarioGuerre.JOURS_MAX_CASERNE + " jours");
+                for (var e = ScenarioGuerre.Pousser(ScenarioGuerre.PAQUET, t => prise.Tick = t); e.MoveNext();) yield return null;
+                var devis = ScenarioGuerre.Lire(() => { using (var c = new ClientGuerre(carte.port, ScenarioGuerre.DELAI)) return c.LireOrdres(prise.Maison, null); });
+                for (var e = AttentesDeCapture.Attendre(devis, "lecture du devis"); e.MoveNext();) yield return null;
+                if (devis.Result.Presente && devis.Result.Donnees.Levee.Refus == null) break;
+            }
+            Viser(carte, cabinet, guerre, Siege(carte, cabinet));
+        }
+
+        // L'armée levée et la guerre déclarée au maître de la place, la marche jusqu'à elle, puis le siège.
+        static IEnumerator AuSiege()
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            var devis = ScenarioGuerre.Lire(() => { using (var c = new ClientGuerre(carte.port, ScenarioGuerre.DELAI)) return c.LireOrdres(prise.Maison, ScenarioGuerre.PLACE); });
+            for (var e = AttentesDeCapture.Attendre(devis, "lecture du devis"); e.MoveNext();) yield return null;
+            if (!devis.Result.Presente) throw Faux("devis absent : " + devis.Result.Absence);
+            var levee = devis.Result.Donnees.Levee; var cible = devis.Result.Donnees.Cible;
+            if (cible?.Maitre == null || cible.RefusDeDeclaration != null) throw Faux("la place " + ScenarioGuerre.PLACE + " ne se déclare plus contre " + cible?.Maitre + " : " + cible?.RefusDeDeclaration);
+            long hommes = IntentionsDeGuerre.Maximum(levee);
+            long vivres = (long)Math.Min(levee.GrainLibreKg * ScenarioGuerre.PART_DU_GRAIN, hommes * levee.RationKgParHommeParJour * ScenarioGuerre.JOURS_DE_VIVRES);
+            Deposer(carte.port, IntentionsDeGuerre.Lever(prise.Maison, IntentionsDeGuerre.Repartir(levee, hommes), vivres), IntentionsDeGuerre.Declarer(prise.Maison, cible.Maitre));
+            for (var e = ScenarioGuerre.Pousser(1, t => prise.Tick = t); e.MoveNext();) yield return null;
+            var guerres = ScenarioGuerre.Lire(() => { using (var c = new ClientGuerre(carte.port, ScenarioGuerre.DELAI)) return c.LireGuerres(); });
+            for (var e = AttentesDeCapture.Attendre(guerres, "lecture des guerres"); e.MoveNext();) yield return null;
+            var levees = guerres.Result.Presente ? guerres.Result.Donnees.Armees.Where(a => a.Maison == prise.Maison).ToList() : null;
+            if (levees == null || levees.Count != 1) throw Faux("l'armée levée n'est pas servie : " + (guerres.Result.Absence ?? levees.Count + " armées"));
+            prise.Armee = levees[0].Identifiant;
+            Deposer(carte.port, IntentionsDeGuerre.Marcher(prise.Maison, prise.Armee, ScenarioGuerre.PLACE));
+            for (int jours = 0; ; jours += ScenarioGuerre.PAQUET)
+            {
+                if (jours > ScenarioGuerre.JOURS_MAX_MARCHE) throw Faux("l'armée n'est pas arrivée devant la place en " + ScenarioGuerre.JOURS_MAX_MARCHE + " jours");
+                var lues = ScenarioGuerre.Lire(() => { using (var c = new ClientGuerre(carte.port, ScenarioGuerre.DELAI)) return c.LireGuerres(); });
+                for (var e = AttentesDeCapture.Attendre(lues, "lecture des guerres"); e.MoveNext();) yield return null;
+                var a = lues.Result.Presente ? lues.Result.Donnees.Armees.FirstOrDefault(x => x.Identifiant == prise.Armee) : null;
+                if (a == null) throw Faux("l'armée n'est plus servie : " + lues.Result.Absence);
+                if (a.Destination == null && a.CellId == ScenarioGuerre.PLACE) break;
+                for (var e = ScenarioGuerre.Pousser(ScenarioGuerre.PAQUET, t => prise.Tick = t); e.MoveNext();) yield return null;
+            }
+            Deposer(carte.port, IntentionsDeGuerre.Assieger(prise.Maison, prise.Armee));
+            for (var e = ScenarioGuerre.Pousser(1, t => prise.Tick = t); e.MoveNext();) yield return null;
+            Viser(carte, cabinet, guerre, Centre(carte, ScenarioGuerre.PLACE));
+            for (var a = AttentesDeCapture.Jusqua(() => Relire(guerre) && guerre.Guerres.Armees.Any(x => x.Identifiant == prise.Armee && x.Siege == ScenarioGuerre.PLACE),
+                () => "l'armée n'est pas servie au siège de " + ScenarioGuerre.PLACE + " au tick " + prise.Tick); a.MoveNext();) yield return null;
+        }
+
+        // Les jours par paquets jusqu'à la chute de la place : son jour et ses lieux, tels que `/guerres` les sert.
+        static IEnumerator Chute()
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            for (int jours = 0; prise.Mesuree == null; jours += ScenarioGuerre.PAQUET)
+            {
+                if (jours > ScenarioGuerre.JOURS_MAX_SIEGE) throw Faux("la place n'est pas tombée en " + ScenarioGuerre.JOURS_MAX_SIEGE + " jours de siège");
+                for (var e = ScenarioGuerre.Pousser(ScenarioGuerre.PAQUET, t => prise.Tick = t); e.MoveNext();) yield return null;
+                var lues = ScenarioGuerre.Lire(() => { using (var c = new ClientGuerre(carte.port, ScenarioGuerre.DELAI)) return c.LireGuerres(); });
+                for (var e = AttentesDeCapture.Attendre(lues, "lecture des guerres"); e.MoveNext();) yield return null;
+                if (lues.Result.Presente) prise.Mesuree = lues.Result.Donnees.Prises.FirstOrDefault(p => p.CellId == ScenarioGuerre.PLACE && p.A == prise.Maison);
+            }
+            for (var a = AttentesDeCapture.Jusqua(() => Relire(guerre), () => "carte non relue au tick " + prise.Tick); a.MoveNext();) yield return null;
+            Debug.Log("CAPTURE d'un trait : la place " + ScenarioGuerre.PLACE + " tombe au tick " + prise.Mesuree.Tick + " (rangs " + string.Join(", ", prise.Mesuree.Rangs) + ", de " + prise.Mesuree.De + " à " + prise.Mesuree.A + ")");
+        }
+
+        // Le service relancé, les intentions rejouées à leurs jours, puis les jours poussés d'un trait jusqu'à la veille de la chute.
+        static IEnumerator LaVeille()
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            Capture.RelancerLeService(); prise.Tick = Capture.JoursPousses;
+            foreach (var (tick, intentions) in prise.Journal)
+            {
+                if (tick > prise.Tick) for (var e = ScenarioGuerre.Pousser((int)(tick - prise.Tick), t => prise.Tick = t); e.MoveNext();) yield return null;
+                if (prise.Tick != tick) throw Faux("le service rejoué est au tick " + prise.Tick + ", l'intention était déposée au tick " + tick);
+                GestesDeCapture.Deposer(carte.port, intentions);
+            }
+            // Une prise datée du tick T se joue pendant le jour qui mène le service de T à T + 1 : la veille est le tick servi T.
+            long veille = prise.Mesuree.Tick;
+            if (veille > prise.Tick) for (var e = ScenarioGuerre.Pousser((int)(veille - prise.Tick), t => prise.Tick = t); e.MoveNext();) yield return null;
+            for (var a = AttentesDeCapture.Jusqua(() => Relire(guerre), () => "carte non relue au tick " + prise.Tick); a.MoveNext();) yield return null;
+            if (guerre.Guerres.Prises.Any(p => p.CellId == ScenarioGuerre.PLACE)) throw Faux("la place est déjà prise la veille, au tick " + prise.Tick + " du monde rejoué");
+            if (!guerre.Guerres.Armees.Any(x => x.Maison == prise.Maison && x.Siege == ScenarioGuerre.PLACE)) throw Faux("le monde rejoué n'a pas l'armée du joueur au siège de " + ScenarioGuerre.PLACE + " au tick " + prise.Tick);
+            for (int i = 0; i < IMAGES_DE_PEINTURE; i++) yield return null;
+            prise.Veille = Releve(carte); prise.AlertesDeLaVeille = new HashSet<(long, long)>(carte.GetComponent<LieuxDeCarte>().EnAlerte);
+            if (prise.Veille.Count == 0) throw Faux("aucun lieu dessiné dans l'image de la veille");        }
+
+        // Un jour de plus : la place tombe au jour mesuré, des mêmes lieux ; ces lieux seuls ont changé de teinte depuis la veille.
+        static IEnumerator LaPrise()
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            for (var e = ScenarioGuerre.Pousser(1, t => prise.Tick = t); e.MoveNext();) yield return null;
+            for (var a = AttentesDeCapture.Jusqua(() => Relire(guerre), () => "carte non relue au tick " + prise.Tick); a.MoveNext();) yield return null;
+            var rejouee = guerre.Guerres.Prises.FirstOrDefault(p => p.CellId == ScenarioGuerre.PLACE && p.A == prise.Maison);
+            if (rejouee == null || rejouee.Tick != prise.Mesuree.Tick || !rejouee.Rangs.SequenceEqual(prise.Mesuree.Rangs))
+                throw Faux("le monde rejoué ne prend pas la place comme la première fois : " + (rejouee == null ? "aucune prise" : "tick " + rejouee.Tick + ", rangs " + string.Join(", ", rejouee.Rangs))
+                    + " pour tick " + prise.Mesuree.Tick + ", rangs " + string.Join(", ", prise.Mesuree.Rangs));
+            for (int i = 0; i < IMAGES_DE_PEINTURE; i++) yield return null;
+            string preneur = guerre.PaysDeLaMaison(prise.Maison);
+            var changes = Comparer(prise.Veille, prise.AlertesDeLaVeille, Releve(carte), new HashSet<(long, long)>(carte.GetComponent<LieuxDeCarte>().EnAlerte), guerre.CouleurDuPays(preneur), rejouee);
+            Debug.Log("CAPTURE d'un trait : de la veille à la prise, lieux changés : " + string.Join(", ", changes.Select(l => l.Item1 + "/" + l.Item2)) + " ; preneur " + guerre.Terres.NomDuPays(preneur));
+        }
+
+        // Les lieux qui ont changé de teinte d'un relevé à l'autre ; échoue si l'échantillon est vide, si un lieu pris n'a pas la teinte du
+        // preneur (ou le rouge de l'alerte, qui ne se pose que sur les lieux du joueur), ou si un lieu qui n'est pas pris a changé.
+        // Un lieu dont l'alerte a basculé entre les deux relevés ne se juge pas : sa teinte dit l'alerte, plus son pays.
+        static List<(long, long)> Comparer(Dictionary<(long, long), Color32> avant, HashSet<(long, long)> alertesAvant, Dictionary<(long, long), Color32> apres, HashSet<(long, long)> alertesApres, Color preneur, PriseLue prisee)
+        {
+            var communs = avant.Keys.Where(apres.ContainsKey).ToList();
+            if (communs.Count == 0) throw Faux("aucun lieu dessiné à la fois la veille et le jour de la prise");
+            var pris = new HashSet<(long, long)>(prisee.Rangs.Select(r => (prisee.CellId, r)));
+            Color32 duPreneur = preneur, alerte = SocleInterface.Couleur("alerte");
+            var juges = communs.Where(l => alertesAvant.Contains(l) == alertesApres.Contains(l)).ToList();
+            var changes = juges.Where(l => !avant[l].Equals(apres[l])).OrderBy(l => l).ToList();
+            var visiblesPris = pris.Where(apres.ContainsKey).ToList();
+            if (visiblesPris.Count == 0) throw Faux("aucun lieu pris n'est dessiné dans l'image");
+            string sansTeinte = string.Join(", ", visiblesPris.Where(l => !apres[l].Equals(duPreneur) && !apres[l].Equals(alerte)).Select(l => l.Item1 + "/" + l.Item2 + " " + apres[l]));
+            if (sansTeinte.Length > 0) throw Faux("des lieux pris n'ont pas la teinte du preneur " + duPreneur + " : " + sansTeinte);
+            string inchanges = string.Join(", ", visiblesPris.Where(l => avant.ContainsKey(l) && avant[l].Equals(apres[l])).Select(l => l.Item1 + "/" + l.Item2));
+            if (inchanges.Length > 0) throw Faux("des lieux pris n'ont pas changé de teinte : " + inchanges);
+            string autres = string.Join(", ", changes.Where(l => !pris.Contains(l)).Select(l => l.Item1 + "/" + l.Item2 + " " + avant[l] + " → " + apres[l]));
+            if (autres.Length > 0) throw Faux("des lieux qui ne sont pas pris ont changé de teinte : " + autres);
+            Debug.Log("CAPTURE d'un trait : " + communs.Count + " lieux comparés, " + (communs.Count - juges.Count) + " écartés (alerte basculée), " + changes.Count + " changés");
+            return changes;
+        }
+
+        // La teinte de chaque lieu des terres dont le milieu tombe dans l'image.
+        static Dictionary<(long, long), Color32> Releve(CarteDessinee carte)
+        {
+            var releve = new Dictionary<(long, long), Color32>();
+            foreach (var cellule in carte.Lue.Cellules)
+            {
+                Vector3 vu = carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(Centre(carte, cellule.CellId)));
+                if (vu.z <= 0f || vu.x < 0f || vu.x > 1f || vu.y < 0f || vu.y > 1f) continue;
+                for (long rang = 0; carte.TeinteDuLieu(cellule.CellId, rang) is Color teinte; rang++) releve[(cellule.CellId, rang)] = teinte;
+            }
+            return releve;
+        }
+
+        // La carte de la guerre relue au tick servi : la lecture suivante est demandée tout de suite, sans attendre sa période.
+        static bool Relire(CarteDeLaGuerre guerre)
+        {
+            if (guerre.Terres != null && guerre.Terres.Tick == prise.Tick && guerre.Guerres != null && guerre.Guerres.Tick == prise.Tick) return true;
+            guerre.Pas(Time.realtimeSinceStartupAsDouble + CarteDeLaGuerre.PERIODE_S);
+            return false;
+        }
+
+        // La vue posée sur `ici` (km locaux), assez près pour lire la place et ses voisines.
+        static void Viser(CarteDessinee carte, CabinetDeCarte cabinet, CarteDeLaGuerre guerre, Vector3 ici)
+        {
+            carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), DEMI_DE_LA_PRISE_KM); Poser(carte, cabinet, guerre);
         }
 
         static void Poser(CarteDessinee carte, CabinetDeCarte cabinet, CarteDeLaGuerre guerre)
