@@ -5439,7 +5439,7 @@ def test_flux_des_lieux_publication_et_passe_unique(monkeypatch):
         with pytest.raises(AssertionError): une_passe()
 
 
-@pytest.mark.parametrize('tick,ancienne', [(3, '55748f4bab604cd482274db8af1185601410518af2013a64b777631b70cddb31'), (4, '42da176f1b979cce1172b8c13e0c01e6749f3fb00ba2a372e94b383d1a7a7fd7')])
+@pytest.mark.parametrize('tick,ancienne', [(3, '5d4e194897e3d937683cdf48b912358805b137a0dd61f3179e6b1cd682a00f22'), (4, '673bae6929a7a4ad608b68f10ad85133028ba244a06d7e9dcad9374480f6375c')])
 def test_service_reponse_figee_flux_et_origine(tick, ancienne):
     from sim.service import _serialiser
     document = json.loads((_REPO.parent / f'3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json').read_bytes())
