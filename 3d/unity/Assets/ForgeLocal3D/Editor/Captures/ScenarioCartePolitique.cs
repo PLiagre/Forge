@@ -32,45 +32,85 @@ namespace ForgeLocal3D.Captures
             ScenarioAccueil.VerifierLesNoms(guerre);
             // L'Europe entière : toutes les terres servies ; les cinq pays qui tiennent le plus de terres doivent s'y lire.
             var grands = guerre.Terres.Terres.Where(t => t.Pays != null).GroupBy(t => t.Pays).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).Take(PAYS_DE_L_EUROPE).Select(g => g.Key).ToList();
-            var p = Photographier("europe", guerre.Terres.Terres.Select(t => t.CellId), grands); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("europe", TerresDuCadre(guerre, "europe"), grands); while (p.MoveNext()) yield return p.Current;
         }
 
         [ScenarioDeCapture("carte-politique", "2-france-et-iles")]
         static IEnumerator FranceEtIles(Camera camera)
         {
             var (_, guerre, _, _, _) = Lire();
-            string france = Pays(guerre, "France");
-            // La France et tous ceux qui relèvent d'elle, l'Angleterre et la Guyenne, l'Écosse, l'Irlande.
-            var montres = guerre.Terres.Pays.Where(x => guerre.Couleurs.Racine(x.Id) == france).Select(x => x.Id).Concat(new[] { "Angleterre", "Écosse", "Irlande" }.Select(n => Pays(guerre, n))).ToList();
-            montres.AddRange(guerre.Terres.Pays.Where(x => montres.Contains(x.Suzerain)).Select(x => x.Id));
-            var p = Photographier("france-et-iles", Terres(guerre, montres)); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("france-et-iles", TerresDuCadre(guerre, "france-et-iles")); while (p.MoveNext()) yield return p.Current;
         }
 
         [ScenarioDeCapture("carte-politique", "3-empire")]
         static IEnumerator Empire(Camera camera)
         {
             var (_, guerre, _, _, _) = Lire();
-            var membres = guerre.Terres.Pays.Where(x => x.Ensemble == "Saint-Empire").Select(x => x.Id).ToList();
-            if (membres.Count == 0) throw Faux("aucun pays servi n'est de l'ensemble « Saint-Empire »");
-            var p = Photographier("empire", Terres(guerre, membres)); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("empire", TerresDuCadre(guerre, "empire")); while (p.MoveNext()) yield return p.Current;
         }
 
         [ScenarioDeCapture("carte-politique", "4-italie")]
         static IEnumerator Italie(Camera camera)
         {
             var (_, guerre, _, _, _) = Lire();
-            var italiens = new[] { "Milan", "Venise", "Gênes", "Florence", "États de l'Église", "Naples", "Sicile", "Savoie" }.Select(n => Pays(guerre, n)).ToList();
-            var p = Photographier("italie", Terres(guerre, italiens)); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("italie", TerresDuCadre(guerre, "italie")); while (p.MoveNext()) yield return p.Current;
         }
 
         [ScenarioDeCapture("carte-politique", "5-balkans-et-orient")]
         static IEnumerator BalkansEtOrient(Camera camera)
         {
             var (_, guerre, _, _, _) = Lire();
-            // Les Ottomans et ceux qui relèvent d'eux, Byzance et la Morée, la Serbie, la Bosnie, la Valachie, la Moldavie.
-            var montres = new[] { "Ottomans", "Byzance", "Bosnie", "Valachie", "Moldavie" }.Select(n => Pays(guerre, n)).ToList();
-            montres.AddRange(guerre.Terres.Pays.Where(x => montres.Contains(x.Suzerain)).Select(x => x.Id));
-            var p = Photographier("balkans-et-orient", Terres(guerre, montres)); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("balkans-et-orient", TerresDuCadre(guerre, "balkans-et-orient")); while (p.MoveNext()) yield return p.Current;
+        }
+
+        // Les terres servies que montre chaque cadre de la carte politique, d'après les pays servis ; la planche de l'atlas
+        // cadre les mêmes.
+        internal static readonly string[] CADRES = { "europe", "france-et-iles", "empire", "italie", "balkans-et-orient" };
+        internal static List<long> TerresDuCadre(CarteDeLaGuerre guerre, string cadre)
+        {
+            List<string> montres;
+            switch (cadre)
+            {
+                case "europe": return guerre.Terres.Terres.Select(t => t.CellId).ToList();
+                case "france-et-iles":
+                    // La France et tous ceux qui relèvent d'elle, l'Angleterre et la Guyenne, l'Écosse, l'Irlande.
+                    string france = Pays(guerre, "France");
+                    montres = guerre.Terres.Pays.Where(x => guerre.Couleurs.Racine(x.Id) == france).Select(x => x.Id).Concat(new[] { "Angleterre", "Écosse", "Irlande" }.Select(n => Pays(guerre, n))).ToList();
+                    montres.AddRange(guerre.Terres.Pays.Where(x => montres.Contains(x.Suzerain)).Select(x => x.Id));
+                    break;
+                case "empire":
+                    montres = guerre.Terres.Pays.Where(x => x.Ensemble == "Saint-Empire").Select(x => x.Id).ToList();
+                    if (montres.Count == 0) throw Faux("aucun pays servi n'est de l'ensemble « Saint-Empire »");
+                    break;
+                case "italie": montres = new[] { "Milan", "Venise", "Gênes", "Florence", "États de l'Église", "Naples", "Sicile", "Savoie" }.Select(n => Pays(guerre, n)).ToList(); break;
+                case "balkans-et-orient":
+                    // Les Ottomans et ceux qui relèvent d'eux, Byzance et la Morée, la Serbie, la Bosnie, la Valachie, la Moldavie.
+                    montres = new[] { "Ottomans", "Byzance", "Bosnie", "Valachie", "Moldavie" }.Select(n => Pays(guerre, n)).ToList();
+                    montres.AddRange(guerre.Terres.Pays.Where(x => montres.Contains(x.Suzerain)).Select(x => x.Id));
+                    break;
+                default: throw Faux("cadre inconnu : " + cadre);
+            }
+            return Terres(guerre, montres).ToList();
+        }
+
+        // Le cadre de la vue sur des terres, pour une image de cet aspect : le gros des terres, sans qu'une terre lointaine (Caffa,
+        // que tient Gênes) n'élargisse le cadre. Une terre est gardée à moins de `ECART_AU_GROS` fois la distance qui laisse les
+        // quatre cinquièmes des terres autour du centre médian.
+        internal static (Vector2 centre, float demi) Cadrer(CarteDessinee carte, IEnumerable<long> terres, float aspect)
+        {
+            var cadrees = new HashSet<long>(terres);
+            Vector2 Centre(CelluleDeCarte c) { Vector3 v = carte.PositionSurLaCarte(c.Contour[0].Exterieur[0], 0f).Value; return new Vector2(v.x, v.z); }
+            var choisies = carte.Lue.Cellules.Where(c => cadrees.Contains(c.CellId)).ToList();
+            if (choisies.Count == 0) throw Faux("aucune terre à cadrer");
+            var xs = choisies.Select(c => Centre(c).x).OrderBy(x => x).ToList(); var zs = choisies.Select(c => Centre(c).y).OrderBy(z => z).ToList();
+            var median = new Vector2(xs[xs.Count / 2], zs[zs.Count / 2]); var distances = choisies.Select(c => (Centre(c) - median).magnitude).OrderBy(d => d).ToList();
+            float portee = ECART_AU_GROS * distances[Mathf.Min(distances.Count - 1, (int)(0.8f * distances.Count))] + 1f;
+            float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
+            foreach (CelluleDeCarte cellule in choisies.Where(c => (Centre(c) - median).magnitude <= portee))
+                foreach (PolygoneDeCarte polygone in cellule.Contour)
+                    foreach (PointCarte point in polygone.Exterieur)
+                        if (carte.PositionSurLaCarte(point, 0f) is Vector3 v) { minX = Mathf.Min(minX, v.x); maxX = Mathf.Max(maxX, v.x); minZ = Mathf.Min(minZ, v.z); maxZ = Mathf.Max(maxZ, v.z); }
+            return (new Vector2((minX + maxX) / 2f, (minZ + maxZ) / 2f), Mathf.Max((maxZ - minZ) / 2f, (maxX - minX) / 2f / aspect) * MARGE_DU_CADRE);
         }
 
         [ScenarioDeCapture("carte-politique", "6-maghreb-et-zab")]
@@ -114,21 +154,9 @@ namespace ForgeLocal3D.Captures
         {
             var (carte, guerre, villes, calques, atlas) = Lire();
             var cadrees = new HashSet<long>(terres); if (cadrees.Count == 0) throw Faux(cadre + " : aucune terre à cadrer");
-            // Le gros des terres : une terre lointaine (Caffa, que tient Gênes) n'élargit pas le cadre. Une terre est gardée à moins
-            // de `ECART_AU_GROS` fois la distance qui laisse les quatre cinquièmes des terres autour du centre médian.
-            Vector2 Centre(CelluleDeCarte c) { Vector3 v = carte.PositionSurLaCarte(c.Contour[0].Exterieur[0], 0f).Value; return new Vector2(v.x, v.z); }
-            var choisies = carte.Lue.Cellules.Where(c => cadrees.Contains(c.CellId)).ToList();
-            var xs = choisies.Select(c => Centre(c).x).OrderBy(x => x).ToList(); var zs = choisies.Select(c => Centre(c).y).OrderBy(z => z).ToList();
-            var median = new Vector2(xs[xs.Count / 2], zs[zs.Count / 2]); var distances = choisies.Select(c => (Centre(c) - median).magnitude).OrderBy(d => d).ToList();
-            float portee = ECART_AU_GROS * distances[Mathf.Min(distances.Count - 1, (int)(0.8f * distances.Count))] + 1f;
-            float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
-            foreach (CelluleDeCarte cellule in choisies.Where(c => (Centre(c) - median).magnitude <= portee))
-                foreach (PolygoneDeCarte polygone in cellule.Contour)
-                    foreach (PointCarte point in polygone.Exterieur)
-                        if (carte.PositionSurLaCarte(point, 0f) is Vector3 v) { minX = Mathf.Min(minX, v.x); maxX = Mathf.Max(maxX, v.x); minZ = Mathf.Min(minZ, v.z); maxZ = Mathf.Max(maxZ, v.z); }
-            float demi = Mathf.Max((maxZ - minZ) / 2f, (maxX - minX) / 2f / ASPECT) * MARGE_DU_CADRE;
+            var (centre, demi) = Cadrer(carte, cadrees, ASPECT);
             carte.camera.rect = new Rect(0, 0, 1, 1); carte.camera.aspect = ASPECT;
-            carte.Vue.Changer(ASPECT); carte.Vue.Centrer(new Vector2((minX + maxX) / 2f, (minZ + maxZ) / 2f), demi); carte.Vue.Poser(carte.camera, carte.transform);
+            carte.Vue.Changer(ASPECT); carte.Vue.Centrer(centre, demi); carte.Vue.Poser(carte.camera, carte.transform);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             Camera cam = carte.camera;
             bool Dans(long cellId) { var c = carte.Lue.Cellules.First(x => x.CellId == cellId); Vector3 v = cam.WorldToViewportPoint(carte.transform.TransformPoint(carte.PositionSurLaCarte(c.Contour[0].Exterieur[0], 0f).Value)); return v.z > 0f && v.x >= 0f && v.x <= 1f && v.y >= 0f && v.y <= 1f; }
