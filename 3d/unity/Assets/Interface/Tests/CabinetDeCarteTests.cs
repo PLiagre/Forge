@@ -186,17 +186,17 @@ namespace Forge.Interface.Tests
         // Plus de légende flottante ; les lieux parlent dans la légende de la carte politique, les flèches dans celle des vivres, leurs relevés dans l'infobulle.
         static readonly string[] FLOTTANTES = { "Légende des lieux", "Fond de la légende", "Légende des flèches", "Fond des flèches" };
         string Flottante() => racine.transform.Find("Cabinet").GetComponentsInChildren<Transform>(true).Select(t => t.name).FirstOrDefault(FLOTTANTES.Contains);
-        string Legende(CalquesCarte calques, string texte, string detail) { Assert.DoesNotThrow(() => calques.Legender(texte, detail)); foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(calques.Legende, texte, echelle), Is.InRange(1, CalquesCarte.LIGNES_MAX), "échelle " + echelle);
-            string bulle = racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE).GetComponent<Infobulle>().Phrase; Assert.That(bulle, Is.EqualTo(texte + "\n" + detail)); Assert.That(TexteDuMonde.Interdit(bulle, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(bulle), Is.Null, bulle); return bulle; }
         [Test] public void Les_lieux_parlent_dans_la_legende_de_la_carte_politique()
         {
             Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); var calques = racine.GetComponent<CalquesCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); Servir(cell => Reponse(cell, 4, false)); Assert.That(Flottante(), Is.Null); Assert.That(lieux.Peint, Is.True);
-            var politique = new LectureDuMode(ModeDeCarte.Politique, null, null, null, null);
-            string legende = politique.Legende(true), detail = CalquesCarte.DetailDuMode(politique, lieux, fleches, null); Assert.That(legende, Is.EqualTo(CalquesCarte.PAYS_NON_LUS + CalquesCarte.ROUGE + "\n" + LieuxDeCarte.ENTETE));
+            var politique = new LectureDuMode(ModeDeCarte.Politique, null, null, null, null, lieux.EnAlerte);
+            string legende = politique.Legende, detail = CalquesCarte.DetailDuMode(politique, lieux, fleches, null); Assert.That(legende, Is.EqualTo("puissance du départ · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE));
             Assert.That(detail, Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Politique) + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)).And.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400"));
-            string bulle = Legende(calques, legende, detail); Assert.That(bulle.Split(new[] { LieuxDeCarte.ENTETE }, StringSplitOptions.None).Length, Is.EqualTo(2), "l'en-tête des lieux une seule fois : " + bulle);
-            Assert.That(politique.Legende(false), Is.EqualTo(CalquesCarte.PAYS_NON_LUS + CalquesCarte.ROUGE), "contre-épreuve : sans lieux peints"); Assert.That(CalquesCarte.DetailDuMode(politique, null, null, null), Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Politique)), "contre-épreuve : sans vue des lieux");
-            Assert.Throws<ArgumentException>(() => calques.Legender(CalquesCarte.PAYS_NON_LUS + CalquesCarte.ROUGE + "\n" + FlechesDeCarte.ENTETE, detail), "contre-épreuve : l'en-tête des flèches ne tient pas dans la légende");
+            Assert.DoesNotThrow(() => calques.Legender(politique.Echelle, detail)); string bulle = racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE).GetComponent<Infobulle>().Phrase;
+            Assert.That(bulle, Is.EqualTo(legende + "\n" + detail)); Assert.That(TexteDuMonde.Interdit(bulle, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(bulle), Is.Null, bulle);
+            Assert.That(bulle.Split(new[] { LieuxDeCarte.ENTETE }, StringSplitOptions.None).Length, Is.EqualTo(2), "l'en-tête des lieux une seule fois, dans l'infobulle : " + bulle);
+            Assert.That(CalquesCarte.DetailDuMode(politique, null, null, null), Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Politique)), "contre-épreuve : sans vue des lieux");
+            Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(false, new[] { Color.white, Color.red, Color.black }, "pays", LieuxDeCarte.ENTETE, "trait"), detail), "contre-épreuve : la phrase des lieux ne tient pas dans une étiquette");
         }
         // Le survol d'un bouton de mode : son infobulle ne recouvre pas le cadre de la légende, qu'elle masquerait sans la zone à éviter.
         static Rect EnPixels(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y); } // la toile du cabinet est en surimpression : le monde y est l'écran
@@ -221,10 +221,12 @@ namespace Forge.Interface.Tests
                 : Cellule(20, 5, new LieuPlace(0, new PointCarte(1, 40002), JOUEUR, new FluxDeLieu(b, 0, 0), nom: NomDe(20, 0)))));
             var noms = new[] { "Flèche 10-1", "Flèche 20-0" }; var tige = racine.transform.Find(FlechesDeCarte.RACINE); Transform bande = racine.transform.Find("Cabinet/" + CalquesCarte.BANDE); Assert.That(Fleches(), Is.EquivalentTo(noms)); Assert.That(tige.gameObject.activeSelf, Is.False, "le cabinet s'ouvre sur la carte politique : flèches cachées");
             foreach (var (mode, visibles) in new[] { (ModeDeCarte.Vivres, true), (ModeDeCarte.Population, false), (ModeDeCarte.Relief, false), (ModeDeCarte.Guerres, false), (ModeDeCarte.Politique, false), (ModeDeCarte.Vivres, true) }) { bande.Find(mode.ToString()).GetComponent<Button>().onClick.Invoke(); fleches.Pas(horloge); Assert.That(tige.gameObject.activeSelf, Is.EqualTo(visibles), mode.ToString()); Assert.That(Fleches(), Is.EquivalentTo(noms), mode.ToString()); }
-            var vivres = new LectureDuMode(ModeDeCarte.Vivres, new MondeLu(4, new DateDuMonde(1400, 5), 2, new[] { new CelluleDuMonde(10, 1, 0, 0), new CelluleDuMonde(20, 1, 3, 1200) }), null, null, null);
-            Assert.That(Flottante(), Is.Null); string detail = CalquesCarte.DetailDuMode(vivres, lieux, fleches, null); Legende(calques, vivres.Legende(false), detail);
+            var servis = new LieuxLus(4, new DateDuMonde(1400, 5), 2, new[] { new CelluleServie(10, new[] { new LieuServi(0, 1, 1, 0) }), new CelluleServie(20, new[] { new LieuServi(0, 1, 1, 3) }) });
+            var vivres = new LectureDuMode(ModeDeCarte.Vivres, servis, null, null, null);
+            Assert.That(Flottante(), Is.Null); string detail = CalquesCarte.DetailDuMode(vivres, lieux, fleches, null); Assert.DoesNotThrow(() => calques.Legender(vivres.Echelle, detail));
+            string bulle = racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE).GetComponent<Infobulle>().Phrase; Assert.That(bulle, Is.EqualTo(vivres.Legende + "\n" + detail)); Assert.That(TexteDuMonde.Interdit(bulle, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(bulle), Is.Null, bulle);
             Assert.That(detail, Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Vivres) + vivres.Vivres.Detail + "\n" + fleches.TexteLegende).And.Contain(FlechesDeCarte.ENTETE).And.Contain("\nAlba · Brivas → Siège : " + TexteDuMonde.Masse(100000)));
-            Assert.Throws<ArgumentException>(() => calques.Legender(FlechesDeCarte.ENTETE + " · Rouge : territoire conservé", detail), "contre-épreuve : l'en-tête entier des flèches ne tient pas dans la légende");
+            Assert.Throws<ArgumentException>(() => calques.Legender(FlechesDeCarte.ENTETE + "\n" + FlechesDeCarte.ENTETE, detail), "contre-épreuve : l'en-tête entier des flèches ne tient pas dans la légende");
         }
         void Du(Func<string, Lecture<ComptesDeMaison>> lire) { fleches.Lecteur = lire; fleches.Pas(horloge); var fin = DateTime.UtcNow.AddSeconds(5); while (fleches.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); Assert.That(fleches.LectureEnVol, Is.False); fleches.Pas(horloge); horloge += FlechesDeCarte.PERIODE_S; }
         string[] Fleches() { var r = racine.transform.Find(FlechesDeCarte.RACINE); return r == null ? new string[0] : r.Cast<Transform>().Select(e => e.name).ToArray(); }
@@ -663,16 +665,16 @@ namespace Forge.Interface.Tests
             Assert.That(modes.Length == 5 && modes.Select(b => b.name).Distinct().Count() == 5 && bande.childCount == 5, Is.True, string.Join(", ", modes.Select(b => b.transform.parent.name + "/" + b.name)));
             Assert.That(bande.Cast<Transform>().All(b => b.name != "Puissances" && b.name != "Habitants" && b.name != "Flux"), Is.True, "un bouton d'hier reste dans la bande");
             var calques = racine.GetComponent<CalquesCarte>();
-            var monde = new MondeLu(364, new DateDuMonde(1400, 365), 2, new[] { new CelluleDuMonde(10, 1, 0, 0), new CelluleDuMonde(20, 275000, 12345, 2e6) });
+            var servis = new LieuxLus(364, new DateDuMonde(1400, 365), 2, new[] { new CelluleServie(10, new[] { new LieuServi(0, 1, 7400, 0) }), new CelluleServie(20, new[] { new LieuServi(0, 275000, 900, 12345), new LieuServi(1, 3, 28000, -40) }) });
             var terres = new TerresDeLaCarte(364, new DateDuMonde(1400, 365), new[] { new PaysDeLaCarte("pays-a", "Avalon") }, new[] { new TerreLue(10, "m10", "pays-a") });
             var guerres = new GuerresLues(364, new DateDuMonde(1400, 365), new[] { new GuerreLue(1, "m10", "m20", 3) }, new[] { new ArmeeLue(0, "m10", 10, 0, 1200, 500, 10, null, new long[0], new PointCarte(0, 0), new PointCarte[0]) }, new PriseLue[0], 0);
             var carteLue = new CarteLue(2, new[] { new CelluleDeCarte(10, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], "marais", 7400), new CelluleDeCarte(20, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, 28900) });
             foreach (var mode in cinq)
             {
-                var lecture = new LectureDuMode(mode, monde, carteLue, terres, guerres); string texte = lecture.Legende(false);
-                string detail = lecture.Detail; calques.Legender(texte, detail);
-                foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(calques.Legende, texte, echelle), Is.InRange(1, CalquesCarte.LIGNES_MAX), mode + " à l'échelle " + echelle);
-                Assert.That(calques.Legende.text == texte && fond.GetComponent<Infobulle>().Phrase == texte + "\n" + detail && calques.Legende.transform.parent == fond, Is.True, mode.ToString());
+                var lecture = new LectureDuMode(mode, servis, carteLue, terres, guerres); string texte = lecture.Legende;
+                string detail = lecture.Detail; Assert.That(lecture.Echelle, Is.Not.Null, mode + " sans échelle"); calques.Legender(lecture.Echelle, detail);
+                foreach (var etiquette in calques.EtiquettesDeLEchelle) foreach (float echelle in new[] { 1f, 2f / 3f }) Assert.That(CalquesCarte.Lignes(etiquette, etiquette.text, echelle), Is.EqualTo(1), mode + " : « " + etiquette.text + " » à l'échelle " + echelle);
+                Assert.That(calques.Legende.text == texte && fond.GetComponent<Infobulle>().Phrase == texte + "\n" + detail && calques.Echelle.transform.parent == fond && calques.Echelle.gameObject.activeSelf, Is.True, mode.ToString());
                 Assert.That(Zone(fond, 1).yMax, Is.EqualTo(1004f).Within(.01f), mode + " : le bas de la légende");
                 foreach (var (largeur, hauteur) in new[] { (1920f, 1080f), (1280f, 720f) }) foreach (var zone in new[] { bande, fond })
                 {

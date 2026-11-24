@@ -92,7 +92,8 @@ namespace ForgeLocal3D.Captures
         static IEnumerator Relief(Camera camera)
         {
             var (carte, _, guerre) = ScenarioAccueil.Lire();
-            var c = Choisir(ModeDeCarte.Relief, () => "Relief servi, qui ne change pas"); while (c.MoveNext()) yield return null;
+            var c = Choisir(ModeDeCarte.Relief, () => "Le relief servi ne change pas"); while (c.MoveNext()) yield return null;
+            if (!carte.ParAltitude) throw Faux("le relief ne teint pas la terre par son altitude");
             var relief = new ReliefDesTerres(carte.Lue); var pigments = new HashSet<Color32>(guerre.Terres.Pays.Select(p => (Color32)guerre.CouleurDuPays(p.Id)));
             int peintes = 0;
             foreach (var cellule in carte.Lue.Cellules)
@@ -112,10 +113,11 @@ namespace ForgeLocal3D.Captures
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
             var c = Choisir(ModeDeCarte.Population, () => TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
-            // La densité de chaque terre : ses habitants servis par `/monde`, divisés par son aire servie par `/carte`.
+            // La densité du bourg de chaque terre (son lieu de rang 0) : ses habitants servis par `/lieux`, divisés par sa surface servie.
             var aires = carte.Lue.Cellules.ToDictionary(x => x.CellId, x => x.AireKm2);
             if (aires.Values.Any(a => !(a > 0))) throw Faux("une terre n'a pas d'aire servie par /carte");
-            var peintes = Monde(cabinet).Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue && x.CellId != cabinet.Retenue?.CellId).Select(x => (x.CellId, densite: x.Population / aires[x.CellId])).ToList();
+            var lieux = Calques(carte).LieuxLus?.Donnees ?? throw Faux("les lieux servis ne sont pas lus");
+            var peintes = lieux.Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue).Select(x => (x.CellId, densite: x.Lieux[0].Population / x.Lieux[0].SurfaceKm2)).ToList();
             var plus = peintes.OrderByDescending(x => x.densite).First(); var moins = peintes.OrderBy(x => x.densite).First();
             float Clair(long cell) => carte.TeinteDe(cell).Value.grayscale;
             if (plus.densite <= moins.densite) throw Faux("échantillon vide : toutes les terres ont la même densité");
@@ -134,7 +136,7 @@ namespace ForgeLocal3D.Captures
         static IEnumerator Vivres(Camera camera)
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
-            var c = Choisir(ModeDeCarte.Vivres, () => "Vivres au " + TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
+            var c = Choisir(ModeDeCarte.Vivres, () => "Réserves au " + TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
             // La vue sur la capitale, d'un clic sur « Ma capitale », où les flèches des lieux vers le siège se lisent.
             Cliquer(carte, Capitale(cabinet)); PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
@@ -200,7 +202,7 @@ namespace ForgeLocal3D.Captures
             if (vues == 0) throw Faux("aucune armée ne se voit dans l'image");
             // Les sièges : une terre assiégée prend sa teinte et la légende la nomme ; sans siège, l'infobulle le dit.
             string bulle = Calques(carte).Legende.GetComponentInParent<Infobulle>().Phrase;
-            if (assiegees.Count > 0 ? !Calques(carte).Legende.text.Contains("terre assiégée") : !bulle.Contains("Aucune terre assiégée.")) throw Faux("la légende ne dit pas les sièges : « " + bulle + " »");
+            if (assiegees.Count > 0 ? !Calques(carte).Legende.text.Contains("assiégée") : !bulle.Contains("Aucune terre assiégée.")) throw Faux("la légende ne dit pas les sièges : « " + bulle + " »");
             Debug.Log("CAPTURE modes de carte : " + guerre.Guerres.Guerres.Count + " guerres servies, pays en guerre " + string.Join(", ", enGuerre.Select(p => guerre.Terres.NomDuPays(p) ?? p))
                 + ", " + marquees + " terres marquées, " + servies + " armées servies, " + dessinees + " dessinées, " + vues + " dans l'image, " + assiegees.Count + " terres assiégées ; "
                 + string.Join(" ; ", guerre.Guerres.Armees.Select(CarteDeLaGuerre.Nombre)));
@@ -233,7 +235,7 @@ namespace ForgeLocal3D.Captures
             if (enfonces != mode.ToString()) throw Faux("boutons enfoncés : « " + enfonces + " » pour le mode " + mode);
             if (carte.camera.transform.position != place || carte.camera.transform.rotation != regard || carte.Vue.Centre != centre || carte.Vue.Demi != demi)
                 throw Faux("choisir « " + mode + " » a bougé la caméra : centre " + centre + " → " + carte.Vue.Centre + ", demi " + demi + " → " + carte.Vue.Demi);
-            string Texte() => calques.Legende.text;
+            string Texte() => calques.Legende.GetComponentInParent<Infobulle>().Phrase; // la légende, puis la date et la règle du mode
             for (var a = AttentesDeCapture.Jusqua(() => Texte().Contains(attendu()), () => "légende du mode " + mode + " : « " + Texte() + " », attendu « " + attendu() + " »"); a.MoveNext();) yield return null;
             if (Texte().StartsWith("Mode ", StringComparison.Ordinal) || Texte().StartsWith("Pays indisponibles", StringComparison.Ordinal) || Texte() == CalquesCarte.COUPEE) throw Faux("mode " + mode + " indisponible : « " + Texte() + " »");
             var s = Stable(carte); while (s.MoveNext()) yield return null;
