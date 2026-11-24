@@ -24,7 +24,14 @@ namespace Forge.Pont {
     // de relief servie de la cellule de chaque lieu, plus haute et plus heurtée de la plaine à la haute montagne, et
     // s'efface vers la côte. Il ne dépend que de la carte et des formes : deux levés des mêmes sont égaux.
     // Les frontières ne sont pas levées : elles dépendent de qui tient chaque lieu, et se mesurent à la demande dans une
-    // grille de plus (`Frontieres`), aux mêmes côtés. Rien ici ne se dessine sans les formes : sans elles, pas de terrain.
+    // grille de plus (`Frontieres`), aux mêmes côtés. La marque d'une cellule se mesure de même (`Marque`), à ses côtés
+    // avec tout ce qui n'est pas elle, la mer comprise. Rien ici ne se dessine sans les formes : sans elles, pas de terrain.
+    // La carte servie s'arrête quelque part sur la terre (l'est de l'Anatolie, le sud de l'Égypte) : les côtés qui l'y
+    // coupent sont droits et posés sur l'enveloppe convexe de toutes les terres, qu'ils couvrent sur des centaines de km,
+    // quand une vraie côte ne la touche qu'en quelques caps. Une arête de l'enveloppe longue d'au moins `ARETE_MIN_KM`,
+    // couverte au moins à `COUVERTURE_MIN` par des côtés qui en sont à moins de `ECART_DE_COUPE_KM`, est une coupe ; ces
+    // côtés sont `Coupes`. La mer qui est hors de l'enveloppe et plus près d'une coupe que de toute autre arête est hors
+    // de la carte (`HorsCarteEn`) : le dessin y met du papier, et la terre ne plonge pas vers elle comme vers une côte.
     public sealed class TerrainDeCarte {
         public const float MARGE_DE_MER_KM = 160f, PAS_MINIMAL_KM = 1f;
         public const int COTE_MAXIMAL = 4096, TEXELS_PAR_RELIEF = 2, TEXELS_PAR_MAILLE = 8;
@@ -38,12 +45,22 @@ namespace Forge.Pont {
             { "marais", (0.3f, 0.1f) }, { "plaine", (1.2f, 0.6f) }, { "colline", (5f, 2.5f) },
             { "montagne", (14f, 7f) }, { "haute_montagne", (26f, 12f) }
         };
+        // Les classes servies, du marais à la haute montagne, et leur socle en km de décor : les paliers d'une teinte d'altitude.
+        public static readonly IReadOnlyList<(string classe, float socle)> PALIERS = new List<(string, float)> {
+            ("marais", CLASSES["marais"].socle), ("plaine", CLASSES["plaine"].socle), ("colline", CLASSES["colline"].socle),
+            ("montagne", CLASSES["montagne"].socle), ("haute_montagne", CLASSES["haute_montagne"].socle)
+        }.AsReadOnly();
         private const string SANS_CLASSE = "plaine"; // un relief non servi, ou d'une classe inconnue, se dessine en plaine
         // Deux tracés du même bord s'écartent de moins de deux fois FENTE_KM : une mer plus étroite entre deux lieux
         // est une fente du service, et se comble.
         public const float FENTE_KM = 1.3f;
         // Au-delà de sa portée, une distance ne se mesure plus : elle vaut la portée.
-        public const float PORTEE_DES_BORDS_KM = 12f, PORTEE_DES_FRONTIERES_KM = 16f;
+        public const float PORTEE_DES_BORDS_KM = 12f, PORTEE_DES_FRONTIERES_KM = 16f, PORTEE_DE_LA_MARQUE_KM = 16f;
+        // Une coupe de la carte : une arête de l'enveloppe d'au moins ARETE_MIN_KM, couverte à COUVERTURE_MIN par des côtés
+        // à moins de ECART_DE_COUPE_KM d'elle.
+        public const double ARETE_MIN_KM = 30, COUVERTURE_MIN = 0.5, ECART_DE_COUPE_KM = 1;
+        // Les arêtes non couvertes, entre deux coupes, sur moins de COMBLE_MAX_KM : au-delà de la carte comme elles.
+        public const double COMBLE_MAX_KM = 800;
         public const byte AU_LOIN = 255; // l'octet d'une distance au moins égale à la portée
         private const int BANDE = 64; // les lignes de texels qu'une même tâche mesure
 
@@ -61,6 +78,9 @@ namespace Forge.Pont {
         private readonly ushort[] cellulesDesNumeros; private readonly int[] premiers, rangs; private readonly RectInt[] zonesDesCellules;
         private readonly Vector3[] sommets; private readonly Vector2[] uv; private readonly int[] triangles;
         private readonly double minX, minZ, pas;
+        // Deux octets par altitude : 255 si la mer y est hors de la carte, 0 sinon ; puis sa proximité à la coupe, de 255
+        // sur elle à 0 à la marge de mer. Et les côtés qui coupent la carte, en km locaux : (ax, az, bx, bz).
+        private readonly byte[] horsCarte; private readonly Vector4[] coupes;
 
         public PointCarte Origine { get; }
         // La boîte des lieux, en km locaux, sans la marge de mer.
@@ -111,9 +131,18 @@ namespace Forge.Pont {
         internal Vector3[] SommetsDuMaillage => sommets;
         internal Vector2[] UvDuMaillage => uv;
         internal int[] TrianglesDuMaillage => triangles;
+        internal byte[] TexelsHorsCarte => horsCarte;
+        // Les côtés de lieux qui coupent la carte sur la terre, en km locaux : (ax, az, bx, bz).
+        public IReadOnlyList<Vector4> Coupes => coupes;
+        // La mer sous un point en km locaux est-elle hors de la carte, au-delà d'une coupe ? Faux à terre et hors du rectangle.
+        public bool HorsCarteEn(float x, float z) {
+            int i = (int)Math.Floor((x - minX) / (pas * TEXELS_PAR_RELIEF)), j = (int)Math.Floor((z - minZ) / (pas * TEXELS_PAR_RELIEF));
+            return i >= 0 && j >= 0 && i < LargeurDuRelief && j < HauteurDuRelief && horsCarte[2 * (j * LargeurDuRelief + i)] != 0;
+        }
 
         private TerrainDeCarte(PointCarte origine, Bounds boite, int largeur, int hauteur, double pas, double minX, double minZ, ushort[] lieux, int[] texels, float[] altitudes, byte[] bords, Morceau[] morceaux, RectInt[] zones,
-            ushort[] cellulesDesNumeros, int[] premiers, int[] rangs, RectInt[] zonesDesCellules) {
+            ushort[] cellulesDesNumeros, int[] premiers, int[] rangs, RectInt[] zonesDesCellules, byte[] horsCarte, Vector4[] coupes) {
+            this.horsCarte = horsCarte; this.coupes = coupes;
             Origine = origine; Boite = boite; Largeur = largeur; Hauteur = hauteur; Pas = (float)pas; this.pas = pas; this.minX = minX; this.minZ = minZ;
             this.lieux = lieux; this.texels = texels; this.altitudes = altitudes; this.bords = bords; this.morceaux = morceaux; this.zones = zones;
             this.cellulesDesNumeros = cellulesDesNumeros; this.premiers = premiers; this.rangs = rangs; this.zonesDesCellules = zonesDesCellules;
@@ -148,8 +177,28 @@ namespace Forge.Pont {
         // hors du rectangle, la portée.
         public float BordEn(float x, float z) => Distance(Octet(bords, 2, 0, x, z), PORTEE_DES_BORDS_KM);
         public float CoteEn(float x, float z) => Distance(Octet(bords, 2, 1, x, z), PORTEE_DES_BORDS_KM);
-        // La même lecture dans une grille mesurée par `Frontieres`.
+        // La même lecture dans une grille mesurée par `Frontieres`, puis par `Marque`.
         public float FrontiereEn(byte[] champ, float x, float z) => Distance(Octet(champ, 1, 0, x, z), PORTEE_DES_FRONTIERES_KM);
+        public float MarqueEn(byte[] champ, float x, float z) => Distance(Octet(champ, 1, 0, x, z), PORTEE_DE_LA_MARQUE_KM);
+
+        // Mesure dans `champ`, un octet par texel, la distance de chaque texel au bord de la cellule de ce rang servi :
+        // un côté entre l'un de ses lieux et un lieu d'une autre cellule ou la mer. Seule sa zone, élargie de la portée, est
+        // mesurée ; celle de la cellule marquée d'avant (`avant`, -1 sans elle) revient d'abord au loin. Un rang -1 ne
+        // marque rien.
+        public void Marque(int rang, int avant, byte[] champ) {
+            if (champ == null || champ.Length != Largeur * Hauteur) throw new ArgumentException("un octet par texel");
+            var groupes = new int[texels.Length + 1]; double portee = PORTEE_DE_LA_MARQUE_KM / pas;
+            if (avant >= 0) Porter(lieux, Largeur, morceaux, champ, 1, 0, groupes, portee, Elargie(zonesDesCellules[avant], portee));
+            if (rang < 0) return;
+            for (int l = premiers[rang]; l < premiers[rang + 1]; l++) groupes[l + 1] = 1;
+            Porter(lieux, Largeur, morceaux, champ, 1, 0, groupes, portee, Elargie(zonesDesCellules[rang], portee));
+        }
+        private RectInt Elargie(RectInt zone, double portee) {
+            int marge = (int)Math.Ceiling(portee) + 1, i0 = Math.Max(0, zone.xMin - marge), j0 = Math.Max(0, zone.yMin - marge);
+            return new RectInt(i0, j0, Math.Min(Largeur, zone.xMax + marge) - i0, Math.Min(Hauteur, zone.yMax + marge) - j0);
+        }
+        private static void Porter(ushort[] lieux, int largeur, Morceau[] morceaux, byte[] champ, int saut, int decalage, int[] groupes, double portee, RectInt zone) =>
+            Porter(lieux, largeur, morceaux, champ, saut, decalage, groupes, portee, zone.xMin, zone.yMin, zone.xMax, zone.yMax);
         private byte Octet(byte[] champ, int saut, int decalage, float x, float z) {
             int i = (int)Math.Floor((x - minX) / pas), j = (int)Math.Floor((z - minZ) / pas);
             return i < 0 || j < 0 || i >= Largeur || j >= Hauteur ? AU_LOIN : champ[(j * Largeur + i) * saut + decalage];
@@ -254,7 +303,9 @@ namespace Forge.Pont {
                 string classe = carte.Cellules[cellulesDesNumeros[l + 1] - 1].Relief;
                 (socles[l], heurts[l]) = classe != null && CLASSES.TryGetValue(classe, out var valeurs) ? valeurs : CLASSES[SANS_CLASSE];
             }
-            float[] altitudes = Relief(lieux, largeur, hauteur, minX, minZ, pas, socles, heurts);
+            Enveloppe enveloppe = Envelopper(polygones, out Vector4[] coupes);
+            var horsCarte = new byte[2 * (largeur / TEXELS_PAR_RELIEF) * (hauteur / TEXELS_PAR_RELIEF)];
+            float[] altitudes = Relief(lieux, largeur, hauteur, minX, minZ, pas, socles, heurts, enveloppe, horsCarte);
 
             Morceau[] morceaux = Separer(lieux, largeur, hauteur, minX, minZ, pas, polygones);
             // Les bords : chaque lieu est son propre groupe. Les côtes : toute la terre est un groupe, la mer l'autre.
@@ -282,7 +333,93 @@ namespace Forge.Pont {
                 }
                 zonesDesCellules[r] = u;
             }
-            return new TerrainDeCarte(origine, boite, largeur, hauteur, pas, minX, minZ, lieux, texels, altitudes, bords, morceaux, zones, cellulesDesNumeros, premiers, rangs, zonesDesCellules);
+            return new TerrainDeCarte(origine, boite, largeur, hauteur, pas, minX, minZ, lieux, texels, altitudes, bords, morceaux, zones, cellulesDesNumeros, premiers, rangs, zonesDesCellules, horsCarte, coupes);
+        }
+
+        // L'enveloppe convexe des terres, ses sommets dans le sens trigonométrique (l'arête k va du sommet k au suivant), et
+        // si chaque arête est une coupe de la carte.
+        private sealed class Enveloppe { public double[] X, Z; public bool[] Coupee; }
+
+        // L'enveloppe des anneaux extérieurs de tous les lieux, et les côtés qui en couvrent les coupes.
+        private static Enveloppe Envelopper(List<List<double[]>>[] polygones, out Vector4[] coupes) {
+            var points = new List<(double x, double z)>();
+            foreach (List<List<double[]>> lieu in polygones)
+                foreach (List<double[]> polygone in lieu)
+                    for (int k = 0; k + 1 < polygone[0].Length; k += 2) points.Add((polygone[0][k], polygone[0][k + 1]));
+            points.Sort();
+            double Croix((double x, double z) o, (double x, double z) a, (double x, double z) b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+            var bas = new List<(double x, double z)>(); var haut = new List<(double x, double z)>();
+            foreach (var q in points) { while (bas.Count >= 2 && Croix(bas[bas.Count - 2], bas[bas.Count - 1], q) <= 0) bas.RemoveAt(bas.Count - 1); bas.Add(q); }
+            for (int i = points.Count - 1; i >= 0; i--) { var q = points[i]; while (haut.Count >= 2 && Croix(haut[haut.Count - 2], haut[haut.Count - 1], q) <= 0) haut.RemoveAt(haut.Count - 1); haut.Add(q); }
+            bas.RemoveAt(bas.Count - 1); haut.RemoveAt(haut.Count - 1); bas.AddRange(haut);
+            int n = bas.Count; var env = new Enveloppe { X = new double[n], Z = new double[n], Coupee = new bool[n] };
+            for (int k = 0; k < n; k++) { env.X[k] = bas[k].x; env.Z[k] = bas[k].z; }
+            // Chaque côté extérieur dont les deux bouts sont à moins de l'écart d'une arête assez longue, et entre ses bouts,
+            // couvre une part de cette arête.
+            var couvertes = new List<(double debut, double fin)>[n]; var poses = new List<(int arete, Vector4 cote)>();
+            var longues = new List<int>(); var vx = new double[n]; var vz = new double[n]; var longueurs = new double[n];
+            for (int k = 0; k < n; k++) {
+                vx[k] = env.X[(k + 1) % n] - env.X[k]; vz[k] = env.Z[(k + 1) % n] - env.Z[k]; longueurs[k] = Math.Sqrt(vx[k] * vx[k] + vz[k] * vz[k]);
+                if (longueurs[k] >= ARETE_MIN_KM) longues.Add(k);
+            }
+            foreach (List<List<double[]>> lieu in polygones)
+                foreach (List<double[]> polygone in lieu) {
+                    double[] a = polygone[0];
+                    for (int c = 0; c + 3 < a.Length; c += 2)
+                        foreach (int k in longues) {
+                            double ux = vx[k], uz = vz[k], longueur = longueurs[k];
+                            double Ecart(double x, double z) => Math.Abs(ux * (z - env.Z[k]) - uz * (x - env.X[k])) / longueur;
+                            double Le(double x, double z) => (ux * (x - env.X[k]) + uz * (z - env.Z[k])) / (longueur * longueur);
+                            if (Ecart(a[c], a[c + 1]) > ECART_DE_COUPE_KM || Ecart(a[c + 2], a[c + 3]) > ECART_DE_COUPE_KM) continue;
+                            double t0 = Le(a[c], a[c + 1]), t1 = Le(a[c + 2], a[c + 3]);
+                            if (Math.Min(t0, t1) < -0.01 || Math.Max(t0, t1) > 1.01) continue;
+                            (couvertes[k] ?? (couvertes[k] = new List<(double, double)>())).Add((Math.Min(t0, t1), Math.Max(t0, t1)));
+                            poses.Add((k, new Vector4((float)a[c], (float)a[c + 1], (float)a[c + 2], (float)a[c + 3]))); break;
+                        }
+                }
+            for (int k = 0; k < n; k++) {
+                if (couvertes[k] == null) continue;
+                couvertes[k].Sort(); double couvert = 0, jusque = double.NegativeInfinity;
+                foreach (var (debut, fin) in couvertes[k]) { double d = Math.Max(debut, jusque); if (fin > d) { couvert += fin - d; jusque = fin; } }
+                env.Coupee[k] = couvert >= COUVERTURE_MIN;
+            }
+            var lesCoupes = new List<Vector4>(); foreach (var (arete, cote) in poses) if (env.Coupee[arete]) lesCoupes.Add(cote);
+            // Une suite d'arêtes qu'aucun côté ne couvre, entre deux coupes, plus courte que `COMBLE_MAX_KM`, est au-delà de la carte
+            // elle aussi : une terre qui lui manque (le Levant, entre le Sinaï et l'Anatolie), ou un creux de la coupe que
+            // l'enveloppe enjambe. Sans cela, la mer y rayerait le papier. Une côte, qui court sur des milliers de km, n'en est pas une.
+            var coupees = (bool[])env.Coupee.Clone();
+            for (int k = 0; k < n; k++)
+            {
+                if (!coupees[k] || coupees[(k + 1) % n]) continue;
+                double suite = 0; int j = (k + 1) % n;
+                while (!coupees[j] && j != k) { suite += longueurs[j]; j = (j + 1) % n; }
+                if (j == k || suite > COMBLE_MAX_KM) continue;
+                for (int m = (k + 1) % n; m != j; m = (m + 1) % n) env.Coupee[m] = true;
+            }
+            coupes = lesCoupes.ToArray(); return env;
+        }
+
+        // Pour chaque altitude de mer hors de l'enveloppe, l'arête la plus proche : si c'est une coupe, la mer y est hors
+        // de la carte, et sa proximité à la coupe s'écrit, de 255 sur elle à 0 à la marge de mer.
+        private static bool[] HorsDeLaCarte(bool[] terre, int l, int h, double minX, double minZ, double pas, Enveloppe env, byte[] sortie) {
+            var hors = new bool[l * h]; int n = env.X.Length; if (Array.IndexOf(env.Coupee, true) < 0) return hors;
+            Parallel.For(0, h, j => {
+                double z = minZ + (j + 0.5) * pas;
+                for (int i = 0; i < l; i++) {
+                    int k = j * l + i; if (terre[k]) continue;
+                    double x = minX + (i + 0.5) * pas, plusPres = double.PositiveInfinity; int arete = -1; bool dehors = false;
+                    for (int e = 0; e < n; e++) {
+                        double ax = env.X[e], az = env.Z[e], ux = env.X[(e + 1) % n] - ax, uz = env.Z[(e + 1) % n] - az, l2 = ux * ux + uz * uz;
+                        if (ux * (z - az) - uz * (x - ax) < 0) dehors = true; // à droite d'une arête : hors de l'enveloppe
+                        double t = l2 > 0 ? Math.Min(Math.Max(((x - ax) * ux + (z - az) * uz) / l2, 0), 1) : 0, dx = x - ax - t * ux, dz = z - az - t * uz, d = dx * dx + dz * dz;
+                        if (d < plusPres) { plusPres = d; arete = e; }
+                    }
+                    if (!dehors || !env.Coupee[arete]) continue;
+                    hors[k] = true; sortie[2 * k] = 255;
+                    sortie[2 * k + 1] = (byte)Math.Round(255 * (1 - Math.Min(Math.Sqrt(plusPres), MARGE_DE_MER_KM) / MARGE_DE_MER_KM));
+                }
+            });
+            return hors;
         }
         // Le nombre de texels d'un côté : assez pour le couvrir, en mailles entières.
         private static int ParMailles(double texels) => Math.Max(2, (int)Math.Ceiling(texels / TEXELS_PAR_MAILLE)) * TEXELS_PAR_MAILLE;
@@ -450,7 +587,8 @@ namespace Forge.Pont {
             });
         }
 
-        private static float[] Relief(ushort[] lieux, int largeur, int hauteur, double minX, double minZ, double pasDesLieux, float[] socles, float[] heurts) {
+        // La mer hors de la carte n'est pas une côte : la terre ne plonge pas vers elle, et elle reste au ras de l'eau, sans fond.
+        private static float[] Relief(ushort[] lieux, int largeur, int hauteur, double minX, double minZ, double pasDesLieux, float[] socles, float[] heurts, Enveloppe enveloppe, byte[] horsCarte) {
             int l = largeur / TEXELS_PAR_RELIEF, h = hauteur / TEXELS_PAR_RELIEF; double pas = pasDesLieux * TEXELS_PAR_RELIEF;
             // Chaque altitude résume ses texels de lieux : terre si la moitié l'est, socle et heurt moyens (la mer compte pour rien).
             var socle = new float[l * h]; var heurt = new float[l * h]; var terre = new bool[l * h]; var mer = new bool[l * h];
@@ -467,6 +605,8 @@ namespace Forge.Pont {
                     int k = j * l + i; socle[k] = s * part; heurt[k] = e * part; terre[k] = aTerre * 2 >= TEXELS_PAR_RELIEF * TEXELS_PAR_RELIEF; mer[k] = !terre[k];
                 }
             });
+            bool[] hors = HorsDeLaCarte(terre, l, h, minX, minZ, pas, enveloppe, horsCarte);
+            for (int k = 0; k < mer.Length; k++) if (hors[k]) mer[k] = false;
             // Les classes se fondent d'une cellule à l'autre au lieu de dessiner des marches le long des bords.
             int rayon = Math.Max(1, (int)Math.Round(FLOU_KM / pas));
             Flouter(socle, l, h, rayon); Flouter(heurt, l, h, rayon);
@@ -479,6 +619,7 @@ namespace Forge.Pont {
             Parallel.For(0, h, j => {
                 for (int i = 0; i < l; i++) {
                     int k = j * l + i;
+                    if (hors[k]) { altitudes[k] = RIVAGE; continue; }
                     if (!terre[k]) { altitudes[k] = -fond[k]; continue; }
                     double brut = socle[k] + heurt[k] * (2 * Bruit(minX + (i + 0.5) * pas, minZ + (j + 0.5) * pas) - 1);
                     altitudes[k] = (float)Math.Min(Math.Max(RIVAGE + Lisse(versLaMer[k] / COTE_KM) * brut, RIVAGE), PLAFOND);
