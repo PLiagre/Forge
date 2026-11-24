@@ -1492,7 +1492,7 @@ def test_noms_lieux_et_priorites():
         for cid, c in monde.cells.items():
             lieux = v[cid]['lieux']; noms = [l['nom'] for l in lieux]; assert [l['rang'] for l in lieux] == sorted(l.rang for l in c.lieux)
             assert all(n.strip() for n in noms) and len(set(noms)) == len(noms)
-            suite = [n for n in parcours(listes['aires'][aires[cid]]['lieux'], cid)[1:] if n != bourgs[cid]]
+            suite = [n for n in parcours(listes['aires'][aires[cid]]['lieux'], cid)[1:] if n.casefold() != bourgs[cid].casefold()]
             assert len(suite) >= len(lieux) - 1 and noms == [bourgs[cid]] + suite[:len(lieux) - 1]
     verifier(vue); assert any(p == 25 and len(vue[c]['lieux']) > 1 for c,p in puissances.items()) and None in puissances.values()
     for puissance, lat, lon, aire in ((3, 44, 2, 'oc'), (3, 48, 2, 'oïl'), (25, 38, 23, 'grecque'), (None, 61, 22, 'finnoise')): assert aire_de_cellule(0, {'centroid': {'lat': lat, 'lon': lon}}, puissance, table, listes) == aire

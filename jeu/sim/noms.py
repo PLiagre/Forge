@@ -92,6 +92,18 @@ def aire_de_cellule(cid, cellule, puissance, table, noms):
     raise ValueError(f'cellule {cid} : aucune règle de noms (puissance={puissance}, religion={religion})')
 def _parcours(valeurs, cid, reserves=()):
     return [n for n in valeurs[cid % len(valeurs):] + valeurs[:cid % len(valeurs)] if n not in reserves]
+_DERNIERE_PLACE_DES_CHEFS_LIEUX = {}
+def _chefs_lieux_dans_leur_cellule(chefs, carte):
+    """Les cellules de la carte dont le chef-lieu tombe dans le polygone. Le fichier et la carte figée ne
+    changent pas pendant une partie : le calcul est gardé pour le dernier couple (fichier, carte), jugé par
+    identité, et refait pour tout autre."""
+    garde = _DERNIERE_PLACE_DES_CHEFS_LIEUX.get('couple')
+    if garde is None or garde[0] is not chefs or garde[1] is not carte:
+        dedans = frozenset(cid for cid, ligne in chefs.lignes.items() if cid in carte
+                           and point_dans_geometrie(*projeter_epsg3035(ligne.lat, ligne.lon), carte[cid]['geometry']))
+        garde = _DERNIERE_PLACE_DES_CHEFS_LIEUX['couple'] = (chefs, carte, dedans)
+    _, _, dedans = garde
+    return dedans
 def bourgs_historiques(monde, attribution, chefs=None):
     """cell_id → nom sourcé du bourg ; une terre déclarée sans ville n'y est pas.
 
@@ -110,22 +122,24 @@ def bourgs_historiques(monde, attribution, chefs=None):
     for v in sorted(attribution.entrees, key=lambda v: (-v.population, v.nom)):
         cid = attribution.placees.get(v.nom)
         if cid is not None and cid not in par_siege and cid not in villes and v.nom.casefold() not in pris: villes[cid] = v.nom
-    resultat = {}
+    resultat = {}; dedans = _chefs_lieux_dans_leur_cellule(chefs, monde.carte)
     for cid in sorted(monde.cells):
         nom = par_siege.get(cid) or villes.get(cid); ligne = chefs.lignes.get(cid)
         if nom is not None and (ligne is not None or cid in chefs.sans_ville):
             raise ValueError(f'chefs-lieux, cellule {cid} : déjà nommée {nom} par un siège ou une ville, sa ligne est inutile')
         if nom is None and ligne is not None:
-            if not point_dans_geometrie(*projeter_epsg3035(ligne.lat, ligne.lon), monde.carte[cid]['geometry']):
+            if cid not in dedans:
                 raise ValueError(f'chefs-lieux, cellule {cid} : {ligne.nom} hors du polygone de sa cellule')
             nom = ligne.nom
         if nom is None and cid not in chefs.sans_ville: raise ValueError(f'chefs-lieux, cellule {cid} : ni nommée ni déclarée sans ville')
         if nom is not None: resultat[cid] = nom
     return resultat
 def sources_des_noms(monde):
-    """Ce que `noms_depuis_monde` lit des données et de la carte, jamais des maîtres : les listes de noms,
-    la table des puissances et la puissance de chaque cellule, dans l'ordre de ses arguments. Qui refait
-    les noms d'un même monde les lit une fois et les lui repasse."""
+    """Ce que `noms_depuis_monde` reçoit en arguments, lu des données et de la carte, jamais des maîtres :
+    les listes de noms, la table des puissances et la puissance de chaque cellule, dans l'ordre de ses
+    arguments. Qui refait les noms d'un même monde les lit une fois et les lui repasse. Les chefs-lieux
+    (`data/chefs-lieux-1400.json`) ne passent pas par là : `charger_chefs_lieux` les lit une fois par
+    processus."""
     table = charger_table()
     return charger_noms(), table, puissances_depuis_monde(monde, table=table)
 def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None):
@@ -144,7 +158,7 @@ def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None):
         bourgs[cid] = libre; portes.add(libre.casefold())
     for cid, cellule in sorted(monde.cells.items()):
         aire = aires[cid]; listes = noms['aires'][aire]; bourg = bourgs[cid]
-        candidats = [n for n in _parcours(listes['lieux'], cid)[1:] if n != bourg]; lieux = sorted(cellule.lieux, key=lambda l: l.rang)
+        candidats = [n for n in _parcours(listes['lieux'], cid)[1:] if n.casefold() != bourg.casefold()]; lieux = sorted(cellule.lieux, key=lambda l: l.rang)
         if len(candidats) < len(lieux) - 1: raise ValueError(f'{aire} : lieux insuffisants, cellule {cid}')
         fiches = {}
         for identifiant in sorted({l.maitre for l in lieux if l.maitre is not None}):

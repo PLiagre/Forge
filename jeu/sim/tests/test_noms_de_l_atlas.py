@@ -1,404 +1,541 @@
-"""Chaque terre porte le nom de sa vraie ville de 1400.
+"""Les noms de l'atlas (MODELE.md, « Les noms de l'atlas, vue dérivée »).
 
-Le juge lit le monde livré de la graine 0 : le nom du bourg de chaque terre, servi par
-`noms_depuis_monde`, qui nomme toute la terre à l'infobulle comme à la fiche. Ce nom est une
-ville sourcée, qui tombe dans le polygone de sa cellule : le siège d'une maison du registre, une
-ville de `villes-1400.json`, ou le chef-lieu de la cellule dans `chefs-lieux-1400.json`. Une
-terre où l'histoire ne nomme aucune ville le déclare avec sa raison et garde un nom plausible des
-listes. Deux terres ne portent jamais le même nom. Là où les frontières nomment des villes
-(villes de partage, villes témoins), le chef-lieu est l'une d'elles, et dans une cellule
-partagée il est du pays du bourg.
+Les fleuves : chacun part de la terre, finit à moins d'un pas de la côte (le pas est le côté
+d'une cellule moyenne, dérivé de la carte) et passe par les cellules de ses villes témoins,
+prises dans les tables sourcées (villes, ancres des puissances). Le Nil garde le tracé de
+`nil-cours-1400.json`. Les mers : le point de chacune est hors de toute terre. Les régions :
+le point de chacune est dans une cellule. Les sièges : celui de chaque maison placée a un nom
+servi, par la table des villes ou par l'atlas ; Biskra, Bar-le-Duc et Mistra y sont. Aucun nom
+n'est en double, et un échantillon vide échoue.
+
+Le service : `GET /atlas` sert ce que le module calcule, calculé une fois à la première lecture,
+hors du verrou du tick ; ni un tick ni une prise ne le refont, et une erreur rend 500 sans
+arrêter le service.
+
+Contre-épreuves : un fleuve qui finit dans les terres, un fleuve qui ne part pas de la terre,
+une mer posée sur la terre, une région en mer, un doublon, des listes vides, une source
+absente, un siège retiré rougissent.
 """
-import collections
+
 import copy
-import dataclasses
 import json
+import math
 import pathlib
-import types
-from types import SimpleNamespace
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
+from http import HTTPStatus
 
 import pytest
 
-from sim.frontieres import charger_frontieres, puissances_des_lieux
-from sim.noms import charger_noms, noms_depuis_monde
+from sim.atlas import (AtlasInvalide, Atlas, charger_atlas, document_de_l_atlas, pas_de_la_carte,
+                       verifier_la_place)
+from sim.fleuve import charger_points
 from sim.places import sieges_des_maisons
 from sim.projection import projeter_epsg3035
+from sim.service import ServeurMonde, _serialiser
+from sim.tests.test_monde import requete_service
 from sim.puissances import charger_table
-from sim.villes import point_dans_geometrie
+from sim.registre_maisons import charger_registre_maisons
+from sim.villes import charger_villes, point_dans_geometrie
 from sim.world import World
 
-CHEMIN_CHEFS_LIEUX = pathlib.Path(__file__).resolve().parents[2] / "data" / "chefs-lieux-1400.json"
-# Les propriétés que le juge nomme, dans l'ordre de la fiche.
-SOURCE, UNIQUE, POLYGONE, FRONTIERES, DECLAREE, ECHANTILLON = (
-    "nom sourcé", "nom unique", "dans son polygone", "villes des frontières", "terre déclarée", "échantillon")
+_FICHIER = pathlib.Path(__file__).parents[2] / "data" / "atlas-1400.json"
 
+# Ce que la fiche du lot promet de nommer.
+FLEUVES_PROMIS = ("Loire", "Seine", "Rhône", "Rhin", "Danube", "Elbe", "Pô", "Èbre", "Tage", "Vistule", "Dniepr", "Nil")
+MERS_PROMISES = ("Méditerranée", "Atlantique", "Mer du Nord", "Baltique", "Mer Noire", "Adriatique", "Mer Égée")
+REGIONS_PROMISES = ("Aquitaine", "Lombardie", "Bohême", "Anatolie")
+SIEGES_PROMIS = ("Biskra", "Bar-le-Duc", "Mistra")
 
-def _boite(geometrie):
-    polygones = [geometrie["coordinates"]] if geometrie["type"] == "Polygon" else geometrie["coordinates"]
-    points = [p for anneaux in polygones for p in anneaux[0]]
-    return (min(p[0] for p in points), min(p[1] for p in points), max(p[0] for p in points), max(p[1] for p in points))
+# Les villes témoins de chaque fleuve : des lieux de ses rives, dont la position vient d'une
+# table sourcée du monde (villes de 1400 ou ancres des puissances), jamais de ce fichier.
+TEMOINS = {
+    "Loire": ("Orléans", "Angers", "Nantes"),
+    "Seine": ("Paris", "Rouen"),
+    "Rhône": ("Lyon", "Avignon"),
+    "Rhin": ("Cologne", "Coblence"),
+    "Danube": ("Vienne", "Buda", "Belgrade"),
+    "Elbe": ("Prague",),
+    "Pô": ("Plaisance", "Crémone"),
+    "Èbre": ("Saragosse",),
+    "Tage": ("Tolède", "Lisbonne"),
+    "Vistule": ("Cracovie",),
+    "Dniepr": ("Kiev", "Smolensk"),
+    "Nil": ("Le Caire", "Damiette"),
+}
 
-
-def _cellule_du_point(carte, boites, x, y):
-    """La cellule de la carte dont le polygone contient le point, ou None ; par identifiant croissant."""
-    for cid in sorted(boites):
-        x_min, y_min, x_max, y_max = boites[cid]
-        if x_min <= x <= x_max and y_min <= y <= y_max and point_dans_geometrie(x, y, carte[cid]["geometry"]):
-            return cid
-    return None
+# Une ligne se parcourt à ce nombre de pas par pas de la carte, pour ne sauter aucune cellule.
+ECHANTILLONS_PAR_PAS = 8
 
 
 @pytest.fixture(scope="module")
-def livre():
-    monde = World.charger(0)
-    table = charger_table()
-    frontieres = charger_frontieres(table=table, carte=monde.carte)
-    vue = noms_depuis_monde(monde)
-    bourgs = {cid: next(l["nom"] for l in bloc["lieux"] if l["rang"] == 0) for cid, bloc in vue.items()}
-    boites = {cid: _boite(monde.carte[cid]["geometry"]) for cid in monde.cells}
-    sieges = sieges_des_maisons(table)
-    sources = collections.defaultdict(list)  # nom → points (x, y) des villes sourcées de ce nom
-    for maison in monde.maisons:
-        if maison.sorte != "plausible" and maison.id in sieges:
-            sources[maison.siege].append(sieges[maison.id])
-    for ville in monde.attribution_villes.entrees:
-        sources[ville.nom].append((ville.x_m, ville.y_m))
-    des_frontieres = collections.defaultdict(list)  # cell_id → (nom, lat, lon, pays) des villes de partage et témoins
-    for cid, villes in frontieres.partages.items():
-        des_frontieres[cid].extend((v.nom, v.lat, v.lon, v.pays) for v in villes)
-    for temoin in frontieres.temoins:
-        cid = _cellule_du_point(monde.carte, boites, *projeter_epsg3035(temoin.lat, temoin.lon))
-        if cid is not None:
-            des_frontieres[cid].append((temoin.nom, temoin.lat, temoin.lon, temoin.pays))
-    lieux = puissances_des_lieux(monde, table, frontieres)
-    listes = charger_noms()
-    contexte = SimpleNamespace(
-        carte=monde.carte, sources=dict(sources), des_frontieres=dict(des_frontieres),
-        pays_du_bourg={cid: lieux.get((cid, 0)) for cid in frontieres.partages if cid in monde.cells},
-        noms_des_listes=frozenset(n for aire in listes["aires"].values() for n in aire["lieux"]))
-    chefs = json.loads(CHEMIN_CHEFS_LIEUX.read_text(encoding="utf-8"))
-    return SimpleNamespace(monde=monde, bourgs=bourgs, contexte=contexte, chefs=chefs,
-                           fautes=juger(contexte, bourgs, chefs))
+def monde():
+    return World.charger(rng_seed=0)
 
-
-def juger(contexte, bourgs, chefs):
-    """Les fautes des noms de terre `bourgs` (cell_id → nom du bourg), en (propriété, cellules accusées, texte)."""
-    fautes = []
-    if not bourgs:
-        return [(ECHANTILLON, (), "échantillon vide : aucune terre jugée")]
-    lignes, vues = {}, set()
-    for ligne in chefs["chefs_lieux"]:
-        cid = ligne["cell_id"]
-        if cid in vues:
-            fautes.append((SOURCE, (cid,), f"cellule {cid} : deux chefs-lieux"))
-        vues.add(cid)
-        lignes[cid] = ligne
-        if "http" not in (ligne.get("source") or ""):
-            fautes.append((SOURCE, (cid,), f"cellule {cid} : chef-lieu « {ligne['nom']} » sans source publique"))
-    declarees = {}
-    for ligne in chefs["sans_ville"]:
-        cid = ligne["cell_id"]
-        if cid in declarees or cid in lignes:
-            fautes.append((DECLAREE, (cid,), f"cellule {cid} : déclarée deux fois"))
-        declarees[cid] = ligne.get("raison")
-
-    for cid, ligne in sorted(lignes.items()):
-        if cid not in bourgs:
-            continue
-        if not point_dans_geometrie(*projeter_epsg3035(ligne["lat"], ligne["lon"]), contexte.carte[cid]["geometry"]):
-            fautes.append((POLYGONE, (cid,), f"cellule {cid} : son chef-lieu « {ligne['nom']} » est hors de son polygone"))
-        if bourgs[cid] != ligne["nom"]:
-            fautes.append((SOURCE, (cid,), f"cellule {cid} : son chef-lieu « {ligne['nom']} » ne nomme pas le bourg « {bourgs[cid]} »"))
-
-    for cid, nom in sorted(bourgs.items()):
-        geometrie = contexte.carte[cid]["geometry"]
-        villes = contexte.des_frontieres.get(cid, ())
-        if cid in declarees:
-            if not (declarees[cid] or "").strip():
-                fautes.append((DECLAREE, (cid,), f"cellule {cid} : déclarée sans ville, sans raison"))
-            nommees = sorted({v[0] for v in villes} | {n for n, points in contexte.sources.items()
-                                                       if any(point_dans_geometrie(*p, geometrie) for p in points)})
-            if nommees:
-                fautes.append((DECLAREE, (cid,), f"cellule {cid} : déclarée sans ville, mais les tables y nomment {', '.join(nommees)}"))
-            if nom not in contexte.noms_des_listes:
-                fautes.append((DECLAREE, (cid,), f"cellule {cid} : déclarée sans ville, son bourg « {nom} » n'est pas un nom plausible des listes"))
-            continue
-        chef = lignes.get(cid)
-        points = list(contexte.sources.get(nom, ()))
-        par_le_chef_lieu = chef is not None and chef["nom"] == nom and nom not in contexte.sources
-        if par_le_chef_lieu:
-            points.append(projeter_epsg3035(chef["lat"], chef["lon"]))
-        if nom in contexte.noms_des_listes:
-            fautes.append((SOURCE, (cid,), f"cellule {cid} : « {nom} » est un nom des listes, sans raison déclarée"))
-        elif not points:
-            fautes.append((SOURCE, (cid,), f"cellule {cid} : « {nom} » n'est ni un siège, ni une ville de villes-1400.json, ni son chef-lieu"))
-        elif not any(point_dans_geometrie(*p, geometrie) for p in points):
-            fautes.append((POLYGONE, (cid,), f"cellule {cid} : « {nom} » est hors de son polygone"))
-        if villes and nom not in contexte.sources:
-            # Le bourg n'est nommé ni par un siège ni par une ville de la carte : son chef-lieu est une ville des frontières.
-            memes = [v for v in villes if par_le_chef_lieu and (v[0], v[1], v[2]) == (chef["nom"], chef["lat"], chef["lon"])]
-            if not memes:
-                fautes.append((FRONTIERES, (cid,), f"cellule {cid} : « {nom} » n'est aucune de ses villes des frontières "
-                                           f"({', '.join(dict.fromkeys(v[0] for v in villes))}), aux mêmes coordonnées"))
-        if cid in contexte.pays_du_bourg:
-            for ville in villes:
-                if ville[0] == nom and ville[3] != contexte.pays_du_bourg[cid]:
-                    fautes.append((FRONTIERES, (cid,), f"cellule {cid} : « {nom} » est du pays {ville[3]}, "
-                                               f"son bourg du pays {contexte.pays_du_bourg[cid]}"))
-
-    compte = collections.defaultdict(list)
-    for cid, nom in sorted(bourgs.items()):
-        compte[nom.casefold()].append(cid)
-    for cids in compte.values():
-        if len(cids) > 1:
-            fautes.append((UNIQUE, tuple(cids), f"« {bourgs[cids[0]]} » nomme {len(cids)} terres : {', '.join(map(str, cids))}"))
-    return fautes
-
-
-def _de(fautes, propriete):
-    return [texte for p, _, texte in fautes if p == propriete]
-
-
-def _rapport(fautes):
-    return f"{len(fautes)} fautes :\n" + "\n".join(fautes)
-
-
-# --- Le monde livré ------------------------------------------------------------------------------
-
-def test_chaque_bourg_porte_une_ville_sourcee(livre):
-    assert len(livre.bourgs) == len(livre.monde.cells) > 0
-    fautes = _de(livre.fautes, SOURCE)
-    assert not fautes, _rapport(fautes)
-
-
-def test_deux_terres_ne_portent_jamais_le_meme_nom(livre):
-    fautes = _de(livre.fautes, UNIQUE)
-    assert not fautes, _rapport(fautes)
-
-
-def test_chaque_ville_nommee_tombe_dans_son_polygone(livre):
-    jugees = [cid for cid, nom in livre.bourgs.items() if nom in livre.contexte.sources]
-    jugees += [l["cell_id"] for l in livre.chefs["chefs_lieux"]]
-    assert jugees, "échantillon vide : aucune terre nommée par une ville"
-    fautes = _de(livre.fautes, POLYGONE)
-    assert not fautes, _rapport(fautes)
-
-
-def test_le_chef_lieu_suit_les_villes_des_frontieres(livre):
-    assert livre.contexte.des_frontieres and livre.contexte.pays_du_bourg, "échantillon vide : aucune ville des frontières"
-    fautes = _de(livre.fautes, FRONTIERES)
-    assert not fautes, _rapport(fautes)
-
-
-def test_chaque_terre_sans_ville_dit_sa_raison(livre):
-    assert livre.chefs["sans_ville"], "échantillon vide : aucune terre déclarée sans ville"
-    fautes = _de(livre.fautes, DECLAREE)
-    assert not fautes, _rapport(fautes)
-
-
-# --- Les contre-épreuves : le juge voit chaque faute qu'on lui montre ----------------------------
 
 @pytest.fixture(scope="module")
-def epreuve(livre):
-    """Un monde jugé sans faute : les terres que nomme déjà un siège ou une ville sans faute, puis une terre libre
-    `libre` (ni siège, ni ville, ni ville des frontières, centroïde dans son polygone) et une terre
-    partagée `partagee` (ni siège ni ville), dont deux villes de partage sont de pays différents."""
-    c = livre.contexte
-    accusees = {cid for _, cids, _ in livre.fautes for cid in cids}
-    sures = {cid: nom for cid, nom in livre.bourgs.items() if nom in c.sources and cid not in accusees}
-    libre = next(cid for cid in sorted(livre.bourgs) if cid not in sures and cid not in c.des_frontieres
-                 and point_dans_geometrie(livre.monde.carte[cid]["centroid"]["x_m"], livre.monde.carte[cid]["centroid"]["y_m"],
-                                          livre.monde.carte[cid]["geometry"]))
-    partagee = next(cid for cid in sorted(c.pays_du_bourg) if cid not in sures
-                    and any(v[3] == c.pays_du_bourg[cid] for v in c.des_frontieres[cid])
-                    and any(v[3] != c.pays_du_bourg[cid] for v in c.des_frontieres[cid]))
-    juste = next(v for v in c.des_frontieres[partagee] if v[3] == c.pays_du_bourg[partagee])
-    centre = livre.monde.carte[libre]["centroid"]
-    vide = {**livre.chefs, "chefs_lieux": [], "sans_ville": []}
-    chefs = {**vide, "chefs_lieux": [
-        {"cell_id": libre, "nom": "Ville d'épreuve", "lat": centre["lat"], "lon": centre["lon"], "source": "https://exemple.org/epreuve"},
-        {"cell_id": partagee, "nom": juste[0], "lat": juste[1], "lon": juste[2], "source": "https://exemple.org/partage"}]}
-    bourgs = {**sures, libre: "Ville d'épreuve", partagee: juste[0]}
-    assert juger(c, bourgs, chefs) == [], "la base des contre-épreuves doit être sans faute"
-    return SimpleNamespace(contexte=c, bourgs=bourgs, chefs=chefs, libre=libre, partagee=partagee, sures=sures)
+def carte(monde):
+    return monde.carte
 
 
-def _ligne(chefs, cid):
-    return next(l for l in chefs["chefs_lieux"] if l["cell_id"] == cid)
+@pytest.fixture(scope="module")
+def atlas():
+    return charger_atlas()
 
 
-def test_le_juge_refuse_un_echantillon_vide(epreuve):
-    assert _de(juger(epreuve.contexte, {}, epreuve.chefs), ECHANTILLON)
+@pytest.fixture(scope="module")
+def document(monde, atlas):
+    return document_de_l_atlas(monde, atlas)
 
 
-def test_le_juge_voit_un_nom_en_double(epreuve):
-    a, b = sorted(epreuve.sures)[:2]
-    assert _de(juger(epreuve.contexte, {**epreuve.bourgs, b: epreuve.bourgs[a]}, epreuve.chefs), UNIQUE)
-    casse = {**epreuve.bourgs, epreuve.libre: epreuve.bourgs[a].upper()}
-    chefs = copy.deepcopy(epreuve.chefs)
-    _ligne(chefs, epreuve.libre)["nom"] = epreuve.bourgs[a].upper()
-    assert _de(juger(epreuve.contexte, casse, chefs), UNIQUE)
+@pytest.fixture(scope="module")
+def boites(carte):
+    """La boîte de chaque cellule, pour ne tester que les cellules proches d'un point."""
+    resultat = {}
+    for cid, cellule in carte.items():
+        polygones = cellule["geometry"]["coordinates"]
+        points = [p for polygone in (polygones if cellule["geometry"]["type"] == "MultiPolygon" else [polygones])
+                  for anneau in polygone for p in anneau]
+        xs, ys = [p[0] for p in points], [p[1] for p in points]
+        resultat[cid] = (min(xs), min(ys), max(xs), max(ys))
+    return resultat
 
 
-def test_le_juge_voit_une_ville_hors_de_sa_cellule(epreuve):
-    chefs = copy.deepcopy(epreuve.chefs)
-    ailleurs = epreuve.contexte.carte[epreuve.partagee]["centroid"]
-    _ligne(chefs, epreuve.libre).update(lat=ailleurs["lat"], lon=ailleurs["lon"])
-    assert _de(juger(epreuve.contexte, epreuve.bourgs, chefs), POLYGONE)
-    a, b = sorted(epreuve.sures)[:2]
-    assert _de(juger(epreuve.contexte, {**epreuve.bourgs, a: epreuve.bourgs[b], b: epreuve.bourgs[a]}, epreuve.chefs), POLYGONE)
+def cellules_du_point(carte, boites, x, y):
+    """Les cellules dont le polygone contient le point (plusieurs sur un bord)."""
+    return {cid for cid, (x0, y0, x1, y1) in boites.items()
+            if x0 <= x <= x1 and y0 <= y <= y1 and point_dans_geometrie(x, y, carte[cid]["geometry"])}
 
 
-def test_le_juge_voit_un_nom_de_liste_sans_raison(epreuve):
-    plausible = min(epreuve.contexte.noms_des_listes)
-    chefs = {**epreuve.chefs, "chefs_lieux": [l for l in epreuve.chefs["chefs_lieux"] if l["cell_id"] != epreuve.libre]}
-    assert _de(juger(epreuve.contexte, {**epreuve.bourgs, epreuve.libre: plausible}, chefs), SOURCE)
-    assert _de(juger(epreuve.contexte, {**epreuve.bourgs, epreuve.libre: "Nom inventé"}, chefs), SOURCE)
-    declare = {**chefs, "sans_ville": [{"cell_id": epreuve.libre, "raison": "erg sans ville nommée par l'histoire"}]}
-    assert juger(epreuve.contexte, {**epreuve.bourgs, epreuve.libre: plausible}, declare) == []
+def cellules_de_la_ligne(carte, boites, pas, ligne):
+    """Les cellules que la ligne traverse, échantillonnée plus finement que la plus petite cellule."""
+    cellules = set()
+    for (x1, y1), (x2, y2) in zip(ligne, ligne[1:]):
+        n = max(1, math.ceil(math.hypot(x2 - x1, y2 - y1) / (pas / ECHANTILLONS_PAR_PAS)))
+        for i in range(n + 1):
+            cellules |= cellules_du_point(carte, boites, x1 + (x2 - x1) * i / n, y1 + (y2 - y1) * i / n)
+    return cellules
 
 
-def test_le_juge_voit_une_raison_vide(epreuve):
-    plausible = min(epreuve.contexte.noms_des_listes)
-    chefs = {**epreuve.chefs, "chefs_lieux": [l for l in epreuve.chefs["chefs_lieux"] if l["cell_id"] != epreuve.libre]}
-    bourgs = {**epreuve.bourgs, epreuve.libre: plausible}
-    for raison in ("", "  ", None):
-        assert _de(juger(epreuve.contexte, bourgs, {**chefs, "sans_ville": [{"cell_id": epreuve.libre, "raison": raison}]}), DECLAREE)
-    sure = min(epreuve.sures)
-    sans = {**chefs, "sans_ville": [{"cell_id": sure, "raison": "aucune ville"}]}
-    assert _de(juger(epreuve.contexte, {**bourgs, sure: plausible}, sans), DECLAREE)
+def lignes_xy(entree):
+    return [[(p["x_m"], p["y_m"]) for p in ligne] for ligne in entree["lignes"]]
 
 
-def test_le_juge_voit_un_chef_lieu_hors_des_villes_des_frontieres(epreuve):
-    c = epreuve.contexte
-    etrangere = next(v for v in c.des_frontieres[epreuve.partagee] if v[3] != c.pays_du_bourg[epreuve.partagee])
-    chefs = copy.deepcopy(epreuve.chefs)
-    _ligne(chefs, epreuve.partagee).update(nom=etrangere[0], lat=etrangere[1], lon=etrangere[2])
-    assert _de(juger(c, {**epreuve.bourgs, epreuve.partagee: etrangere[0]}, chefs), FRONTIERES)
-    centre = c.carte[epreuve.partagee]["centroid"]
-    _ligne(chefs, epreuve.partagee).update(nom="Ville d'ailleurs", lat=centre["lat"], lon=centre["lon"])
-    assert _de(juger(c, {**epreuve.bourgs, epreuve.partagee: "Ville d'ailleurs"}, chefs), FRONTIERES)
-    chefs = copy.deepcopy(epreuve.chefs)
-    _ligne(chefs, epreuve.partagee)["lat"] += 0.01
-    assert _de(juger(c, epreuve.bourgs, chefs), FRONTIERES)
+def positions_connues():
+    """Villes de 1400 et ancres des puissances : les positions sourcées des témoins."""
+    positions = {a.nom: projeter_epsg3035(a.lat, a.lon) for a in charger_table().ancres}
+    positions.update({v.nom: (v.x_m, v.y_m) for v in charger_villes()})
+    return positions
 
 
-# --- Le fichier des chefs-lieux et la règle du bourg ---------------------------------------------
-
-def _document():
-    return json.loads(CHEMIN_CHEFS_LIEUX.read_text(encoding="utf-8"))
-
-
-def _gater(document, defaut):
-    ligne, autre, sans = document["chefs_lieux"][0], document["chefs_lieux"][1], document["sans_ville"][0]
-    if defaut == "clé en trop": document["auteur"] = "x"
-    elif defaut == "clé absente": del document["fidelite"]
-    elif defaut == "date": document["date"] = "1401-01-01"
-    elif defaut == "fidélité vide": document["fidelite"] = "  "
-    elif defaut == "cellule en texte": ligne["cell_id"] = str(ligne["cell_id"])
-    elif defaut == "cellule booléenne": ligne["cell_id"] = True
-    elif defaut == "cellule deux fois": autre["cell_id"] = ligne["cell_id"]
-    elif defaut == "nommée et sans ville": sans["cell_id"] = ligne["cell_id"]
-    elif defaut == "nom deux fois": autre["nom"] = ligne["nom"].upper()
-    elif defaut == "nom vide": ligne["nom"] = ""
-    elif defaut == "source sans URL": ligne["source"] = "Wikipédia, article sans lien"
-    elif defaut == "latitude hors bornes": ligne["lat"] = 91
-    elif defaut == "longitude non finie": ligne["lon"] = float("nan")
-    elif defaut == "champ en trop": ligne["population"] = 1000
-    elif defaut == "raison vide": sans["raison"] = ""
-    return document
+def sieges_manquants(registre, document, villes):
+    """Les maisons placées dont le nom du siège n'est servi ni par la table des villes ni par l'atlas."""
+    servis = {s["nom"] for s in document["sieges"]} | {v.nom for v in villes}
+    return sorted(m.siege for m in registre if m.cell_id is not None and m.siege not in servis)
 
 
-DEFAUTS = ("clé en trop", "clé absente", "date", "fidélité vide", "cellule en texte", "cellule booléenne", "cellule deux fois",
-           "nommée et sans ville", "nom deux fois", "nom vide", "source sans URL", "latitude hors bornes",
-           "longitude non finie", "champ en trop", "raison vide")
+def noms_du_document(document):
+    return ([f["nom"] for f in document["fleuves"]] + [m["nom"] for m in document["mers"]]
+            + [r["nom"] for r in document["regions"]] + [s["nom"] for s in document["sieges"]])
 
 
-@pytest.mark.parametrize("defaut", DEFAUTS)
-def test_le_fichier_des_chefs_lieux_refuse_chaque_defaut(tmp_path, defaut):
-    from sim.noms import charger_chefs_lieux
-    chemin = tmp_path / "chefs.json"
-    chemin.write_text(json.dumps(_document(), ensure_ascii=False), encoding="utf-8")
-    assert charger_chefs_lieux(chemin).lignes, "le fichier livré, recopié, doit se lire"
-    gate = tmp_path / "gate.json"
-    gate.write_text(json.dumps(_gater(_document(), defaut), ensure_ascii=False), encoding="utf-8")
-    with pytest.raises(ValueError, match="chefs-lieux"):
-        charger_chefs_lieux(gate)
+def fichier_altere(tmp_path, modifier):
+    """Écrit une copie du fichier de l'atlas que `modifier` a changée ; rend son chemin."""
+    brut = json.loads(_FICHIER.read_text(encoding="utf-8"))
+    modifier(brut)
+    chemin = tmp_path / "atlas.json"
+    chemin.write_text(json.dumps(brut, ensure_ascii=False), encoding="utf-8")
+    return chemin
 
 
-def test_le_fichier_des_chefs_lieux_se_lit_une_fois_et_ne_change_pas():
-    from sim.noms import charger_chefs_lieux
-    chefs = charger_chefs_lieux()
-    assert charger_chefs_lieux() is chefs is charger_chefs_lieux(CHEMIN_CHEFS_LIEUX)
-    cid = next(iter(chefs.lignes))
-    with pytest.raises(TypeError):
-        chefs.lignes[cid] = None
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        chefs.lignes[cid].nom = "Autre"
+def trouver(liste, nom):
+    return next(entree for entree in liste if entree["nom"] == nom)
 
 
-def test_le_bourg_suit_le_siege_puis_la_ville_puis_le_chef_lieu(livre):
-    from sim.frontieres import maison_du_bourg
-    from sim.noms import bourgs_historiques
-    monde, attribution = livre.monde, livre.monde.attribution_villes
-    bourgs = bourgs_historiques(monde, attribution)
-    registre = {m.id: m for m in monde.maisons}
-    sieges = {cid: registre[m].siege for cid in monde.cells if (m := maison_du_bourg(monde, cid)) is not None}
-    villes = collections.defaultdict(list)
-    for v in sorted(attribution.entrees, key=lambda v: (-v.population, v.nom)):
-        if attribution.placees.get(v.nom) is not None:
-            villes[attribution.placees[v.nom]].append(v.nom)
-    assert sieges and all(bourgs[cid] == nom for cid, nom in sieges.items())
-    # Une ville que le siège d'une autre terre nomme déjà ne nomme pas la sienne (Tolède, à cheval sur deux terres).
-    prises = [cid for cid, noms in villes.items() if cid not in sieges and noms[0] in sieges.values()]
-    assert prises and all(bourgs[cid] != villes[cid][0] for cid in prises)
-    # Un siège passe devant la plus grande ville de sa terre (Eisenach devant Erfurt).
-    devant = [cid for cid in sieges if villes.get(cid) and villes[cid][0] != sieges[cid]]
-    assert devant and all(bourgs[cid] == sieges[cid] for cid in devant)
-    chefs = livre.chefs
-    assert all(bourgs[l["cell_id"]] == l["nom"] for l in chefs["chefs_lieux"])
-    assert not set(bourgs) & {l["cell_id"] for l in chefs["sans_ville"]}
-    assert set(bourgs) | {l["cell_id"] for l in chefs["sans_ville"]} == set(monde.cells)
+# --- Ce que la fiche promet de nommer ---
+
+def test_l_atlas_nomme_ce_que_la_fiche_promet(atlas, document):
+    assert {f.nom for f in atlas.fleuves} >= set(FLEUVES_PROMIS)
+    assert {m.nom for m in atlas.mers} >= set(MERS_PROMISES)
+    assert {r.nom for r in atlas.regions} >= set(REGIONS_PROMISES)
+    assert {s["nom"] for s in document["sieges"]} >= set(SIEGES_PROMIS)
+    for entree in document["fleuves"]:
+        assert entree["lignes"] and all(len(ligne) >= 2 for ligne in entree["lignes"]), entree["nom"]
 
 
-def test_la_regle_du_bourg_refuse_chaque_ligne_fausse(livre):
-    from sim.noms import ChefLieu, ChefsLieux, bourgs_historiques, charger_chefs_lieux
-    monde, attribution, chefs = livre.monde, livre.monde.attribution_villes, charger_chefs_lieux()
-    def avec(lignes=None, sans_ville=None):
-        return ChefsLieux(types.MappingProxyType(dict(chefs.lignes) if lignes is None else lignes),
-                          types.MappingProxyType(dict(chefs.sans_ville) if sans_ville is None else sans_ville))
-    cid, ligne = next(iter(chefs.lignes.items()))
-    loin = monde.carte[next(c for c in sorted(chefs.lignes) if c != cid)]["centroid"]
-    deplacee = {**chefs.lignes, cid: dataclasses.replace(ligne, lat=loin["lat"], lon=loin["lon"])}
-    with pytest.raises(ValueError, match=f"cellule {cid} : .* hors du polygone"):
-        bourgs_historiques(monde, attribution, avec(lignes=deplacee))
-    nommee = next(c for c in sorted(monde.cells) if c not in chefs.lignes and c not in chefs.sans_ville)
-    with pytest.raises(ValueError, match=f"cellule {nommee} : déjà nommée"):
-        bourgs_historiques(monde, attribution, avec(lignes={**chefs.lignes, nommee: ligne}))
-    with pytest.raises(ValueError, match=f"cellule {nommee} : déjà nommée"):
-        bourgs_historiques(monde, attribution, avec(sans_ville={**chefs.sans_ville, nommee: "aucune ville"}))
-    oubliee = {c: l for c, l in chefs.lignes.items() if c != cid}
-    with pytest.raises(ValueError, match=f"cellule {cid} : ni nommée ni déclarée"):
-        bourgs_historiques(monde, attribution, avec(lignes=oubliee))
-    # Un monde d'épreuve qui n'a qu'une part des terres laisse de côté les lignes des autres.
-    part = copy.copy(monde)
-    part.cells = {c: monde.cells[c] for c in sorted(monde.cells)[:40]}
-    assert bourgs_historiques(part, attribution) == {c: n for c, n in bourgs_historiques(monde, attribution).items() if c in part.cells}
-    assert bourgs_historiques(part, attribution, avec(lignes={**chefs.lignes, 10 ** 9: ligne}))
+def test_aucun_nom_en_double(document):
+    noms = [nom.casefold() for nom in noms_du_document(document)]
+    assert len(noms) > len(FLEUVES_PROMIS) + len(MERS_PROMISES) + len(REGIONS_PROMISES)
+    doubles = sorted({nom for nom in noms if noms.count(nom) > 1})
+    assert not doubles, f"noms servis plusieurs fois : {doubles}"
 
 
-def test_une_terre_sans_ville_porte_un_nom_plausible_que_nulle_autre_ne_porte(livre):
-    from sim.noms import charger_chefs_lieux, _parcours
-    from sim.puissances import puissances_depuis_monde
-    from sim.noms import aire_de_cellule
-    chefs, listes, table = charger_chefs_lieux(), charger_noms(), charger_table()
-    vue = puissances_depuis_monde(livre.monde, table=table)
-    assert chefs.sans_ville
-    for cid in chefs.sans_ville:
-        aire = aire_de_cellule(cid, livre.monde.carte[cid], vue[cid], table, listes)
-        parcours = _parcours(listes["aires"][aire]["lieux"], cid)
-        assert livre.bourgs[cid] in parcours
-        autres = {n.casefold() for c, n in livre.bourgs.items() if c != cid}
-        # Le premier nom libre du parcours, dans l'ordre des cellules : les terres déclarées avant lui l'ont pu prendre.
-        avant = parcours[:parcours.index(livre.bourgs[cid])]
-        assert all(n.casefold() in autres for n in avant)
+def test_chaque_ligne_de_donnee_cite_sa_source(atlas):
+    lignes = [p for f in atlas.fleuves for ligne in f.lignes for p in ligne] + list(atlas.mers) + list(atlas.regions)
+    assert lignes
+    sans = [p.nom for p in lignes if not p.source.strip()]
+    assert not sans, f"sans source : {sans}"
+
+
+# --- Les fleuves ---
+
+def test_chaque_fleuve_part_de_la_terre_et_finit_a_moins_d_un_pas_de_la_cote(carte, boites, document):
+    pas = pas_de_la_carte(carte)
+    assert pas > 0
+    assert document["fleuves"]
+    for entree in document["fleuves"]:
+        for ligne in lignes_xy(entree):
+            assert cellules_du_point(carte, boites, *ligne[0]), f"{entree['nom']} ne part pas de la terre"
+            x, y = ligne[-1]
+            en_mer = not cellules_du_point(carte, boites, x, y)
+            # Une mer à moins d'un pas : un point de sonde de la couronne d'un pas est hors de toute cellule.
+            if not en_mer:
+                couronne = [(x + pas * math.cos(a * math.pi / 8), y + pas * math.sin(a * math.pi / 8)) for a in range(16)]
+                en_mer = any(not cellules_du_point(carte, boites, px, py) for px, py in couronne)
+            assert en_mer, f"{entree['nom']} finit à plus d'un pas de la côte"
+
+
+def test_chaque_fleuve_passe_par_ses_villes_temoins(carte, boites, document):
+    pas = pas_de_la_carte(carte)
+    positions = positions_connues()
+    assert {f["nom"] for f in document["fleuves"]} <= set(TEMOINS), "un fleuve sans ville témoin"
+    verifies = 0
+    for nom, temoins in TEMOINS.items():
+        traversees = set()
+        for ligne in lignes_xy(trouver(document["fleuves"], nom)):
+            traversees |= cellules_de_la_ligne(carte, boites, pas, ligne)
+        for temoin in temoins:
+            assert temoin in positions, f"{temoin} : aucune position sourcée"
+            cellules = cellules_du_point(carte, boites, *positions[temoin])
+            assert cellules, f"{temoin} hors carte"
+            assert cellules & traversees, f"{nom} ne passe pas par la cellule de {temoin}"
+            verifies += 1
+    assert verifies >= len(TEMOINS)
+
+
+def test_le_nil_garde_le_trace_de_son_fichier(document):
+    points = {p.id: projeter_epsg3035(p.lat, p.lon) for p in charger_points()}
+    servis = {(round(x), round(y)) for ligne in lignes_xy(trouver(document["fleuves"], "Nil")) for x, y in ligne}
+    attendus = {(round(x), round(y)) for x, y in points.values()}
+    assert servis == attendus, "le Nil servi n'est pas celui de nil-cours-1400.json"
+
+
+# --- Les mers et les régions ---
+
+def test_le_point_de_chaque_mer_est_hors_de_toute_terre(carte, boites, document):
+    assert document["mers"]
+    for mer in document["mers"]:
+        assert not cellules_du_point(carte, boites, mer["x_m"], mer["y_m"]), f"{mer['nom']} est sur la terre"
+
+
+def test_le_point_de_chaque_mer_est_dans_le_cadre_de_la_carte(boites, document):
+    x0, y0 = min(b[0] for b in boites.values()), min(b[1] for b in boites.values())
+    x1, y1 = max(b[2] for b in boites.values()), max(b[3] for b in boites.values())
+    assert document["mers"]
+    for mer in document["mers"]:
+        assert x0 <= mer["x_m"] <= x1 and y0 <= mer["y_m"] <= y1, f"{mer['nom']} est hors du cadre de la carte"
+
+
+def test_le_point_de_chaque_region_est_dans_une_cellule(carte, boites, document):
+    assert document["regions"]
+    for region in document["regions"]:
+        assert cellules_du_point(carte, boites, region["x_m"], region["y_m"]), f"{region['nom']} est en mer"
+
+
+# --- Les sièges ---
+
+def test_le_siege_de_chaque_maison_placee_a_un_nom_servi(monde, document):
+    registre = charger_registre_maisons(monde.carte)
+    assert [m for m in registre if m.cell_id is not None]
+    assert sieges_manquants(registre, document, charger_villes()) == []
+
+
+def test_un_siege_servi_n_est_pas_une_ville_de_la_table_et_reste_dans_sa_cellule(monde, document, carte, boites):
+    villes = {v.nom for v in charger_villes()}
+    registre = {m.siege: m for m in charger_registre_maisons(monde.carte) if m.cell_id is not None}
+    assert document["sieges"]
+    for siege in document["sieges"]:
+        assert siege["nom"] not in villes, f"{siege['nom']} est déjà une ville de la table"
+        maison = registre[siege["nom"]]
+        assert siege["maison"] == maison.id
+        assert maison.cell_id in cellules_du_point(carte, boites, siege["x_m"], siege["y_m"]), siege["nom"]
+
+
+def test_les_sieges_servis_sont_ceux_du_registre_sans_siege_synthetique(monde, document):
+    registre = charger_registre_maisons(monde.carte)
+    assert not [s for s in document["sieges"] if s["nom"].startswith("plausible")]
+    assert {s["maison"] for s in document["sieges"]} <= {m.id for m in registre}
+    assert set(sieges_des_maisons()) >= {s["maison"] for s in document["sieges"]}
+
+
+def test_un_siege_retire_du_document_rougit(monde, document):
+    registre = charger_registre_maisons(monde.carte)
+    sans_biskra = copy.deepcopy(document)
+    sans_biskra["sieges"] = [s for s in sans_biskra["sieges"] if s["nom"] != "Biskra"]
+    assert sieges_manquants(registre, sans_biskra, charger_villes()) == ["Biskra"]
+
+
+# --- L'échantillon vide échoue, et les données altérées rougissent ---
+
+def test_un_atlas_vide_est_refuse(carte):
+    with pytest.raises(AtlasInvalide):
+        verifier_la_place(Atlas(fleuves=(), mers=(), regions=()), carte)
+
+
+def test_une_carte_vide_est_refusee(atlas):
+    with pytest.raises(AtlasInvalide):
+        verifier_la_place(atlas, {})
+
+
+@pytest.mark.parametrize("clef", ["fleuves", "mers", "regions"])
+def test_une_liste_vide_est_refusee(tmp_path, clef):
+    chemin = fichier_altere(tmp_path, lambda brut: brut.__setitem__(clef, []))
+    with pytest.raises(AtlasInvalide, match=clef):
+        charger_atlas(chemin)
+
+
+def _fleuve_finit_dans_les_terres(brut):
+    trouver(brut["fleuves"], "Loire")["points"][-1].update(lat=47.9025, lon=1.909)
+
+
+def _fleuve_ne_part_pas_de_la_terre(brut):
+    trouver(brut["fleuves"], "Loire")["points"][0].update(lat=45.5, lon=-4.4)
+
+
+def _mer_sur_la_terre(brut):
+    trouver(brut["mers"], "Méditerranée").update(lat=41.9, lon=12.5)
+
+
+def _mer_hors_du_cadre(brut):
+    trouver(brut["mers"], "Atlantique").update(lat=0.0, lon=-25.0)
+
+
+def _region_en_mer(brut):
+    trouver(brut["regions"], "Aquitaine").update(lat=45.5, lon=-4.4)
+
+
+@pytest.mark.parametrize("modifier, attendu", [
+    (_fleuve_finit_dans_les_terres, "Loire"),
+    (_fleuve_ne_part_pas_de_la_terre, "Loire"),
+    (_mer_sur_la_terre, "Méditerranée"),
+    (_mer_hors_du_cadre, "Atlantique"),
+    (_region_en_mer, "Aquitaine"),
+])
+def test_une_place_fausse_est_refusee_et_nommee(tmp_path, carte, modifier, attendu):
+    altere = charger_atlas(fichier_altere(tmp_path, modifier))
+    with pytest.raises(AtlasInvalide, match=attendu):
+        verifier_la_place(altere, carte)
+
+
+def _doublon_de_nom(brut):
+    brut["mers"][1]["nom"] = brut["mers"][0]["nom"]
+
+
+def _doublon_entre_listes(brut):
+    brut["regions"][0]["nom"] = brut["fleuves"][0]["nom"].upper()
+
+
+def _source_absente(brut):
+    del brut["mers"][0]["source"]
+
+
+def _source_de_point_vide(brut):
+    trouver(brut["fleuves"], "Seine")["points"][2]["source"] = "  "
+
+
+def _nom_vide(brut):
+    brut["regions"][0]["nom"] = ""
+
+
+def _fleuve_a_un_point(brut):
+    trouver(brut["fleuves"], "Seine")["points"] = trouver(brut["fleuves"], "Seine")["points"][:1]
+
+
+def _latitude_impossible(brut):
+    brut["regions"][0]["lat"] = 123.0
+
+
+def _coordonnee_non_finie(brut):
+    brut["mers"][0]["lon"] = float("nan")
+
+
+def _nil_sans_bras(brut):
+    del trouver(brut["fleuves"], "Nil")["bras"]
+
+
+def _nil_point_inconnu(brut):
+    trouver(brut["fleuves"], "Nil")["bras"][0]["points"][1] = 9999
+
+
+def _nil_autre_fichier(brut):
+    trouver(brut["fleuves"], "Nil")["trace_dans"] = "autre-cours.json"
+
+
+def _projection_etrangere(brut):
+    brut["projection"] = "EPSG:4326"
+
+
+@pytest.mark.parametrize("modifier, attendu", [
+    (_doublon_de_nom, "double"),
+    (_doublon_entre_listes, "double"),
+    (_source_absente, "source"),
+    (_source_de_point_vide, "source"),
+    (_nom_vide, "nom"),
+    (_fleuve_a_un_point, "Seine"),
+    (_latitude_impossible, "lat"),
+    (_coordonnee_non_finie, "lon"),
+    (_nil_sans_bras, "Nil"),
+    (_nil_point_inconnu, "Nil"),
+    (_nil_autre_fichier, "Nil"),
+    (_projection_etrangere, "projection"),
+])
+def test_une_donnee_alteree_est_refusee_et_nommee(tmp_path, modifier, attendu):
+    with pytest.raises(AtlasInvalide, match=attendu):
+        charger_atlas(fichier_altere(tmp_path, modifier))
+
+
+def test_le_document_est_le_meme_a_chaque_appel(monde, atlas, document):
+    assert document_de_l_atlas(monde, atlas) == document
+    assert json.loads(json.dumps(document)) == document
+
+
+# --- Le service : GET /atlas ---
+
+@contextmanager
+def _service_local():
+    """Un service de graine 0, dont l'horloge ne joue pas seule."""
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    fil = threading.Thread(target=serveur.serve_forever)
+    fil.start()
+    try:
+        yield serveur, serveur.server_address[1]
+    finally:
+        serveur.shutdown()
+        serveur.server_close()
+        fil.join()
+
+
+def test_la_route_sert_ce_que_le_module_calcule(monde, document):
+    attendu = _serialiser(document_de_l_atlas(monde))
+    with _service_local() as (_, port):
+        statut, servi, octets = requete_service(port, "/atlas")
+        _, carte_servie, _ = requete_service(port, "/carte")
+    assert statut == HTTPStatus.OK
+    assert octets == attendu and len(attendu) > 0
+    assert set(servi) == {"crs", "version", "fleuves", "mers", "regions", "sieges"}
+    assert servi["crs"] == "EPSG:3035"
+    assert servi["version"] == carte_servie["version"] == monde.carte_meta["version"]
+    assert servi == document
+    # Contre-épreuve : un octet de plus ne passe pas.
+    with pytest.raises(AssertionError):
+        assert octets + b" " == attendu
+
+
+def test_la_route_calcule_une_fois_et_garde_ses_octets(monkeypatch):
+    import sim.service as service
+
+    appels = []
+    vraie = service.document_de_l_atlas
+
+    def compter(*args, **kwargs):
+        appels.append(1)
+        return vraie(*args, **kwargs)
+
+    monkeypatch.setattr(service, "document_de_l_atlas", compter)
+    with _service_local() as (serveur, port):
+        assert not appels
+        with ThreadPoolExecutor(max_workers=4) as lecteurs:
+            reponses = list(lecteurs.map(lambda _: requete_service(port, "/atlas"), range(4)))
+        assert len(appels) == 1
+        assert {statut for statut, _, _ in reponses} == {HTTPStatus.OK}
+        premiers = reponses[0][2]
+        assert premiers and all(octets == premiers for _, _, octets in reponses)
+        requete_service(port, "/tick?n=1", "POST")
+        # Une prise de bourg : le maître d'un lieu devient celui d'une autre maison.
+        with serveur.verrou_tick:
+            cid = next(c for c in sorted(serveur.world.cells) if serveur.world.cells[c].lieux)
+            lieu = serveur.world.cells[cid].lieux[0]
+            lieu.maitre = next(m for m in sorted({l.maitre for c in serveur.world.cells.values()
+                                                  for l in c.lieux if l.maitre}) if m != lieu.maitre)
+        requete_service(port, "/tick?n=1", "POST")
+        statut, _, apres = requete_service(port, "/atlas")
+        assert statut == HTTPStatus.OK
+        assert apres == premiers
+        assert len(appels) == 1
+
+
+def test_le_tick_ne_calcule_aucun_atlas(monkeypatch):
+    import sim.service as service
+
+    def sonde(*args, **kwargs):
+        raise AssertionError("le tick a calculé l'atlas")
+
+    monkeypatch.setattr(service, "document_de_l_atlas", sonde)
+    serveur = ServeurMonde(("127.0.0.1", 0), 0, 0)
+    try:
+        serveur.jouer_un_tick()
+        serveur.jouer_un_tick()
+        assert serveur._atlas_figee is None
+    finally:
+        serveur.server_close()
+
+
+@pytest.mark.parametrize("erreur", [AtlasInvalide, ValueError, OSError])
+def test_une_erreur_de_calcul_rend_500_sans_arreter_le_service(monkeypatch, monde, erreur):
+    import sim.service as service
+
+    with _service_local() as (_, port):
+        with monkeypatch.context() as patch:
+            def refuser(*args, **kwargs):
+                raise erreur("donnée absente")
+
+            patch.setattr(service, "document_de_l_atlas", refuser)
+            statut, document, _ = requete_service(port, "/atlas")
+            assert statut == HTTPStatus.INTERNAL_SERVER_ERROR
+            assert document == {"erreur": "donnée absente"}
+            assert requete_service(port, "/monde")[0] == HTTPStatus.OK
+        statut, _, octets = requete_service(port, "/atlas")
+        assert statut == HTTPStatus.OK
+        assert octets == _serialiser(document_de_l_atlas(monde))
+
+
+# --- La règle écrite ---
+
+def test_documentation_des_noms_de_l_atlas(document):
+    texte = (pathlib.Path(__file__).parents[1] / "MODELE.md").read_text(encoding="utf-8")
+    section = texte.split("## Les noms de l'atlas, vue dérivée\n", 1)[1].split("\n## ", 1)[0]
+    for attendu in ("GET /atlas", "atlas-1400.json", "nil-cours-1400.json", "`trace_dans`", "Niveau 1",
+                    "Niveau 2", "Niveau 3", "AtlasInvalide", "verrou propre", "Le tick ne lit jamais cette vue",
+                    "charger_registre_maisons", "villes-1400.json", "`POINTS_MIN_FLEUVE`", "`DIRECTIONS_DE_SONDE`",
+                    "`ANNEAUX_DE_SONDE`"):
+        assert attendu in section, f"{attendu!r} absent de « Les noms de l'atlas »"
+    # Les nombres que la section annonce sont ceux du document servi.
+    assert f"{len(document['mers'])} mers" in section
+    assert f"{len(document['regions'])} régions" in section
+    assert f"{len(document['sieges'])} sièges" in section
+    assert f"nomme onze" in section and len(document["fleuves"]) == 12
+    for renvoi in ("La carte et les terres servies, vue dérivée", "La forme des lieux, vue dérivée"):
+        autre = texte.split(f"## {renvoi}\n", 1)[1].split("\n## ", 1)[0]
+        assert "« Les noms de l'atlas, vue dérivée »" in autre.replace("\n", " "), f"{renvoi} ne renvoie pas à l'atlas"
+
+
+def test_seul_le_service_lit_l_atlas():
+    """Le tick, le monde et l'IA ne lisent aucun nom de l'atlas : seul le service importe `sim.atlas`."""
+    import ast
+
+    def importe_atlas(source):
+        for noeud in ast.walk(ast.parse(source)):
+            if isinstance(noeud, ast.Import) and any(a.name == "sim.atlas" for a in noeud.names):
+                return True
+            if isinstance(noeud, ast.ImportFrom) and noeud.module == "sim.atlas":
+                return True
+        return False
+
+    sim = pathlib.Path(__file__).parents[1]
+    modules = [c for c in sim.rglob("*.py") if "tests" not in c.relative_to(sim).parts and c.name != "atlas.py"]
+    assert len(modules) > 1
+    assert {c.name for c in modules if importe_atlas(c.read_text(encoding="utf-8"))} == {"service.py"}
+    # Contre-épreuve : un import de l'atlas par un autre module est vu.
+    assert importe_atlas("from sim.atlas import charger_atlas")
+    assert importe_atlas("import sim.atlas")
