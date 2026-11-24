@@ -326,7 +326,7 @@ def _verifier_direction(populations):
 
 
 def test_calibration_de_la_part_coutumiere(monkeypatch):
-    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
+    monkeypatch.setattr(c, 'taux_annuel_de_depart', lambda: 0)
     part = c.PART_COUTUMIERE
     dessus = round(part + 0.01, 2)
     parts = (0, part, dessus, 0.10)
@@ -363,7 +363,7 @@ def _verifier_modele_calibration(section, habitants):
 @pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
 def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
     monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
-    monkeypatch.setattr(c, 'TAUX_DE_DEPART', 0)
+    monkeypatch.setattr(c, 'taux_annuel_de_depart', lambda: 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
@@ -529,7 +529,7 @@ def test_modele_du_au_suzerain_et_tick_sans_registre():
 import inspect
 from collections import Counter, defaultdict
 from sim import departs
-from sim.model import lire_habitants_par_metier
+from sim.model import ecrire_report_de_depart, lire_habitants_par_metier, lire_report_de_depart
 
 
 _DEPARTS_REELS = departs.appliquer_departs
@@ -577,14 +577,15 @@ def _observer_mouvements(monde, etape, capturer=None):
 
 
 def _photo_departs(monde):
-    """Figer tous les champs de l'étape, sauf populations et métiers."""
+    """Figer tous les champs de l'étape, sauf populations, métiers et reports de départ."""
     populations = {(cid, l.rang): l.population
                    for cid, cell in monde.cells.items() for l in cell.lieux}
     cellules = {cid: cell.population for cid, cell in monde.cells.items()}
     immobiles = [
         ({n: v for n, v in vars(cell).items()
           if n not in {'population', 'habitants_par_metier', 'lieux'}},
-         [{n: v for n, v in vars(l).items() if n != 'population'} for l in cell.lieux])
+         [{n: v for n, v in vars(l).items() if n not in {'population', 'depart_remainder'}}
+          for l in cell.lieux])
         for cell in monde.cells.values()]
     immobiles.extend(getattr(monde, nom) for nom in
                      ('stocks_mer', 'greniers', 'convois', 'mange_convois_kg', 'pertes_kg'))
@@ -662,7 +663,7 @@ def _reference_departs():
 
 @cache
 def _annee_departs(part, toutes=False):
-    assert c.TAUX_DE_DEPART > 0
+    assert c.taux_annuel_de_depart() > 0
     return _course_departs(part, toutes=toutes)
 
 
@@ -675,7 +676,11 @@ def _verifier_direction_departs(faible, forte):
 
 
 def _departs_aveugles(world):
-    """Contre-épreuve : taux constant et destination géographique fixe."""
+    """Contre-épreuve : taux constant et destination géographique fixe.
+
+    Le taux est le plafond annuel ramené au jour, sans regarder la réserve ; chaque lieu tient
+    son report d'un jour à l'autre, faute de quoi la fraction de foyer ne partirait jamais."""
+    part = c.plafond_annuel_de_depart() / (c.CALENDAR_DAYS_PER_YEAR / c.TICK_DURATION_DAYS)
     voisins = defaultdict(list)
     for edge in world.adjacency:
         for a, b in ((edge['a'], edge['b']), (edge['b'], edge['a'])):
@@ -689,7 +694,12 @@ def _departs_aveugles(world):
         if not candidats:
             continue
         destination = min(candidats)
-        partants = int(population * c.TAUX_DE_DEPART / c.TAILLE_FOYER) * c.TAILLE_FOYER
+        lieu = world.cells[cle[0]].lieux[cle[1]]
+        brut = lire_report_de_depart(lieu) + population * part
+        partants = int(brut / c.TAILLE_FOYER) * c.TAILLE_FOYER
+        ecrire_report_de_depart(lieu, brut - partants)
+        if partants <= 0:
+            continue
         deltas[cle] -= partants
         deltas[destination] += partants
         cellules[cle[0]] -= partants
@@ -716,7 +726,8 @@ def test_departs_direction_et_contre_epreuves():
     with pytest.raises(AssertionError):
         _verifier_direction_departs(*aveugles)
     print('Rouges : vide, inversion, égalité, étape inerte et taux aveugle refusés.')
-    assert faible['croises'] + forte['croises'] > 0
+    # Au rythme de l'année, un lieu qui envoie et reçoit le même jour est rare dans ces deux années :
+    # la photo qui le permet est prouvée par `test_commerce.py::test_departs_photo_arrivee_et_sortie`.
     _verifier_direction_departs(faible, forte)
 
 
@@ -747,13 +758,21 @@ def test_departs_identite_et_conservation():
     # Injecter une dépendance au maître dans la même boucle pour éprouver l'égalité.
     arbre = ast.parse(inspect.getsource(_DEPARTS_REELS))
     boucle = next(n for n in ast.walk(arbre) if isinstance(n, ast.For)
-                  and isinstance(n.target, ast.Tuple) and ast.unparse(n.target).startswith('(cle,'))
-    garde = ast.parse("if world.routes_des_lieux[cle].maitre == BAR: continue").body[0]
-    ast.copy_location(garde, boucle.body[0])
-    boucle.body.insert(0, garde)
+                  and ast.unparse(n.target) == 'entree')
+    pose = next(i for i, n in enumerate(boucle.body) if ast.unparse(n) == 'cle = (cid, rang)')
+    garde = ast.parse("if world.routes_des_lieux[cle].maitre == MAITRE_OBSERVE: continue").body[0]
+    ast.copy_location(garde, boucle.body[pose])
+    boucle.body.insert(pose + 1, garde)
     ast.fix_missing_locations(arbre)
     ast.increment_lineno(arbre, inspect.getsourcelines(_DEPARTS_REELS)[1] - 1)
-    espace = dict(_DEPARTS_REELS.__globals__, BAR=BAR)
+    # La photo est prise en cours d'étape, report du lieu déjà écrit : le maître qui garde un
+    # départ à rejouer est celui d'un lieu qui part encore sur la photo, pas forcément BAR.
+    essai = copy.deepcopy(photo)
+    essai.parts = dict.fromkeys(essai.parts, c.PART_COUTUMIERE)
+    mouvements_photo, _ = _observer_mouvements(essai, _DEPARTS_REELS)
+    assert mouvements_photo
+    maitre_observe = essai.routes_des_lieux[mouvements_photo[0][0]].maitre
+    espace = dict(_DEPARTS_REELS.__globals__, MAITRE_OBSERVE=maitre_observe)
     exec(compile(arbre, inspect.getsourcefile(_DEPARTS_REELS), 'exec'), espace)
     espace['appliquer_departs']._arbre_observe = arbre
     with pytest.raises(AssertionError):

@@ -140,7 +140,7 @@ def test_identique_quand_chemins_suffisent(monkeypatch):
 
 
 def test_monde_ressent_la_distribution(monkeypatch):
-    monkeypatch.setattr(constantes, "TAUX_DE_DEPART", 0)
+    monkeypatch.setattr(constantes, "taux_annuel_de_depart", lambda: 0)
     # Un bourg qui manque dans les quatre premiers mois : le décor d'avant la soudure.
     amorcer_comme_avant_la_soudure(monkeypatch)
     capacite = constantes.CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
@@ -975,3 +975,58 @@ def test_sans_route_ne_cherche_pas_de_facteur_par_cellule(monkeypatch):
         totaux.append(len(consultations))
         consultations.clear()
     assert totaux[0] > 0 and totaux[0] == totaux[1]
+
+
+# Le mieux-vivre au rythme de l'année : hors faim, un lieu ne perd au plus que le
+# plafond annuel lu dans `jeu/data/departs.toml`, au prorata des jours joués.
+_JOURS_DU_MIEUX_VIVRE = 120
+
+
+def _releve_hors_faim(monde, ticks):
+    """(cell_id, rang) → (habitants avant, après) des lieux habités au départ qui n'ont jamais eu faim.
+
+    La faim d'un lieu se lit à sa durée de faim ou à sa dette : la migration de famine et
+    la mort par la dette ne prennent que ces lieux-là, qui sortent donc du relevé.
+    """
+    def affames():
+        return {(cid, lieu.rang) for cid, cellule in monde.cells.items() for lieu in cellule.lieux
+                if lieu.duree_faim_ticks > 0 or lieu.dette_alimentaire_kg > 0}
+    avant = {(cid, lieu.rang): lieu.population for cid, cellule in monde.cells.items()
+             for lieu in cellule.lieux if lieu.population > 0}
+    exclus = affames()
+    rng = random.Random(0)
+    for numero in range(ticks):
+        engine.tick(monde, rng, numero)
+        exclus |= affames()
+    apres = {(cid, lieu.rang): lieu.population for cid, cellule in monde.cells.items() for lieu in cellule.lieux}
+    return {cle: (n, apres[cle]) for cle, n in avant.items() if cle not in exclus}
+
+
+def _controler_mieux_vivre(releve, ticks):
+    assert releve, "échantillon vide : aucun lieu habité et nourri"
+    part = (constantes.plafond_annuel_de_depart() * ticks * constantes.TICK_DURATION_DAYS
+            / constantes.CALENDAR_DAYS_PER_YEAR)
+    def borne(avant):
+        return part * avant + constantes.TAILLE_FOYER
+    (cid, rang), (avant, apres) = max(releve.items(), key=lambda e: ((e[1][0] - e[1][1]) / e[1][0], e[0]))
+    trop = sorted(cle for cle, (n, m) in releve.items() if n - m > borne(n))
+    print(f"lieux nourris={len(releve)}, au-delà du plafond={len(trop)}, pire lieu : cellule {cid}, "
+          f"rang {rang}, {avant} → {apres} habitants ({(avant - apres) / avant:.2%}, borne {borne(avant):.0f})")
+    assert not trop, f"{len(trop)} lieux nourris perdent plus que le plafond annuel : {trop[:10]}"
+
+
+def test_mieux_vivre_ne_vide_pas_un_lieu_nourri():
+    monde = World.charger(0)
+    vide = copy.deepcopy(monde)
+    for cellule in vide.cells.values():
+        for lieu in cellule.lieux:
+            lieu.population = 0
+    with pytest.raises(AssertionError, match="échantillon vide"):
+        _controler_mieux_vivre(_releve_hors_faim(vide, 0), _JOURS_DU_MIEUX_VIVRE)
+    releve = _releve_hors_faim(monde, _JOURS_DU_MIEUX_VIVRE)
+    cle = max(releve, key=lambda c: (releve[c][0], c))
+    moitie = dict(releve)
+    moitie[cle] = (releve[cle][0], releve[cle][0] // 2)
+    with pytest.raises(AssertionError, match="perdent plus que le plafond"):
+        _controler_mieux_vivre(moitie, _JOURS_DU_MIEUX_VIVRE)
+    _controler_mieux_vivre(releve, _JOURS_DU_MIEUX_VIVRE)

@@ -154,7 +154,11 @@ def cellule_vers_dict(cell: "Cell") -> dict:
 
 @dataclass
 class EtatDeLieu(_NoBadSpatialField):
-    """Habitants, panier, dette, faim, reports locaux et maître déclaré d'un rang."""
+    """Habitants, panier, dette, faim, reports locaux et maître déclaré d'un rang.
+
+    `depart_remainder` reporte, en personnes, les départs du mieux-vivre pas
+    encore faits faute d'un foyer entier ; il reste dans [0, TAILLE_FOYER).
+    """
 
     rang: int
     population: int
@@ -163,12 +167,23 @@ class EtatDeLieu(_NoBadSpatialField):
     duree_faim_ticks: int = 0
     mortality_remainder: float = 0.0
     natalite_remainder: float = 0.0
+    depart_remainder: float = 0.0
     maitre: str | None = None
 
 
 def ecrire_maitre(etatdelieu: EtatDeLieu, maitre: str | None) -> None:
     """Pose le maître déclaré, sans inventer de maison en cas d'absence."""
     etatdelieu.maitre = maitre
+
+
+def lire_report_de_depart(lieu) -> float:
+    """Personnes du lieu qui attendent un foyer entier pour partir vers le mieux-vivre."""
+    return lieu.depart_remainder
+
+
+def ecrire_report_de_depart(etatdelieu: EtatDeLieu, personnes: float) -> None:
+    """Pose le report des départs du lieu, en personnes."""
+    etatdelieu.depart_remainder = personnes
 
 
 def lire_ouvriers_du_jour(lieu) -> int:
@@ -189,13 +204,15 @@ def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,
                        duree_faim_ticks: int = 0,
                        mortality_remainder: float = 0.0,
                        natalite_remainder: float = 0.0,
+                       depart_remainder: float = 0.0,
                        maitre: str | None = None) -> EtatDeLieu:
     """Crée l'état d'un rang avec son propre panier, sans clé recopiée."""
     etatdelieu = EtatDeLieu(rang=rang, population=population, stocks=dict(stocks),
                           dette_alimentaire_kg=dette_alimentaire_kg,
                           duree_faim_ticks=duree_faim_ticks,
                           mortality_remainder=mortality_remainder,
-                          natalite_remainder=natalite_remainder)
+                          natalite_remainder=natalite_remainder,
+                          depart_remainder=depart_remainder)
     ecrire_maitre(etatdelieu, maitre)
     return etatdelieu
 

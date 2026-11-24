@@ -52,9 +52,15 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # Le nom de chaque terre d'après sa vraie ville de 1400 et le siège des Tocco au château de Saint-Georges
 # (Agios Georgios, et non plus Argostoli) ne changent, au 365e tick, que le siège de leur fiche du registre,
 # et dans la photographie les noms des lieux et des terres, et le point du bourg de Céphalonie.
+# Le mieux-vivre au rythme de l'année change, au 365e tick, les cellules (la population de 383 sur 596, leurs
+# métiers et leurs lieux, chaque lieu portant son report de départ), et par elles 794 greniers sur 2 261, les
+# convois et les cumuls mangé et perdu ; dans la photographie, les cellules seules. Le registre, les maisons et
+# les personnes sont inchangés. La population passe de 37 481 793 à 37 147 031 : dans ce monde sans famine posée
+# et au commerce d'avant, l'ancien taux vidait le bourg de Paris vers ses champs et masquait sa disette ;
+# gardés au bourg, ses gens y meurent de faim (523 habitants au lieu de 131 966 dans la cellule).
 EMPREINTES_365 = {
-    "linux": ("bf240de5d4cd88d5e423b67d84d0013f0c2d369a589625fc6f8b0bdd8418616f",
-              "b0e349b5102e3d5fa84976739b41e1d7f55f9dc6f81e332fd11523d9e1f34be1"),
+    "linux": ("9fdeb4c1f48cdd9d175f76f68bd84c33c4ac0b98a123fac9d92949ce35092056",
+              "3a43f1d14fd86f2f22124af1b42ec5fe8a34157c441950776df1978f0761515e"),
 }
 
 
@@ -356,10 +362,15 @@ def test_departs_d_un_lieu(depart, donnees):
     cellule.lieux[0].stocks[NOURRITURE] = 0.0
     cellule.stocks[NOURRITURE] -= retire
     temoin, modifie = _deux_mondes(vide, donnees, "departs", 1.0, lambda m: {"lieu": [paris, 0]}, "lieu")
-    _jouer(temoin, 1)
-    _jouer(modifie, 1)
-    partis_t = temoin.flux.jours[0].partis.get((paris, 0), 0)
-    partis_m = modifie.flux.jours[0].partis.get((paris, 0), 0)
+    # Les départs sont une fraction annuelle : au bourg de Paris, un foyer entier ne part pas
+    # chaque jour, le reste attend au report. Dix jours, sommés, en font partir assez pour
+    # que le doublement se voie.
+    jours = 10
+    _jouer(temoin, jours)
+    _jouer(modifie, jours)
+    partis_t = sum(jour.partis.get((paris, 0), 0) for jour in temoin.flux.jours.values())
+    partis_m = sum(jour.partis.get((paris, 0), 0) for jour in modifie.flux.jours.values())
+    assert len(temoin.flux.jours) == len(modifie.flux.jours) == jours
     assert partis_t > 0 and partis_m > partis_t
 
 

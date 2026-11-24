@@ -34,8 +34,8 @@ def _jouer(monde, nombre):
         engine.tick(monde, rng)
 
 
-def _petit():
-    m = World({1: _cellule_bourg(1, [5000, 2500], [350000., 0.])}, [])
+def _petit(populations=(5000, 2500), stocks=(350000., 0.)):
+    m = World({1: _cellule_bourg(1, list(populations), list(stocks))}, [])
     m.maisons = (SimpleNamespace(id='a'),)
     m.routes_des_lieux = TableRoutes([(1, r, 'a', 1, 0, 1) for r in range(2)])
     m.parts, m.greniers = {'a': .5}, {'a': {}}
@@ -115,20 +115,32 @@ def test_compteurs_mesures_independantes_et_du(course):
         _controler_en_route(faux)
 
 
+# Une tranche de 30 jours d'écart fait partir taux_annuel / 365 des habitants par jour : sur
+# 3 650 100 personnes, 50,001, soit dix foyers entiers dès le premier appel. Sur 5 000 ou
+# 2 500 personnes, la fraction attendrait au report et rien ne partirait ce jour-là.
+_POPULATION_DEPARTS = 3_650_100
+
+
+def _reserve_en_kg(population, jours):
+    """Le stock qui nourrit `population` habitants pendant `jours` jours."""
+    return population * departs.ration_journaliere() * jours
+
+
 def test_fenetre_trentieme_et_trente_et_unieme_jour(monkeypatch, monde):
-    m = _petit()
+    # Le lieu 0 a 35 jours de réserve, le lieu 1 aucune : une tranche d'écart, cinquante partants.
+    m = _petit((5000, _POPULATION_DEPARTS), (_reserve_en_kg(5000, 35), 0.))
     recoltes = {1: [10., 20.]}
     prelevement.prelever(m, recoltes)
     assert m.flux.jours[0].taux == [.5]
     assert m.flux.jours[0].recoltes is recoltes
-    assert departs.appliquer_departs(m) > 0
+    assert departs.appliquer_departs(m) == 50
     m.parts['a'] = 0
     m.ticks_ecoules = 1
     prelevement.prelever(m, {1: [0., 0.]})
     m.ticks_ecoules = 30
     assert flux_de_maison(m, 'a')['preleve_kg'] == 15
-    assert flux_de_lieu(m, 1, 1)['partis'] > 0
-    assert flux_de_lieu(m, 1, 0)['arrives'] > 0
+    assert flux_de_lieu(m, 1, 1)['partis'] == 50
+    assert flux_de_lieu(m, 1, 0)['arrives'] == 50
     m.ticks_ecoules = 31
     def controler():
         assert flux_de_maison(m, 'a')['preleve_kg'] == 0
@@ -147,21 +159,26 @@ def test_fenetre_trentieme_et_trente_et_unieme_jour(monkeypatch, monde):
 
 
 def test_departs_bruts_et_solde_contre_epreuve():
-    m = World({1: _cellule_bourg(1, [5000, 2500], [350000., 0.]),
-               2: _cellule_bourg(2, [1000], [140000.])}, [{'a': 1, 'b': 2}])
+    # Le lieu (1, 0) a 35 jours de réserve, le lieu (1, 1) aucune, le bourg voisin 70 : chaque
+    # écart vaut une tranche, soit 50,001 personnes par jour sur 3 650 100 habitants et 25,0007
+    # sur 1 825 050. Les foyers entiers partent : cinquante et vingt-cinq.
+    grand, moyen = _POPULATION_DEPARTS, _POPULATION_DEPARTS // 2
+    m = World({1: _cellule_bourg(1, [grand, moyen], [_reserve_en_kg(grand, 35), 0.]),
+               2: _cellule_bourg(2, [1000], [_reserve_en_kg(1000, 70)])}, [{'a': 1, 'b': 2}])
     avant = {(cid, l.rang): l.population for cid, cell in m.cells.items() for l in cell.lieux}
     total = departs.appliquer_departs(m)
     def controler():
-        assert total == 15
-        assert flux_de_lieu(m, 1, 1)['partis'] == 5
-        assert flux_de_lieu(m, 1, 0)['partis'] == 10
-        assert flux_de_lieu(m, 1, 0)['arrives'] == 5
-        assert flux_de_lieu(m, 2, 0)['arrives'] == 10
+        assert total == 75
+        assert flux_de_lieu(m, 1, 1)['partis'] == 25
+        assert flux_de_lieu(m, 1, 0)['partis'] == 50
+        assert flux_de_lieu(m, 1, 0)['arrives'] == 25
+        assert flux_de_lieu(m, 2, 0)['arrives'] == 50
         assert sum(flux_de_lieu(m, *cle)['partis'] for cle in avant) == total
         for (cid, rang), population in avant.items():
             f = flux_de_lieu(m, cid, rang)
             assert f['arrives'] - f['partis'] == m.cells[cid].lieux[rang].population - population
-        assert [m.cells[cid].lieux[rang].population for cid, rang in [(1, 1), (1, 0), (2, 0)]] == [2495, 4995, 1010]
+        assert [m.cells[cid].lieux[rang].population for cid, rang in [(1, 1), (1, 0), (2, 0)]] == [
+            moyen - 25, grand - 25, 1050]
     controler()
     m.flux.jours[0].partis[(1, 0)] = 5
     m.flux.jours[0].arrives[(1, 0)] = 0

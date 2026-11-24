@@ -1016,13 +1016,18 @@ def test_noms_purete_et_tick(monkeypatch):
 # (Bologne, Padoue, Rimini, l'Arborée, Raguse, la Zeta, l'Épire, Vonitsa des Tocco, Céphalonie, Naxos, Tripoli).
 # Le siège des Tocco au château de Saint-Georges, capitale de Céphalonie (Agios Georgios, et non plus
 # Argostoli), ne change que le document public, par le siège de leur fiche du registre : l'état physique est le même.
+# Le mieux-vivre au rythme de l'année ajoute à chaque lieu son report de départ (seule différence au point 0),
+# puis ne déplace plus les foyers que l'ancien taux quotidien faisait partir dès le premier jour : au point 1,
+# la population de 218 lieux (214 pour la graine 42) et de deux cellules, leurs métiers et 117 (115) reports non
+# nuls ; au point 3, avec 655 (653) lieux, ce qui suit les bouches : stocks, dettes, commerce, bassin et retours.
+# Les tirages sont inchangés.
 _PART_BASE = {
-    (0, 0): ('0009bfb757eb54cec669da7c6e940858e13694b2ddddd85b24d4549bd5948f94', 'c2e1b59a00163ad84aeeaa7367d1f17d0e88316fd900b2c1e4abf73e31d7ff72'),
-    (0, 1): ('ff4465c209bc2c79e5121f0ff1f48b2d001ba62ba35e77c3be28830257f242f1', 'f6884d5c1d41ac1f900a3819de0d5a264ccd1fa9f81d78d25b9265f7c4df80cc'),
-    (0, 3): ('0a5f4aa300e11507982b083919b71157d4c9f6b3e0f64d157b80f5ee5bb2aa42', 'c201184dba9ff5acafbb9890621838af73c539be36ac39454a54c1b0b7478736'),
-    (42, 0): ('a8adbb561a4375e589bbb4e64bc4ceebc317aea89dbbf4d2ed0ac6494513ac4b', '8f97a1cd4ace2317334b8236215edc00ff7146f30b3a64c59fe794be2a2bc30d'),
-    (42, 1): ('1b3ed43621fc90fbff780e192f01dd604d86d18d14e8f84df0ed5903aef099f7', 'b5f7c89a7cbbca8bc32c72a7524f0e2d6c9f286308775933b2164378e0626df9'),
-    (42, 3): ('65e6e1510d72fad23f6e2161640bb8ec7ada60c2d54e245a426bf8e9db612ab6', '55404ca7793b812d779a7521a0f64f495d7e17f5ca333a353393b7d7b75ff128'),
+    (0, 0): ('da0b04bbc16955819a85d8749fc52f42069d1b5e9504784bffbb821995374bf5', '550f9d0bca4a5eaf0e8dc5554c305feee9728a857018e2443ff3185a3033c320'),
+    (0, 1): ('3d85aebf6a686f9f722bb1066a6754c0e4b20a136ec4f18b124905e030bacf57', '2b13ed0c742e76bff9828aefba287d6b5293ff046dc2122c07a0379e0a322e62'),
+    (0, 3): ('8ca36f0de41ad1a100139607e1195c05dad058bd91bb4da88069fa18489b4dc9', '9a2ab56ef546dc96ea471c58b4866d14feb052a91a01cec7269230bc1da9a57e'),
+    (42, 0): ('e02ab87d40a9c137ff09b6a6ae3baf0f425b0b8bb7669dac6df8740a637bf513', 'd920cf811dc88e1098df1cc96f326377a0646cb90aa2ab68b611a1439b3ff281'),
+    (42, 1): ('6375dcf1ce25f91278fa0bd3604fea785b2a7bfbfd0640391668bfeb935cbff4', 'dcdcd42f567b66ea7364fec35ca5833a2e51a9d9070164536e1c2ba4cac81940'),
+    (42, 3): ('f16f3837fe0f72ba0b551c8ccac9932be61c9bd47994c951642e9fbc8a0bf3bd', 'a8b881905abf6bc08961059e652ca19dfd19c8d8ec38a07994e9d95826baf994'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1061,13 +1066,16 @@ def test_part_bit_pres(monkeypatch):
 # maisons, 26 suzerains) et le maître de 119 lieux de onze cellules ; et, avec les maîtres, les greniers (32
 # neufs, 43 retirés) et les convois qui les remplissent. Les cellules, le bassin, les tirages et les retours
 # sont inchangés.
+# Le mieux-vivre au rythme de l'année change les mêmes couches que pour `_PART_BASE` aux points 1 et 3 ; au
+# point 20, la population de 3 133 lieux (3 128) et de 225 cellules (232), leurs métiers et ce qui en découle,
+# jusqu'à deux greniers, aux convois et aux cumuls mangé et perdu. Les tirages sont inchangés.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('094da53e55dcfd8688035e3ee5d2f88f4b94078d8b770e5c366628bff959f356', '44726f470ad10b4ad92e89c79607935584898b72d19f91fdb0c73e6ca87704c9'),
-    (0, 3): ('a599162dbc6ad581db58e5955034fab3d6369e71a7f7311c5eec570f79669ecd', 'cd8733933143ab620c9c77095c237bc162c462dbf01a58f9942443d061212b9d'),
-    (0, 20): ('932ca69676ff066ef019281d68ff60f09e944b768cfc4c8750e2a946dde39dc5', '27bddc682ff423ee63df6d91ac9eae14def7eb46b42843f07a689a7e59723f60'),
-    (42, 1): ('3244816c3b581bd6876510538fdf691576caff6bfbdef3a898e7747ba1de5c45', '1274700697624258015bee6f78c785466e1a15baa459c3a193ad3d534012d62c'),
-    (42, 3): ('0d20ff93c7ed144f6647d2cc9ce4d55f764d83fbc67a5a311bb3aeb72114a260', 'fd3d86ef0577f87c8757293c7968214d6e8a11213a3826dc76b8b2c385552491'),
-    (42, 20): ('ea163a66056bd3b720b02862c4eaf49540a13a760cf3e3936efd78c46b2ca02f', 'b1442a5f17eafe584b868e4114df369e2e76be1c6745ac6b3162973ac7c0d34f'),
+    (0, 1): ('0738b6421a0ed2e4bef3f4c05e01bb636652179386588b79e4e942493a4bd189', 'c1f83c1a70d4b28a8d2dc91096764912a003c928d08fdbaf4eee9b38acdf2937'),
+    (0, 3): ('52a3a1568f45fc6ac7d6b8c71b9c7f003c4f59a850ec8c605b8f929c3b07e220', '26f753621ac5043db81d3036c573d201b0d4300ea3ef8f7dd63ca5b302dd1835'),
+    (0, 20): ('4bfce82ba46d9db355d8940484fc00e3994cb86388ba7edd45bbdf94262e95a0', '8901c4e8068ac9fa44bba08e5ade2aa7c506853b8b6e4ba52f1b070c29613bae'),
+    (42, 1): ('47c51803b18cda00ad98e81d1b86609152198cc64b5849a28452be23d2c385a9', '2622fc922136d0390266f2ed9c767c3d8969021d4d9b3a851d1e2682e63245f0'),
+    (42, 3): ('0ff4a5194f0761640c6a912afa51cdf0bff41198ef5b47bcc66448e2a83637cf', '0e7a9f066a6fb3a8ed0825e4473874f94fde6cfba128a47a1862081471181254'),
+    (42, 20): ('10dd6b25351c9940b0ca0acc7f2ac96487d774d59858c9e7279568a57adf0089', 'bf2b254a547965d39a67cff786b0b0446671b460cd2e8e208ae1ecbfffdf48a2'),
 }
 
 
@@ -1134,11 +1142,12 @@ def test_prelevement_bit_pres(monkeypatch):
 # terres sans pays changent de même, aux points 3 et 20, le registre (+32 et −43 maisons, 26 suzerains), le
 # maître de 119 lieux de onze cellules, les dus de leurs vassaux, les greniers et les convois ; les cellules,
 # le bassin, les tirages et les retours sont inchangés.
+# Le mieux-vivre au rythme de l'année y change les mêmes couches qu'au monde avec prélèvement, aux mêmes points.
 _DU_BASE = {
-    (0, 3): ('f9c756bb08c3ed6907278b7705687fe410cf68714ec0594c749bd321863707af', 'eed7dbd7c2041aa4c6ee6133fb030c0acc8353b7f50c2ecf5ba4cd090979ec4d'),
-    (0, 20): ('461dcdbeef64f1faac0258daacb7af81c92eab72d6c0c2a2da6d6a1dc99e420c', 'e58c28ec10273eaf5c93c964e3fe538e3ee98a1c3bd340df7b54d33de10ff3ce'),
-    (42, 3): ('ca8bffb5edcd0aac3e1dbc5d1db152bf7f77f7318a5ed15592347da86f49485e', '68b6f83e72fb3208a0c32dfc4e59edee23d1285f0d5bdc8814464a3a94e42bc2'),
-    (42, 20): ('5fdb90f0b5c4fc9e247833164dc1b05ca71e0e4cd2dd559dc1a97c6b70ad6c70', '0590101501c02f5db1f6029fbb03984214c4f7a7e0eeaf53371f48820e6c154b'),
+    (0, 3): ('5ecea62be344db8da9bd0cdb1d60b0c382069de8f04a4c1d57c5e6eed3f71800', '7378f42290347f7ac56461f74012643cf666d017f22774585c87d470d5c6ebb8'),
+    (0, 20): ('55efe2888a65440f0d87ac2b09be08af509efc4de08817e447bcea567442beb2', '900eeef68ba34407bb38a38d226f2df08ef313f2efe4a480e837f2ae6d84b4fa'),
+    (42, 3): ('e5b19fa3a1a7a2b93095335041fdd0080b384a4c7e6d4e39244a8eff6c101554', '410093186fc4144a837a7b3e35c4158a723143502bb8991ef36a26f43f086b58'),
+    (42, 20): ('e6303495416922681b9d9660b7c82bdf681ec74b613a66e90face1eee91b8832', '25c73055af7d91751a8bb16b070922b1f95672bb83951ebd037a6dd2880d972a'),
 }
 
 
