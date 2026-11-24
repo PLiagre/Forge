@@ -13,7 +13,7 @@ namespace Forge.Interface
     public sealed class FlechesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, au moins 4 km et au plus 8 km.";
-        public const float KG_PAR_KM = 50000f, EPAISSEUR_MIN_KM = 4f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du sol, sous le bord des disques (0,63)
+        public const float KG_PAR_KM = 50000f, EPAISSEUR_MIN_KM = 4f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du sol, où le ruban se pose
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         // La largeur d'une flèche : ce qui est envoyé, à l'échelle de la légende ; jamais sous `EPAISSEUR_MIN_KM`, qu'on ne verrait
@@ -29,7 +29,7 @@ namespace Forge.Interface
         public void Installer(LieuxDeCarte vue) { carte = GetComponent<CarteDessinee>(); cabinet = GetComponent<CabinetDeCarte>(); calques = GetComponent<CalquesCarte>(); lieux = vue; lieux.Applique += Lieux; }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void OnDestroy() { if (lieux != null) lieux.Applique -= Lieux; Retirer(_ => true); if (racine != null) Detruire(racine.gameObject); foreach (var m in mats.Values) Detruire(m); mats.Clear(); }
-        // Les flèches des lieux suivent la réponse que les disques viennent d'appliquer : même lecture, même tick.
+        // Les flèches des lieux suivent la réponse que la lecture des lieux vient d'appliquer : même lecture, même tick.
         void Lieux(string maison, IReadOnlyList<(long cell, LectureLieu lieu)> lus)
         {
             var garder = new HashSet<string> { DU }; var sb = new StringBuilder(); var h = cabinet != null && cabinet.Partie != null ? cabinet.Partie.Maison : null;
@@ -63,14 +63,14 @@ namespace Forge.Interface
             Retirer(n => n == DU && !garder.Contains(n));
         }
         static string Raison(MaisonLue m) => m.Absents.TryGetValue("siege", out var r) ? " : " + TexteDuMonde.Absence(r, m.Id) : "";
-        // Une hampe large de l'épaisseur, une pointe de deux épaisseurs sur trois de long (au plus la moitié de la flèche), d'un bord de disque à l'autre.
+        // Une hampe large de l'épaisseur, une pointe de deux épaisseurs sur trois de long (au plus la moitié de la flèche), du point du lieu au point du siège, la pointe sur le siège.
         // La flèche est un ruban drapé sur le sol : une tranche tous les `CarteDessinee.PAS_DU_DRAPE_KM` au plus, chaque bord à sa hauteur au-dessus de lui.
         string Fleche(string nom, Vector3 a, Vector3 b, double kg, Color couleur, HashSet<string> garder)
         {
-            a.y = b.y = 0f; float w = Epaisseur(kg), r = ReperesDeDepart.DIAMETRE_BORD_KM / 2f; if (Vector3.Distance(a, b) <= 2f * r) return " (les disques se touchent : pas de flèche)"; if (!(w > 0f)) return "";
+            a.y = b.y = 0f; float w = Epaisseur(kg); if (Vector3.Distance(a, b) <= ReperesDeDepart.DIAMETRE_BORD_KM) return " (trop près du siège : pas de flèche)"; if (!(w > 0f)) return "";
             if (racine == null) { racine = new GameObject(RACINE).transform; racine.SetParent(transform, false); racine.gameObject.SetActive(Visibles); }
             garder.Add(nom); var o = racine.Find(nom); if (o == null) { o = new GameObject(nom, typeof(MeshFilter), typeof(MeshRenderer)).transform; o.SetParent(racine, false); o.GetComponent<MeshFilter>().sharedMesh = new Mesh { name = nom }; }
-            o.GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur); Vector3 u = (b - a).normalized, travers = new Vector3(u.z, 0f, -u.x), s = a + u * r, t = b - u * r, e = t - u * Mathf.Min(3f * w, Vector3.Distance(s, t) / 2f);
+            o.GetComponent<MeshRenderer>().sharedMaterial = Mat(couleur); Vector3 u = (b - a).normalized, travers = new Vector3(u.z, 0f, -u.x), s = a, t = b, e = t - u * Mathf.Min(3f * w, Vector3.Distance(s, t) / 2f);
             var sommets = new List<Vector3>(); var triangles = new List<int>();
             Bande(s, e, w / 2f, w / 2f, travers, sommets, triangles); Bande(e, t, w, 0f, travers, sommets, triangles);
             var m = o.GetComponent<MeshFilter>().sharedMesh; m.Clear(); m.SetVertices(sommets); m.SetTriangles(triangles, 0); m.RecalculateNormals(); m.RecalculateBounds(); return "";

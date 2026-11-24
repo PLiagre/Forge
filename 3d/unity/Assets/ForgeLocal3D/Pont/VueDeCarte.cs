@@ -4,16 +4,17 @@ namespace Forge.Pont {
     // Ce que montre la caméra de la carte, et ses bornes. La caméra regarde la carte d'en haut, à la verticale, nord en
     // haut de l'écran, en perspective pour que le relief s'y lise. Elle vise `Centre`, un point du niveau de la mer, et
     // montre autour de lui `Demi` km de haut en bas de l'écran ; c'est ce rectangle visé, large de `DemiLargeur`, que
-    // les bornes tiennent dans la carte servie : sur un axe où il est plus large que la carte, il se centre sur elle ;
-    // sur l'autre, il reste dedans. Le zoom va de toute la carte (`Echelle` 1) à `DEMI_MIN_KM` de demi-hauteur. Il est
-    // relatif à toute la carte : quand la fenêtre change de forme, toute la carte reste toute la carte.
+    // les bornes tiennent dans la carte servie. Au plus loin (`Echelle` 1), il tient dans la carte sur ses deux axes et
+    // la touche sur le plus serré : l'écran ne montre jamais rien au-delà de la carte. Une fenêtre qu'on étire au-delà
+    // de cette échelle centre le rectangle sur la carte, sur l'axe où il la dépasse. Le zoom va de là à `DEMI_MIN_KM`
+    // de demi-hauteur, relatif au plus loin : quand la fenêtre change de forme, le plus loin reste le plus loin.
     // Le glisser et la molette tiennent un point du sol sous la souris : ce point se lit par le rayon de l'écran,
     // au niveau où le sol se trouve sous elle, et la vue se déplace pour l'y ramener. Rien ici ne touche une caméra
     // avant `Poser` : les rayons se calculent de la pose seule.
     // Coordonnées locales de la carte, en km : x vers l'est, y vers le haut, z vers le nord ; `Centre` porte (x, z).
     public sealed class VueDeCarte {
         public const float DEMI_MIN_KM = 50f; // une centaine de km de haut : une province et ses lieux
-        public const float MARGE = 1.03f; // celle du cadre de toute la carte
+        public const float MARGE = 1.03f; // celle d'un cadrage demandé autour d'un ensemble de lieux
         public const float PAS_DE_ZOOM = 0.85f; // par cran de molette, comme la caméra de la ville
         public const float CHAMP = 30f; // le champ de la caméra, de haut en bas
         // Les plans de coupe, en parts de la distance à la visée : le sol et ses sommets restent entre les deux.
@@ -28,7 +29,7 @@ namespace Forge.Pont {
         public float Aspect { get; private set; } = 1f;
         public Vector2 Centre { get; private set; }
         public float Echelle { get; private set; } = 1f;
-        public float DemiMax => Mathf.Max(boite.extents.z, boite.extents.x / Aspect) * MARGE;
+        public float DemiMax => Mathf.Min(boite.extents.z, boite.extents.x / Aspect); // au plus loin : la carte sur l'axe le plus serré
         public float EchelleMin => Mathf.Min(1f, DEMI_MIN_KM / DemiMax);
         public float Demi => DemiMax * Echelle; // la demi-hauteur montrée autour du point visé
         public float DemiLargeur => Demi * Aspect;
