@@ -348,10 +348,15 @@ def test_departs_d_un_lieu(depart, donnees):
     cellule.lieux[0].stocks[NOURRITURE] = 0.0
     cellule.stocks[NOURRITURE] -= retire
     temoin, modifie = _deux_mondes(vide, donnees, "departs", 1.0, lambda m: {"lieu": [paris, 0]}, "lieu")
-    _jouer(temoin, 1)
-    _jouer(modifie, 1)
-    partis_t = temoin.flux.jours[0].partis.get((paris, 0), 0)
-    partis_m = modifie.flux.jours[0].partis.get((paris, 0), 0)
+    # Les départs sont une fraction annuelle : au bourg de Paris, un foyer entier ne part pas
+    # chaque jour, le reste attend au report. Dix jours, sommés, en font partir assez pour
+    # que le doublement se voie.
+    jours = 10
+    _jouer(temoin, jours)
+    _jouer(modifie, jours)
+    partis_t = sum(jour.partis.get((paris, 0), 0) for jour in temoin.flux.jours.values())
+    partis_m = sum(jour.partis.get((paris, 0), 0) for jour in modifie.flux.jours.values())
+    assert len(temoin.flux.jours) == len(modifie.flux.jours) == jours
     assert partis_t > 0 and partis_m > partis_t
 
 

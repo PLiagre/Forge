@@ -44,7 +44,7 @@ py -m pytest sim/tests/ -q
 
 Les preuves `test_departs_tick_` exercent les départs actifs et leur conservation ;
 `test_departs_budget_comparaison` mesure leur coût. Les références historiques
-explicitement isolées à `TAUX_DE_DEPART = 0` décrivent le monde sans mieux-vivre,
+explicitement isolées par `taux_annuel_de_depart` remplacé par 0 décrivent le monde sans mieux-vivre,
 y compris la calibration ancienne ; les autres preuves gardent les départs actifs.
 
 Recensement des références lors du branchement des départs (ticks par course) :

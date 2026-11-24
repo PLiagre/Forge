@@ -140,7 +140,7 @@ def test_identique_quand_chemins_suffisent(monkeypatch):
 
 
 def test_monde_ressent_la_distribution(monkeypatch):
-    monkeypatch.setattr(constantes, "TAUX_DE_DEPART", 0)
+    monkeypatch.setattr(constantes, "taux_annuel_de_depart", lambda: 0)
     # Un bourg qui manque dans les quatre premiers mois : le décor d'avant la soudure.
     amorcer_comme_avant_la_soudure(monkeypatch)
     capacite = constantes.CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK
