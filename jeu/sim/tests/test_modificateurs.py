@@ -49,9 +49,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # les personnes, le maître de 119 lieux de onze cellules, les greniers (32 neufs, 43 retirés, 30 changés), les
 # convois et les cumuls mangé et perdu ; la photographie, la puissance, la maison, les noms et les lieux de 30
 # cellules. Aucune cellule ne change hors du maître de ses lieux : la population reste 37 481 793.
+# Le nom de chaque terre d'après sa vraie ville de 1400 et le siège des Tocco au château de Saint-Georges
+# (Agios Georgios, et non plus Argostoli) ne changent, au 365e tick, que le siège de leur fiche du registre,
+# et dans la photographie les noms des lieux et des terres, et le point du bourg de Céphalonie.
 EMPREINTES_365 = {
-    "linux": ("6628508bc5895c3636f19b72c84d0b176c74e864aade2b9fad60addb639a78df",
-              "0badb819c358df68f47ef4703626e8ce4c902d3761caae2caa41cec4e8309941"),
+    "linux": ("bf240de5d4cd88d5e423b67d84d0013f0c2d369a589625fc6f8b0bdd8418616f",
+              "b0e349b5102e3d5fa84976739b41e1d7f55f9dc6f81e332fd11523d9e1f34be1"),
 }
 
 

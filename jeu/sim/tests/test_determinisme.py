@@ -1014,13 +1014,15 @@ def test_noms_purete_et_tick(monkeypatch):
 # graines, ces deux couches et elles seules : le registre (huit grandes maisons et deux institutions neuves,
 # 22 maisons plausibles neuves, 43 retirées, le suzerain de 26) et le maître de 119 lieux de onze cellules
 # (Bologne, Padoue, Rimini, l'Arborée, Raguse, la Zeta, l'Épire, Vonitsa des Tocco, Céphalonie, Naxos, Tripoli).
+# Le siège des Tocco au château de Saint-Georges, capitale de Céphalonie (Agios Georgios, et non plus
+# Argostoli), ne change que le document public, par le siège de leur fiche du registre : l'état physique est le même.
 _PART_BASE = {
-    (0, 0): ('c8f56a88a0bb73ac4746b217eef590915dc8b1a5f049332740b898d3909a1e56', 'c2e1b59a00163ad84aeeaa7367d1f17d0e88316fd900b2c1e4abf73e31d7ff72'),
-    (0, 1): ('34dbab1305c003d243aa2a5ebc2e18c5cc423ed60f17358f8306fee244409c62', 'f6884d5c1d41ac1f900a3819de0d5a264ccd1fa9f81d78d25b9265f7c4df80cc'),
-    (0, 3): ('bc0274af6e4a9e003a66096d9f5fc5afdaf7854015315205a7400decb303e307', 'c201184dba9ff5acafbb9890621838af73c539be36ac39454a54c1b0b7478736'),
-    (42, 0): ('0f127a5dd8916e63e5f7808f8d8cb03b096923adb187f147ed05688e74b87fdf', '8f97a1cd4ace2317334b8236215edc00ff7146f30b3a64c59fe794be2a2bc30d'),
-    (42, 1): ('e02fc26d8466cf564cce5055ae55b8c818ebf5e0edc3da77bda2a6330bf693dc', 'b5f7c89a7cbbca8bc32c72a7524f0e2d6c9f286308775933b2164378e0626df9'),
-    (42, 3): ('621fb3ca979de6db3e5c06943ced4ceadc544ab7554dee3ef88127512659aa63', '55404ca7793b812d779a7521a0f64f495d7e17f5ca333a353393b7d7b75ff128'),
+    (0, 0): ('0009bfb757eb54cec669da7c6e940858e13694b2ddddd85b24d4549bd5948f94', 'c2e1b59a00163ad84aeeaa7367d1f17d0e88316fd900b2c1e4abf73e31d7ff72'),
+    (0, 1): ('ff4465c209bc2c79e5121f0ff1f48b2d001ba62ba35e77c3be28830257f242f1', 'f6884d5c1d41ac1f900a3819de0d5a264ccd1fa9f81d78d25b9265f7c4df80cc'),
+    (0, 3): ('0a5f4aa300e11507982b083919b71157d4c9f6b3e0f64d157b80f5ee5bb2aa42', 'c201184dba9ff5acafbb9890621838af73c539be36ac39454a54c1b0b7478736'),
+    (42, 0): ('a8adbb561a4375e589bbb4e64bc4ceebc317aea89dbbf4d2ed0ac6494513ac4b', '8f97a1cd4ace2317334b8236215edc00ff7146f30b3a64c59fe794be2a2bc30d'),
+    (42, 1): ('1b3ed43621fc90fbff780e192f01dd604d86d18d14e8f84df0ed5903aef099f7', 'b5f7c89a7cbbca8bc32c72a7524f0e2d6c9f286308775933b2164378e0626df9'),
+    (42, 3): ('65e6e1510d72fad23f6e2161640bb8ec7ada60c2d54e245a426bf8e9db612ab6', '55404ca7793b812d779a7521a0f64f495d7e17f5ca333a353393b7d7b75ff128'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1060,12 +1062,12 @@ def test_part_bit_pres(monkeypatch):
 # neufs, 43 retirés) et les convois qui les remplissent. Les cellules, le bassin, les tirages et les retours
 # sont inchangés.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('aefd7ccb7e65e982e5497347d043be4c63d206d42e76afe6cc39a53e33e3b7ac', '44726f470ad10b4ad92e89c79607935584898b72d19f91fdb0c73e6ca87704c9'),
-    (0, 3): ('c70e43fdca1e370609df2a1f0b958bf563baa565ca6beb9558665574e1461df9', 'cd8733933143ab620c9c77095c237bc162c462dbf01a58f9942443d061212b9d'),
-    (0, 20): ('9f15576a717e8d0ced6e75c9e92a6de15cdbea219913698d33ea845dfe39ad09', '27bddc682ff423ee63df6d91ac9eae14def7eb46b42843f07a689a7e59723f60'),
-    (42, 1): ('1b99a51c6f26e42bbd8e130ff878b2878588aa59df700153a3f5ded18a4595f5', '1274700697624258015bee6f78c785466e1a15baa459c3a193ad3d534012d62c'),
-    (42, 3): ('f05ed4cbb79d687e10104e92ff5844ed57a232b3e6d886a4f5d03f1075a1cfea', 'fd3d86ef0577f87c8757293c7968214d6e8a11213a3826dc76b8b2c385552491'),
-    (42, 20): ('22d9e5c4b85848308e180f7b7eb515171f04b2426ef05ee11753107dd4d24470', 'b1442a5f17eafe584b868e4114df369e2e76be1c6745ac6b3162973ac7c0d34f'),
+    (0, 1): ('094da53e55dcfd8688035e3ee5d2f88f4b94078d8b770e5c366628bff959f356', '44726f470ad10b4ad92e89c79607935584898b72d19f91fdb0c73e6ca87704c9'),
+    (0, 3): ('a599162dbc6ad581db58e5955034fab3d6369e71a7f7311c5eec570f79669ecd', 'cd8733933143ab620c9c77095c237bc162c462dbf01a58f9942443d061212b9d'),
+    (0, 20): ('932ca69676ff066ef019281d68ff60f09e944b768cfc4c8750e2a946dde39dc5', '27bddc682ff423ee63df6d91ac9eae14def7eb46b42843f07a689a7e59723f60'),
+    (42, 1): ('3244816c3b581bd6876510538fdf691576caff6bfbdef3a898e7747ba1de5c45', '1274700697624258015bee6f78c785466e1a15baa459c3a193ad3d534012d62c'),
+    (42, 3): ('0d20ff93c7ed144f6647d2cc9ce4d55f764d83fbc67a5a311bb3aeb72114a260', 'fd3d86ef0577f87c8757293c7968214d6e8a11213a3826dc76b8b2c385552491'),
+    (42, 20): ('ea163a66056bd3b720b02862c4eaf49540a13a760cf3e3936efd78c46b2ca02f', 'b1442a5f17eafe584b868e4114df369e2e76be1c6745ac6b3162973ac7c0d34f'),
 }
 
 
@@ -1133,10 +1135,10 @@ def test_prelevement_bit_pres(monkeypatch):
 # maître de 119 lieux de onze cellules, les dus de leurs vassaux, les greniers et les convois ; les cellules,
 # le bassin, les tirages et les retours sont inchangés.
 _DU_BASE = {
-    (0, 3): ('821f15a41b984d0e404e1c9632eeea3ccd90c22ffae32fc447cb5eeb6e8e14d1', 'eed7dbd7c2041aa4c6ee6133fb030c0acc8353b7f50c2ecf5ba4cd090979ec4d'),
-    (0, 20): ('1020a42021125ef986fe255886f4711cab25d11033c25d0c29bc4eb4d1a14cc0', 'e58c28ec10273eaf5c93c964e3fe538e3ee98a1c3bd340df7b54d33de10ff3ce'),
-    (42, 3): ('b1f26d4794fc3c4e2e59bf002b703a4f3a72b3f0341f587c223c5b0df05fcf9e', '68b6f83e72fb3208a0c32dfc4e59edee23d1285f0d5bdc8814464a3a94e42bc2'),
-    (42, 20): ('5c958b34be2280efdf7eff6c92f7bf3beaf14d183f30b9af332b150aad165fae', '0590101501c02f5db1f6029fbb03984214c4f7a7e0eeaf53371f48820e6c154b'),
+    (0, 3): ('f9c756bb08c3ed6907278b7705687fe410cf68714ec0594c749bd321863707af', 'eed7dbd7c2041aa4c6ee6133fb030c0acc8353b7f50c2ecf5ba4cd090979ec4d'),
+    (0, 20): ('461dcdbeef64f1faac0258daacb7af81c92eab72d6c0c2a2da6d6a1dc99e420c', 'e58c28ec10273eaf5c93c964e3fe538e3ee98a1c3bd340df7b54d33de10ff3ce'),
+    (42, 3): ('ca8bffb5edcd0aac3e1dbc5d1db152bf7f77f7318a5ed15592347da86f49485e', '68b6f83e72fb3208a0c32dfc4e59edee23d1285f0d5bdc8814464a3a94e42bc2'),
+    (42, 20): ('5fdb90f0b5c4fc9e247833164dc1b05ca71e0e4cd2dd559dc1a97c6b70ad6c70', '0590101501c02f5db1f6029fbb03984214c4f7a7e0eeaf53371f48820e6c154b'),
 }
 
 
