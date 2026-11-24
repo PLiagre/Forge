@@ -48,10 +48,10 @@ namespace Forge.Pont
     {
         public long Tick { get; } public DateDuMonde Date { get; }
         public IReadOnlyList<PaysDeLaCarte> Pays { get; } public IReadOnlyList<TerreLue> Terres { get; }
-        readonly Dictionary<long, TerreLue> parCellule; readonly Dictionary<string, PaysDeLaCarte> parPays;
-        public TerresDeLaCarte(long tick, DateDuMonde date, IEnumerable<PaysDeLaCarte> pays, IEnumerable<TerreLue> terres)
+        readonly Dictionary<long, TerreLue> parCellule; readonly Dictionary<string, PaysDeLaCarte> parPays; readonly Dictionary<string, long> habitants;
+        public TerresDeLaCarte(long tick, DateDuMonde date, IEnumerable<PaysDeLaCarte> pays, IEnumerable<TerreLue> terres, IDictionary<string, long> habitants = null)
         {
-            Tick = tick; Date = date;
+            Tick = tick; Date = date; this.habitants = habitants == null ? new Dictionary<string, long>() : new Dictionary<string, long>(habitants);
             var listePays = new List<PaysDeLaCarte>(pays ?? throw new ArgumentNullException(nameof(pays))); var listeTerres = new List<TerreLue>(terres ?? throw new ArgumentNullException(nameof(terres)));
             parPays = new Dictionary<string, PaysDeLaCarte>(listePays.Count); foreach (var p in listePays) parPays.Add(p.Id, p);
             parCellule = new Dictionary<long, TerreLue>(listeTerres.Count); foreach (var t in listeTerres) parCellule.Add(t.CellId, t);
@@ -74,6 +74,8 @@ namespace Forge.Pont
         public string SuzerainDe(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Suzerain : null;
         // L'ensemble du pays, ou null : sans ensemble, ou pays que `/terres` ne sert pas.
         public string EnsembleDe(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Ensemble : null;
+        // Les habitants du pays tels que `/terres` les compte (0 : pays sans lieu), ou null : pays null, ou pays sans valeur servie.
+        public long? HabitantsDu(string pays) => pays != null && habitants.TryGetValue(pays, out long n) ? n : (long?)null;
     }
     // Une guerre déclarée : qui attaque, qui défend, et le tick de la déclaration.
     public sealed class GuerreLue
@@ -224,6 +226,7 @@ namespace Forge.Pont
                 if (suzerain == pays[i].Id) throw new ServiceLocal.Refusee("clé " + chemin + " : \"" + suzerain + "\" est le pays lui-même");
                 if (!ids.Contains(suzerain)) throw new ServiceLocal.Refusee("clé " + chemin + " : \"" + suzerain + "\" absent de la liste pays");
             }
+            var habitants = HabitantsDesPays(racine, ids);
             var terres = new List<TerreLue>(); var vues = new HashSet<long>();
             foreach (var (chemin, t) in Objets(racine, "terres"))
             {
@@ -232,7 +235,24 @@ namespace Forge.Pont
                 if (paysDeLaTerre != null && !ids.Contains(paysDeLaTerre)) throw new ServiceLocal.Refusee("clé " + chemin + ".pays : \"" + paysDeLaTerre + "\" absent de la liste pays");
                 terres.Add(new TerreLue(cell, maitre, paysDeLaTerre, maison, AutresPays(t, chemin + ".autres_pays", ids)));
             }
-            return new TerresDeLaCarte(tick, date, pays, terres);
+            return new TerresDeLaCarte(tick, date, pays, terres, habitants);
+        }
+        // Les habitants de chaque pays : un objet identifiant → entier ≥ 0, avec exactement une entrée par pays de la liste `pays` (0 : pays sans lieu).
+        static Dictionary<string, long> HabitantsDesPays(Dictionary<string, object> racine, HashSet<string> ids)
+        {
+            object brut = ServiceLocal.Valeur(racine, "habitants_des_pays");
+            var objet = brut as Dictionary<string, object> ?? throw ServiceLocal.Refus("habitants_des_pays", "un objet", brut);
+            var habitants = new Dictionary<string, long>(objet.Count);
+            foreach (var entree in objet)
+            {
+                string chemin = "habitants_des_pays." + entree.Key;
+                long n = EntierDe(entree.Value, chemin);
+                if (!ids.Contains(entree.Key)) throw new ServiceLocal.Refusee("clé " + chemin + " : \"" + entree.Key + "\" absent de la liste pays");
+                habitants[entree.Key] = n;
+            }
+            foreach (string id in ids)
+                if (!habitants.ContainsKey(id)) throw new ServiceLocal.Refusee("clé habitants_des_pays." + id + " : le pays \"" + id + "\" de la liste pays n'a pas de valeur");
+            return habitants;
         }
         // Les lieux d'un autre pays : la clé est toujours servie (`[]` : aucun). Un rang ≥ 1 servi une seule fois (le rang 0 est le bourg,
         // qui porte le pays de la terre) ; le maître et le pays sont des textes ou null, un pays servi est dans la liste `pays`.

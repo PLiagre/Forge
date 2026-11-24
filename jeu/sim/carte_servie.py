@@ -94,7 +94,27 @@ def contour_servi(cellule_carte):
 
 
 def terres_et_pays(monde, matiere, sources=None) -> dict:
+    """`terres` et `pays` de `GET /terres`, sans la table des pays des lieux (`terres_pays_et_lieux`)."""
+    return terres_pays_et_lieux(monde, matiere, sources)[0]
+
+
+def habitants_des_pays(pays, des_lieux, populations) -> dict:
+    """`habitants_des_pays` de `GET /terres` : chaque pays donné → la somme des habitants de ses lieux.
+
+    `des_lieux` est la table (cell_id, rang) → pays de `terres_pays_et_lieux`, `populations` les
+    habitants de chaque lieu, (cell_id, rang) → habitants. Un lieu sans maître n'est d'aucun pays ;
+    un pays donné qui ne tient aucun lieu (un suzerain cité, le Saint-Empire) compte 0, une mesure."""
+    habitants = {identifiant: 0 for identifiant in pays}
+    for cle, population in populations.items():
+        identifiant = des_lieux.get(cle)
+        if identifiant is not None:
+            habitants[identifiant] += population
+    return habitants
+
+
+def terres_pays_et_lieux(monde, matiere, sources=None) -> tuple:
     """`terres` et `pays` de `GET /terres` : le maître du bourg de chaque cellule, sa maison et son pays.
+    Rend aussi, hors du document, la table (cell_id, rang) → pays de chaque lieu qui en a un.
 
     La maison d'une terre est celle au sommet de la suzeraineté du maître de son bourg
     (`guerre.racine`) ; son pays vient de `pays_servis.pays_des_terres` (une puissance de 1400,
@@ -126,7 +146,7 @@ def terres_et_pays(monde, matiere, sources=None) -> dict:
     presents = set(pays.values()) | set(des_lieux.values())
     fiches = fiches_des_pays({p for p in presents if p is not None}, monde, sources.table,
                              sources.maisons, sources.seigneuries, matiere, sources.noms_des_terres)
-    return {"terres": terres, "pays": fiches}
+    return {"terres": terres, "pays": fiches}, {cle: p for cle, p in des_lieux.items() if p is not None}
 
 
 def document_carte(world, table=None, maisons=None):

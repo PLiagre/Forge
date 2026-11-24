@@ -17,10 +17,10 @@ namespace Forge.Pont.Tests
         // Les ordres de la maison seigneurie-2 avec la terre 10461 visée et son armée en marche, puis sans terre ni armée.
         const string OrdresEnMarche = "{\"armees\":[{\"assieger\":{\"refus\":\"l'armée marche encore : elle assiège une fois arrivée\"},\"cell_id\":10465,\"destination\":[10461,0],\"hommes\":1200,\"identifiant\":0,\"marche\":{\"jours\":18,\"km\":358.6867608542766,\"refus\":null,\"route\":[10461]},\"rang\":0,\"renvoyer\":{\"hommes\":1200,\"refus\":null,\"vivres_kg\":0.0},\"siege\":null,\"vivres_kg\":0.0}],\"cible\":{\"cell_id\":10461,\"declaration\":{\"refus\":\"vous êtes déjà en guerre avec cette maison\"},\"maitre\":\"plausible-10461-0\"},\"date\":{\"annee\":1400,\"jour_de_l_annee\":6},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":17084.919665919155,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":320,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":315,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":314,\"rang\":3}],\"paysans\":78799,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":5}";
         const string OrdresSansArmee = "{\"armees\":[],\"cible\":null,\"date\":{\"annee\":1400,\"jour_de_l_annee\":3},\"levee\":{\"batiment\":{\"bras_par_jour\":25,\"cell_id\":10465,\"cout_kg\":2400.0,\"journees\":800,\"manque_kg\":0.0,\"nature\":\"caserne\",\"nom\":\"Caserne\",\"refus\":\"une seule caserne par province : la cellule 10465 en a déjà une\"},\"grain_libre_kg\":20380.019646102774,\"lieux\":[{\"cell_id\":10465,\"hommes_max\":619,\"rang\":0},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":1},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":2},{\"cell_id\":10465,\"hommes_max\":614,\"rang\":3}],\"paysans\":79950,\"ration_kg_par_homme_par_jour\":2.5,\"refus\":null},\"maison\":\"seigneurie-2\",\"tick\":2}";
-        // Quatre terres, trois pays, dans la forme servie : la maison du pays (sa tête), son suzerain et son ensemble (le Wurtemberg est vassal du Saint-Empire, seul à porter un ensemble),
+        // Quatre terres, trois pays, dans la forme servie : les habitants de chaque pays (le Saint-Empire n'a aucune terre : 0), la maison du pays (sa tête), son suzerain et son ensemble (le Wurtemberg est vassal du Saint-Empire, seul à porter un ensemble),
         // et la maison de chaque terre (la tête de la suzeraineté de son maître).
         // La terre 10452 est de la maison Wittelsbach mais du pays Saint-Empire, dont la tête est Luxembourg ; son lieu de rang 2 est du pays Bohême (`autres_pays`), les autres terres n'en ont aucun.
-        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"pays\":[{\"ensemble\":null,\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"ensemble\":\"Saint-Empire\",\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"ensemble\":null,\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"autres_pays\":[],\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}],\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"autres_pays\":[],\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
+        const string Terres = "{\"date\":{\"annee\":1400,\"jour_de_l_annee\":7},\"habitants_des_pays\":{\"puissance-10\":412300,\"puissance-9\":0,\"seigneurie-2\":158700},\"pays\":[{\"ensemble\":null,\"id\":\"puissance-10\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Bohême\",\"suzerain\":null},{\"ensemble\":\"Saint-Empire\",\"id\":\"puissance-9\",\"maison\":{\"id\":\"grande-9\",\"nom\":\"Luxembourg\"},\"nom\":\"Saint-Empire\",\"suzerain\":null},{\"ensemble\":null,\"id\":\"seigneurie-2\",\"maison\":{\"id\":\"seigneurie-2\",\"nom\":\"Wurtemberg\"},\"nom\":\"Comté de Wurtemberg\",\"suzerain\":\"puissance-9\"}],\"terres\":[{\"autres_pays\":[],\"cell_id\":10284,\"maison\":\"grande-9\",\"maitre\":\"grande-9\",\"pays\":\"puissance-10\"},{\"autres_pays\":[{\"maitre\":\"plausible-10452-2\",\"pays\":\"puissance-10\",\"rang\":2}],\"cell_id\":10452,\"maison\":\"grande-29\",\"maitre\":\"grande-29\",\"pays\":\"puissance-9\"},{\"autres_pays\":[],\"cell_id\":10461,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"},{\"autres_pays\":[],\"cell_id\":10465,\"maison\":\"grande-9\",\"maitre\":\"seigneurie-2\",\"pays\":\"seigneurie-2\"}],\"tick\":6}";
         const string Maison = "seigneurie-2";
         const double Delai = 5;
         int port, statut = 200; HttpListener ecoute; Thread fil; readonly List<string> recues = new List<string>();
@@ -75,6 +75,58 @@ namespace Forge.Pont.Tests
             CollectionAssert.AreEqual(new[] { "GET /terres" }, Recues());
         }
 
+        // Les habitants de chaque pays sont ceux du corps servi (0 pour un pays sans terre) ; un pays inconnu ou null n'en a aucun.
+        [Test] public void Les_habitants_des_pays_se_lisent_tels_que_servis()
+        {
+            Servir(Terres);
+            using (var c = Client())
+            {
+                var l = c.LireTerres(); Assert.IsTrue(l.Presente && l.Absence == null, l.Absence); var t = l.Donnees;
+                Assert.AreEqual(412300L, t.HabitantsDu("puissance-10")); Assert.AreEqual(0L, t.HabitantsDu("puissance-9")); Assert.AreEqual(158700L, t.HabitantsDu("seigneurie-2"));
+                Assert.IsNull(t.HabitantsDu("grande-1")); Assert.IsNull(t.HabitantsDu(null));
+                Assert.IsNull(new TerresDeLaCarte(1, new DateDuMonde(1400, 1), new[] { new PaysDeLaCarte("p", "P") }, new TerreLue[0]).HabitantsDu("p"));
+                Assert.AreEqual(5L, new TerresDeLaCarte(1, new DateDuMonde(1400, 1), new[] { new PaysDeLaCarte("p", "P") }, new TerreLue[0], new Dictionary<string, long> { ["p"] = 5 }).HabitantsDu("p"));
+            }
+        }
+
+        // Une réponse sans `habitants_des_pays`, ou qui n'en fait pas un objet, est refusée en nommant la clé.
+        [Test] public void Une_reponse_sans_habitants_des_pays_est_refusee_et_nomme_la_cle()
+        {
+            Servir(Muter(Terres, "\"habitants_des_pays\":{", "\"habitants\":{"), Muter(Terres, "{\"puissance-10\":412300,\"puissance-9\":0,\"seigneurie-2\":158700}", "[]"));
+            using (var c = Client())
+            {
+                var absente = c.LireTerres(); Assert.IsTrue(!absente.Presente && absente.Donnees == null, "lue sans habitants_des_pays");
+                StringAssert.StartsWith("terres : ", absente.Absence); StringAssert.Contains("clé absente : habitants_des_pays", absente.Absence);
+                var tableau = c.LireTerres(); Assert.IsFalse(tableau.Presente); StringAssert.Contains("clé habitants_des_pays", tableau.Absence); StringAssert.Contains("un objet", tableau.Absence);
+            }
+        }
+
+        // Un pays de la liste sans valeur, ou une clé qui n'est pas dans la liste pays, refuse toute la réponse en nommant l'identifiant.
+        [Test] public void Un_pays_sans_habitants_ou_un_habitant_d_un_pays_inconnu_est_refuse()
+        {
+            Servir(Muter(Terres, "\"puissance-9\":0,", ""), Muter(Terres, "\"puissance-9\":0,", "\"puissance-9\":0,\"puissance-30\":5,"));
+            using (var c = Client())
+            {
+                var sans = c.LireTerres(); Assert.IsTrue(!sans.Presente && sans.Donnees == null, "lue malgré un pays sans valeur");
+                StringAssert.StartsWith("terres : ", sans.Absence); StringAssert.Contains("puissance-9", sans.Absence); StringAssert.Contains("habitants_des_pays", sans.Absence);
+                var inconnu = c.LireTerres(); Assert.IsTrue(!inconnu.Presente && inconnu.Donnees == null, "lue malgré une clé hors de la liste pays");
+                StringAssert.StartsWith("terres : ", inconnu.Absence); StringAssert.Contains("habitants_des_pays.puissance-30", inconnu.Absence); StringAssert.Contains("absent de la liste pays", inconnu.Absence);
+            }
+        }
+
+        // Une valeur qui n'est pas un entier ≥ 0 refuse toute la réponse en nommant `habitants_des_pays.<id>`.
+        [Test] public void Des_habitants_negatifs_fractionnaires_ou_textuels_sont_refuses()
+        {
+            var fautes = new[] { "-1", "1.5", "\"beaucoup\"", "null" };
+            Servir(fautes.Select(f => Muter(Terres, "\"seigneurie-2\":158700", "\"seigneurie-2\":" + f)).ToArray());
+            using (var c = Client())
+                foreach (var f in fautes)
+                {
+                    var l = c.LireTerres(); Assert.IsTrue(!l.Presente && l.Donnees == null, f + " : lue malgré la faute");
+                    StringAssert.StartsWith("terres : ", l.Absence); StringAssert.Contains("clé habitants_des_pays.seigneurie-2", l.Absence);
+                }
+        }
+
         // Un lieu d'un autre pays sans maître ni pays est une mesure : le lieu n'a alors aucun pays, pas celui de la terre.
         [Test] public void Un_lieu_d_un_autre_pays_sans_maitre_ni_pays_est_une_mesure()
         {
@@ -110,7 +162,7 @@ namespace Forge.Pont.Tests
         }
 
         // Le relevé du vrai service (graine 0, tick 24) : la Navarre partage la cellule de Pampelune avec des lieux castillans.
-        const long Pampelune = 10192; const string Navarre = "puissance-7", Castille = "puissance-5"; const long TickDuReleve = 24, TerresDuReleve = 596, TerresAvecAutresPays = 49;
+        const long Pampelune = 10192; const string Navarre = "puissance-7", Castille = "puissance-5"; const long TickDuReleve = 24, TerresDuReleve = 596, TerresAvecAutresPays = 127;
         [Test] public void Le_releve_du_service_donne_la_Navarre_et_ses_lieux_castillans()
         {
             Servir(System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/ForgeLocal3D/Pont/Tests/terres-graine0-tick24.json", Encoding.UTF8));
@@ -125,6 +177,9 @@ namespace Forge.Pont.Tests
                 Assert.IsTrue(castillans.Length > 0 && castillans.All(a => t.PaysDuLieu(Pampelune, a.Rang) == Castille), "aucun lieu castillan dans la cellule de Pampelune");
                 Assert.AreNotEqual(t.PaysDe(Pampelune), t.PaysDuLieu(Pampelune, castillans[0].Rang));
                 Assert.AreEqual(Navarre, t.PaysDuLieu(Pampelune, 0)); Assert.IsTrue(terre.AutresPays.All(a => a.Rang > 0));
+                Assert.IsTrue(t.HabitantsDu(Navarre) > 0, "la Navarre n'a aucun habitant"); Assert.IsTrue(t.HabitantsDu(Castille) > 0, "la Castille n'a aucun habitant");
+                Assert.IsTrue(t.Pays.Count > 0 && t.Pays.All(p => t.HabitantsDu(p.Id).HasValue), "un pays du relevé n'a pas de valeur d'habitants");
+                Assert.IsTrue(t.Pays.Sum(p => t.HabitantsDu(p.Id).Value) > 0, "la somme des habitants du relevé est nulle");
             }
         }
 

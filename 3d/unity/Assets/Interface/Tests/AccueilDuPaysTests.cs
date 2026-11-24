@@ -29,34 +29,54 @@ namespace Forge.Interface.Tests
             new VilleJouable(false, null, "la ville de Prague n'est pas encore bâtie en 3D ; seule Biskra l'est"),
             ("puissance-9", "Saint-Empire"), ("puissance-10", "Bohême"), ("puissance-11", "Hongrie"));
         // Les terres de la carte : 200 en France, 500 en Bohême, 501 au Saint-Empire, 700 à Venise (une république), 900 sans maître.
+        // Le monde sert les habitants de chaque pays seul : ils ne valent pas ceux de la maison, que `/pays` sert avec ses vassaux.
         static readonly TerresDeLaCarte Terres = new TerresDeLaCarte(0, Jour, new[] {
                 new PaysDeLaCarte("puissance-10", "Bohême", new IdentiteDeMaison("grande-9", "Luxembourg")),
                 new PaysDeLaCarte("puissance-2", "France", new IdentiteDeMaison("grande-3", "Valois")),
                 new PaysDeLaCarte("puissance-20", "Venise", new IdentiteDeMaison("institution-15", "République de Venise")),
                 new PaysDeLaCarte("puissance-9", "Saint-Empire", new IdentiteDeMaison("grande-9", "Luxembourg")) },
             new[] { new TerreLue(200, "grande-3", "puissance-2", "grande-3"), new TerreLue(500, "grande-9", "puissance-10", "grande-9"),
-                new TerreLue(501, "grande-29", "puissance-9", "grande-9"), new TerreLue(700, "institution-15", "puissance-20", "institution-15"), new TerreLue(900, null, null) });
+                new TerreLue(501, "grande-29", "puissance-9", "grande-9"), new TerreLue(700, "institution-15", "puissance-20", "institution-15"), new TerreLue(900, null, null) },
+            new Dictionary<string, long> { ["puissance-2"] = 4800000, ["puissance-10"] = 1500000, ["puissance-9"] = 2500000, ["puissance-20"] = 150000 });
+        // La maison de Wittelsbach-Straubing règne sur deux pays : le Hainaut (cellule 300) et la Hollande (cellule 301).
+        static readonly FicheJouable Wittelsbach = Fiche("grande-44", "Wittelsbach-Straubing", "grande maison", "puissance-60", "Hainaut", "Straubing", 10600,
+            new VilleJouable(false, null, "la ville de Straubing n'est pas encore bâtie en 3D ; seule Biskra l'est"), ("puissance-60", "Hainaut"), ("puissance-59", "Hollande"));
+        static TerresDeLaCarte TerresDeWittelsbach(IDictionary<string, long> habitants = null) => new TerresDeLaCarte(0, Jour, new[] {
+                new PaysDeLaCarte("puissance-60", "Hainaut", new IdentiteDeMaison("grande-44", "Wittelsbach-Straubing")),
+                new PaysDeLaCarte("puissance-59", "Hollande", new IdentiteDeMaison("grande-44", "Wittelsbach-Straubing")) },
+            new[] { new TerreLue(300, "plausible-1", "puissance-60", "grande-44"), new TerreLue(301, "plausible-2", "puissance-59", "grande-44") }, habitants);
 
         GameObject toile; AccueilDuPays accueil; LecturePartie partie;
-        readonly List<string> choix = new List<string>(); int lancements; bool enPause; RecuIntention reponse; string maisonServie;
+        readonly List<string> choix = new List<string>(); RecuIntention reponse; string maisonServie;
         readonly List<string> lectures = new List<string>();
 
         [SetUp] public void Ouvrir()
         {
-            choix.Clear(); lectures.Clear(); lancements = 0; enPause = true; reponse = RecuIntention.AccepteeAu(1); maisonServie = null;
+            choix.Clear(); lectures.Clear(); reponse = RecuIntention.AccepteeAu(1); maisonServie = null;
             toile = new GameObject("Toile témoin", typeof(RectTransform), typeof(Canvas));
             partie = new LecturePartie(() => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(0, Jour, 0, new CelluleDuMonde[0]), maisonServie)), _ => null,
                 () => Lecture<JouablesLus>.De(new JouablesLus(0, Jour, new[] { Bar, Zab, Valois, Luxembourg })),
                 id => { lock (choix) choix.Add(id); return reponse; });
-            accueil = new AccueilDuPays(toile.transform, () => partie, () => Terres, Habitants, () => enPause, () => lancements++);
+            accueil = new AccueilDuPays(toile.transform, () => partie, () => Terres, Habitants);
         }
         [TearDown] public void Fermer() => Object.DestroyImmediate(toile);
 
         Lecture<TerresDuPays> Habitants(string id)
         {
             lock (lectures) lectures.Add(id);
-            return Lecture<TerresDuPays>.De(new TerresDuPays(id, 0, Jour, null, new string[0], new string[0], new[] { new LieuDuPays(7, 0) }, new LieuDuPays[0],
-                1, id == "grande-3" ? 9876543 : 12345, 12, 0, 0, 0, null, "grenier absent", new BatimentDuPays[0]));
+            return Maison(id, id == "grande-3" ? 9876543 : 12345, id == "grande-9" ? new[] { "grande-29" } : new string[0]);
+        }
+        // Ce que `/pays` sert d'une maison : ses habitants, ceux de ses vassaux compris, et la liste de ses vassaux.
+        static Lecture<TerresDuPays> Maison(string id, long habitants, params string[] vassaux)
+            => Lecture<TerresDuPays>.De(new TerresDuPays(id, 0, Jour, null, vassaux, vassaux, new[] { new LieuDuPays(7, 0) }, new LieuDuPays[0],
+                1, habitants, 12, 0, 0, 0, null, "grenier absent", new BatimentDuPays[0]));
+        // Un accueil neuf, sur les départs et les terres du cas ; l'ancien quitte la toile.
+        void Rebatir(Func<TerresDeLaCarte> terres, Func<string, Lecture<TerresDuPays>> habitantsDeMaison, params FicheJouable[] fiches)
+        {
+            Object.DestroyImmediate(accueil.Panneau.gameObject);
+            partie = new LecturePartie(() => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(0, Jour, 0, new CelluleDuMonde[0]), maisonServie)), _ => null,
+                () => Lecture<JouablesLus>.De(new JouablesLus(0, Jour, fiches)), id => reponse);
+            accueil = new AccueilDuPays(toile.transform, () => partie, terres, habitantsDeMaison);
         }
         void Afficher()
         {
@@ -76,15 +96,15 @@ namespace Forge.Interface.Tests
             Assert.That(accueil.PhraseDeCommencer, Does.StartWith("Choisissez d'abord un pays"));
             Assert.That(accueil.TexteDuNom, Is.EqualTo(AccueilDuPays.AUCUN)); Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.SANS_PAYS));
             Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.name == AccueilDuPays.COMMENCER), Is.EqualTo(1), "un seul bouton « Commencer »");
-            await accueil.Lancer(); Assert.That(choix, Is.Empty, "rien ne part sans pays"); Assert.That(lancements, Is.Zero);
+            await accueil.Lancer(); Assert.That(choix, Is.Empty, "rien ne part sans pays");
         }
 
         [Test] public async Task La_fiche_de_la_France_dit_son_nom_sa_maison_son_siege_ses_habitants_et_sa_ville()
         {
             await Lu(); accueil.Designer(200); Afficher();
             Assert.That(accueil.TexteDuNom, Is.EqualTo("France")); Assert.That(accueil.Montree.Id, Is.EqualTo("grande-3"));
-            Assert.That(accueil.TexteDeLaFiche, Is.EqualTo("Maison : Valois\nSiège : Paris\nHabitants : " + TexteDuMonde.Nombre(9876543)
-                + "\nVille à bâtir : non, pas encore de ville\nLa ville de Paris n'est pas encore bâtie en 3D ; seule Biskra l'est."));
+            Assert.That(accueil.TexteDeLaFiche, Is.EqualTo("France : " + TexteDuMonde.Nombre(4800000) + " habitants\nMaison de Valois : " + TexteDuMonde.Nombre(9876543)
+                + " habitants\nSiège : Paris\nVille à bâtir : non, pas encore de ville\nLa ville de Paris n'est pas encore bâtie en 3D ; seule Biskra l'est."));
             Assert.That(TexteDuMonde.Interdit(accueil.TexteDeLaFiche, "grande-3", "puissance-2"), Is.Null, "la fiche montre un identifiant");
             Assert.That(lectures, Is.EqualTo(new[] { "grande-3" }), "les habitants se lisent une fois, pour la maison du pays");
             Afficher(); Assert.That(lectures.Count, Is.EqualTo(1), "relus sans changer de pays");
@@ -96,43 +116,110 @@ namespace Forge.Interface.Tests
         {
             await Lu(); accueil.Designer(500); Afficher();
             Assert.That(accueil.TexteDuNom, Is.EqualTo("Bohême")); Assert.That(accueil.Montree.Id, Is.EqualTo("grande-9"));
-            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Maison : Luxembourg\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague"));
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Bohême : " + TexteDuMonde.Nombre(1500000) + " habitants\nMaison de Luxembourg, avec ses vassaux : "
+                + TexteDuMonde.Nombre(12345) + " habitants\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague"));
             accueil.Designer(501); Afficher();
             Assert.That(accueil.TexteDuNom, Is.EqualTo("Saint-Empire"), "une terre d'un vassal se lit au pays où elle est"); Assert.That(accueil.Montree.Id, Is.EqualTo("grande-9"));
-            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Maison : Luxembourg\nRègne aussi sur : Bohême, Hongrie"));
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Saint-Empire : " + TexteDuMonde.Nombre(2500000) + " habitants\nMaison de Luxembourg, avec ses vassaux : "
+                + TexteDuMonde.Nombre(12345) + " habitants\nRègne aussi sur : Bohême, Hongrie"));
             accueil.Designer(900); Afficher(); Assert.That(accueil.TexteDuNom, Is.EqualTo("Saint-Empire"), "une terre sans pays ne change pas le pays montré");
             Assert.That(TexteDuMonde.Interdit(accueil.TexteDeLaFiche, "grande-9", "puissance-9", "puissance-10"), Is.Null);
         }
 
-        [Test] public async Task Commencer_depose_le_choix_par_maison_puis_lance_le_temps_une_seule_fois()
+        // Une maison qui règne sur deux pays : chaque fiche dit les habitants de son pays seul, puis ceux de la maison avec ses vassaux.
+        [Test] public async Task Une_maison_qui_regne_sur_deux_pays_dit_les_habitants_de_chaque_pays_puis_ceux_de_la_maison()
+        {
+            var terres = TerresDeWittelsbach(new Dictionary<string, long> { ["puissance-60"] = 250000, ["puissance-59"] = 300000 });
+            Rebatir(() => terres, id => Maison(id, 900000, "plausible-1", "plausible-2"), Wittelsbach); await Lu();
+            accueil.Designer(300); Afficher();
+            Assert.That(accueil.TexteDuNom, Is.EqualTo("Hainaut"));
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hainaut : " + TexteDuMonde.Nombre(250000) + " habitants\nMaison de Wittelsbach-Straubing, avec ses vassaux : "
+                + TexteDuMonde.Nombre(900000) + " habitants\nRègne aussi sur : Hollande\nSiège : Straubing"));
+            Assert.That(accueil.TexteDeLaFiche, Does.Not.Contain("Habitants : "), "l'ancienne ligne des habitants reste");
+            Assert.That(accueil.TexteDeLaFiche, Does.Not.Contain("Maison : "), "la ligne « Maison : » est redondante pour un pays jouable");
+            accueil.Designer(301); Afficher();
+            Assert.That(accueil.TexteDuNom, Is.EqualTo("Hollande"));
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hollande : " + TexteDuMonde.Nombre(300000) + " habitants\nMaison de Wittelsbach-Straubing, avec ses vassaux : "
+                + TexteDuMonde.Nombre(900000) + " habitants\nRègne aussi sur : Hainaut"));
+            Assert.That(TexteDuMonde.Interdit(accueil.TexteDeLaFiche, "grande-44", "puissance-60", "puissance-59"), Is.Null, "la fiche montre un identifiant");
+        }
+
+        [Test] public async Task Les_terres_non_lues_ou_un_pays_non_servi_disent_leur_etat_sans_chiffre()
+        {
+            Rebatir(() => null, id => Maison(id, 900000, "plausible-1"), Wittelsbach); await Lu();
+            accueil.Prendre(Wittelsbach); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hainaut : habitants en lecture…\nMaison de Wittelsbach-Straubing, avec ses vassaux : " + TexteDuMonde.Nombre(900000) + " habitants\n"));
+            var sansHabitants = TerresDeWittelsbach();
+            Rebatir(() => sansHabitants, id => Maison(id, 900000, "plausible-1"), Wittelsbach); await Lu();
+            accueil.Designer(300); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hainaut : habitants non servis par le monde\nMaison de Wittelsbach-Straubing, avec ses vassaux : "));
+            // Un pays que le monde ne propose pas porte la même ligne, d'après `/terres`, sans en passer par `/pays`.
+            var venise = new TerresDeLaCarte(0, Jour, new[] { new PaysDeLaCarte("puissance-20", "Venise", new IdentiteDeMaison("institution-15", "République de Venise")) },
+                new[] { new TerreLue(700, "institution-15", "puissance-20", "institution-15") });
+            Rebatir(() => venise, Habitants, Wittelsbach); accueil.Designer(700); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Is.EqualTo("Venise : habitants non servis par le monde\nMaison : République de Venise"));
+        }
+
+        [Test] public async Task La_maison_dit_son_etat_de_lecture_et_sans_vassal_ne_parle_pas_de_vassaux()
+        {
+            var terres = TerresDeWittelsbach(new Dictionary<string, long> { ["puissance-60"] = 1, ["puissance-59"] = 0 });
+            Rebatir(() => terres, id => Maison(id, 40000), Wittelsbach); await Lu();
+            accueil.Designer(300); accueil.Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hainaut : 1 habitant\nMaison de Wittelsbach-Straubing : habitants en lecture…\n"));
+            Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hainaut : 1 habitant\nMaison de Wittelsbach-Straubing : " + TexteDuMonde.Nombre(40000) + " habitants\n"));
+            Assert.That(accueil.TexteDeLaFiche, Does.Not.Contain("vassaux"), "sans vassal, la maison n'en annonce pas");
+            accueil.Designer(301); Afficher(); Assert.That(accueil.TexteDeLaFiche, Does.StartWith("Hollande : 0 habitant\n"));
+            Rebatir(() => terres, id => Maison(id, 1), Wittelsbach); await Lu(); accueil.Designer(300); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.Contain("\nMaison de Wittelsbach-Straubing : 1 habitant\n"));
+            Rebatir(() => terres, id => Lecture<TerresDuPays>.Absent("pays : service coupé"), Wittelsbach); await Lu(); accueil.Designer(300); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.Contain("\nMaison de Wittelsbach-Straubing : habitants non lus ("));
+        }
+
+        [Test] public async Task Un_nom_de_maison_en_de_ne_double_pas_la_particule()
+        {
+            var terres = TerresDeWittelsbach(new Dictionary<string, long> { ["puissance-60"] = 250000 });
+            foreach (var (nomDeLaMaison, attendu) in new[] { ("de Basse Haie", "Maison de Basse Haie"), ("d'Avesnes", "Maison d'Avesnes"), ("Basse Haie", "Maison de Basse Haie"), ("Évreux", "Maison d'Évreux") })
+            {
+                var fiche = Fiche("grande-44", nomDeLaMaison, "grande maison", "puissance-60", "Hainaut", "Straubing", 10600, new VilleJouable(true, "scene", null));
+                Rebatir(() => terres, id => Maison(id, 900000, "plausible-1"), fiche); await Lu();
+                accueil.Designer(300); Afficher();
+                Assert.That(accueil.TexteDeLaFiche.Split('\n')[1], Is.EqualTo(attendu + ", avec ses vassaux : " + TexteDuMonde.Nombre(900000) + " habitants"), nomDeLaMaison);
+            }
+        }
+
+        // « Commencer » ne fait que choisir : l'accueil n'a pas la main sur l'horloge, et sa phrase ne promet pas de lancer le temps.
+        [Test] public async Task Commencer_depose_le_choix_par_maison_une_seule_fois_et_laisse_le_temps_en_pause()
         {
             await Lu(); Bouton("Émirat du Zab").onClick.Invoke(); Afficher();
             Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"));
             await accueil.Lancer(); Afficher();
-            Assert.That(choix, Is.EqualTo(new[] { "seigneurie-6" }), "le choix part par l'identifiant de la maison"); Assert.That(lancements, Is.EqualTo(1));
+            Assert.That(choix, Is.EqualTo(new[] { "seigneurie-6" }), "le choix part par l'identifiant de la maison");
             Assert.That(LecturePartie.IntentionDeChoix(choix[0]), Is.EqualTo("{\"type\":\"choisir_depart\",\"maison\":\"seigneurie-6\"}"));
             Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.CHOIX_RECU)); Assert.That(accueil.Commencer.interactable, Is.False, "un choix reçu ne se renvoie pas");
             Assert.That(Bouton("Duché de Bar").interactable, Is.False, "un choix reçu ferme la liste");
-            await accueil.Lancer(); await accueil.Lancer(); Assert.That(choix.Count, Is.EqualTo(1)); Assert.That(lancements, Is.EqualTo(1), "le temps est lancé une seule fois");
+            await accueil.Lancer(); await accueil.Lancer(); Assert.That(choix.Count, Is.EqualTo(1), "le choix part deux fois");
+            Assert.That(accueil.TexteDeLEtat, Does.Contain("pause").And.Contain("« Reprendre »"), "l'état ne dit pas comment lancer le temps");
             // La maison servie ferme l'accueil, qui ne revient pas.
             maisonServie = "seigneurie-6"; await Lu(); Assert.That(accueil.Ouvert, Is.False); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False);
             maisonServie = null; await Lu(); Assert.That(accueil.Ouvert, Is.False);
         }
 
-        [Test] public async Task Un_temps_qui_file_ou_un_refus_ne_lance_rien_de_plus()
+        [Test] public async Task Commencer_ne_promet_pas_de_lancer_le_temps_et_un_refus_se_dit()
         {
-            enPause = false; await Lu(); accueil.Designer(200); Afficher(); await accueil.Lancer();
-            Assert.That(choix, Is.EqualTo(new[] { "grande-3" })); Assert.That(lancements, Is.Zero, "le temps file déjà : il n'est pas basculé");
+            await Lu(); accueil.Designer(200); Afficher();
+            Assert.That(accueil.PhraseDeCommencer, Does.StartWith("Prend France").And.Contain("en pause").And.Not.Contain("et lance le temps"));
+            await accueil.Lancer(); Assert.That(choix, Is.EqualTo(new[] { "grande-3" }));
             Fermer(); Ouvrir(); reponse = RecuIntention.Refusee(409, "départ déjà choisi : seigneurie-1");
             await Lu(); accueil.Prendre(Bar); Afficher(); await accueil.Lancer(); Afficher();
-            Assert.That(lancements, Is.Zero, "un refus ne lance pas le temps"); Assert.That(accueil.TexteDeLEtat, Does.StartWith("Demande refusée : "));
+            Assert.That(accueil.TexteDeLEtat, Does.StartWith("Demande refusée : "));
             Assert.That(TexteDuMonde.Interdit(accueil.TexteDeLEtat, "seigneurie-1"), Is.Null, "le refus montre un identifiant");
         }
 
         [Test] public async Task Un_pays_que_le_monde_ne_propose_pas_garde_Commencer_grise_avec_sa_raison()
         {
             await Lu(); accueil.Designer(700); Afficher();
-            Assert.That(accueil.Montree, Is.Null); Assert.That(accueil.TexteDuNom, Is.EqualTo("Venise")); Assert.That(accueil.TexteDeLaFiche, Is.EqualTo("Maison : République de Venise"));
+            Assert.That(accueil.Montree, Is.Null); Assert.That(accueil.TexteDuNom, Is.EqualTo("Venise")); Assert.That(accueil.TexteDeLaFiche, Is.EqualTo("Venise : " + TexteDuMonde.Nombre(150000) + " habitants\nMaison : République de Venise"));
             Assert.That(accueil.Commencer.interactable, Is.False); Assert.That(accueil.PhraseDeCommencer, Is.EqualTo(AccueilDuPays.NON_JOUABLE)); Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.NON_JOUABLE));
             await accueil.Lancer(); Assert.That(choix, Is.Empty); Assert.That(lectures, Is.Empty, "aucun habitant lu pour un pays sans fiche");
         }
@@ -146,7 +233,7 @@ namespace Forge.Interface.Tests
             Assert.That(accueil.Conseilles().Select(f => f.Siege.CellId), Is.EqualTo(new long?[] { 10340, 10103 }));
             Assert.That(CabinetDeCarte.CommandesSansPhrase(toile.transform), Is.Empty);
             // Avant que les terres soient lues, le siège d'un départ conseillé se reconnaît encore.
-            accueil = new AccueilDuPays(toile.transform, () => partie, () => null, Habitants, () => enPause, () => lancements++); Afficher();
+            accueil = new AccueilDuPays(toile.transform, () => partie, () => null, Habitants); Afficher();
             accueil.Designer(10103); Afficher(); Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"));
             accueil.Designer(200); Afficher(); Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"), "sans terres lues, une autre terre ne montre rien");
         }
@@ -163,8 +250,8 @@ namespace Forge.Interface.Tests
             Assert.That(-commencer.anchoredPosition.y, Is.GreaterThanOrEqualTo(-fiche.anchoredPosition.y + fiche.sizeDelta.y), "la fiche descend sur « Commencer »");
             Assert.That(commencer.sizeDelta.y, Is.GreaterThan(SocleInterface.HauteurCommande), "« Commencer » est un gros bouton");
             var texte = toile.GetComponentsInChildren<Text>(true).Single(t => t.name == AccueilDuPays.FICHE);
-            texte.text = "Maison : Luxembourg\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague\nSuzerain : Hafsides (Ifriqiya)\nHabitants : " + TexteDuMonde.Nombre(12345678)
-                + "\nVille à bâtir : non, pas encore de ville\nLa ville de Prague n'est pas encore bâtie en 3D ; seule Biskra l'est.";
+            texte.text = "Bohême : " + TexteDuMonde.Nombre(12345678) + " habitants\nMaison de Luxembourg, avec ses vassaux : " + TexteDuMonde.Nombre(12345678)
+                + " habitants\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague\nSuzerain : Hafsides (Ifriqiya)\nVille à bâtir : non, pas encore de ville\nLa ville de Prague n'est pas encore bâtie en 3D ; seule Biskra l'est.";
             Assert.That(texte.preferredHeight, Is.LessThanOrEqualTo(texte.rectTransform.sizeDelta.y), "la plus longue fiche déborde");
         }
     }

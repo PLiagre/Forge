@@ -32,6 +32,7 @@ namespace Forge.Pont {
         private GameObject toile;
 
         public HorlogeLue Lue { get; private set; } // la dernière horloge servie ; null tant qu'aucune ne l'est
+        public bool EnPause => Lue != null && Lue.JoursParSeconde == 0; // l'horloge servie dit le monde arrêté ; faux tant qu'aucune n'est servie
         public string Absence { get; private set; } // la cause de la dernière lecture manquée ; null après une lecture servie
         public string TexteAffiche => texte != null ? texte.text : null;
         public bool RequeteEnVol => enCours != null && !enCours.IsCompleted;
