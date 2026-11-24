@@ -26,7 +26,7 @@ import pytest
 import sim.constants as constantes
 import sim.frontieres as frontieres_module
 import sim.puissances as puissances_module
-from sim.carte_servie import terres_et_pays
+from sim.carte_servie import habitants_des_pays, terres_et_pays, terres_pays_et_lieux
 from sim.frontieres import charger_frontieres, decisions_des_frontieres, maison_du_bourg, puissances_des_lieux
 from sim.jouables import maisons_jouables
 from sim.maisons import charger_maisons, maisons_depuis_monde
@@ -98,11 +98,11 @@ def livre():
     vue = puissances_depuis_monde(monde, table=table, frontieres=frontieres)
     maisons, seigneuries = charger_maisons(), charger_seigneuries(table=table)
     noms = noms_depuis_monde(monde, table=table, vue=vue)
-    servie = terres_et_pays(monde, SimpleNamespace(noms=noms),
-                            SourcesDesPays(table, maisons, seigneuries, vue, lieux))
+    servie, des_lieux = terres_pays_et_lieux(monde, SimpleNamespace(noms=noms),
+                                             SourcesDesPays(table, maisons, seigneuries, vue, lieux))
     return SimpleNamespace(monde=monde, table=table, maisons=maisons, seigneuries=seigneuries,
                            frontieres=frontieres, lieux=lieux, places=places_du_monde(monde), vue=vue,
-                           servie=servie)
+                           servie=servie, des_lieux=des_lieux)
 
 
 def _region(livre, nom):
@@ -507,6 +507,36 @@ def test_empire_chaque_prince_nomme_a_sa_place_sur_la_carte(livre):
     sans = dict(livre.servie, terres=[dict(t, pays=saxe) if t["pays"] == brandebourg else t
                                       for t in livre.servie["terres"]])
     assert _princes_sans_terre(sans) == ["Brandebourg"]
+
+
+def _populations(monde):
+    return {(cid, lieu.rang): lieu.population for cid, c in monde.cells.items() for lieu in c.lieux}
+
+
+def test_terres_les_habitants_d_un_pays_sont_ceux_de_ses_lieux_et_non_de_sa_maison(livre):
+    from sim.pays import pays as pays_d_une_maison
+    ids = [f["id"] for f in livre.servie["pays"]]
+    habitants = habitants_des_pays(ids, livre.des_lieux, _populations(livre.monde))
+    assert list(habitants) == ids
+    tenus = sum(lieu.population for c in livre.monde.cells.values() for lieu in c.lieux if lieu.maitre is not None)
+    assert tenus > 0 and sum(habitants.values()) == tenus
+    # Le Hainaut et la Hollande ont la même maison : `/pays` les additionne, `/terres` les compte chacun.
+    hainaut, hollande = (identifiant_de_puissance(_puissance_nommee(livre.table, nom)) for nom in ("Hainaut", "Hollande"))
+    tete = tete_de_puissance(_puissance_nommee(livre.table, "Hainaut"), livre.maisons)
+    assert tete == tete_de_puissance(_puissance_nommee(livre.table, "Hollande"), livre.maisons)
+    assert habitants[hainaut] > 0 and habitants[hollande] > 0 and habitants[hainaut] != habitants[hollande]
+    de_la_maison = pays_d_une_maison(livre.monde, tete)["totaux"]["habitants"]
+    assert de_la_maison >= habitants[hainaut] + habitants[hollande] > max(habitants[hainaut], habitants[hollande])
+    # Les lieux castillans de la terre de Pampelune comptent pour la Castille, pas pour la Navarre du bourg.
+    navarre, castille = (identifiant_de_puissance(_puissance_nommee(livre.table, nom)) for nom in ("Navarre", "Castille"))
+    terre = _cellule_du_point(livre.monde, PAMPELUNE[1], PAMPELUNE[2])
+    assert livre.des_lieux[terre, 0] == navarre
+    castillans = [rang for (cid, rang), p in livre.des_lieux.items() if cid == terre and p == castille]
+    assert castillans, "échantillon vide : aucun lieu castillan dans la terre de Pampelune"
+    sans = {cle: (0 if cle[0] == terre and cle[1] in castillans else n) for cle, n in _populations(livre.monde).items()}
+    moins = habitants_des_pays(ids, livre.des_lieux, sans)
+    part = sum(livre.monde.cells[terre].lieux[rang].population for rang in castillans)
+    assert part > 0 and habitants[castille] - moins[castille] == part and moins[navarre] == habitants[navarre]
 
 
 def _wurtemberg(s, vue):

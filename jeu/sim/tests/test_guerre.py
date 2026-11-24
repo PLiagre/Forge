@@ -905,6 +905,11 @@ def test_le_service_sert_les_terres_les_armees_dessinees_et_le_devis():
         assert (terres["tick"], terres["date"]) == (0, serveur.world.date_simulation)
         assert {t["cell_id"]: t["maitre"] for t in terres["terres"]} == {
             cid: c.lieux[0].maitre for cid, c in serveur.world.cells.items()}
+        # Les habitants de chaque pays servi : ceux de ses lieux, tous les lieux tenus comptés une fois.
+        assert set(terres["habitants_des_pays"]) == {p["id"] for p in terres["pays"]}
+        with serveur.verrou_tick:
+            tenus = sum(l.population for c in serveur.world.cells.values() for l in c.lieux if l.maitre is not None)
+        assert tenus > 0 and sum(terres["habitants_des_pays"].values()) == tenus
         assert requete_service(port, "/guerres/ordres")[0] == 400
         assert requete_service(port, "/guerres/ordres?maison=maison-inventee")[0] == 404
         assert requete_service(port, f"/guerres/ordres?maison={BAR}&cell=sept")[0] == 400
@@ -944,10 +949,13 @@ def test_le_service_sert_les_terres_les_armees_dessinees_et_le_devis():
         else:
             assert armee["point"] == depart
             assert armee["etapes"] == [] and (monde_armee.cell_id, monde_armee.rang) == (voisine, 0)
-        # Le tick a avancé, les terres ne changent pas : seuls le tick et la date se récrivent.
+        # Le tick a avancé, les terres ne changent pas : seuls le tick, la date et les habitants des pays se récrivent.
         statut, apres, octets = requete_service(port, "/terres")
         assert octets == _serialiser(apres) and apres["tick"] == 3
         assert (apres["terres"], apres["pays"]) == (terres["terres"], terres["pays"])
+        with serveur.verrou_tick:
+            tenus = sum(l.population for c in serveur.world.cells.values() for l in c.lieux if l.maitre is not None)
+        assert sum(apres["habitants_des_pays"].values()) == tenus
         # La photographie garde la guerre sans les places.
         assert "point" not in G.document_de_la_guerre(serveur.world)["armees"][0]
 

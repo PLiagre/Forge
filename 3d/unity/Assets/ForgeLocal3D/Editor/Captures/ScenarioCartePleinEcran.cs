@@ -38,7 +38,7 @@ namespace ForgeLocal3D.Captures
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == FRANCE && cabinet.Accueil.Montree != null && cabinet.Accueil.Commencer.interactable,
                 () => "fiche de la France : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
             string maison = cabinet.Accueil.Montree.Id;
-            cabinet.Accueil.Commencer.onClick.Invoke();
+            var commencer = ScenarioAccueil.CommencerPuisLancer(cabinet); while (commencer.MoveNext()) yield return commencer.Current;
             Button capitale = Capitale(cabinet);
             for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) == maison && cabinet.Partie.Jouable != null && cabinet.Partie.Maison?.Presente == true && capitale.gameObject.activeInHierarchy,
                 () => "après « Commencer » : maison « " + ScenarioAccueil.Servie(cabinet) + " », reçu « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " », « Ma capitale » " + capitale.gameObject.activeInHierarchy); a.MoveNext();) yield return null;
@@ -132,7 +132,8 @@ namespace ForgeLocal3D.Captures
             // Le texte est lu au service : il quitte l'attente et l'échec, puis ne bouge plus.
             var dossier = carte.GetComponent<DossierTerritoire>() ?? throw Faux("pas de dossier du territoire");
             Text texte = panneau.Find(LECTURE)?.GetComponentInChildren<Text>(true) ?? throw Faux("« " + LECTURE + " » est absent de la fiche");
-            bool Lu() => dossier.Document != null && texte.text != DossierTerritoire.ATTENTE && !texte.text.StartsWith("Lecture indisponible", StringComparison.Ordinal);
+            bool Lu() => dossier.Document != null && !texte.text.Contains(DossierTerritoire.ATTENTE) && !texte.text.Contains(DossierTerritoire.PAYS_EN_LECTURE)
+                && !texte.text.Contains("Lecture indisponible");
             for (var a = AttentesDeCapture.Jusqua(Lu, () => "texte de la fiche : « " + texte.text + " », document lu " + (dossier.Document != null)); a.MoveNext();) yield return null;
             string avant = texte.text; double depuis = Time.realtimeSinceStartupAsDouble, fin = depuis + 20;
             while (Time.realtimeSinceStartupAsDouble - depuis < STABLE_S && Time.realtimeSinceStartupAsDouble < fin)

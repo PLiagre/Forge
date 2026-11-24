@@ -17,7 +17,7 @@ import time
 from typing import NamedTuple
 from urllib.parse import parse_qs, urlsplit
 
-from sim.carte_servie import document_carte, terres_et_pays
+from sim.carte_servie import document_carte, habitants_des_pays, terres_pays_et_lieux
 from sim import constants as _constantes
 from sim import engine
 from sim.constants import DEFAULT_CLI_SEED
@@ -142,21 +142,30 @@ class TerresDifferees:
     """Octets de `/terres` au tick publié, sérialisés à la première lecture, puis gardés.
 
     Le corps des terres et des pays est une `DocumentDiffere` partagée d'un tick à l'autre tant que
-    leur clé ne change pas ; seuls la date copiée et le tick sont propres au jour. Les octets sont
-    ceux de `_serialiser` du document entier, clés triées : date, pays, terres, tick. Comme
-    `DocumentDiffere`, ne garde ni serveur ni verrou et ne lit jamais le monde vivant."""
+    leur clé ne change pas, avec la table du pays de chaque lieu et les identifiants des pays servis ;
+    la date copiée, le tick et les habitants des pays sont propres au jour. Les habitants se comptent
+    à la première lecture, sur les lieux copiés à la publication (`cellules` : cell_id → `LieuCopie`).
+    Les octets sont ceux de `_serialiser` du document entier, clés triées : date, habitants_des_pays,
+    pays, terres, tick. Comme `DocumentDiffere`, ne garde ni serveur ni verrou et ne lit jamais le
+    monde vivant."""
 
-    def __init__(self, corps: DocumentDiffere, date: dict, tick: int):
+    def __init__(self, corps: DocumentDiffere, des_lieux: dict, pays: tuple, cellules: dict, date: dict, tick: int):
         self._corps = corps
+        self._des_lieux = des_lieux
+        self._pays = pays
+        self._cellules = cellules
         self._date = date
         self._tick = tick
         self._octets = None
 
     def octets(self) -> bytes:
         if self._octets is None:
-            # Le corps de l'objet, sans ses accolades, se glisse entre la date et le tick.
-            self._octets = (b'{"date":' + _serialiser(self._date) + b"," + self._corps.octets()[1:-1]
-                            + b',"tick":' + str(self._tick).encode() + b"}")
+            populations = {(cid, lieu.rang): lieu.population
+                           for cid, lieux in self._cellules.items() for lieu in lieux}
+            habitants = habitants_des_pays(self._pays, self._des_lieux, populations)
+            # Le corps de l'objet, sans ses accolades, se glisse entre les habitants des pays et le tick.
+            self._octets = (b'{"date":' + _serialiser(self._date) + b',"habitants_des_pays":' + _serialiser(habitants)
+                            + b"," + self._corps.octets()[1:-1] + b',"tick":' + str(self._tick).encode() + b"}")
         return self._octets
 
 
@@ -418,7 +427,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._formes_figees = None  # les octets de `/formes`, calculés à la première lecture
         self._atlas_figee = None  # les octets de `/atlas`, calculés à la première lecture
         self._places = None  # (maîtres des bourgs, places des lieux) : relu tant que les maîtres ne changent pas
-        self._terres = None  # (maîtres et suzerains, noms, document différé des terres et pays) : refait quand l'un change
+        self._terres = None  # (maîtres et suzerains, noms, document différé des terres et pays, pays des lieux, pays servis) : refait quand l'un change
         self.condition_vitesse = threading.Condition()
         self._generation_vitesse = 0
         self._arret_horloge = False
@@ -556,17 +565,19 @@ class ServeurMonde(ThreadingHTTPServer):
             self._places = (cle, places_du_monde(self.world))
         return self._places[1]
 
-    def _terres_du_tick(self, matiere: MatiereMaisons, noms) -> TerresDifferees:
-        """`/terres` au tick publié, copié sans être sérialisé. Les terres et les pays ne se refont que si
-        le maître d'un bourg, un suzerain ou les noms changent ; sinon leur document, et ses octets s'ils
-        ont déjà été lus, passent au jour suivant. Seuls la date et le tick sont copiés chaque jour."""
+    def _terres_du_tick(self, matiere: MatiereMaisons, noms, cellules: dict) -> TerresDifferees:
+        """`/terres` au tick publié, copié sans être sérialisé. Les terres, les pays et le pays de chaque
+        lieu ne se refont que si le maître d'un bourg, un suzerain ou les noms changent ; sinon leur
+        document, et ses octets s'ils ont déjà été lus, passent au jour suivant. La date, le tick et les
+        lieux copiés du jour (`cellules`, dont se comptent les habitants des pays) sont propres au jour."""
         cle = (bourgs_et_maitres(self.world), tuple((m.id, m.suzerain) for m in self.world.maisons))
         gardees = self._terres
         if gardees is None or gardees[0] != cle or gardees[1] is not noms:
-            gardees = self._terres = (cle, noms, DocumentDiffere(terres_et_pays(
-                self.world, matiere, self._sources_des_pays())))
-        _cle, _noms, corps = gardees
-        return TerresDifferees(corps, matiere.date, matiere.tick)
+            document, des_lieux = terres_pays_et_lieux(self.world, matiere, self._sources_des_pays())
+            gardees = self._terres = (cle, noms, DocumentDiffere(document), des_lieux,
+                                      tuple(p["id"] for p in document["pays"]))
+        _cle, _noms, corps, des_lieux, pays = gardees
+        return TerresDifferees(corps, des_lieux, pays, cellules, matiere.date, matiere.tick)
 
     def _construire_etat(
         self,
@@ -687,7 +698,7 @@ class ServeurMonde(ThreadingHTTPServer):
             modificateurs=_serialiser(document_des_modificateurs(self.world) | {"date": date}),
             # `document_servi_de_la_guerre` rend des copies : le monde vivant peut changer avant la lecture.
             guerres=DocumentDiffere(document_servi_de_la_guerre(self.world, places)),
-            terres=self._terres_du_tick(matiere, noms),
+            terres=self._terres_du_tick(matiere, noms, {cid: copies[1].lieux for cid, copies in documents_lieux.items()}),
             lieux_du_monde=DocumentDiffere(
                 ({cid: document[1] for cid, document in documents_lieux.items()}, numero_tick, date),
                 _document_des_lieux),

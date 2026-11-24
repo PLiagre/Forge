@@ -2707,7 +2707,7 @@ monde sous le verrou du tick, sans cache des nombres du monde et sans
 calcul supplémentaire à chaque tick. Une erreur de construction rend
 `500` avec `erreur`, sans arrêter le service.
 
-`GET /terres` sert, au tick publié, `{tick, date, terres, pays}`
+`GET /terres` sert, au tick publié, `{tick, date, habitants_des_pays, terres, pays}`
 (`carte_servie.terres_et_pays`). `terres` porte, pour chaque cellule triée,
 `cell_id`, `maitre` (le maître de son bourg, ou `null`), `maison` et `pays`.
 `maison` est la maison au sommet de la suzeraineté de ce maître
@@ -2761,17 +2761,27 @@ le porte dans sa fiche : un prince d'Empire dit « Saint-Empire » sans relever
 d'aucun suzerain ; sans déclaration, et pour une terre de départ ou un seigneur
 libre, `ensemble` vaut `null`. L'ensemble n'a aucun effet dans le moteur : ni
 maître, ni pays, ni suzerain n'en dépendent (le lien d'Empire est de **niveau 3**).
-Une république, une Église ou un ordre a pour maison son institution. Les clés de
-premier niveau ne changent pas, et le client Unity n'en lit pas de neuve.
+Une république, une Église ou un ordre a pour maison son institution.
+
+`habitants_des_pays` donne, pour chaque pays de la liste `pays`, la somme des
+habitants de ses lieux au tick publié (`carte_servie.habitants_des_pays`, sur le
+pays de chaque lieu de `pays_des_lieux`) : un lieu sans maître n'est d'aucun pays,
+un pays cité sans lieu (le Saint-Empire) compte 0, une mesure. C'est le nombre
+du pays seul, jamais celui de sa maison : le Hainaut et la Hollande, d'une même
+maison, ont chacun le leur, quand `/pays?maison=` additionne la maison et tous
+ses vassaux. Les lieux castillans de la terre de Pampelune comptent pour la
+Castille. La somme est exacte (**niveau 1**) et ne change aucune règle.
 
 Les tables des puissances et des maisons, les seigneuries, la vue des
 puissances et la puissance des lieux partagés sont lues une fois par monde servi
 (`SourcesDesPays`), sans jamais lire un maître. La publication copie le document des terres et des pays et ne le
 refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
 date et le tick du jour : une prise ne refait que les pays, sous la même clé de
-recalcul qu'avant. Les octets naissent à la première lecture de `/terres`
-(`TerresDifferees`), puis restent ; ce sont ceux du document entier aux clés
-triées. Le tick ne lit pas cette vue.
+recalcul qu'avant. La table du pays de chaque lieu se garde avec ce document,
+sous la même clé ; les habitants des pays, eux, sont du jour : ils se comptent
+sur les habitants des lieux que la publication copie déjà pour `/lieu`. Les octets
+naissent à la première lecture de `/terres` (`TerresDifferees`), puis restent ; ce
+sont ceux du document entier aux clés triées. Le tick ne lit pas cette vue.
 
 **Niveau 1 :** trait des contours de la carte figée, puissances et leurs noms,
 maisons et villes avec leurs sources, pays de chaque cellule de la carte, que la
