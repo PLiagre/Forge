@@ -96,4 +96,107 @@ namespace Forge.Interface.Tests
             Assert.That(Nom("Alba").gameObject.activeSelf && Figurine("Alba").gameObject.activeSelf, Is.True);
         }
     }
+
+    // Les capitales sur l'Europe entière relevée du vrai service : le siège de la maison de chaque pays tenant, servi par
+    // `/jouables`, est une ville de `/carte` ou un siège de `/atlas` ; sinon il se déclare.
+    public sealed class VillesDeCarteEuropeTests
+    {
+        EuropeDeCarte europe;
+        [OneTimeSetUp] public void Poser() => europe = new EuropeDeCarte();
+        [OneTimeTearDown] public void Fermer() => europe?.Dispose();
+        static TerresDeLaCarte Terres => Forge.Pont.Tests.EuropeDeTest.TerresEurope;
+
+        // La capitale attendue de chaque pays tenant, lue dans les réponses figées : son nom et sa place en km locaux ; null si son siège ne se place pas.
+        Dictionary<string, (string nom, Vector2 place)?> Attendues(JouablesLus jouables)
+        {
+            var fiches = jouables.Fiches.ToDictionary(f => f.Id); var sieges = Forge.Pont.Tests.EuropeDeTest.AtlasEurope.Sieges.ToDictionary(s => s.Maison);
+            var tenants = new HashSet<string>(Terres.Terres.Select(t => t.Pays).Where(p => p != null)); var attendues = new Dictionary<string, (string, Vector2)?>();
+            foreach (var pays in Terres.Pays.Where(p => tenants.Contains(p.Id)))
+            {
+                string maison = pays.Maison?.Id; SiegeJouable siege = maison != null && fiches.TryGetValue(maison, out FicheJouable f) ? f.Siege : null;
+                var carte = Forge.Pont.Tests.EuropeDeTest.CarteEurope; var deCeNom = siege == null ? new VilleDeCarte[0] : carte.Cellules.SelectMany(c => c.Villes).Where(v => v.Nom == siege.Nom).ToArray();
+                VilleDeCarte ville = siege?.CellId == null ? null : carte.Cellules.Single(c => c.CellId == siege.CellId).Villes.FirstOrDefault(v => v.Nom == siege.Nom) ?? (deCeNom.Length == 1 ? deCeNom[0] : null);
+                attendues[pays.Id] = ville != null ? (ville.Nom, europe.Ici(ville.Position)) : maison != null && sieges.TryGetValue(maison, out SiegeDeLAtlas s) ? (s.Nom, europe.Ici(s.Point)) : ((string, Vector2)?)null;
+            }
+            return attendues;
+        }
+        (string nom, Vector3 pied, IReadOnlyList<string> pays, TextMesh texte, Transform figurine) CapitaleDe(string pays) => europe.Villes.Capitales.Single(c => c.pays.Contains(pays));
+
+        [Test] public void Chaque_pays_tenant_a_sa_capitale_marquee_et_nommee_ou_declaree()
+        {
+            var attendues = Attendues(Forge.Pont.Tests.EuropeDeTest.JouablesEurope); var placees = attendues.Where(a => a.Value != null).ToList();
+            Assert.That(placees.Count, Is.GreaterThan(50), "échantillon vide : trop peu de capitales servies");
+            Assert.That(europe.Villes.Capitales.Count, Is.EqualTo(placees.Select(a => a.Value.Value.nom + a.Value.Value.place).Distinct().Count()), "le compte des capitales posées n'est pas celui des sièges servis sur la carte");
+            foreach (var (pays, attendue) in placees)
+            {
+                var c = CapitaleDe(pays);
+                Assert.That((c.nom, (new Vector2(c.pied.x, c.pied.z) - attendue.Value.place).magnitude < 1e-2f), Is.EqualTo((attendue.Value.nom, true)), pays + " n'a pas sa capitale au siège servi");
+                Assert.That(c.figurine.GetComponent<MeshFilter>().sharedMesh.name, Does.StartWith("Capitale de taille"), pays + " : sa capitale n'est pas marquée");
+                Assert.That(c.texte != null && c.texte.text == attendue.Value.nom, Is.True, pays + " : sa capitale n'est pas nommée");
+            }
+            var marquees = new HashSet<Transform>(europe.Villes.Capitales.Select(c => c.figurine));
+            var autres = europe.Racine.transform.Find(VillesDeCarte.RACINE).Cast<Transform>().Where(f => !marquees.Contains(f)).ToList();
+            Assert.That(autres, Is.Not.Empty, "échantillon vide : toutes les villes sont des capitales"); Assert.That(autres.All(f => f.GetComponent<MeshFilter>().sharedMesh.name.StartsWith("Bourg")), Is.True, "une ville qui n'est pas une capitale en porte la marque");
+            Assert.That(europe.Villes.Capitales.Any(c => c.figurine.parent == europe.Racine.transform.Find(VillesDeCarte.RACINE) && c.texte.transform.parent.name == VillesDeCarte.NOMS), Is.True, "échantillon vide : aucune capitale n'est une ville de la carte");
+            // Un siège qui ne se place pas se déclare, avec sa raison, et la légende le dit.
+            Assert.That(europe.Villes.Introuvables.Select(i => i.pays), Is.EquivalentTo(attendues.Where(a => a.Value == null).Select(a => a.Key)), "les sièges déclarés introuvables ne sont pas ceux qu'aucune réponse ne place");
+            Assert.That(europe.Villes.Introuvables.All(i => !string.IsNullOrEmpty(i.raison)), Is.True);
+            europe.Peindre(); europe.Peindre();
+            Assert.That(europe.Calques.Legende.GetComponentInParent<Infobulle>().Phrase, Does.Contain("Capitales non placées, faute de siège servi sur la carte : " + europe.Villes.Introuvables.Count + " pays"));
+        }
+
+        // Le siège de la Castille est servi « Tolède » dans une cellule voisine de la ville : la ville de ce nom, seule sur la carte, est sa capitale.
+        [Test] public void Un_siege_servi_dans_une_cellule_voisine_de_sa_ville_la_retrouve_par_son_nom()
+        {
+            string castille = Terres.Pays.Single(p => p.Nom == "Castille").Id; var fiche = Forge.Pont.Tests.EuropeDeTest.JouablesEurope.Fiches.Single(f => f.Id == Terres.MaisonDuPays(castille).Id);
+            Assert.That(Forge.Pont.Tests.EuropeDeTest.CarteEurope.Cellules.Single(c => c.CellId == fiche.Siege.CellId).Villes.Any(v => v.Nom == fiche.Siege.Nom), Is.False, "échantillon vide : le siège de la Castille est dans la cellule de sa ville");
+            Assert.That(CapitaleDe(castille).nom, Is.EqualTo("Tolède"));
+        }
+
+        [Test] public void Biskra_est_marquee_et_nommee_au_siege_de_l_atlas()
+        {
+            SiegeDeLAtlas biskra = Forge.Pont.Tests.EuropeDeTest.AtlasEurope.Sieges.Single(s => s.Nom == "Biskra");
+            string zab = Terres.Pays.Single(p => p.Maison?.Id == biskra.Maison).Id; var c = CapitaleDe(zab);
+            Assert.That(c.nom, Is.EqualTo("Biskra")); Assert.That((new Vector2(c.pied.x, c.pied.z) - europe.Ici(biskra.Point)).magnitude, Is.LessThan(1e-2f), "Biskra n'est pas au point de son siège");
+            Assert.That(c.texte.text, Is.EqualTo("Biskra")); Assert.That(c.figurine.GetComponent<MeshFilter>().sharedMesh.name, Does.StartWith("Capitale de taille"));
+            // Vue de près, Biskra se montre avec son nom.
+            europe.Voir(new Vector2(c.pied.x, c.pied.z), 150f);
+            Assert.That(c.figurine.gameObject.activeSelf, Is.True, "la figurine de Biskra est cachée");
+            Assert.That(europe.Calques.EtiquetteDe(c.texte)?.enabled, Is.True, "le nom de Biskra n'est pas montré");
+        }
+
+        // Une capitale passe avant les villes, jamais avant un nom de pays lisible.
+        [Test] public void Une_capitale_montree_ne_recouvre_pas_un_nom_de_pays_lisible()
+        {
+            Vector2 Ici(string pays) { var c = CapitaleDe(pays); return new Vector2(c.pied.x, c.pied.z); }
+            int montrees = 0;
+            foreach (var (centre, demi) in new[] { (Vector2.zero, 1500f), (Ici("puissance-3"), 450f), (Ici("puissance-10"), 400f), (Ici(Terres.Pays.Single(p => p.Nom == "Émirat du Zab").Id), 300f) })
+            {
+                europe.Voir(centre, demi);
+                var lettres = europe.LettresDesPays(); montrees += europe.Calques.PlacesDesCapitales.Count;
+                foreach (Rect capitale in europe.Calques.PlacesDesCapitales) Assert.That(lettres.Any(l => l.Overlaps(capitale)), Is.False, "une capitale s'écrit sur un nom de pays lisible, demi " + demi);
+                foreach (Rect ville in europe.Calques.PlacesDesVilles.Except(europe.Calques.PlacesDesCapitales)) Assert.That(europe.Calques.PlacesDesCapitales.Any(c => c.Overlaps(ville)), Is.False, "une ville s'écrit sur une capitale");
+            }
+            Assert.That(montrees, Is.GreaterThan(0), "échantillon vide : aucune capitale montrée");
+            // Paris, capitale de la France, se montre sur la vue de la France.
+            europe.Voir(Ici("puissance-3"), 450f); Assert.That(europe.Calques.EtiquetteDe(CapitaleDe("puissance-3").texte)?.enabled, Is.True, "la capitale de la France n'est pas nommée sur sa vue");
+        }
+
+        // Sans siège servi pour sa maison, l'Angleterre n'a pas de capitale : Londres ne se devine pas, elle se déclare.
+        [Test] public void Un_siege_absent_se_declare_au_lieu_de_se_deviner()
+        {
+            string angleterre = "puissance-1", maison = Terres.MaisonDuPays(angleterre).Id; JouablesLus tous = Forge.Pont.Tests.EuropeDeTest.JouablesEurope;
+            Assert.That(CapitaleDe(angleterre).nom, Is.EqualTo("Londres"), "échantillon vide : l'Angleterre n'a pas Londres pour capitale");
+            var sans = new JouablesLus(tous.Tick, tous.Date, tous.Fiches.Where(f => f.Id != maison));
+            try
+            {
+                europe.Villes.Brancher(() => sans, europe.Guerre, europe.Atlas); europe.Villes.Pas();
+                Assert.That(europe.Villes.Capitales.Any(c => c.pays.Contains(angleterre)), Is.False, "Londres est devinée capitale sans siège servi");
+                Assert.That(europe.Villes.Introuvables.Single(i => i.pays == angleterre).raison, Is.EqualTo("maison sans siège servi"));
+                Assert.That(europe.Racine.transform.Find(VillesDeCarte.RACINE + "/Figurine de Londres").GetComponent<MeshFilter>().sharedMesh.name, Does.StartWith("Bourg"), "Londres garde la marque d'une capitale");
+            }
+            finally { europe.Villes.Brancher(() => tous, europe.Guerre, europe.Atlas); europe.Villes.Pas(); }
+            Assert.That(CapitaleDe(angleterre).nom, Is.EqualTo("Londres"), "la capitale ne revient pas avec son siège");
+        }
+    }
 }

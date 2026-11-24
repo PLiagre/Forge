@@ -55,10 +55,10 @@ namespace Forge.Interface
         // L'étiquette d'écran de chaque texte posé sur la carte, et la toile qui les porte, sur la caméra de la carte.
         readonly Dictionary<TextMesh, Text> ecrites = new Dictionary<TextMesh, Text>(); readonly Dictionary<Text, (string texte, int points, float largeur)> largeurs = new Dictionary<Text, (string, int, float)>();
         Canvas toileDesEtiquettes;
-        readonly List<Rect> etiquettes = new List<Rect>(), nombres = new List<Rect>(), villes = new List<Rect>();
+        readonly List<Rect> etiquettes = new List<Rect>(), nombres = new List<Rect>(), villes = new List<Rect>(), capitales = new List<Rect>();
         Text legende; RectTransform fond; Infobulle bulle;
         LieuxDeCarte lieux; FlechesDeCarte fleches; string ecrite, detaillee; RepartitionHabitants repartie; // la légende et le détail du dernier passage sans faute ; nuls après une faute
-        AtlasDeCarte atlas; CarteDeLaGuerre guerre; int versionDesPays = -1, coloriageDesPays = -1; // les pays servis des terres, leur version et celle de leurs couleurs au dernier passage
+        AtlasDeCarte atlas; VillesDeCarte villesDeCarte; int versionDesTextes = -1; CarteDeLaGuerre guerre; int versionDesPays = -1, coloriageDesPays = -1; // les pays servis des terres, leur version et celle de leurs couleurs au dernier passage
         MondeLu precedent;
         long? territoirePrecedent;
         bool changement = true;
@@ -79,7 +79,7 @@ namespace Forge.Interface
             legende.color = SocleInterface.Couleur("papier"); legende.supportRichText = false; legende.horizontalOverflow = HorizontalWrapMode.Wrap; legende.verticalOverflow = VerticalWrapMode.Overflow;
             Legender(legende.text, DetailDuMode(Mode));
         }
-        public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null, AtlasDeCarte atlas = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; this.atlas = atlas; }
+        public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null, AtlasDeCarte atlas = null, VillesDeCarte villes = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; this.atlas = atlas; villesDeCarte = villes; }
         void Bouton(Transform bande, ModeDeCarte mode, float x, string phrase)
         {
             var b = SocleInterface.Commande(bande, mode.ToString(), x, 0, () => { Mode = mode; changement = true; }, phrase: phrase); // un clic ne lit rien
@@ -163,14 +163,7 @@ namespace Forge.Interface
                     carte.Encadrer(SocleInterface.Couleur("fond"), SocleInterface.Couleur("or-vieilli"));
                     // Les traits du terrain à l'encre ; les lignes d'eau, une mer tirée vers le papier.
                     Color encre = SocleInterface.Couleur("encre"); carte.Encrer(encre, encre, encre, Color.Lerp(mer, papier, .45f));
-                    var police = SocleInterface.Police(titre: true);
-                    noms = carte.GetComponentsInChildren<TextMesh>().Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
-                    foreach (var nom in noms)
-                    {
-                        nom.font = police; nom.fontSize = 16;
-                        nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
-                        nom.color = SocleInterface.Couleur("encre");
-                    }
+                    ReleverLesNoms();
                 }
                 ModeDeCarte mode = Mode; bool habitants = mode == ModeDeCarte.Habitants;
                 RepartitionHabitants repartition = habitants ? new RepartitionHabitants(lu) : null;
@@ -207,7 +200,20 @@ namespace Forge.Interface
                 catch (ArgumentException) { Ecrire(COUPEE, raison + "\n" + detail); } // trop longue pour trois lignes : entière dans l'infobulle
             }
         }
-        void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint, guerre), detail = DetailDuMode(Mode, lieux, fleches, guerre) + (atlas?.Absence != null ? "\nNoms de l'atlas non lus : " + TexteDuMonde.Absence(atlas.Absence) : ""); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
+        // Les textes posés sur la carte (les villes, les sièges de l'atlas), cachés compris, hors ceux de la guerre : relevés à la
+        // pose de la carte, puis chaque fois que les villes en posent ou en retirent.
+        void ReleverLesNoms()
+        {
+            var police = SocleInterface.Police(titre: true); versionDesTextes = villesDeCarte != null ? villesDeCarte.VersionDesTextes : -1;
+            noms = carte.GetComponentsInChildren<TextMesh>(true).Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
+            foreach (var nom in noms)
+            {
+                nom.font = police; nom.fontSize = 16;
+                nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
+                nom.color = SocleInterface.Couleur("encre");
+            }
+        }
+        void Recrire(RepartitionHabitants repartition) { string texte = LegendeDuMode(Mode, repartition, lieux != null && lieux.Peint, guerre), detail = DetailDuMode(Mode, lieux, fleches, guerre) + (atlas?.Absence != null ? "\nNoms de l'atlas non lus : " + TexteDuMonde.Absence(atlas.Absence) : "") + (villesDeCarte?.TexteLegende != null ? "\n" + villesDeCarte.TexteLegende : ""); if (texte != ecrite || detail != detaillee || Mathf.Abs(legende.preferredHeight - legende.rectTransform.sizeDelta.y) > 1f /* la toile peut changer d'échelle */) { Legender(texte, detail); ecrite = texte; detaillee = detail; } }
 
         // Sans année. Les couleurs des puissances sont relevées au dessin de la carte, jamais relues : les dater
         // dirait qu'elles sont celles du jour servi. La légende des habitants garde sa date, celle du monde lu.
@@ -224,6 +230,7 @@ namespace Forge.Interface
         void EspacerLesNoms()
         {
             if (noms == null) return;
+            if (villesDeCarte != null && villesDeCarte.VersionDesTextes != versionDesTextes) ReleverLesNoms();
             etiquettes.Clear();
             // Un texte retiré de la carte emporte son étiquette.
             bool parti = false; foreach (var paire in ecrites) if (paire.Key == null) { parti = true; break; }
@@ -233,15 +240,19 @@ namespace Forge.Interface
                 ecrites.Clear(); foreach (var paire in gardees) ecrites.Add(paire.Key, paire.Value);
             }
             if (toileDesEtiquettes != null && carte.camera != null) toileDesEtiquettes.planeDistance = carte.camera.nearClipPlane * 1.5f;
-            nombres.Clear(); villes.Clear();
+            nombres.Clear(); villes.Clear(); capitales.Clear();
             if (guerre != null) { foreach (var nombre in guerre.NombresDesArmees) Espacer(nombre, true, CORPS_DE_NOMBRE_PX); nombres.AddRange(etiquettes); guerre.Ecriture?.Reserver(carte.camera, etiquettes); }
+            // Les capitales passent avant l'atlas et les autres villes : seuls un nombre d'armée ou un nom de pays lisible les cachent.
+            foreach (var nom in noms) if (villesDeCarte != null && villesDeCarte.EstCapitale(nom)) { int avant = etiquettes.Count; Espacer(nom, false, CORPS_DE_VILLE_PX); if (etiquettes.Count > avant) capitales.Add(etiquettes[etiquettes.Count - 1]); }
             atlas?.Ecriture?.Reserver(carte.camera, etiquettes); // les noms de l'atlas lisibles aussi
-            foreach (var nom in noms) Espacer(nom, false, CORPS_DE_VILLE_PX);
+            foreach (var nom in noms) if (villesDeCarte == null || !villesDeCarte.EstCapitale(nom)) Espacer(nom, false, CORPS_DE_VILLE_PX);
         }
         // Les places, en pixels de l'écran, des nombres des armées montrés à la dernière image.
         public IReadOnlyList<Rect> PlacesDesNombres => nombres;
         // Les places, en pixels de l'écran, des noms de villes montrés à la dernière image.
         public IReadOnlyList<Rect> PlacesDesVilles => villes;
+        // Les places des noms des capitales montrés à la dernière image (comptés aussi parmi les villes).
+        public IReadOnlyList<Rect> PlacesDesCapitales => capitales;
         // L'étiquette d'écran d'un texte posé sur la carte ; null tant qu'il n'a pas été présenté.
         public Text EtiquetteDe(TextMesh nom) => nom != null && ecrites.TryGetValue(nom, out Text texte) ? texte : null;
         Text Etiqueter(TextMesh nom)

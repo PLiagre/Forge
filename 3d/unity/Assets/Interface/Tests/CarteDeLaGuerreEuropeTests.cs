@@ -46,7 +46,8 @@ namespace Forge.Interface.Tests
                 europe.Voir(centre, demi);
                 var pris = europe.LettresDesPays().Concat(europe.LettresDeLAtlas()).ToList(); var montrees = europe.Calques.PlacesDesVilles.ToList();
                 villes += montrees.Count; lettres += pris.Count;
-                foreach (Rect ville in montrees) Assert.That(pris.Any(l => l.Overlaps(ville)), Is.False, "sur " + ou + ", un nom de ville s'écrit sur la lettre d'un nom lisible");
+                var dePays = europe.LettresDesPays();
+                foreach (Rect ville in montrees) Assert.That(pris.Any(l => l.Overlaps(ville)), Is.False, "sur " + ou + ", un nom de ville s'écrit sur la lettre d'un nom lisible : " + ville + (europe.Calques.PlacesDesCapitales.Contains(ville) ? " (une capitale)" : "") + (dePays.Any(l => l.Overlaps(ville)) ? " sur un pays" : " sur l'atlas : " + string.Join(", ", europe.Atlas.Noms.Where(n => { var ls = new List<Rect>(); europe.Atlas.Ecriture.Places(europe.Carte.camera, n, ls); return n.Opacite >= NomsCourbes.OPACITE_QUI_RESERVE && ls.Any(l => l.Overlaps(ville)); }).Select(n => n.Texte + " masqué " + n.Masque))));
             }
             Assert.That(villes, Is.GreaterThan(0), "échantillon vide : aucun nom de ville montré"); Assert.That(lettres, Is.GreaterThan(0), "échantillon vide : aucun nom lisible");
         }

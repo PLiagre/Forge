@@ -12,7 +12,7 @@ namespace Forge.Interface
     // `/atlas` les sert, lus une fois hors du fil principal. Le corps d'un nom suit sa sorte, une mer plus grande qu'une
     // région, une région plus grande qu'un fleuve : la règle des noms (`NomsCourbes`) lit donc de loin les mers, de plus près
     // les régions, et les fleuves de près. Un nom de l'atlas ne s'écrit pas sur un nom de pays lisible, ni sur un nom de
-    // l'atlas plus important déjà montré ; ceux qu'il montre réservent leur place, et un nom de ville ne s'écrit pas dessus.
+    // l'atlas plus important déjà montré, ni sur le nom d'une capitale ; ceux qu'il montre réservent leur place, et un nom de ville ne s'écrit pas dessus.
     // Rien n'est calculé du monde : les places sont celles servies, et un fleuve se trace d'un point servi au suivant.
     public sealed class AtlasDeCarte : MonoBehaviour
     {
@@ -41,13 +41,15 @@ namespace Forge.Interface
         public string SorteDe(NomCourbe nom) => nom != null && sortes.TryGetValue(nom.Pays, out string sorte) ? sorte : null;
         public string FleuveDuTrait(LineRenderer trait) => trait != null && fleuves.TryGetValue(trait, out string nom) ? nom : null;
 
-        CarteDessinee carte; CarteDeLaGuerre guerre; NomsCourbes ecriture; Transform racineDesFleuves; Material encreDesFleuves;
+        CarteDessinee carte; CarteDeLaGuerre guerre; CalquesCarte calques; NomsCourbes ecriture; Transform racineDesFleuves; Material encreDesFleuves;
         Task<Lecture<AtlasLu>> vol; double reprise; bool dessine;
         readonly List<LineRenderer> traits = new List<LineRenderer>(); readonly Dictionary<string, string> sortes = new Dictionary<string, string>();
         readonly Dictionary<LineRenderer, string> fleuves = new Dictionary<LineRenderer, string>();
         readonly List<Rect> prises = new List<Rect>(), lettres = new List<Rect>();
 
         public void Installer(CarteDeLaGuerre guerre = null) { carte = GetComponent<CarteDessinee>(); this.guerre = guerre; }
+        // Les noms des capitales montrés par les calques : un nom de l'atlas ne s'écrit pas dessus.
+        public void Eviter(CalquesCarte calques) { this.calques = calques; }
         void Update() => Pas(Time.realtimeSinceStartupAsDouble);
         void LateUpdate() => SuivreLaVue();
         void OnDestroy()
@@ -137,7 +139,7 @@ namespace Forge.Interface
             return meilleure;
         }
 
-        // Règle les traits et les noms sur la vue : un nom qui tomberait sur un nom de pays lisible ou sur un nom plus
+        // Règle les traits et les noms sur la vue : un nom qui tomberait sur un nom de pays lisible, sur une capitale nommée, ou sur un nom plus
         // important déjà montré se masque, des mers aux fleuves. Les places sont celles de l'image d'avant.
         public void SuivreLaVue()
         {
@@ -149,7 +151,7 @@ namespace Forge.Interface
                 float kmParPixel = FormesDeCarte.KmParPixel(camera, trait.transform.TransformPoint(trait.GetPosition(0)));
                 trait.widthMultiplier = kmParPixel > 0f ? Mathf.Clamp(LARGEUR_DU_FLEUVE_KM, MIN_PX * kmParPixel, MAX_PX * kmParPixel) : LARGEUR_DU_FLEUVE_KM;
             }
-            prises.Clear(); guerre?.Ecriture?.Reserver(camera, prises);
+            prises.Clear(); guerre?.Ecriture?.Reserver(camera, prises); if (calques != null) prises.AddRange(calques.PlacesDesCapitales);
             foreach (NomCourbe nom in ecriture.Noms)
             {
                 lettres.Clear(); ecriture.Places(camera, nom, lettres);

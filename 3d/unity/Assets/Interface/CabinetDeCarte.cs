@@ -147,11 +147,13 @@ namespace Forge.Interface
             // Le feuillet de la guerre, ouvert depuis le panneau « Votre maison » ; ses ordres visent la terre gardée sur la carte.
             gameObject.AddComponent<DossierGuerre>().Initialiser(toile.transform, dossier, () => Partie.Monde?.Presente == true ? Partie.Monde.Donnees.MaisonDuJoueur : null,
                 () => retenue, OrdreConfirme.Local(carte.port), NomsDesTerres.Local(carte.port), carte.port);
-            gameObject.AddComponent<VillesDeCarte>().Installer();
+            var villes = gameObject.AddComponent<VillesDeCarte>(); villes.Installer();
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
             var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var atlas = gameObject.AddComponent<AtlasDeCarte>(); atlas.Installer(guerre);
-            var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas); lieux.Eviter(guerre, calques);
+            var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas, villes); atlas.Eviter(calques);
+            // Les capitales se lisent dans les pays jouables que la partie lit déjà.
+            villes.Brancher(() => Partie?.Jouables != null && Partie.Jouables.Presente ? Partie.Jouables.Donnees : null, guerre, atlas); lieux.Eviter(guerre, calques);
             // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,
