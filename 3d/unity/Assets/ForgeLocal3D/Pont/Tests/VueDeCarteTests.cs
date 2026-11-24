@@ -12,8 +12,8 @@ namespace Forge.Pont.Tests {
         private static readonly Bounds BOITE = new Bounds(new Vector3(100, 0, -50), new Vector3(4000, 0, 3000));
         private static readonly Vector2 MILIEU = new Vector2(.5f, .5f);
 
-        // Vue d'en haut, la carte se cadre sur sa hauteur ou sa largeur, avec la marge du cadre.
-        private static float DemiMaxAttendu(float aspect) => Mathf.Max(BOITE.extents.z, BOITE.extents.x / aspect) * VueDeCarte.MARGE;
+        // Au plus loin, la vue tient dans la carte : sa hauteur ou sa largeur, la plus serrée des deux, sans marge.
+        private static float DemiMaxAttendu(float aspect) => Mathf.Min(BOITE.extents.z, BOITE.extents.x / aspect);
         private static readonly float DEMI_CHAMP = Mathf.Tan(VueDeCarte.CHAMP * Mathf.Deg2Rad / 2f);
         private static readonly float[] HAUTEURS = { 0f, 2f, 4.5f }; // le niveau de la mer, une colline, un sommet des Alpes
 
@@ -147,19 +147,26 @@ namespace Forge.Pont.Tests {
             Assert.Less((v.PointSous(ancre) - avant).magnitude, TOLERANCE, "le point sous la souris a bougé : " + v.PointSous(ancre) + " pour " + avant);
         }
 
-        // Quelle que soit la forme de la fenêtre, les quatre coins de la carte sont dans la vue du départ, et la carte
-        // la remplit sur son axe le plus serré à la marge du cadre près.
-        [Test] public void Toute_la_carte_tient_dans_la_vue_du_depart() {
-            foreach (float aspect in new[] { 0.5f, 1f, 1.2f, 4f / 3f, 1.4f, 1.5f, 16f / 9f, 2.4f, 3f }) {
-                var v = new VueDeCarte(BOITE, aspect); float plusLarge = 0f, plusHaut = 0f;
-                foreach (var (x, z) in new[] { (BOITE.min.x, BOITE.min.z), (BOITE.max.x, BOITE.min.z), (BOITE.max.x, BOITE.max.z), (BOITE.min.x, BOITE.max.z) }) {
-                    Vector3 vers = new Vector3(x, 0f, z) - v.Position; float profondeur = Vector3.Dot(vers, v.Regard);
-                    float enLarge = Vector3.Dot(vers, Vector3.right) / (profondeur * DEMI_CHAMP * aspect), enHaut = Vector3.Dot(vers, v.Haut) / (profondeur * DEMI_CHAMP);
-                    Assert.IsTrue(profondeur > 0 && Mathf.Abs(enLarge) <= 1f && Mathf.Abs(enHaut) <= 1f, "aspect " + aspect + " : le coin (" + x + ", " + z + ") est hors de la vue : " + enLarge + ", " + enHaut);
-                    plusLarge = Mathf.Max(plusLarge, Mathf.Abs(enLarge)); plusHaut = Mathf.Max(plusHaut, Mathf.Abs(enHaut));
+        // Au plus loin, quelle que soit la forme de la fenêtre, les quatre coins de l'écran tombent dans la carte : la
+        // caméra posée y lance ses rayons, et ils touchent le niveau de la mer dans la boîte. La carte touche le bord de
+        // l'écran sur son axe le plus serré : rien n'est perdu de ce qui tient.
+        [Test] public void Au_plus_loin_les_quatre_coins_de_l_ecran_tombent_dans_la_carte() {
+            int coins = 0;
+            foreach (float aspect in new[] { 0.5f, 1f, 4f / 3f, 16f / 9f, 2.4f }) {
+                using var temoin = new CameraTemoin(); var v = new VueDeCarte(BOITE, aspect); v.Zoomer(-1000, MILIEU);
+                v.Poser(temoin.Camera, temoin.Carte); temoin.Camera.aspect = aspect; float plusLarge = 0f, plusHaut = 0f;
+                foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                    Ray rayon = temoin.Camera.ViewportPointToRay(coin); Vector3 o = temoin.Carte.InverseTransformPoint(rayon.origin), d = temoin.Carte.InverseTransformDirection(rayon.direction);
+                    Vector3 sol = o + d * (-o.y / d.y); coins++;
+                    Assert.IsTrue(sol.x >= BOITE.min.x - .5f && sol.x <= BOITE.max.x + .5f && sol.z >= BOITE.min.z - .5f && sol.z <= BOITE.max.z + .5f, "aspect " + aspect + " : le coin " + coin + " de l'écran tombe hors de la carte, en " + sol);
+                    plusLarge = Mathf.Max(plusLarge, Mathf.Abs(sol.x - BOITE.center.x) / BOITE.extents.x); plusHaut = Mathf.Max(plusHaut, Mathf.Abs(sol.z - BOITE.center.z) / BOITE.extents.z);
                 }
-                Assert.AreEqual(1f / VueDeCarte.MARGE, Mathf.Max(plusLarge, plusHaut), 1e-3f, "aspect " + aspect + " : la carte ne remplit pas la vue à la marge près");
+                Assert.AreEqual(1f, Mathf.Max(plusLarge, plusHaut), 1e-3f, "aspect " + aspect + " : au plus loin, la carte ne touche pas le bord de l'écran");
+                // Contre-épreuve : la vue d'avant, qui tenait toute la carte avec une marge, montrait au-delà de la carte.
+                float avant = Mathf.Max(BOITE.extents.z, BOITE.extents.x / aspect) * VueDeCarte.MARGE;
+                Assert.IsTrue(avant * aspect > BOITE.extents.x || avant > BOITE.extents.z, "aspect " + aspect + " : la contre-épreuve ne sort pas de la carte");
             }
+            Assert.AreEqual(20, coins, "échantillon vide");
         }
 
         [Test] public void Le_point_saisi_reste_sous_la_souris_a_la_hauteur_du_sol() {
@@ -192,11 +199,12 @@ namespace Forge.Pont.Tests {
             }
         }
 
-        [Test] public void Plus_large_que_la_carte_la_vue_se_centre_sur_elle() {
-            var v = new VueDeCarte(BOITE, 10f); v.Zoomer(3, MILIEU); v.Glisser(new Vector2(LOIN, LOIN), 900f);
-            Assert.Greater(2 * v.DemiLargeur, BOITE.size.x, "le cas n'est pas celui d'une vue plus large que la carte");
+        // Une fenêtre très large, au plus loin : la vue a toute la largeur de la carte, centrée, et glisse seulement en hauteur.
+        [Test] public void Une_fenetre_tres_large_tient_la_carte_en_largeur() {
+            var v = new VueDeCarte(BOITE, 10f); v.Glisser(new Vector2(LOIN, LOIN), 900f);
+            Assert.AreEqual(BOITE.size.x, 2 * v.DemiLargeur, TOLERANCE, "au plus loin, la vue n'a pas la largeur de la carte");
             Assert.Less(2 * v.Demi, BOITE.size.z, "le cas n'est pas celui d'une vue moins haute que la carte");
-            DansLaCarte(v, "fenêtre très large");
+            DansLaCarte(v, "fenêtre très large"); Assert.AreEqual(BOITE.min.z, v.Centre.y - v.Demi, TOLERANCE, "le glissé ne s'arrête pas au bord sud");
         }
 
         [Test] public void La_forme_de_la_fenetre_garde_l_echelle() {

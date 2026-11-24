@@ -24,11 +24,26 @@ def _le_meilleur(entrees):
     return haut if len(egales) == 1 else min(egales, key=_RANG)
 
 
+def ration_journaliere() -> float:
+    """La nourriture d'un habitant pour un jour, en kg."""
+    return (_constantes.consommation_kg_par_habitant_par_tick(_constantes.MARCHANDISE_NOURRITURE)
+            / _constantes.TICK_DURATION_DAYS)
+
+
+def reserve_en_jours(population, nourriture_kg, dette_kg, ration_jour) -> float:
+    """Les jours que la nourriture d'un lieu habité, moins sa dette, nourrit ses habitants.
+
+    Un stock négatif ou absent (-1) compte pour rien ; une dette plus lourde que le stock rend
+    une réserve négative. La même lecture sert au mieux-vivre et au service."""
+    if nourriture_kg < 0:
+        nourriture_kg = 0
+    return (nourriture_kg - dette_kg) / (population * ration_jour)
+
+
 def appliquer_departs(world) -> int:
     """Déplace des foyers entiers ; ni nourriture, ni dette, ni faim ne suivent."""
     nourriture = _constantes.MARCHANDISE_NOURRITURE
-    ration = (_constantes.consommation_kg_par_habitant_par_tick(nourriture)
-              / _constantes.TICK_DURATION_DAYS)
+    ration = ration_journaliere()
     lire = lire_stock_marchandise
     lieux_par_cellule, premiers, bourgs = {}, {}, {}
     # Chaque lieu habité fournit une seule lecture du panier.
@@ -38,11 +53,9 @@ def appliquer_departs(world) -> int:
             population = lieu.population
             if population <= 0:
                 continue
-            stock = lire(lieu, nourriture)
-            if stock < 0:
-                stock = 0
             entrees.append((lieu.rang, lieu, population,
-                            (stock - lieu.dette_alimentaire_kg) / (population * ration)))
+                            reserve_en_jours(population, lire(lieu, nourriture),
+                                             lieu.dette_alimentaire_kg, ration)))
         if entrees:
             lieux_par_cellule[cid] = entrees
             premiers[cid] = _le_meilleur(entrees)

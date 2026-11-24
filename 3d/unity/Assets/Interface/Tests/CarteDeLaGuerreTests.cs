@@ -34,6 +34,7 @@ namespace Forge.Interface.Tests
             toile = new GameObject("Toile témoin", typeof(Canvas));
             calques = racine.AddComponent<CalquesCarte>(); calques.Initialiser(carte, toile.transform, () => null, () => null);
             guerre = racine.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); calques.Brancher(null, null, guerre);
+            calques.LecteurDesLieux = () => Lecture<LieuxLus>.Absent("lieux : service coupé"); // sans lieux servis, sauf quand un cas en sert
         }
         [TearDown] public void Fermer() { carte.camera.targetTexture = null; carte.Arreter(); Object.DestroyImmediate(racine); Object.DestroyImmediate(toile); if (ecran != null) Object.DestroyImmediate(ecran); ecran = null; }
 
@@ -43,8 +44,10 @@ namespace Forge.Interface.Tests
             return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0], relief, 100); // 10 km × 10 km
         }
         // Le mode choisi d'un clic sur son bouton, puis la carte repeinte.
-        void Choisir(ModeDeCarte mode) { toile.transform.Find(CalquesCarte.BANDE + "/" + mode).GetComponent<UnityEngine.UI.Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); Peindre(); }
+        // Population et Vivres attendent que leur lecture des lieux ait rendu.
+        void Choisir(ModeDeCarte mode) { toile.transform.Find(CalquesCarte.BANDE + "/" + mode).GetComponent<UnityEngine.UI.Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); Peindre(); var fin = DateTime.UtcNow.AddSeconds(10); while (calques.LieuxEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); Peindre(); }
         float ForceDesPays => racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_ForceDesPays");
+        float LiseresDuTerrain => racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_ForceDesLiseres");
         static GuerresLues EnGuerre(string agresseur, string defenseur, long? siege = null) => new GuerresLues(5, new DateDuMonde(1400, 6), new[] { new GuerreLue(1, agresseur, defenseur, 2) },
             siege == null ? new ArmeeLue[0] : new[] { new ArmeeLue(0, agresseur, siege.Value, 0, 1200, 500, siege, null, new long[0], new PointCarte(25000, 5000), new PointCarte[0]) }, new PriseLue[0], 0);
         // Les pays des terres 10, 20 et 30, nommés « Avalon » et « Brume » ; le maître de chaque terre est « m » suivi de son numéro.
@@ -77,6 +80,8 @@ namespace Forge.Interface.Tests
             if (ecran == null) { ecran = new RenderTexture(1600, ECRAN_PX, 16); carte.camera.targetTexture = ecran; }
             carte.camera.orthographicSize = demi; guerre.SuivreLaVue();
         }
+        // L'infobulle de la légende : son texte, puis la date et la règle du mode.
+        string Bulle() => calques.Legende.GetComponentInParent<Infobulle>().Phrase;
         void Peindre() => typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(calques, null);
         Color32 Teinte(long id) => carte.TeinteDe(id).Value;
         static Color32 Depart => SocleInterface.Pigment(MaillageDeCarte.CouleurSansPuissance);
@@ -90,15 +95,17 @@ namespace Forge.Interface.Tests
             Servir(Terres(A, A, B)); Peindre();
             Assert.That((Teinte(10), Teinte(20), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(A), DuPays(B))));
             Assert.That(DuPays(A), Is.Not.EqualTo(DuPays(B)), "deux pays de même teinte : échantillon vide");
-            Assert.That(calques.Legende.text, Is.EqualTo("Pays au jour 6 de 1400 · Rouge : territoire conservé"));
+            Assert.That(calques.Legende.text, Is.EqualTo("pays · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE)); Assert.That(Bulle(), Does.StartWith(calques.Legende.text + "\nPays au jour 6 de 1400."));
             Assert.That(TexteDuMonde.Interdit(calques.Legende.text) ?? TexteDuMonde.SansUnite(calques.Legende.text), Is.Null);
             // La terre 30 est prise par le pays A : elle seule change de teinte.
             int version = guerre.Version; Servir(Terres(A, A, A, 7)); Assert.That(guerre.Version, Is.EqualTo(version + 1)); Peindre();
             Assert.That((Teinte(10), Teinte(20), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(A), DuPays(A))));
             Assert.That(terrain.sharedMaterial, Is.SameAs(matiere), "une terre prise ne change pas le matériau du terrain"); Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name == CarteDessinee.TERRAIN), Is.EqualTo(1));
-            Assert.That(calques.Legende.text, Does.StartWith("Pays au jour 7 de 1400"));
+            Assert.That(Bulle(), Does.StartWith(calques.Legende.text + "\nPays au jour 7 de 1400."));
             // Contre-épreuve : les mêmes pays relus ne recolorent rien.
             Servir(Terres(A, A, A, 8)); Assert.That(guerre.Version, Is.EqualTo(version + 1), "mêmes pays : pas de nouvelle version");
+            // Mais leur date passe dans l'infobulle de la légende, sans repeindre.
+            Peindre(); Assert.That(Bulle(), Does.Contain("\nPays au jour 8 de 1400."), "les terres relues aux mêmes pays laissent la légende au jour d'avant");
         }
 
         // Un lieu qui change seul de pays change la clé des terres : la version monte, et le terrain se retrace.
@@ -121,21 +128,26 @@ namespace Forge.Interface.Tests
             Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(DuPays(A)), "le bourg de la terre a perdu la teinte de son pays");
             Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(DuPays(B)), "le lieu n'a pas la teinte de son pays");
             Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(A))), "une terre voisine a changé de teinte");
-            // Même en mode Population : le lieu passe par la même règle de teinte que la cellule.
-            var monde = new MondeLu(8, new DateDuMonde(1400, 9), 3, new[] { new CelluleDuMonde(10, 0, -1, -1), new CelluleDuMonde(20, 90, -1, -1), new CelluleDuMonde(30, 900, -1, -1) });
+            // Même en mode Population : chaque lieu prend la teinte de ses habitants servis, et garde son pays.
+            var lieux = new LieuxLus(8, new DateDuMonde(1400, 9), 3, new[] { new CelluleServie(10, new[] { new LieuServi(0, 0, 100, null) }),
+                new CelluleServie(20, new[] { new LieuServi(0, 9000, 50, 3), new LieuServi(1, 90, 50, 3) }), new CelluleServie(30, new[] { new LieuServi(0, 900, 100, 3) }) });
             var toileHabitants = new GameObject("Toile des habitants", typeof(Canvas));
             try
             {
-                var habitants = racine.AddComponent<CalquesCarte>(); habitants.Initialiser(carte, toileHabitants.transform, () => monde, () => null); habitants.Brancher(null, null, guerre);
+                var habitants = racine.AddComponent<CalquesCarte>(); habitants.Initialiser(carte, toileHabitants.transform, () => null, () => null); habitants.Brancher(null, null, guerre);
+                habitants.LecteurDesLieux = () => Lecture<LieuxLus>.De(lieux);
                 toileHabitants.transform.Find(CalquesCarte.BANDE + "/" + ModeDeCarte.Population).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                 Assert.That(habitants.Mode, Is.EqualTo(ModeDeCarte.Population));
-                typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(habitants, null);
-                float position = new RepartitionHabitants(monde, carte.Lue).Position(20); Assert.That(position, Is.GreaterThan(0f), "échantillon vide : la terre 20 est la moins dense");
-                Color32 attendue = new LectureDuMode(ModeDeCarte.Population, monde, carte.Lue, guerre.Terres, null).Teinte(20, B, guerre.CouleurDuPays(B), false);
-                Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(attendue), "le lieu n'a pas la teinte des habitants");
-                Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(attendue), "le bourg n'a pas la teinte des habitants");
-                Assert.That((Color32)carte.TeinteDe(10).Value, Is.Not.EqualTo(attendue), "échantillon vide : deux terres de peuplement différent de même teinte");
+                var peindre = typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic); peindre.Invoke(habitants, null);
+                var fin = DateTime.UtcNow.AddSeconds(10); while (habitants.LieuxEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); peindre.Invoke(habitants, null);
+                var lecture = new LectureDuMode(ModeDeCarte.Population, lieux, carte.Lue, guerre.Terres, null);
+                Color32 bourg = lecture.Teinte(20, 0, A, guerre.CouleurDuPays(A)), lieu = lecture.Teinte(20, 1, B, guerre.CouleurDuPays(B));
+                Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(lieu), "le lieu n'a pas la teinte de ses habitants");
+                Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(bourg), "le bourg n'a pas la teinte de ses habitants");
+                Assert.That(bourg, Is.Not.EqualTo(lieu), "échantillon vide : le bourg et le lieu de la terre 20 ont la même densité");
                 Assert.That((carte.PaysDuLieu(20, 0), carte.PaysDuLieu(20, 1)), Is.EqualTo((A, B)), "le mode Population a perdu le pays du lieu");
+                Assert.That((carte.LiseresMontres, LiseresDuTerrain), Is.EqualTo((false, 0f)), "en mode Population, le liseré teint encore les pays de leur couleur");
+                Assert.That((carte.PaysMontres, ForceDesPays), Is.EqualTo((true, 1f)), "contre-épreuve : les frontières restent en mode Population");
             }
             finally { Object.DestroyImmediate(toileHabitants); }
         }
@@ -160,11 +172,12 @@ namespace Forge.Interface.Tests
             places.Clear(); guerre.ReserverLesNoms(carte.camera, places); Assert.That(places, Is.Empty, "un nom de pays caché réserve encore ses lettres");
             Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f), "la frontière cachée a été effacée du champ");
             Assert.That((carte.PaysDe(30), carte.MesuresDesFrontieres), Is.EqualTo((B, mesures)), "le relief a changé le pays d'une terre ou remesuré les frontières");
-            Assert.That(calques.Legende.text, Does.StartWith("Relief servi, qui ne change pas"));
+            Assert.That(calques.Legende.text, Is.EqualTo("marais · colline · haute montagne")); Assert.That(carte.ParAltitude, Is.True, "le relief ne teint pas la terre par son altitude");
             // Retour à la carte politique : les pays, leurs frontières et leurs noms, sans rien remesurer.
             Choisir(ModeDeCarte.Politique);
             Assert.That((Teinte(10), Teinte(30), ForceDesPays, carte.PaysMontres, guerre.NomsMontres, guerre.Ecriture.Racine.gameObject.activeSelf), Is.EqualTo((DuPays(A), DuPays(B), 1f, true, true, true)));
-            Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f)); Assert.That(carte.MesuresDesFrontieres, Is.EqualTo(mesures)); Assert.That(calques.Legende.text, Is.EqualTo("Pays au jour 6 de 1400 · Rouge : territoire conservé"));
+            Assert.That((carte.LiseresMontres, LiseresDuTerrain), Is.EqualTo((true, 1f)), "la carte politique n'a pas retrouvé le liseré des pays");
+            Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f)); Assert.That(carte.MesuresDesFrontieres, Is.EqualTo(mesures)); Assert.That(calques.Legende.text, Is.EqualTo("pays · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE)); Assert.That(Bulle(), Does.StartWith(calques.Legende.text + "\nPays au jour 6 de 1400."));
         }
 
         // Le mode Guerres ne marque que les pays que les guerres servies nomment, et la terre qu'une armée assiège ; il suit chaque lecture des guerres.
@@ -173,23 +186,23 @@ namespace Forge.Interface.Tests
             // Avalon (m10) attaque une maison sans terre : Brume reste en paix.
             Servir(() => Lecture<TerresDeLaCarte>.De(Terres(A, A, B)), () => Lecture<GuerresLues>.De(EnGuerre("m10", "maison-sans-terre"))); Choisir(ModeDeCarte.Guerres);
             Assert.That((Teinte(10), Teinte(20), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(A), (Color32)BelligerantsDesPays.EN_PAIX)), "Brume, en paix, est marquée");
-            Assert.That(calques.Legende.text, Does.StartWith("Guerres au jour 6 de 1400"));
+            Assert.That(calques.Legende.text, Is.EqualTo("en guerre · en paix · assiégée")); Assert.That(Bulle(), Does.Contain("\nGuerres au jour 6 de 1400."));
             // Contre-épreuve : Brume (m30) attaque Avalon ; les pays n'ont pas changé, la nouvelle guerre lue suffit à repeindre.
             int version = guerre.Version; Servir(() => Lecture<TerresDeLaCarte>.De(Terres(A, A, B)), () => Lecture<GuerresLues>.De(EnGuerre("m30", "m10"))); Peindre();
             Assert.That(guerre.Version, Is.EqualTo(version), "échantillon faussé : les pays ont changé"); Assert.That(Teinte(30), Is.EqualTo(DuPays(B)), "la guerre servie de plus ne marque pas Brume");
             // L'armée d'Avalon assiège la terre 30 : elle prend la teinte du siège, que la légende nomme.
             Servir(() => Lecture<TerresDeLaCarte>.De(Terres(A, A, B)), () => Lecture<GuerresLues>.De(EnGuerre("m10", "m30", 30))); Peindre();
-            Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), (Color32)BelligerantsDesPays.ASSIEGEE))); Assert.That(calques.Legende.text, Does.Contain("brun sombre : terre assiégée"));
+            Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), (Color32)BelligerantsDesPays.ASSIEGEE))); Assert.That(calques.EchelleMontree.Teintes[2], Is.EqualTo(BelligerantsDesPays.ASSIEGEE), "l'échelle ne montre pas la teinte du siège");
             Assert.That(calques.Legende.GetComponentInParent<Infobulle>().Phrase, Does.Contain("\nAvalon contre Brume.").And.Contain("\n1 terre assiégée."));
         }
 
         // Un mode dont la donnée manque le dit dans sa légende, et la carte politique se montre à sa place.
         [Test] public void Un_mode_sans_sa_donnee_le_dit_et_montre_la_carte_politique()
         {
-            Servir(Terres(A, A, B)); Choisir(ModeDeCarte.Vivres); // le monde n'est pas lu
-            Assert.That(calques.Legende.text, Is.EqualTo("Mode Vivres indisponible : vivres non lus. Carte politique montrée."));
+            Servir(Terres(A, A, B)); Choisir(ModeDeCarte.Vivres); // les lieux ne sont pas servis
+            Assert.That(calques.Legende.text, Is.EqualTo("Mode Vivres indisponible : lieux : service coupé. Carte politique montrée."));
             Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(B))));
-            Choisir(ModeDeCarte.Population); Assert.That(calques.Legende.text, Is.EqualTo("Mode Population indisponible : population non lue. Carte politique montrée."));
+            Choisir(ModeDeCarte.Population); Assert.That(calques.Legende.text, Is.EqualTo("Mode Population indisponible : lieux : service coupé. Carte politique montrée."));
             Servir(() => Lecture<TerresDeLaCarte>.De(Terres(A, A, B)), () => Lecture<GuerresLues>.Absent("délai dépassé")); Choisir(ModeDeCarte.Guerres);
             Assert.That(calques.Legende.text, Is.EqualTo("Mode Guerres indisponible : délai dépassé. Carte politique montrée."));
             Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(B))), "sans guerres lues, la carte n'est plus la carte politique");
@@ -265,7 +278,7 @@ namespace Forge.Interface.Tests
             Assert.That(boheme.Maison?.Texte, Is.EqualTo("Luxembourg")); Assert.That(brume.Maison, Is.Null, "un pays qui est sa propre maison l'écrit deux fois");
             Assert.That(boheme.Maison.Corps, Is.LessThan(boheme.Corps)); Assert.That(boheme.Maison.Compose.Lettres.Max(l => l.Point.y), Is.LessThan(boheme.Compose.Lettres.Min(l => l.Point.y)), "la maison n'est pas au sud du nom");
             Assert.That((Teinte(10), Teinte(30)), Is.EqualTo((DuPays(A), DuPays(B))), "la maison change la teinte du pays");
-            Assert.That(calques.Legende.text, Is.EqualTo("Pays au jour 6 de 1400 · Rouge : territoire conservé"));
+            Assert.That(calques.Legende.text, Is.EqualTo("pays · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE)); Assert.That(Bulle(), Does.StartWith(calques.Legende.text + "\nPays au jour 6 de 1400."));
             // Une autre maison pour le même pays récrit sa seconde ligne.
             int version = guerre.Version;
             Servir(new TerresDeLaCarte(6, new DateDuMonde(1400, 7), new[] { new PaysDeLaCarte(A, "Bohême", new IdentiteDeMaison("grande-29", "Wittelsbach")), new PaysDeLaCarte(B, "Brume", new IdentiteDeMaison(B, "Brume")) }, terres.Terres));

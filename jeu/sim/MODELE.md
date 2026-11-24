@@ -1021,6 +1021,9 @@ bagages et métiers propres aux lieux ne sont pas simulés (niveau 3).
 Après la famine, `departs.appliquer_departs` photographie les lieux habités.
 La réserve nette en jours vaut (nourriture moins dette) / ration des habitants ;
 la ration journalière dérive de la consommation et de `TICK_DURATION_DAYS`.
+Les deux se lisent par `departs.reserve_en_jours` et `departs.ration_journaliere`,
+la même lecture que sert `GET /lieux` : un stock négatif ou absent compte pour rien,
+et une dette plus lourde que le stock rend une réserve négative.
 L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
 Par tranche entière de 30 jours, `TAUX_DE_DEPART = 0.002` donne la part quotidienne,
 plafonnée par `PLAFOND_DE_DEPART = 0.01` ; les foyers entiers s'arrondissent vers le bas.
@@ -3147,6 +3150,20 @@ Seule la valeur unique `bourg=1` active l'extension ; une valeur vide, répété
 ou différente rend HTTP 400 sans mutation. Sans paramètre, les octets restent
 identiques. La faim locale devient ainsi accessible par cette extension du
 service ; la photographie reste inchangée, sans ce bloc supplémentaire.
+
+`GET /lieux` sert tous les lieux du monde en une lecture, pour les modes de la
+carte : `{tick, date, cell_count, cells}`, `cells` trié par `cell_id`, chaque
+cellule avec exactement `cell_id` et `lieux`, chaque lieu, rangé par rang, avec
+exactement `rang`, `population`, `surface_km2` et `reserve_jours`. La surface est
+celle de `lieux_de_cellule` ; la réserve est celle que lit le mieux-vivre
+(`departs.reserve_en_jours`, sur la nourriture et la dette du lieu), sans arrondi
+ni seuil, négative quand la dette dépasse le stock. Un lieu sans habitants n'a
+pas de réserve, comme le mieux-vivre ne le lit pas : `reserve_jours` y vaut
+`None`, une absence déclarée. Le document se fait des mêmes cellules copiées que
+`/lieu`, avec leur dette, à sa première lecture : la publication ne calcule rien
+de plus, et le tick ne lit jamais cette vue. Les habitants servis d'une cellule
+font sa population de `/monde` ; une cellule aux lieux incohérents arrête la
+publication, comme pour `/lieu`.
 
 Depuis `jeu/`, `python3 -m sim.service --epreuve --port 0 --jours-par-seconde 0 --seed 0`
 charge un monde jetable en mémoire, sans lecture ni écriture de partie sauvegardée ; l'option et l'argument `ServeurMonde(..., epreuve=True)` sont désactivés par défaut.
