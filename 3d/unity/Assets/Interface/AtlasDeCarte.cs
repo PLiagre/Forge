@@ -21,7 +21,7 @@ namespace Forge.Interface
         // Le corps des noms, en km de la carte, selon leur sorte.
         public const float CORPS_DE_MER_KM = 55f, CORPS_DE_REGION_KM = 26f, CORPS_DE_FLEUVE_KM = 15f;
         // Le trait d'un fleuve : sa largeur en km, jamais sous `MIN_PX` ni au-dessus de `MAX_PX` pixels à l'écran ; sa hauteur au-dessus du sol.
-        public const float LARGEUR_DU_FLEUVE_KM = 3f, MIN_PX = 1.4f, MAX_PX = 3.5f, HAUTEUR_DU_FLEUVE = 0.3f;
+        public const float LARGEUR_DU_FLEUVE_KM = 2.5f, MIN_PX = 1.2f, MAX_PX = 2.4f, HAUTEUR_DU_FLEUVE = 0.3f;
         // La portion presque droite d'un cours qui porte son nom : aucun de ses points ne s'écarte de sa corde de plus de
         // cette part de sa longueur. Le nom se tient à côté du trait, décalé de `ECART_DU_NOM` corps vers le haut des lettres.
         public const float DROIT = 0.12f, ECART_DU_NOM = 0.75f;
@@ -45,7 +45,7 @@ namespace Forge.Interface
         Task<Lecture<AtlasLu>> vol; double reprise; bool dessine;
         readonly List<LineRenderer> traits = new List<LineRenderer>(); readonly Dictionary<string, string> sortes = new Dictionary<string, string>();
         readonly Dictionary<LineRenderer, string> fleuves = new Dictionary<LineRenderer, string>();
-        readonly List<Rect> prises = new List<Rect>(), lettres = new List<Rect>();
+        readonly List<Rect> prises = new List<Rect>(), lettres = new List<Rect>(); readonly HashSet<string> lisibles = new HashSet<string>();
 
         public void Installer(CarteDeLaGuerre guerre = null) { carte = GetComponent<CarteDessinee>(); this.guerre = guerre; }
         // Les noms des capitales montrés par les calques : un nom de l'atlas ne s'écrit pas dessus.
@@ -88,8 +88,8 @@ namespace Forge.Interface
             foreach (NomDeLAtlas mer in Atlas.Mers) if (Place(mer.Point) is Vector2 p) Nommer(MER, mer.Nom, p, Vector2.right, CORPS_DE_MER_KM);
             foreach (NomDeLAtlas region in Atlas.Regions) if (Place(region.Point) is Vector2 p) Nommer(REGION, region.Nom, p, Vector2.right, CORPS_DE_REGION_KM);
             racineDesFleuves = new GameObject(FLEUVES).transform; racineDesFleuves.SetParent(transform, false);
-            // L'encre des eaux : la mer du socle tirée vers le papier, comme les lignes d'eau du terrain.
-            encreDesFleuves = new Material(MateriauDeBase.Prendre()) { name = FLEUVES, color = Color.Lerp(SocleInterface.Couleur("mer"), SocleInterface.Couleur("papier"), .25f) };
+            // L'encre des eaux : la mer du socle tirée vers le papier, comme les lignes d'eau du terrain ; mate comme les figurines.
+            encreDesFleuves = FormesDeCarte.Matiere(Color.Lerp(SocleInterface.Couleur("mer"), SocleInterface.Couleur("papier"), .45f)); encreDesFleuves.name = FLEUVES;
             foreach (FleuveDeLAtlas fleuve in Atlas.Fleuves)
             {
                 var cours = new List<IReadOnlyList<Vector2>>();
@@ -113,7 +113,7 @@ namespace Forge.Interface
         void Tracer(string nom, List<Vector2> points)
         {
             var trait = new GameObject("Fleuve " + nom).AddComponent<LineRenderer>(); trait.transform.SetParent(racineDesFleuves, false);
-            trait.useWorldSpace = false; trait.shadowCastingMode = ShadowCastingMode.Off; trait.receiveShadows = false; trait.sharedMaterial = encreDesFleuves; trait.numCapVertices = 2;
+            trait.useWorldSpace = false; trait.shadowCastingMode = ShadowCastingMode.Off; trait.receiveShadows = false; trait.sharedMaterial = encreDesFleuves; trait.numCapVertices = 2; trait.generateLightingData = true; // des normales pour la lumière fixe de la matière
             var draps = new List<Vector3> { carte.SurLeSol(points[0].x, points[0].y, HAUTEUR_DU_FLEUVE) };
             for (int k = 1; k < points.Count; k++)
             {
@@ -152,11 +152,14 @@ namespace Forge.Interface
                 trait.widthMultiplier = kmParPixel > 0f ? Mathf.Clamp(LARGEUR_DU_FLEUVE_KM, MIN_PX * kmParPixel, MAX_PX * kmParPixel) : LARGEUR_DU_FLEUVE_KM;
             }
             prises.Clear(); guerre?.Ecriture?.Reserver(camera, prises); if (calques != null) prises.AddRange(calques.PlacesDesCapitales);
+            // Une région qui porte le nom d'un pays lisible le redirait : elle se tait.
+            lisibles.Clear(); if (guerre != null) foreach (NomCourbe pays in guerre.NomsDesPays) if (pays.Opacite > 0f) lisibles.Add(pays.Texte);
             foreach (NomCourbe nom in ecriture.Noms)
             {
                 lettres.Clear(); ecriture.Places(camera, nom, lettres);
                 bool masque = false;
                 foreach (Rect l in lettres) { foreach (Rect p in prises) if (l.Overlaps(p)) { masque = true; break; } if (masque) break; }
+                if (!masque && SorteDe(nom) == REGION && lisibles.Contains(nom.Texte)) masque = true;
                 nom.Masque = masque;
                 if (!masque && NomsCourbes.Opacite(nom.CorpsPx, camera.pixelHeight) >= NomsCourbes.OPACITE_QUI_RESERVE) prises.AddRange(lettres);
             }

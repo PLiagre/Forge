@@ -15,13 +15,15 @@ namespace Forge.Interface.Tests
         GameObject racine; CarteDessinee carte; VillesDeCarte villes; Camera camera; RenderTexture ecran;
         static readonly (string nom, long habitants, double x)[] VILLES = { ("Alba", 500, 20000), ("Brivas", 5000, 60000), ("Cerda", 80000, 100000) };
 
-        [SetUp] public void Ouvrir()
+        [SetUp] public void Ouvrir() => Monter(VILLES);
+        // La carte témoin : une terre carrée de 40 km par ville, côte à côte, chaque ville à l'abscisse donnée.
+        void Monter((string nom, long habitants, double x)[] servies)
         {
             racine = new GameObject("Carte des villes témoin", typeof(CarteDessinee)); carte = racine.GetComponent<CarteDessinee>(); ecran = new RenderTexture(1600, ECRAN_PX, 16);
             camera = new GameObject("Caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.targetTexture = ecran;
             camera.orthographic = true; camera.orthographicSize = 20; camera.transform.SetPositionAndRotation(new Vector3(0, 100, 0), Quaternion.Euler(90, 0, 0)); carte.camera = camera;
-            var lue = new CarteLue(3, VILLES.Select((v, k) => Carre(10 * (k + 1), 40000 * k, new VilleDeCarte(v.nom, v.habitants, new PointCarte(v.x, 20000)))).ToArray()); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
-            Assert.That(carte.CellulesPosees, Is.EqualTo(3), "la carte témoin n'est pas posée");
+            var lue = new CarteLue(servies.Length, servies.Select((v, k) => Carre(10 * (k + 1), 40000 * k, new VilleDeCarte(v.nom, v.habitants, new PointCarte(v.x, 20000)))).ToArray()); carte.Montrer(lue, new FormesLues(null, lue.Cellules.Select(c => new FormeDeCellule(c.CellId, c.Contour, new[] { new FormeDeLieu(0, c.Contour) }))));
+            Assert.That(carte.CellulesPosees, Is.EqualTo(servies.Length), "la carte témoin n'est pas posée");
             villes = racine.AddComponent<VillesDeCarte>(); villes.Installer();
         }
         [TearDown] public void Fermer() { camera.targetTexture = null; carte.Arreter(); Object.DestroyImmediate(racine); Object.DestroyImmediate(ecran); }
@@ -76,24 +78,29 @@ namespace Forge.Interface.Tests
             camera.orthographicSize = 20; villes.Pas(); Assert.That(alba.localScale, Is.EqualTo(Vector3.one));
         }
 
-        [Test] public void De_loin_la_ville_la_plus_peuplee_cache_celles_qu_elle_recouvrirait()
+        // De près, les trois villes, à 40 km l'une de l'autre, se voient toutes avec leur nom. De trop loin, aucune n'est une
+        // capitale : toutes se cachent, et reviennent quand la vue s'approche.
+        [Test] public void De_loin_seules_les_capitales_restent_et_les_villes_reviennent_de_pres()
         {
-            // De près, les trois villes, à 40 km l'une de l'autre, se voient toutes avec leur nom.
             camera.orthographicSize = 20; villes.Pas();
             Assert.That(villes.Montrees, Is.EqualTo(3)); foreach (var (nom, _, _) in VILLES) Assert.That(Figurine(nom).gameObject.activeSelf && Nom(nom).gameObject.activeSelf, Is.True, nom + " est cachée de près");
-            // De loin, 900 pixels pour 4 000 km : les figurines font seize pixels et les villes sont à neuf pixels l'une de l'autre.
-            // Brivas, entre les deux, recouvrirait Cerda, plus peuplée qu'elle : elle se cache, avec son nom. Alba, à dix-huit pixels de Cerda, reste.
-            camera.orthographicSize = 2000; villes.Pas();
-            Assert.That((Figurine("Cerda").gameObject.activeSelf, Figurine("Brivas").gameObject.activeSelf, Figurine("Alba").gameObject.activeSelf), Is.EqualTo((true, false, true)), "ce n'est pas la moins peuplée des deux qui se cache");
-            Assert.That((Nom("Cerda").gameObject.activeSelf, Nom("Brivas").gameObject.activeSelf, Nom("Alba").gameObject.activeSelf), Is.EqualTo((true, false, true)), "le nom d'une ville cachée reste, ou celui d'une ville montrée part");
-            Assert.That(villes.Montrees, Is.EqualTo(2));
-            // De deux fois plus loin, Alba aussi recouvrirait Cerda : seule la plus peuplée reste.
-            camera.orthographicSize = 4000; villes.Pas();
-            Assert.That(villes.Montrees, Is.EqualTo(1), "des figurines se recouvrent à l'écran");
-            Assert.That((Figurine("Cerda").gameObject.activeSelf, Figurine("Brivas").gameObject.activeSelf, Figurine("Alba").gameObject.activeSelf), Is.EqualTo((true, false, false)), "ce n'est pas la plus peuplée qui reste");
-            // La vue revenue, toutes reviennent.
+            // Juste en deçà du seuil, les villes se montrent encore ; au-delà, elles se cachent avec leur nom.
+            camera.orthographicSize = 0.95f * VillesDeCarte.KM_PAR_PIXEL_DES_VILLES * ECRAN_PX / 2f; villes.Pas(); Assert.That(villes.Montrees, Is.EqualTo(3), "en deçà du seuil, une ville se cache");
+            camera.orthographicSize = 1.05f * VillesDeCarte.KM_PAR_PIXEL_DES_VILLES * ECRAN_PX / 2f; villes.Pas();
+            Assert.That(villes.Montrees, Is.Zero, "de loin, une ville qui n'est pas une capitale se montre");
+            foreach (var (nom, _, _) in VILLES) Assert.That(Figurine(nom).gameObject.activeSelf || Nom(nom).gameObject.activeSelf, Is.False, nom + " se montre de loin");
             camera.orthographicSize = 20; villes.Pas(); Assert.That(villes.Montrees, Is.EqualTo(3), "les villes ne reviennent pas quand la vue s'approche");
-            Assert.That(Nom("Alba").gameObject.activeSelf && Figurine("Alba").gameObject.activeSelf, Is.True);
+        }
+
+        // Deux villes à 8 km l'une de l'autre, de part et d'autre d'une frontière de terres : vues à un km par pixel, leurs
+        // figurines de seize pixels se recouvriraient : la moins peuplée se cache avec son nom.
+        [Test] public void La_ville_la_plus_peuplee_cache_celle_qu_elle_recouvrirait()
+        {
+            Fermer(); Monter(new[] { ("Alba", 500L, 36000.0), ("Cerda", 80000L, 44000.0) });
+            camera.orthographicSize = ECRAN_PX / 2f; villes.Pas(); Assert.That(VillesDeCarte.KM_PAR_PIXEL_DES_VILLES, Is.GreaterThan(1f), "échantillon vide : les villes sont cachées à cette distance");
+            Assert.That((Figurine("Cerda").gameObject.activeSelf, Figurine("Alba").gameObject.activeSelf), Is.EqualTo((true, false)), "ce n'est pas la moins peuplée des deux qui se cache");
+            Assert.That((Nom("Cerda").gameObject.activeSelf, Nom("Alba").gameObject.activeSelf), Is.EqualTo((true, false)), "le nom d'une ville cachée reste, ou celui d'une ville montrée part");
+            Assert.That(villes.Montrees, Is.EqualTo(1));
         }
     }
 

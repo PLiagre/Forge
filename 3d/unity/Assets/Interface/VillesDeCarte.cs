@@ -16,7 +16,7 @@ namespace Forge.Interface
     // juste au sud d'elle, à `MARGE_DU_NOM_PX` pixels de son socle. Quand la vue recule et que deux figurines se
     // recouvriraient à l'écran de plus de `RECOUVREMENT`, la moins peuplée des deux se cache, avec son nom, et
     // revient quand la vue s'approche.
-    // La capitale de chaque pays qui tient une terre porte un socle à l'or vieilli. Elle se lit dans les réponses du monde :
+    // La capitale de chaque pays qui tient une terre porte un socle à l'or vieilli, et ne descend jamais sous `MIN_PX_D_UNE_CAPITALE`. Elle se lit dans les réponses du monde :
     // la maison du pays (`/terres`) a son siège servi (`/jouables`, un nom et une cellule), qui est la ville de ce nom dans
     // cette cellule, ou la seule ville de ce nom sur la carte, sinon le siège de cette maison dans `/atlas`, où une figurine nommée est posée. Les capitales passent
     // avant les autres villes : une ville ne cache jamais une capitale. Un siège introuvable ne se devine pas : il se déclare.
@@ -24,6 +24,11 @@ namespace Forge.Interface
     {
         public const string RACINE = "Figurines des villes", NOMS = "Villes de la carte", CAPITALES = "Capitales de l'atlas";
         public const float MIN_PX = 16f, MARGE_DU_NOM_PX = 11f, RECOUVREMENT = 0.25f;
+        // Une capitale ne descend jamais sous `MIN_PX_D_UNE_CAPITALE` pixels : sa marque se lit de loin.
+        public const float MIN_PX_D_UNE_CAPITALE = 24f;
+        // De loin on lit les pays, de près les villes : au-delà de `KM_PAR_PIXEL_DES_VILLES` km par pixel au point visé, seules les
+        // capitales se montrent ; les autres villes reviennent, avec leur nom, quand la vue s'approche.
+        public const float KM_PAR_PIXEL_DES_VILLES = 1.6f;
         // La figurine d'un siège de l'atlas : ses habitants ne sont pas servis, elle prend la plus petite taille.
         public const int TAILLE_D_UN_SIEGE = 1;
         CarteDessinee carte; Transform racine, racineDesCapitales; Material matiere; readonly Mesh[] formes = new Mesh[FormesDeCarte.TAILLE_MAX + 1], capitales = new Mesh[FormesDeCarte.TAILLE_MAX + 1];
@@ -77,22 +82,32 @@ namespace Forge.Interface
             foreach (Posee p in posees)
             {
                 if (p.Figurine == null) continue;
-                Vector3 monde = carte.transform.TransformPoint(p.Pied); float rayon = FormesDeCarte.RayonDuBourg(p.Taille), echelle = FormesDeCarte.EchellePourLEcran(camera, monde, rayon, MIN_PX);
+                Vector3 monde = carte.transform.TransformPoint(p.Pied); float rayon = FormesDeCarte.RayonDuBourg(p.Taille), echelle = FormesDeCarte.EchellePourLEcran(camera, monde, rayon, p.Capitale ? MIN_PX_D_UNE_CAPITALE : MIN_PX);
                 p.Figurine.localScale = Vector3.one * echelle; float kmParPixel = FormesDeCarte.KmParPixel(camera, monde);
                 if (p.Nom != null) { float retrait = rayon * echelle + MARGE_DU_NOM_PX * kmParPixel; p.Nom.localPosition = carte.SurLeSol(p.Pied.x, p.Pied.z - retrait, CarteDessinee.HAUTEUR_NOM); }
                 p.Ecran = camera.WorldToScreenPoint(monde); p.RayonPx = kmParPixel > 0f ? rayon * echelle / kmParPixel : 0f;
             }
             // Des capitales aux autres villes, puis de la plus peuplée à la moins peuplée : une figurine se montre si elle n'en recouvre aucune déjà montrée.
-            Montrees = 0;
+            // De trop loin, une ville qui n'est pas une capitale ne se montre pas.
+            Montrees = 0; bool deLoin = VueDeLoin(camera);
             for (int k = 0; k < posees.Count; k++)
             {
                 Posee p = posees[k]; if (p.Figurine == null) continue;
-                bool libre = true;
+                bool libre = p.Capitale || !deLoin;
                 for (int j = 0; j < k && libre; j++) { Posee q = posees[j]; if (q.Montree && (p.Ecran - q.Ecran).magnitude < (1f - RECOUVREMENT) * (p.RayonPx + q.RayonPx)) libre = false; }
                 p.Montree = libre; if (libre) Montrees++;
                 if (p.Figurine.gameObject.activeSelf != libre) p.Figurine.gameObject.SetActive(libre);
                 if (p.Nom != null && p.Nom.gameObject.activeSelf != libre) p.Nom.gameObject.SetActive(libre);
             }
+        }
+
+        // La vue est-elle trop loin pour les villes : les km par pixel au milieu de l'écran, sur le sol.
+        bool VueDeLoin(Camera camera)
+        {
+            // Le point visé : le milieu de l'écran sur le plan de la carte, mer comprise.
+            Ray rayon = camera.ScreenPointToRay(camera.pixelRect.center); var plan = new Plane(carte.transform.up, carte.transform.position);
+            if (!plan.Raycast(rayon, out float distance)) return false;
+            return FormesDeCarte.KmParPixel(camera, rayon.GetPoint(distance)) > KM_PAR_PIXEL_DES_VILLES;
         }
 
         void Poser()
@@ -173,13 +188,15 @@ namespace Forge.Interface
             Trier(); VersionDesTextes++;
         }
 
-        // Le bourg d'une ville, et celui d'une capitale : un socle à l'or vieilli, bordé d'encre.
+        // Le bourg d'une ville, aux toits de cuivre ; celui d'une capitale, aux toits rouge sang sur un socle à l'or vieilli, bordé d'encre.
         Mesh Forme(int taille, bool capitale)
         {
             Mesh[] table = capitale ? capitales : formes;
             if (table[taille] == null)
             {
-                table[taille] = FormesDeCarte.Bourg(taille, SocleInterface.Couleur(capitale ? "or-vieilli" : "papier"), SocleInterface.Couleur("encre"), null, Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("or"), .35f));
+                table[taille] = capitale
+                    ? FormesDeCarte.Bourg(taille, SocleInterface.Couleur("papier"), SocleInterface.Couleur("encre"), SocleInterface.Couleur("sang"), SocleInterface.Couleur("or-vieilli"))
+                    : FormesDeCarte.Bourg(taille, SocleInterface.Couleur("papier"), SocleInterface.Couleur("encre"), null, Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("or"), .35f));
                 if (capitale) table[taille].name = "Capitale de taille " + taille;
                 crees.Add(table[taille]);
             }

@@ -94,6 +94,7 @@ namespace Forge.Interface.Tests
                     if (!nom.Rendu.enabled) continue;
                     montres++; var lettres = new List<Rect>(); europe.Atlas.Ecriture.Places(europe.Carte.camera, nom, lettres);
                     Assert.That(lettres.Any(l => pays.Any(p => p.Overlaps(l))), Is.False, nom.Texte + " s'écrit sur un nom de pays, demi " + demi);
+                    if (europe.Atlas.SorteDe(nom) == AtlasDeCarte.REGION) Assert.That(europe.Guerre.NomsDesPays.Any(n => n.Texte == nom.Texte && n.Opacite > 0f), Is.False, "la région " + nom.Texte + " redit un nom de pays lisible");
                 }
                 Assert.That(montres, Is.GreaterThan(0), "échantillon vide : aucun nom de l'atlas montré, demi " + demi); Assert.That(masques, Is.GreaterThan(0), "échantillon vide : aucun nom de l'atlas masqué, demi " + demi);
             }

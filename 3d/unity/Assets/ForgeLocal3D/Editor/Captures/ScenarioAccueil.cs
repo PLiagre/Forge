@@ -14,12 +14,13 @@ namespace ForgeLocal3D.Captures
 {
     // L'accueil du jeu sur la carte de 1400, joué par ses boutons et photographié trois fois :
     //   1-accueil                l'accueil ouvert au jour servi, la carte cadrée sur l'Europe où se lisent France, Bohême, Hongrie et
-    //                            Navarre, la maison en petit sous chaque pays ; la fiche de la Bohême, cliquée sur la carte ;
+    //                            Castille, la maison en petit sous chaque pays ; la fiche de la Bohême, cliquée sur la carte ;
     //   2-commencer-zab          l'Émirat du Zab pris dans les départs conseillés, « Commencer » pressé ; le choix appliqué, la carte
     //                            est centrée sur Biskra, l'encart des premiers gestes est visible, « Entrer dans la ville » est actif ;
     //   3-commencer-sans-ville   le service relancé (un choix ne se défait pas), la France choisie : « Entrer dans la ville » est
     //                            grisé, et son infobulle dit la raison servie.
-    // Chaque scénario vérifie ce qu'il photographie et échoue sinon : aucun pays ne s'écrit « Luxembourg » ni « Évreux » ; le bouton de
+    // Chaque scénario vérifie ce qu'il photographie et échoue sinon : aucun pays ne s'écrit du nom d'une dynastie servie (« Luxembourg »,
+    // « Évreux », « Valois ») ; la Navarre est écrite ; le bouton de
     // la ville a l'état attendu. Le tick est celui que le service sert, jamais un tick écrit en dur. Le cabinet de la carte est une toile
     // posée sur l'écran : la photo d'une caméra ne la voit pas, et chaque scénario la pose devant la caméra de la carte, que le cabinet
     // garde sur tout l'écran.
@@ -27,7 +28,8 @@ namespace ForgeLocal3D.Captures
     {
         const long BISKRA = 10103;
         const string ZAB = "seigneurie-6", NOM_DU_ZAB = "Émirat du Zab", FRANCE = "France";
-        static readonly string[] PAYS_LUS = { "France", "Bohême", "Hongrie", "Navarre" }, MAISONS_INTERDITES = { "Luxembourg", "Évreux" };
+        // Les quatre grands pays cadrés, chacun tenu par une dynastie d'un autre nom ; la Navarre, petite, doit seulement être écrite.
+        static readonly string[] PAYS_LUS = { "France", "Bohême", "Hongrie", "Castille" }, PAYS_ECRITS = { "Navarre" }, MAISONS_INTERDITES = { "Luxembourg", "Évreux", "Valois" };
         internal const float ECART_DE_PLAN = 0.2f; // l'écart de la toile devant le plan proche de la caméra
         const float MARGE_DU_CADRE = 1.05f, TOLERANCE_DU_CENTRE_KM = 5f;
         const double STABLE_S = 2.5; // les textes du cabinet sont récrits une image après la lecture
@@ -38,12 +40,12 @@ namespace ForgeLocal3D.Captures
             var e = OuvrirLaCarte(); while (e.MoveNext()) yield return e.Current;
             var (carte, cabinet, guerre) = Lire();
             VerifierLesNoms(guerre);
-            // La Bohême cliquée sur la carte : sa fiche dit sa maison, Luxembourg, qui règne aussi sur le Saint-Empire.
-            string boheme = guerre.Terres.Pays.Single(p => p.Nom == "Bohême").Id;
+            // La Bohême cliquée sur la carte : sa fiche dit sa maison servie (Luxembourg, qui règne aussi sur le Saint-Empire).
+            string boheme = guerre.Terres.Pays.Single(p => p.Nom == "Bohême").Id, maisonDeLaBoheme = guerre.Terres.MaisonDuPays(boheme)?.Nom ?? throw Faux("la Bohême n'a pas de maison servie");
             cabinet.Accueil.Designer(guerre.Terres.Terres.First(t => t.Pays == boheme).CellId);
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.Contains("Habitants : ") && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture"),
                 () => "fiche de la Bohême : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
-            if (!cabinet.Accueil.TexteDeLaFiche.StartsWith("Maison : Luxembourg", StringComparison.Ordinal)) throw Faux("la fiche de la Bohême ne dit pas sa maison : « " + cabinet.Accueil.TexteDeLaFiche + " »");
+            if (!cabinet.Accueil.TexteDeLaFiche.StartsWith("Maison : " + maisonDeLaBoheme, StringComparison.Ordinal)) throw Faux("la fiche de la Bohême ne dit pas sa maison : « " + cabinet.Accueil.TexteDeLaFiche + " »");
             if (cabinet.Accueil.Commencer.interactable != true) throw Faux("« Commencer » est inactif pour la Bohême");
             // Cadrée sur les quatre pays : tous lisibles à la fois, chacun avec sa maison dessous quand elle porte un autre nom.
             var noms = PAYS_LUS.Select(n => guerre.NomsDesPays.Single(x => x.Texte == n)).ToArray();
@@ -61,7 +63,7 @@ namespace ForgeLocal3D.Captures
             if (hors.Length > 0) throw Faux("noms hors de la carte visible : " + hors);
             string caches = string.Join(", ", noms.Where(n => n.Opacite <= 0f).Select(n => n.Texte + " (" + n.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px)"));
             if (caches.Length > 0) throw Faux("noms cachés sur le cadre de l'Europe (demi " + demi.ToString("0", CultureInfo.InvariantCulture) + " km) : " + caches);
-            if (guerre.NomsDesPays.Single(n => n.Texte == "Bohême").Maison?.Texte != "Luxembourg") throw Faux("la Bohême n'écrit pas sa maison Luxembourg dessous");
+            if (guerre.NomsDesPays.Single(n => n.Texte == "Bohême").Maison?.Texte != maisonDeLaBoheme) throw Faux("la Bohême n'écrit pas sa maison " + maisonDeLaBoheme + " dessous");
             Debug.Log("CAPTURE accueil : tick " + cabinet.Partie.Monde.Donnees.Monde.Tick + ", " + guerre.NomsDesPays.Count + " pays nommés, demi " + demi.ToString("0", CultureInfo.InvariantCulture) + " km ; "
                 + string.Join(", ", noms.Select(n => n.Texte + " " + n.CorpsPx.ToString("0", CultureInfo.InvariantCulture) + " px" + (n.Maison == null ? "" : " (" + n.Maison.Texte + " " + n.Maison.CorpsPx.ToString("0", CultureInfo.InvariantCulture) + " px, opacité " + n.Maison.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + ")"))));
             var s = Stabiliser(cabinet); while (s.MoveNext()) yield return null;
@@ -160,14 +162,17 @@ namespace ForgeLocal3D.Captures
 
         internal static string Servie(CabinetDeCarte cabinet) => cabinet.Partie?.Monde?.Presente == true ? cabinet.Partie.Monde.Donnees.MaisonDuJoueur : null;
 
-        // Les pays de la carte portent leur nom de 1400, jamais celui de la maison qui les tient ; les quatre pays attendus sont écrits.
-        static void VerifierLesNoms(CarteDeLaGuerre guerre)
+        // Les pays de la carte portent leur nom de 1400, jamais celui d'une dynastie servie : la maison d'un pays qui porte un autre
+        // nom qu'elle, quand aucun pays servi ne porte ce nom. Les pays attendus sont écrits.
+        internal static void VerifierLesNoms(CarteDeLaGuerre guerre)
         {
             var ecrits = new HashSet<string>(guerre.NomsDesPays.Select(n => n.Texte));
             var servis = new HashSet<string>(guerre.Terres.Pays.Select(p => p.Nom).Where(n => n != null));
-            foreach (string interdit in MAISONS_INTERDITES)
-                if (ecrits.Contains(interdit) || servis.Contains(interdit)) throw Faux("« " + interdit + " » est écrit comme nom de pays");
-            string manquants = string.Join(", ", PAYS_LUS.Where(p => !ecrits.Contains(p)));
+            var dynasties = new HashSet<string>(guerre.Terres.Pays.Where(p => p.Maison?.Nom != null && p.Maison.Nom != p.Nom && !servis.Contains(p.Maison.Nom)).Select(p => p.Maison.Nom));
+            foreach (string interdit in MAISONS_INTERDITES) if (!dynasties.Contains(interdit)) throw Faux("« " + interdit + " » n'est plus une dynastie servie : le contrôle ne prouve plus rien");
+            string fautifs = string.Join(", ", ecrits.Where(dynasties.Contains));
+            if (fautifs.Length > 0) throw Faux("des noms de dynastie sont écrits comme noms de pays : " + fautifs);
+            string manquants = string.Join(", ", PAYS_LUS.Concat(PAYS_ECRITS).Where(p => !ecrits.Contains(p)));
             if (manquants.Length > 0) throw Faux("pays non écrits sur la carte : " + manquants);
         }
 
