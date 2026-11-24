@@ -83,7 +83,8 @@ part. À chaque tick, dans cet ordre :
     Accueil au rang 0, report migratoire cellulaire, métiers au prorata : niveau 2.
     Personne n'emporte de kilogrammes ni d'états locaux (niveau 3).
 15. **Départs** (`departs.appliquer_departs`) — mieux-vivre sur une photo après
-    la migration de famine ; foyers entiers, soldes simultanés, aucun bagage.
+    la migration de famine, au taux annuel ramené au jour ; foyers entiers, la
+    fraction au report du lieu, soldes simultanés, aucun bagage.
 16. **Avance du compteur** (`_avancer_compteur_ticks`) — une fois tous les
     maillons réussis, `ticks_ecoules` augmente de un et fait ainsi passer la
     date dérivée au jour suivant.
@@ -1025,25 +1026,48 @@ Les deux se lisent par `departs.reserve_en_jours` et `departs.ration_journaliere
 la même lecture que sert `GET /lieux` : un stock négatif ou absent compte pour rien,
 et une dette plus lourde que le stock rend une réserve négative.
 L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
-Par tranche entière de 30 jours, `taux_annuel_par_tranche = 0.005` donne la part annuelle,
-plafonnée par `plafond_annuel = 0.03` (les deux dans `jeu/data/departs.toml`) ; la part du jour
-vaut cette part divisée par les ticks d'une année (`CALENDAR_DAYS_PER_YEAR`). Les foyers entiers
-partent ; la fraction attend au report du lieu (`depart_remainder`).
+Le taux et son plafond sont **annuels** et vivent dans `jeu/data/departs.toml`, relus
+une fois par appel. Par tranche entière de 30 jours d'écart, `taux_annuel_par_tranche = 0.005`
+donne la part des habitants qui part en un an, plafonnée par `plafond_annuel = 0.03` :
+
+```
+part_du_jour = min(taux_annuel_par_tranche × tranches, plafond_annuel)
+               / (CALENDAR_DAYS_PER_YEAR / TICK_DURATION_DAYS)
+brut         = depart_remainder + habitants × part_du_jour × facteur
+partants     = floor(brut / TAILLE_FOYER) × TAILLE_FOYER
+depart_remainder = brut − partants
+```
+
+Le facteur est celui du registre des modificateurs (grandeur `departs`), la part bornée à 1.
+Seuls des foyers entiers partent ; la fraction attend au report du lieu (`depart_remainder`,
+en personnes, toujours dans [0, `TAILLE_FOYER`)), qui la porte au jour suivant. Un lieu vide,
+un lieu sans destination meilleure et tous les lieux d'une cellule où personne ne peut partir
+retrouvent un report nul : la raison de partir disparue, rien n'attend. Un lieu ne fait jamais
+partir plus de foyers qu'il n'en compte ; si cette garde mord, son report repart de zéro.
+Hors famine, un lieu ne perd donc en `n` jours qu'au plus
+`plafond_annuel × n / CALENDAR_DAYS_PER_YEAR` de ses habitants, à un foyer près : trois pour
+cent par an. `test_distribution_interieure.py::test_mieux_vivre_ne_vide_pas_un_lieu_nourri`
+le prouve sur 120 jours de la graine 0 ; l'ancien taux quotidien, plafonné à 1 % par jour,
+y vidait le pire lieu nourri de 67 % de ses gens.
 Destination : meilleur autre lieu habité de la cellule, sinon meilleur bourg habité
 voisin ; égalités par `(cell_id, rang)`. Les soldes s'appliquent simultanément,
 avec métiers au prorata entre cellules. Un lieu peut envoyer et recevoir sur sa photo :
 les interdictions de renvoi et de double traversée ci-dessus concernent seulement la famine.
 Ni kilo, dette, faim ni report ne voyage ; aucun maître ni taux de prélèvement n'est lu.
 Lieux vides et cellules sans lieux ne participent pas. Aucun aléa ni partage général
-après les mouvements. Niveau 2 : plausible, jamais sourcé ; délais, bagages et
-métiers propres aux lieux : niveau 3, non simulés.
+après les mouvements. Niveau 2 : plausible, jamais sourcé, mais recalé sur un ordre de
+grandeur de niveau 1 : en temps normal, une population ne bouge que de quelques pour mille
+par an. Délais, bagages et métiers propres aux lieux : niveau 3, non simulés.
 
 **Preuve annuelle à Bar.** Deux copies du même `World.charger(0)`, graine 0,
 avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
-- part 0,1 : 0 foyers internes, 74 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 255 foyers hors domaine.
+- part 0,1 : 0 foyers internes, 2 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 4 foyers hors domaine.
+Au taux quotidien d'avant, les mêmes années en déplaçaient 74 et 255 : le mieux-vivre au rythme
+de l'année garde la direction (une part plus lourde fait partir davantage), à l'échelle de
+quelques foyers par an.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -2277,7 +2301,7 @@ les secours non vides : liste `[cell_id, rang, arrivee, kg]` triée, kilos coura
 sans arrondi ; sans geste, les octets et les empreintes restent identiques.
 
 **Calibration de la part coutumière.** Référence historique avec les bras à 0,1
-et `TAUX_DE_DEPART = 0`,
+et le taux du mieux-vivre à 0 (`taux_annuel_de_depart` remplacé par 0),
 sans mieux-vivre : elle ne mesure pas le monde désormais complet. Sur la graine 0, `World.charger(0)`
 joue 365 ticks numérotés de 0 à 364 avec `random.Random(0)` ; toutes les
 maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`.
@@ -2293,7 +2317,7 @@ pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
 
 **Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
-(graine 0, 365 ticks numérotés, `random.Random(0)`, `TAUX_DE_DEPART = 0`)
+(graine 0, 365 ticks numérotés, `random.Random(0)`, taux du mieux-vivre à 0)
 garde les bras à 6,2. À part nulle, il reste 35897120 habitants ;
 la part 0,03 en laisse 35546671 (perte 0,98 %), la part 0,04 en laisse
 35403048 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
@@ -2301,16 +2325,16 @@ dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
 numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
-avec `TAUX_DE_DEPART = 0.002`, les bras calibrés à 6,2
+avec `taux_annuel_par_tranche = 0.005` et `plafond_annuel = 0.03`, les bras calibrés à 6,2
 et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 35904045 habitants ; perte 0,000000 % ; 154200 foyers déplacés.
-- part 0,03 : 35554504 habitants ; perte 0,973542 % ; 132518 foyers déplacés.
-- part 0,04 : 35414313 habitants ; perte 1,364002 % ; 126262 foyers déplacés.
-- part 0,10 : 33690495 habitants ; perte 6,165183 % ; 78185 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,973542 % ≤ 1 % < perte(0,04) = 1,364002 %.
+- part 0,00 : 35897456 habitants ; perte 0,000000 % ; 3524 foyers déplacés.
+- part 0,03 : 35546976 habitants ; perte 0,976337 % ; 2660 foyers déplacés.
+- part 0,04 : 35403446 habitants ; perte 1,376170 % ; 2038 foyers déplacés.
+- part 0,10 : 33670749 habitants ; perte 6,202966 % ; 988 foyers déplacés.
+Calibration tenue : perte(0,03) = 0,976337 % ≤ 1 % < perte(0,04) = 1,376170 %.
 Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
