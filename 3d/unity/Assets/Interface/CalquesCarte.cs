@@ -375,8 +375,8 @@ namespace Forge.Interface
                     // La mer du terrain est celle du fond ; elle s'éclaircit un peu vers le papier au rivage, et les cimes tirent sur le papier.
                     Color mer = SocleInterface.Couleur("mer"), papier = SocleInterface.Couleur("papier");
                     carte.camera.backgroundColor = mer; carte.Habiller(mer, Color.Lerp(mer, papier, .11f), papier);
-                    // Autour de la carte, la table du cabinet, et un cadre à l'or vieilli.
-                    carte.Encadrer(SocleInterface.Couleur("fond"), SocleInterface.Couleur("or-vieilli"));
+                    // Au-delà d'une coupe de la carte, le papier du socle.
+                    carte.PeindreHorsCarte(papier);
                     // Les traits du terrain à l'encre ; les lignes d'eau, une mer tirée vers le papier.
                     Color encre = SocleInterface.Couleur("encre"); carte.Encrer(encre, encre, encre, Color.Lerp(mer, papier, .45f));
                     ReleverLesNoms();
@@ -419,6 +419,8 @@ namespace Forge.Interface
                     }
             }
             bool nu = lecture.Mode == ModeDeCarte.Relief; carte.MontrerLesPays(!nu); guerre?.MontrerLesNoms(!nu);
+            // Le liseré teint chaque pays de sa couleur le long de sa frontière : hors de la carte politique, il couvrirait la teinte du mode.
+            carte.MontrerLesLiseres(lecture.Mode == ModeDeCarte.Politique);
         }
         // Les textes posés sur la carte (les villes, les sièges de l'atlas), cachés compris, hors ceux de la guerre : relevés à la
         // pose de la carte, puis chaque fois que les villes en posent ou en retirent.

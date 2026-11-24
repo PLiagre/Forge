@@ -159,64 +159,118 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual(0, Versee(3).a, "une cellule retirée garde une teinte : son sol ne rend pas la mer");
             Assert.IsTrue(Proches(Versee(4), celleDeLaVoisine) && carte.CellulesPosees == 595);
         }
-        // La marque couvre la teinte d'une seule cellule à la fois, et la rend comme elle est devenue en partant.
-        [Test] public void La_marque_couvre_une_cellule_sans_changer_sa_teinte() {
+        // Les distances à la marque, en km, de chaque texel de la zone d'une cellule élargie de `marge` texels, avec la cellule de chaque texel.
+        private List<(float distance, int cellule)> AutourDe(int rang, int marge) {
+            TerrainDeCarte t = carte.Terrain; RectInt z = t.ZoneDe(rang); var vus = new List<(float, int)>();
+            for (int j = Math.Max(0, z.yMin - marge); j < Math.Min(t.Hauteur, z.yMax + marge); j++)
+                for (int i = Math.Max(0, z.xMin - marge); i < Math.Min(t.Largeur, z.xMax + marge); i++) {
+                    float x = t.Coin.x + (i + .5f) * t.Pas, y = t.Coin.y + (j + .5f) * t.Pas; vus.Add((carte.DistanceALaMarque(x, y), t.CelluleEn(x, y) - 1));
+                }
+            return vus;
+        }
+        // La marque cerne une seule cellule à la fois d'un trait tiré de ses côtés, côte comprise ; elle ne touche ni à sa
+        // teinte ni à la palette, et la grille du trait revient au loin quand elle part.
+        [Test] public void La_marque_cerne_une_cellule_sans_toucher_a_la_palette() {
             Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser();
-            long une = lue.Cellules[10].CellId, autre = lue.Cellules[20].CellId; var rouge = new Color(0.9f, 0.1f, 0.1f, 0.5f); var rougeOpaque = new Color(0.9f, 0.1f, 0.1f, 1f); var bleu = new Color(0.1f, 0.1f, 0.9f, 1f);
-            Assert.IsTrue(!carte.Marquer(une, rouge) && carte.Marquee == null, "une marque avant la pose");
-            Lire(1);
+            long une = lue.Cellules[10].CellId, autre = lue.Cellules[300].CellId; var rouge = new Color(0.9f, 0.1f, 0.1f, 0.5f); var bleu = new Color(0.1f, 0.1f, 0.9f, 1f);
+            Assert.IsTrue(!carte.Marquer(une, rouge) && carte.Marquee == null && carte.DistanceALaMarque(0, 0) == -1f, "une marque avant la pose");
+            Lire(1); TerrainDeCarte t = carte.Terrain; float portee = TerrainDeCarte.PORTEE_DE_LA_MARQUE_KM; int marge = Mathf.CeilToInt(portee / t.Pas) + 2;
             Color teinte = carte.TeinteDe(une).Value, teinteDeLAutre = carte.TeinteDe(autre).Value; Assert.IsNull(carte.Marquee);
+            Assert.IsTrue(AutourDe(10, marge).All(v => v.distance == portee), "sans marque, une distance à la marque est mesurée");
             Assert.IsTrue(carte.Marquer(une, rouge) && carte.Marquee == une); carte.Pas(2);
-            Assert.IsTrue(Proches(Versee(10), rougeOpaque), "la marque n'est pas versée, opaque, à la place de la teinte");
-            Assert.IsTrue(carte.TeinteDe(une) == teinte && Proches(Versee(20), teinteDeLAutre), "la marque a changé une teinte");
+            Assert.IsTrue(Proches(Versee(10), teinte) && Proches(Versee(20), carte.TeinteDe(lue.Cellules[20].CellId).Value), "la marque a touché la palette");
+            Assert.AreEqual(new Vector4(t.PremierLieuDe(10) + 1, t.PremierLieuDe(10) + t.LieuxDe(10), 0, 0), Matiere.GetVector("_LieuxMarques"), "le shader ne sait pas quels lieux cerner");
+            Assert.IsTrue(Proches(Matiere.GetColor("_CouleurDeLaMarque"), new Color(0.9f, 0.1f, 0.1f, 1f)), "le trait n'a pas la couleur de la marque, opaque");
+            // Près du trait : des texels de la cellule et de la mer qui la borde ; plus loin, la portée.
+            var autour = AutourDe(10, marge); int dedans = autour.Count(v => v.distance < 1f && v.cellule == 10), enMer = autour.Count(v => v.distance < 1f && v.cellule == -1);
+            Assert.IsTrue(dedans > 5 && enMer > 5, dedans + " texels de la cellule et " + enMer + " de mer près du trait : la côte n'est pas cernée");
+            Assert.IsTrue(autour.Any(v => v.distance == portee), "échantillon vide : tout est près du trait");
+            Assert.IsTrue(AutourDe(300, marge).All(v => v.distance == portee), "une cellule lointaine a une distance à la marque");
             Assert.IsTrue(carte.Marquer(autre, bleu) && carte.Marquee == autre); carte.Pas(3);
-            Assert.IsTrue(Proches(Versee(10), teinte) && Proches(Versee(20), bleu), "deux marques à la fois, ou la teinte couverte n'est pas revenue");
+            Assert.IsTrue(AutourDe(10, marge).All(v => v.distance == portee), "la cellule d'avant garde le trait : deux marques à la fois");
+            Assert.IsTrue(AutourDe(300, marge).Any(v => v.distance < 1f && v.cellule == 300), "la cellule neuve n'est pas cernée");
             Assert.IsTrue(!carte.Marquer(-5, rouge) && carte.Marquee == autre, "un refus a fait tomber la marque d'avant");
-            var neuve = new Color(0.3f, 0.7f, 0.2f, 1f); Assert.IsTrue(carte.Teinter(autre, neuve)); carte.Pas(4);
-            Assert.IsTrue(Proches(Versee(20), bleu) && carte.TeinteDe(autre) == neuve, "reteindre sous la marque l'a découverte, ou la teinte n'est pas gardée");
+            Assert.IsTrue(Proches(Versee(300), teinteDeLAutre), "la marque a couvert la teinte de la cellule");
             carte.Demarquer(); Assert.IsNull(carte.Marquee); carte.Pas(5);
-            Assert.IsTrue(Proches(Versee(20), neuve) && Proches(Versee(10), teinte), "la marque partie ne rend pas la teinte");
+            Assert.IsTrue(AutourDe(300, marge).All(v => v.distance == portee) && Matiere.GetVector("_LieuxMarques").x == -1f, "la marque partie laisse son trait");
             // Une cellule retirée perd sa marque : la mer ne se marque pas.
             Assert.IsTrue(carte.Marquer(une, rouge) && carte.Retirer(une) && carte.Marquee == null && !carte.Marquer(une, rouge), "une cellule retirée reste marquée"); carte.Pas(6);
-            Assert.AreEqual(0, Versee(10).a, "la marque d'une cellule retirée se dessine encore");
+            Assert.IsTrue(AutourDe(10, marge).All(v => v.distance == portee), "la marque d'une cellule retirée se dessine encore");
         }
-        // Un éclat couvre la teinte d'autant de cellules qu'on veut, sans la changer ; la marque passe devant lui.
-        [Test] public void Un_eclat_couvre_des_cellules_sans_changer_leur_teinte_et_la_marque_passe_devant() {
+        // Un éclat couvre la teinte d'autant de cellules qu'on veut, sans la changer, à l'opacité qui le dit au shader ; la
+        // marque, un trait, ne le touche pas.
+        [Test] public void Un_eclat_couvre_des_cellules_sans_changer_leur_teinte_et_la_marque_ne_le_touche_pas() {
             Servir(0, 200, Fixture); CarteLue lue = Lue(out PointCarte o); Poser();
             long une = lue.Cellules[10].CellId, autre = lue.Cellules[20].CellId; var or = new Color(0.8f, 0.6f, 0.2f, 0.4f); var orOpaque = new Color(0.8f, 0.6f, 0.2f, 1f); var rouge = new Color(0.9f, 0.1f, 0.1f, 1f);
+            var orVerse = new Color(0.8f, 0.6f, 0.2f, CarteDessinee.OPACITE_D_ECLAT);
             Assert.IsTrue(!carte.Eclairer(une, or) && carte.EclatDe(une) == null, "un éclat avant la pose");
             Lire(1); Color teinte = carte.TeinteDe(une).Value, teinteDeLAutre = carte.TeinteDe(autre).Value; int maillages = objet.GetComponentsInChildren<MeshFilter>(true).Length;
             Assert.IsTrue(carte.Eclairer(une, or) && carte.Eclairer(autre, or) && !carte.Eclairer(-5, or)); carte.Pas(2);
-            Assert.IsTrue(Proches(Versee(10), orOpaque) && Proches(Versee(20), orOpaque), "deux cellules éclairées ne sont pas versées à la couleur de l'éclat");
+            Assert.IsTrue(Proches(Versee(10), orVerse) && Proches(Versee(20), orVerse), "deux cellules éclairées ne sont pas versées à la couleur de l'éclat, moins opaque qu'une teinte");
             Assert.IsTrue(carte.TeinteDe(une) == teinte && carte.TeinteDe(autre) == teinteDeLAutre && carte.EclatDe(une) == orOpaque && carte.EclatDe(lue.Cellules[30].CellId) == null, "l'éclat a changé une teinte, ou ne se relit pas");
             Assert.AreEqual(maillages, objet.GetComponentsInChildren<MeshFilter>(true).Length, "un éclat pose un maillage au-dessus du terrain");
-            // La marque passe devant l'éclat, qui revient quand elle part.
-            Assert.IsTrue(carte.Marquer(une, rouge)); carte.Pas(3); Assert.IsTrue(Proches(Versee(10), rouge) && Proches(Versee(20), orOpaque), "la marque ne passe pas devant l'éclat");
-            carte.Demarquer(); carte.Pas(4); Assert.IsTrue(Proches(Versee(10), orOpaque), "l'éclat ne revient pas quand la marque part");
-            carte.Eteindre(une); carte.Pas(5); Assert.IsTrue(Proches(Versee(10), teinte) && Proches(Versee(20), orOpaque) && carte.EclatDe(une) == null, "l'éclat éteint ne rend pas la teinte, ou éteint l'autre");
+            Assert.IsTrue(carte.Marquer(une, rouge)); carte.Pas(3); Assert.IsTrue(Proches(Versee(10), orVerse) && Proches(Versee(20), orVerse), "la marque a touché l'éclat");
+            carte.Demarquer(); carte.Pas(4); Assert.IsTrue(Proches(Versee(10), orVerse), "l'éclat ne reste pas quand la marque part");
+            carte.Eteindre(une); carte.Pas(5); Assert.IsTrue(Proches(Versee(10), teinte) && Proches(Versee(20), orVerse) && carte.EclatDe(une) == null, "l'éclat éteint ne rend pas la teinte, ou éteint l'autre");
             Assert.IsTrue(carte.Retirer(autre) && carte.EclatDe(autre) == null && !carte.Eclairer(autre, or), "une cellule retirée reste éclairée"); carte.Pas(6);
             Assert.AreEqual(0, Versee(20).a, "l'éclat d'une cellule retirée se dessine encore");
         }
-        // Le bord de la carte : un cadre autour des cellules, que le terrain trace, et au-delà la table. Tant qu'on ne
-        // l'encadre pas, la table est la mer et le filet ne se voit pas : rien ne change à qui ne demande rien.
-        [Test] public void Le_cadre_borde_les_cellules_et_la_table_est_le_fond_de_la_camera() {
-            Servir(0, 200, Fixture); Lue(out PointCarte o); Poser(); Assert.AreEqual(new Rect(), carte.Cadre, "un cadre avant la pose");
+        // Les bornes de la vue : la boîte des cellules, élargie d'une marge de mer, toute dans le terrain levé. Rien ne s'y
+        // dessine : ni table, ni filet ; au bord, la mer continue.
+        [Test] public void Les_bornes_de_la_vue_tiennent_dans_le_terrain_et_rien_ne_les_dessine() {
+            Servir(0, 200, Fixture); Lue(out PointCarte o); Poser(); Assert.AreEqual(new Rect(), carte.Cadre, "des bornes avant la pose");
             Lire(1); TerrainDeCarte t = carte.Terrain; Bounds cellules = t.Boite; float marge = CarteDessinee.MARGE_DU_CADRE_KM; Rect cadre = carte.Cadre;
-            Assert.IsTrue(Mathf.Abs(cadre.xMin - (cellules.min.x - marge)) < 1e-3f && Mathf.Abs(cadre.yMin - (cellules.min.z - marge)) < 1e-3f && Mathf.Abs(cadre.xMax - (cellules.max.x + marge)) < 1e-3f && Mathf.Abs(cadre.yMax - (cellules.max.z + marge)) < 1e-3f, "le cadre n'est pas à sa marge des cellules : " + cadre);
-            // Le cadre tient dans le terrain levé : il laisse de la mer autour des cellules, et de la table autour de lui.
-            Assert.IsTrue(marge > 20f && marge < TerrainDeCarte.MARGE_DE_MER_KM - 20f, "la marge du cadre sort de la marge de mer du terrain");
-            // Le terrain le reçoit dans ses propres km, comptés depuis son coin du sud-ouest.
-            Vector4 verse = Matiere.GetVector("_Cadre"), attendu = new Vector4(cadre.xMin - t.Coin.x, cadre.yMin - t.Coin.y, cadre.xMax - t.Coin.x, cadre.yMax - t.Coin.y);
-            Assert.Less((verse - attendu).magnitude, 1e-2f, "le cadre versé au terrain : " + verse + ", attendu " + attendu);
-            Assert.IsTrue(verse.x > 0 && verse.y > 0 && verse.z < t.Largeur * t.Pas && verse.w < t.Hauteur * t.Pas, "le cadre sort du terrain : " + verse);
-            // Sans encadrement : la table est la mer, le filet est transparent.
-            var mer = new Color(0.2f, 0.3f, 0.4f, 1f); carte.Habiller(mer, mer, Color.white);
-            Assert.IsTrue(Proches(Matiere.GetColor("_Table"), mer) && Matiere.GetColor("_Filet").a == 0f, "sans encadrement, la table n'est pas la mer ou le filet se voit");
-            // Encadrée : la table et le filet donnés ; la table est aussi le fond de la caméra, au-delà du terrain ; et un nouvel habillage ne la reprend pas.
-            var table = new Color(0.13f, 0.12f, 0.1f, 0.2f); var filet = new Color(0.7f, 0.6f, 0.4f, 1f); carte.Encadrer(table, filet);
-            var tableOpaque = new Color(0.13f, 0.12f, 0.1f, 1f);
-            Assert.IsTrue(Proches(Matiere.GetColor("_Table"), tableOpaque) && Proches(Matiere.GetColor("_Filet"), filet) && Proches(carte.camera.backgroundColor, tableOpaque), "la table ou le filet donnés ne sont pas ceux du terrain et du fond");
-            carte.Habiller(mer, mer, Color.white); Assert.IsTrue(Proches(Matiere.GetColor("_Table"), tableOpaque), "un habillage remet la mer à la place de la table");
+            Assert.IsTrue(Mathf.Abs(cadre.xMin - (cellules.min.x - marge)) < 1e-3f && Mathf.Abs(cadre.yMin - (cellules.min.z - marge)) < 1e-3f && Mathf.Abs(cadre.xMax - (cellules.max.x + marge)) < 1e-3f && Mathf.Abs(cadre.yMax - (cellules.max.z + marge)) < 1e-3f, "les bornes ne sont pas à leur marge des cellules : " + cadre);
+            Assert.IsTrue(cadre.xMin > t.Coin.x && cadre.yMin > t.Coin.y && cadre.xMax < t.Coin.x + t.Largeur * t.Pas && cadre.yMax < t.Coin.y + t.Hauteur * t.Pas, "les bornes de la vue sortent du terrain : la vue montrerait le vide");
+            foreach (string disparue in new[] { "_Table", "_Filet", "_Cadre" }) Assert.IsFalse(Matiere.HasProperty(disparue), "le terrain dessine encore " + disparue);
+            // Au plus loin, les quatre coins de l'écran tombent sur le terrain levé.
+            carte.Vue.Zoomer(-1000, new Vector2(.5f, .5f));
+            foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                Vector2 sol = carte.Vue.PointSous(coin);
+                Assert.IsTrue(sol.x >= cadre.xMin - 1e-2f && sol.x <= cadre.xMax + 1e-2f && sol.y >= cadre.yMin - 1e-2f && sol.y <= cadre.yMax + 1e-2f, "au plus loin, le coin " + coin + " de l'écran sort des bornes : " + sol);
+            }
+        }
+        // Une image rendue par la caméra de la carte, en couleurs franches : au-delà de la coupe la plus à l'est (l'Anatolie),
+        // le papier ; teinte par l'altitude, la terre prend la teinte des paliers. Au large de Lisbonne, aucun papier.
+        [Test] public void L_image_montre_la_teinte_d_altitude_et_le_papier_hors_carte() {
+            Servir(0, 200, Fixture); Lue(out PointCarte o); Poser(); Lire(1);
+            TerrainDeCarte t = carte.Terrain; Vector4 coupe = t.Coupes.OrderByDescending(c => c.x + c.z).First();
+            const int L = 800, H = 450; var ecran = new RenderTexture(L, H, 24); Camera cam = carte.camera; cam.targetTexture = ecran; cam.aspect = (float)L / H;
+            try {
+                var mer = new Color(0f, 0f, .5f, 1f); carte.Habiller(mer, mer, Color.white); carte.PeindreHorsCarte(new Color(1f, 0f, 1f, 1f));
+                int Compter(Func<Color, bool> quoi) {
+                    carte.Pas(2); cam.Render(); var lu = new Texture2D(L, H, TextureFormat.RGBA32, false); RenderTexture.active = ecran;
+                    try { lu.ReadPixels(new Rect(0, 0, L, H), 0, 0); lu.Apply(); return lu.GetPixels().Count(quoi); }
+                    finally { RenderTexture.active = null; UnityEngine.Object.DestroyImmediate(lu); }
+                }
+                bool Papier(Color c) => c.r > .4f && c.b > .4f && c.g < .25f;
+                bool Vert(Color c) => c.g > .3f && c.r < .2f && c.b < .2f;
+                carte.Vue.Changer(cam.aspect); carte.Vue.Centrer(new Vector2((coupe.x + coupe.z) / 2f, (coupe.y + coupe.w) / 2f), 200f);
+                int papier = Compter(Papier), vertAvant = Compter(Vert);
+                Assert.Greater(papier, L * H / 20, "au-delà de la coupe de l'Anatolie, le papier ne se voit pas : " + papier + " pixels");
+                carte.TeindreParLAltitude(Enumerable.Repeat(new Color(0f, .9f, 0f, 1f), TerrainDeCarte.PALIERS.Count).ToArray());
+                int vert = Compter(Vert);
+                Assert.Greater(vert, L * H / 20, "teinte par l'altitude, la terre n'a pas la teinte des paliers : " + vert + " pixels");
+                Assert.Less(vertAvant, vert / 10, "contre-épreuve : la terre avait déjà la teinte des paliers avant d'être teinte par l'altitude");
+                // Contre-épreuve : au large de Lisbonne, la mer et le rivage, sans papier.
+                Vector2 lisbonne = new Vector2((float)((2670000 - o.X) / 1000), (float)((1940000 - o.Y) / 1000)); carte.Vue.Centrer(lisbonne, 200f);
+                Assert.AreEqual(0, Compter(Papier), "au large de Lisbonne, la mer se peint en papier");
+            } finally { cam.targetTexture = null; UnityEngine.Object.DestroyImmediate(ecran); }
+        }
+        // Teinte d'altitude, liseré, papier hors carte : des réglages du terrain, donnés avant ou après la pose.
+        [Test] public void Les_modes_du_terrain_se_reglent_avant_comme_apres_la_pose() {
+            Servir(0, 200, Fixture); Lue(out PointCarte o); Poser();
+            var paliers = new[] { Color.blue, Color.green, Color.yellow, Color.red, Color.white };
+            carte.TeindreParLAltitude(paliers); carte.MontrerLesLiseres(false); carte.PeindreHorsCarte(new Color(.9f, .8f, .7f, .2f));
+            Assert.Throws<ArgumentException>(() => carte.TeindreParLAltitude(new[] { Color.red }), "une teinte par palier n'est pas exigée");
+            Lire(1);
+            Assert.IsTrue(carte.ParAltitude && Matiere.GetFloat("_ParAltitude") == 1f && Matiere.GetFloat("_ForceDesLiseres") == 0f && !carte.LiseresMontres, "un réglage donné avant la pose est perdu");
+            for (int p = 0; p < paliers.Length; p++) Assert.IsTrue(Proches(Matiere.GetColor("_Palier" + p), paliers[p]), "palier " + p);
+            var socles = TerrainDeCarte.PALIERS; Assert.AreEqual(new Vector4(socles[0].socle, socles[1].socle, socles[2].socle, socles[3].socle), Matiere.GetVector("_Socles"));
+            Assert.AreEqual(socles[4].socle, Matiere.GetFloat("_DernierSocle")); Assert.IsTrue(Proches(Matiere.GetColor("_Papier"), new Color(.9f, .8f, .7f, 1f)), "le papier n'est pas versé, opaque");
+            Texture horsCarte = Matiere.GetTexture("_HorsCarte"); Assert.IsTrue(horsCarte != null && horsCarte.width == carte.Terrain.LargeurDuRelief && horsCarte.height == carte.Terrain.HauteurDuRelief, "la mer hors carte n'a pas la grille du relief");
+            carte.TeindreParLAltitude(null); carte.MontrerLesLiseres(true);
+            Assert.IsTrue(!carte.ParAltitude && Matiere.GetFloat("_ParAltitude") == 0f && Matiere.GetFloat("_ForceDesLiseres") == 1f && carte.PaysMontres, "les teintes des lieux et le liseré ne reviennent pas");
         }
         // L'habillage donné avant la pose est celui du terrain qui naît ; donné après, il change le terrain posé.
         [Test] public void L_habillage_change_la_mer_le_rivage_et_les_cimes() {
@@ -427,27 +481,29 @@ namespace Forge.Pont.Tests {
                 Assert.IsTrue(p.HasValue && Egal(p.Value, noms.GetChild(i++).localPosition) && Egal(p.Value, SurLeSol(v.Position, o, CarteDessinee.HAUTEUR_NOM)), v.Nom + " en " + p); }
             Assert.IsTrue(i == 57 && i == noms.childCount, i + " villes, " + noms.childCount + " noms");
         }
-        [Test] public void La_camera_cadre_toute_la_carte() {
+        // Au plus loin, la caméra de la carte ne montre rien au-delà de ses bornes : quelle que soit la forme de la fenêtre, les
+        // quatre coins de l'écran tombent dedans, et la carte touche le bord de l'écran sur son axe le plus serré.
+        [Test] public void La_camera_tient_dans_la_carte_au_plus_loin() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; Canvas toile = objet.GetComponentInChildren<Canvas>(true);
             Assert.IsTrue(Nommes("Caméra de la carte") == 1 && cam != null && cam.name == "Caméra de la carte" && cam.transform.parent == objet.transform && !cam.orthographic, "caméra de la carte absente, ou pas en perspective");
             Assert.IsTrue(toile.renderMode == RenderMode.ScreenSpaceCamera && toile.worldCamera == cam, "la toile n'est pas sur la caméra de la carte");
             float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
             foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
-            // La vue cadre toute la planche : les cellules et le cadre que le terrain trace autour d'elles.
-            Rect cadre = carte.Cadre; Assert.IsTrue(cadre.xMin < minX && cadre.yMin < minZ && cadre.xMax > maxX && cadre.yMax > maxZ, "le cadre ne contient pas les cellules : " + cadre);
-            (minX, minZ, maxX, maxZ) = (cadre.xMin, cadre.yMin, cadre.xMax, cadre.yMax);
-            var coins = new[] { new Vector3(minX, 0, minZ), new Vector3(maxX, 0, minZ), new Vector3(maxX, 0, maxZ), new Vector3(minX, 0, maxZ) }; // sud-ouest, sud-est, nord-est, nord-ouest
-            foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f }) {
-                cam.aspect = aspect; carte.Pas(2); var vus = new Vector3[4];
-                for (int k = 0; k < 4; k++) {
-                    vus[k] = cam.WorldToViewportPoint(objet.transform.TransformPoint(coins[k]));
-                    Assert.IsTrue(vus[k].x >= 0 && vus[k].x <= 1 && vus[k].y >= 0 && vus[k].y <= 1 && vus[k].z >= cam.nearClipPlane && vus[k].z <= cam.farClipPlane, "aspect " + aspect + ", coin " + k + " hors du champ : " + vus[k].ToString("R"));
+            Rect cadre = carte.Cadre; Assert.IsTrue(cadre.xMin < minX && cadre.yMin < minZ && cadre.xMax > maxX && cadre.yMax > maxZ, "les bornes ne contiennent pas les cellules : " + cadre);
+            Vector2 Sol(Vector2 ancre) {
+                Ray r = cam.ViewportPointToRay(new Vector3(ancre.x, ancre.y, 0)); Vector3 p = objet.transform.InverseTransformPoint(r.origin), d = objet.transform.InverseTransformDirection(r.direction);
+                float t = -p.y / d.y; return new Vector2(p.x + d.x * t, p.z + d.z * t);
+            }
+            foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f, 2.4f }) {
+                cam.aspect = aspect; carte.Vue.Zoomer(-1000, new Vector2(.5f, .5f)); carte.Pas(2); float touche = 0f;
+                foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                    Vector2 sol = Sol(coin);
+                    Assert.IsTrue(sol.x >= cadre.xMin - .1f && sol.x <= cadre.xMax + .1f && sol.y >= cadre.yMin - .1f && sol.y <= cadre.yMax + .1f, "aspect " + aspect + ", le coin " + coin + " de l'écran sort de la carte : " + sol);
+                    touche = Mathf.Max(touche, Mathf.Abs(sol.x - cadre.center.x) / (cadre.width / 2f), Mathf.Abs(sol.y - cadre.center.y) / (cadre.height / 2f));
                 }
-                float largeur = vus[1].x - vus[0].x, hauteur = vus[3].y - vus[0].y;
-                // Vue d'en haut, la carte remplit le champ sur son axe le plus serré, à la marge du cadre près.
-                Assert.IsTrue(largeur >= 0.85f || hauteur >= 0.85f, "aspect " + aspect + " : la carte ne couvre que " + largeur + " × " + hauteur + " du champ");
-                Assert.Greater(vus[3].y, vus[0].y, "aspect " + aspect + " : le nord n'est pas en haut");
+                Assert.AreEqual(1f, touche, 1e-3f, "aspect " + aspect + " : au plus loin, la carte ne touche pas le bord de l'écran");
+                Assert.Greater(Sol(Vector2.up).y, Sol(Vector2.zero).y, "aspect " + aspect + " : le nord n'est pas en haut");
             }
         }
         [Test] public void Sans_carte_ni_contour_ni_nom() {
@@ -484,10 +540,10 @@ namespace Forge.Pont.Tests {
                 Ray r = cam.ViewportPointToRay(new Vector3(ancre.x, ancre.y, 0)); Vector3 p = objet.transform.InverseTransformPoint(r.origin), d = objet.transform.InverseTransformDirection(r.direction);
                 float t = -p.y / d.y; return new Vector2(p.x + d.x * t, p.z + d.z * t);
             }
-            // Toute la carte tient dans la vue du départ : ses quatre coins, au niveau de la mer, sont à l'écran.
-            foreach (var (x, z) in new[] { (minX, minZ), (maxX, minZ), (maxX, maxZ), (minX, maxZ) }) {
-                Vector3 v = cam.WorldToViewportPoint(objet.transform.TransformPoint(new Vector3(x, 0f, z)));
-                Assert.IsTrue(v.z > 0 && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1, "le coin (" + x + ", " + z + ") de la carte est hors de la vue du départ : " + v);
+            // La vue du départ, au plus loin, ne montre rien au-delà de la carte : les quatre coins de l'écran tombent dans ses bornes.
+            foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                Vector2 sol = Sol(coin);
+                Assert.IsTrue(sol.x >= minX - 1e-1f && sol.x <= maxX + 1e-1f && sol.y >= minZ - 1e-1f && sol.y <= maxZ + 1e-1f, "le coin " + coin + " de l'écran tombe hors de la carte : " + sol);
             }
             float loin = carte.Vue.Distance; Assert.Less(Vector3.Angle(cam.transform.forward, Vector3.down), 1e-2f, "sur toute la carte, la caméra ne regarde pas à la verticale");
             foreach (var (crans, glisse) in new[] { (12f, new Vector2(0, 0)), (0f, new Vector2(1e7f, 1e7f)), (0f, new Vector2(-1e7f, -1e7f)), (-1000f, new Vector2(0, 0)) }) {
@@ -631,7 +687,7 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(carte.RattacherLieu(FormesDeTest.PAMPELUNE, 0, castille, rouge)); Verser();
             Assert.AreEqual(mesures + 1, carte.MesuresDesFrontieres, "un lieu qui change de pays ne remesure pas les frontières");
         }
-        // Un lieu se teint seul ; la cellule entière se teint par son numéro, et la marque couvre tous ses lieux.
+        // Un lieu se teint seul ; la cellule entière se teint par son numéro, et la marque cerne tous ses lieux sans les teindre.
         [Test] public void Un_lieu_se_teint_seul_et_la_cellule_entiere_par_son_numero() {
             ServirOuest(); Poser(); Lire(1); TerrainDeCarte t = carte.Terrain; int rang = RangServi(FormesDeTest.PAMPELUNE), premier = t.PremierLieuDe(rang), n = t.LieuxDe(rang);
             var avant = Enumerable.Range(0, t.NombreDeLieux).Select(Versee).ToArray(); Color neuve = new Color(0.2f, 0.7f, 0.3f, 1f), autre = new Color(0.6f, 0.2f, 0.7f, 1f), marque = new Color(0.9f, 0.9f, 0.1f, 1f);
@@ -646,7 +702,16 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(Enumerable.Range(premier, n).All(l => Proches(Versee(l), autre)), "la cellule entière n'a pas pris sa teinte");
             Assert.IsTrue(Enumerable.Range(0, t.NombreDeLieux).Where(l => l < premier || l >= premier + n).All(l => Proches(Versee(l), avant[l])), "une autre cellule a changé de teinte");
             Assert.IsTrue(carte.Marquer(FormesDeTest.PAMPELUNE, marque)); carte.Pas(4);
-            Assert.IsTrue(Enumerable.Range(premier, n).All(l => Proches(Versee(l), marque)) && carte.TeinteDe(FormesDeTest.PAMPELUNE) == autre, "la marque ne couvre pas tous les lieux de la cellule");
+            Assert.IsTrue(Enumerable.Range(premier, n).All(l => Proches(Versee(l), autre)) && carte.TeinteDe(FormesDeTest.PAMPELUNE) == autre, "la marque a teint les lieux de la cellule");
+            Assert.AreEqual(new Vector4(premier + 1, premier + n, 0, 0), Matiere.GetVector("_LieuxMarques"), "la marque ne cerne pas tous les lieux de la cellule");
+            // Le trait suit le bord de la cellule, pas ceux de ses lieux : sur un bord entre deux de ses lieux, il est loin.
+            int interieurs = 0, auBord = 0; RectInt zone = t.ZoneDe(rang);
+            for (int j = zone.yMin; j < zone.yMax; j++) for (int i = zone.xMin; i < zone.xMax; i++) {
+                int k = j * t.Largeur + i, l = t.Lieux[k] - 1; if (l < premier || l >= premier + n) continue;
+                float x = t.Coin.x + (i + .5f) * t.Pas, z = t.Coin.y + (j + .5f) * t.Pas; float aLaMarque = carte.DistanceALaMarque(x, z);
+                if (t.BordEn(x, z) < .5f && aLaMarque > 3f) interieurs++; else if (aLaMarque < .5f) auBord++;
+            }
+            Assert.IsTrue(interieurs > 10 && auBord > 10, interieurs + " texels sur un bord intérieur loin du trait, " + auBord + " sur le trait : le trait ne suit pas le bord de la cellule seul");
             Assert.IsTrue(carte.Retirer(FormesDeTest.PAMPELUNE)); carte.Pas(5);
             Assert.IsTrue(Enumerable.Range(premier, n).All(l => Versee(l).a == 0) && carte.TeinteDuLieu(FormesDeTest.PAMPELUNE, 3) == null, "un lieu d'une cellule retirée se dessine encore");
         }

@@ -45,6 +45,7 @@ namespace Forge.Interface.Tests
         // Le mode choisi d'un clic sur son bouton, puis la carte repeinte.
         void Choisir(ModeDeCarte mode) { toile.transform.Find(CalquesCarte.BANDE + "/" + mode).GetComponent<UnityEngine.UI.Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); Peindre(); }
         float ForceDesPays => racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_ForceDesPays");
+        float LiseresDuTerrain => racine.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_ForceDesLiseres");
         static GuerresLues EnGuerre(string agresseur, string defenseur, long? siege = null) => new GuerresLues(5, new DateDuMonde(1400, 6), new[] { new GuerreLue(1, agresseur, defenseur, 2) },
             siege == null ? new ArmeeLue[0] : new[] { new ArmeeLue(0, agresseur, siege.Value, 0, 1200, 500, siege, null, new long[0], new PointCarte(25000, 5000), new PointCarte[0]) }, new PriseLue[0], 0);
         // Les pays des terres 10, 20 et 30, nommés « Avalon » et « Brume » ; le maître de chaque terre est « m » suivi de son numéro.
@@ -136,6 +137,8 @@ namespace Forge.Interface.Tests
                 Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(attendue), "le bourg n'a pas la teinte des habitants");
                 Assert.That((Color32)carte.TeinteDe(10).Value, Is.Not.EqualTo(attendue), "échantillon vide : deux terres de peuplement différent de même teinte");
                 Assert.That((carte.PaysDuLieu(20, 0), carte.PaysDuLieu(20, 1)), Is.EqualTo((A, B)), "le mode Population a perdu le pays du lieu");
+                Assert.That((carte.LiseresMontres, LiseresDuTerrain), Is.EqualTo((false, 0f)), "en mode Population, le liseré teint encore les pays de leur couleur");
+                Assert.That((carte.PaysMontres, ForceDesPays), Is.EqualTo((true, 1f)), "contre-épreuve : les frontières restent en mode Population");
             }
             finally { Object.DestroyImmediate(toileHabitants); }
         }
@@ -164,6 +167,7 @@ namespace Forge.Interface.Tests
             // Retour à la carte politique : les pays, leurs frontières et leurs noms, sans rien remesurer.
             Choisir(ModeDeCarte.Politique);
             Assert.That((Teinte(10), Teinte(30), ForceDesPays, carte.PaysMontres, guerre.NomsMontres, guerre.Ecriture.Racine.gameObject.activeSelf), Is.EqualTo((DuPays(A), DuPays(B), 1f, true, true, true)));
+            Assert.That((carte.LiseresMontres, LiseresDuTerrain), Is.EqualTo((true, 1f)), "la carte politique n'a pas retrouvé le liseré des pays");
             Assert.That(carte.DistanceALaFrontiere(5.5f, .5f), Is.EqualTo(.5f).Within(.1f)); Assert.That(carte.MesuresDesFrontieres, Is.EqualTo(mesures)); Assert.That(calques.Legende.text, Is.EqualTo("Pays au jour 6 de 1400 · Rouge : territoire conservé"));
         }
 

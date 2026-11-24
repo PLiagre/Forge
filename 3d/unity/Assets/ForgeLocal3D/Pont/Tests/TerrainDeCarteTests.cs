@@ -247,15 +247,19 @@ namespace Forge.Pont.Tests {
         }
 
         [Test] public void La_terre_emerge_la_mer_plonge_et_le_bord_est_au_fond() {
-            TerrainDeCarte t = Terrain; int l = t.LargeurDuRelief, h = t.HauteurDuRelief, terres = 0, mers = 0, noyees = 0, emergees = 0; float cime = float.NegativeInfinity, creux = float.PositiveInfinity;
+            TerrainDeCarte t = Terrain; int l = t.LargeurDuRelief, h = t.HauteurDuRelief, terres = 0, mers = 0, noyees = 0, emergees = 0, hors = 0, horsDuRas = 0; float cime = float.NegativeInfinity, creux = float.PositiveInfinity;
             for (int j = 0; j < h; j++)
                 for (int i = 0; i < l; i++) {
                     float a = t.Altitudes[j * l + i]; if (a > cime) cime = a; if (a < creux) creux = a;
-                    if (ATerre(t, i, j)) { terres++; if (!(a >= TerrainDeCarte.RIVAGE)) noyees++; } else { mers++; if (!(a <= 0f)) emergees++; }
+                    float x = t.Coin.x + (i + .5f) * t.PasDuRelief, z = t.Coin.y + (j + .5f) * t.PasDuRelief;
+                    if (ATerre(t, i, j)) { terres++; if (!(a >= TerrainDeCarte.RIVAGE)) noyees++; }
+                    else if (t.HorsCarteEn(x, z)) { hors++; if (a != TerrainDeCarte.RIVAGE) horsDuRas++; } // au-delà d'une coupe : au ras de l'eau, sans fond
+                    else { mers++; if (!(a <= 0f)) emergees++; }
                 }
-            TestContext.Out.WriteLine("de " + creux + " à " + cime + " km de décor");
+            TestContext.Out.WriteLine("de " + creux + " à " + cime + " km de décor ; " + hors + " altitudes de mer hors de la carte");
             Assert.IsTrue(terres > 1000 && mers > 1000, terres + " altitudes à terre, " + mers + " en mer");
             Assert.AreEqual(0, noyees, "altitudes à terre sous le rivage"); Assert.AreEqual(0, emergees, "altitudes en mer au-dessus de l'eau");
+            Assert.AreEqual(0, horsDuRas, "altitudes de mer hors de la carte qui ne sont pas au ras de l'eau");
             Assert.IsTrue(cime <= TerrainDeCarte.PLAFOND && cime > 10f, "la plus haute cime : " + cime);
             Assert.IsTrue(creux >= -TerrainDeCarte.FOND - 1e-3f, "le creux le plus bas : " + creux);
             foreach (int k in new[] { 0, l - 1, (h - 1) * l, h * l - 1 }) Assert.AreEqual(-TerrainDeCarte.FOND, t.Altitudes[k], 1e-2f, "un coin du terrain n'est pas au fond");
@@ -535,6 +539,61 @@ namespace Forge.Pont.Tests {
             for (int c = 1; c <= 255; c++) Assert.Greater(TerrainDeCarte.Distance((byte)c, p), TerrainDeCarte.Distance((byte)(c - 1), p), "code " + c);
             Assert.Less(TerrainDeCarte.Distance(1, p) - TerrainDeCarte.Distance(0, p), TerrainDeCarte.Distance(255, p) - TerrainDeCarte.Distance(254, p));
             Assert.Less(TerrainDeCarte.Distance(32, p) - TerrainDeCarte.Distance(31, p), .02f, "à 250 m du trait, le pas du code dépasse 20 m");
+        }
+
+        // Le milieu d'un côté coupé, en mètres EPSG:3035, et vers la terre : le côté de la normale où le terrain a de la terre.
+        private static (double x, double y) EnMetres(TerrainDeCarte t, float x, float z) => (t.Origine.X + 1000.0 * x, t.Origine.Y + 1000.0 * z);
+        private static bool Dans((double x, double y) p, double x0, double x1, double y0, double y1) => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1;
+        // L'est de l'Anatolie, la pointe du Sinaï et le sud de l'Égypte : là où la carte figée de l'Europe coupe la terre en ligne droite.
+        private static readonly (string nom, double x0, double x1, double y0, double y1)[] COUPES = {
+            ("est de l'Anatolie", 6340000, 6520000, 1880000, 2440000), ("sud de l'Égypte", 5900000, 6500000, 990000, 1070000) };
+        // La côte atlantique du Portugal et celle de la Bretagne, qui sont des rivages.
+        private static readonly (string nom, double x0, double x1, double y0, double y1)[] RIVAGES = {
+            ("côte atlantique du Portugal", 2600000, 2900000, 1800000, 2450000), ("Bretagne", 3100000, 3450000, 2720000, 2960000) };
+
+        // Sur la carte figée de toute l'Europe, les côtés qui coupent la terre sont trouvés à l'est de l'Anatolie et au sud
+        // de l'Égypte, et aucun côté de la côte atlantique du Portugal ni de la Bretagne ne l'est.
+        [Test] public void Les_coupes_de_la_carte_sont_trouvees_et_aucun_rivage_n_en_est_une() {
+            TerrainDeCarte t = EuropeDeTest.TerrainEurope; Assert.IsNotEmpty(t.Coupes, "aucune coupe : l'échantillon ne juge rien");
+            foreach (var (nom, x0, x1, y0, y1) in COUPES) {
+                int trouves = t.Coupes.Count(c => Dans(EnMetres(t, (c.x + c.z) / 2f, (c.y + c.w) / 2f), x0, x1, y0, y1));
+                Assert.Greater(trouves, 0, nom + " : aucune coupe trouvée");
+            }
+            // Les côtés servis des rivages : l'échantillon n'est pas vide, et aucun n'est une coupe.
+            foreach (var (nom, x0, x1, y0, y1) in RIVAGES) {
+                int cotes = EuropeDeTest.CarteEurope.Cellules.SelectMany(c => c.Contour).SelectMany(p => p.Exterieur.Zip(p.Exterieur.Skip(1), (a, b) => (a, b)))
+                    .Count(s => Dans(((s.a.X + s.b.X) / 2, (s.a.Y + s.b.Y) / 2), x0, x1, y0, y1));
+                Assert.Greater(cotes, 5, nom + " : échantillon vide");
+                var coupees = t.Coupes.Where(c => Dans(EnMetres(t, (c.x + c.z) / 2f, (c.y + c.w) / 2f), x0, x1, y0, y1)).ToList();
+                Assert.IsEmpty(coupees, nom + " : " + coupees.Count + " côtés de rivage pris pour une coupe");
+            }
+        }
+
+        // Au-delà d'une coupe, la mer est hors de la carte ; au large d'un rivage, elle est la mer. La terre ne plonge pas vers
+        // la coupe comme vers une côte : à quelques km d'elle, elle a encore sa hauteur ; à autant d'un rivage, elle est au ras de l'eau.
+        [Test] public void La_mer_au_dela_d_une_coupe_est_hors_de_la_carte_et_la_terre_n_y_plonge_pas() {
+            TerrainDeCarte t = EuropeDeTest.TerrainEurope; int jugees = 0;
+            foreach (Vector4 c in t.Coupes.Where(c => Dans(EnMetres(t, (c.x + c.z) / 2f, (c.y + c.w) / 2f), COUPES[0].x0, COUPES[0].x1, COUPES[0].y0, COUPES[0].y1))) {
+                Vector2 a = new Vector2(c.x, c.y), b = new Vector2(c.z, c.w), milieu = (a + b) / 2f, normale = new Vector2(b.y - a.y, a.x - b.x).normalized;
+                if (t.CelluleEn(milieu.x + 5f * normale.x, milieu.y + 5f * normale.y) == 0) normale = -normale; // vers la terre
+                Vector2 dedans = milieu + 4f * normale, dehors = milieu - 20f * normale;
+                if ((a - b).magnitude < 20f || t.CelluleEn(dedans.x, dedans.y) == 0) continue;
+                Assert.IsTrue(t.HorsCarteEn(dehors.x, dehors.y), "à 20 km au-delà de la coupe " + c + ", la mer n'est pas hors de la carte");
+                Assert.IsFalse(t.HorsCarteEn(dedans.x, dedans.y), "la terre en deçà de la coupe est hors de la carte");
+                Assert.Greater(t.Altitude(dedans.x, dedans.y), .5f, "à 4 km de la coupe " + c + ", la terre plonge vers elle comme vers une côte");
+                jugees++;
+            }
+            Assert.Greater(jugees, 0, "échantillon vide : aucune coupe de l'est de l'Anatolie jugée");
+            // Contre-épreuve : au large de Lisbonne, la mer est la mer, et la terre au bord du rivage est au ras de l'eau.
+            PointCarte o = t.Origine; Vector2 large = new Vector2((float)((2600000 - o.X) / 1000), (float)((1940000 - o.Y) / 1000));
+            Assert.AreEqual(0, t.CelluleEn(large.x, large.y), "échantillon faussé : le large de Lisbonne est à terre");
+            Assert.IsFalse(t.HorsCarteEn(large.x, large.y), "la mer au large de Lisbonne est prise pour hors de la carte");
+            int rivages = 0, basses = 0;
+            for (float x = large.x; x < large.x + 150f; x += 0.5f) {
+                if (t.CelluleEn(x, large.y) == 0) continue;
+                rivages++; if (t.Altitude(x + 1f, large.y) < .4f) basses++; break;
+            }
+            Assert.IsTrue(rivages == 1 && basses == 1, "à 1 km du rivage portugais, la terre n'est pas au ras de l'eau");
         }
     }
 }

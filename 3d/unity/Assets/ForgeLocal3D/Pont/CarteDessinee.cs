@@ -20,19 +20,25 @@ namespace Forge.Pont {
     // réduites de `ECHELLE_DU_RELIEF`, pour qu'une montagne se voie sous une caméra inclinée sans cacher ce qui est
     // derrière elle. Tout ce qui se pose sur la carte se pose sur ce sol : `PositionSurLaCarte` rend un point à sa
     // hauteur au-dessus de lui, `Draper` une ligne qui le suit, `SolSous` le point du sol sous un point de l'écran.
-    // Autour de la carte, le terrain trace un cadre, à `MARGE_DU_CADRE_KM` des cellules : au-delà, la table, d'une
-    // couleur que `Encadrer` donne avec celle du filet. Tant qu'on ne l'encadre pas, la table est la mer et le filet
-    // ne se voit pas.
+    // Le terrain est bordé de mer bien au-delà de ce que la vue peut montrer : au bord, la mer continue. Là où la carte
+    // servie coupe la terre (`TerrainDeCarte.Coupes`), la mer d'au-delà est un papier d'atlas (`PeindreHorsCarte`) qui
+    // s'estompe vers le large, sans trait de côte le long de la coupe.
+    // Un mode de carte peut teindre la terre par l'altitude du relief levé (`TeindreParLAltitude`) au lieu des teintes
+    // des lieux, et éteindre le liseré des pays (`MontrerLesLiseres`) sans éteindre leurs frontières. La cellule marquée
+    // est cernée d'un trait (`Marquer`), mesuré à ses côtés, côte comprise : sa teinte ne change pas.
     // Le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
-    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir du cadre de la carte.
+    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de `Cadre`.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
         public const float HAUTEUR_NOM = 1f;
         // Ce que le dessin garde des hauteurs du terrain levé ; et le pas, en km, d'une ligne drapée ou d'un rayon qui cherche le sol.
         public const float ECHELLE_DU_RELIEF = 0.3f, PAS_DU_DRAPE_KM = 6f, PAS_DU_RAYON_KM = 0.5f;
-        // De combien le cadre s'écarte des cellules : assez pour laisser de la mer autour d'elles, moins que la marge de mer du terrain.
+        // De combien les bornes de la vue s'écartent des cellules : assez pour laisser de la mer autour d'elles, moins que la
+        // marge de mer du terrain, pour que la vue ne montre jamais rien au-delà du terrain.
         public const float MARGE_DU_CADRE_KM = 70f;
+        // La part d'opacité qui dit, dans la palette, qu'un éclat couvre la teinte du lieu : il se voit même teint par l'altitude.
+        public const float OPACITE_D_ECLAT = 0.8f;
         private const int PAS_MAX_DU_RAYON = 256, AFFINAGES = 12;
         public const string TERRAIN = "Terrain de la carte", SHADER_DU_TERRAIN = "Forge/CarteRelief";
         public const string NON_DESSINEE = "carte non dessinée : ";
@@ -52,8 +58,10 @@ namespace Forge.Pont {
         private readonly List<Object> crees = new List<Object>();
         private Material matiere; private Texture2D palette; private Color[] teintes; private bool aVerser; // la palette, une case par lieu, et si elle attend d'être versée au shader
         private Dictionary<long, int> rangs; private bool[] posees; private int nombrePosees; // le rang servi de chaque cellule, et celles que le terrain dessine
-        private Color mer = MER, rivage = RIVAGE, roche = ROCHE, encreDesCotes = BORD, encreDesBords = BORD, encreDesFrontieres = BORD, encreDesEaux = EAUX;
-        private Color? table; private Color filet = Color.clear; // la table d'autour de la carte (la mer, tant qu'on ne l'a pas donnée) et le filet du cadre
+        private Color mer = MER, rivage = RIVAGE, roche = ROCHE, encreDesCotes = BORD, encreDesBords = BORD, encreDesFrontieres = BORD, encreDesEaux = EAUX, papier = ROCHE;
+        private Color[] parAltitude; // les teintes des paliers du relief quand la terre se teint par l'altitude ; null sinon
+        // La distance au bord de la cellule marquée, un octet par texel, et si elle attend d'être versée.
+        private Texture2D marques; private byte[] champDeLaMarque; private bool marqueAVerser;
         // Les pays : la clé de chacun par indice (0 : aucun pays), l'indice du pays de chaque case de la palette (celle
         // d'un lieu), et la couleur du liseré de chaque pays. Les deux tables attendent d'être versées quand un
         // rattachement les change.
@@ -155,8 +163,9 @@ namespace Forge.Pont {
         // Retire une cellule du dessin : le sol de ses lieux rend la mer, elle perd sa marque et ne compte plus parmi les posées.
         public bool Retirer(long cellId) {
             if (!Posee(cellId, out int rang)) return false;
+            if (marquee == cellId) Demarquer();
             posees[rang] = false; nombrePosees--; foreach (int l in LieuxDe(rang)) teintes[l + 1] = Color.clear;
-            if (marquee == cellId) marquee = null; eclats.Remove(cellId); aVerser = true;
+            eclats.Remove(cellId); aVerser = true;
             paysChanges = true; return true; // ses voisins n'ont plus de frontière avec elle
         }
         // Rattache tous les lieux d'une cellule posée à un pays, nommé par sa clé, et donne au pays la couleur de son
@@ -206,15 +215,57 @@ namespace Forge.Pont {
             PaysMontres = montres;
             if (matiere != null) matiere.SetFloat("_ForceDesPays", montres ? 1f : 0f);
         }
+        // Le liseré qui teinte chaque pays le long de sa frontière se voit-il ? Éteint, les frontières restent, et aucune
+        // terre ne garde la couleur de son pays sous la teinte d'un mode. Il ne se voit que si les pays se voient.
+        public bool LiseresMontres { get; private set; } = true;
+        public void MontrerLesLiseres(bool montres) {
+            LiseresMontres = montres;
+            if (matiere != null) matiere.SetFloat("_ForceDesLiseres", montres ? 1f : 0f);
+        }
+        // La terre se teint-elle par l'altitude du relief levé ? Une teinte par palier de `TerrainDeCarte.PALIERS`, posée à
+        // son socle, fondue de l'une à l'autre entre deux socles ; null rend les teintes des lieux. Un éclat se voit toujours.
+        public bool ParAltitude => parAltitude != null;
+        public void TeindreParLAltitude(IReadOnlyList<Color> teintesDesPaliers) {
+            if (teintesDesPaliers != null && teintesDesPaliers.Count != TerrainDeCarte.PALIERS.Count)
+                throw new System.ArgumentException("une teinte par palier du relief : " + TerrainDeCarte.PALIERS.Count + " attendues, " + teintesDesPaliers.Count + " reçues");
+            parAltitude = teintesDesPaliers?.ToArray(); Altituder();
+        }
+        private void Altituder() {
+            if (matiere == null) return;
+            matiere.SetFloat("_ParAltitude", parAltitude != null ? 1f : 0f);
+            if (parAltitude == null) return;
+            for (int p = 0; p < parAltitude.Length; p++) matiere.SetColor("_Palier" + p, parAltitude[p]);
+            var socles = TerrainDeCarte.PALIERS;
+            matiere.SetVector("_Socles", new Vector4(socles[0].socle, socles[1].socle, socles[2].socle, socles[3].socle)); matiere.SetFloat("_DernierSocle", socles[4].socle);
+        }
+        // Le papier de la mer hors de la carte, au-delà d'une coupe.
+        public void PeindreHorsCarte(Color lePapier) { lePapier.a = 1f; papier = lePapier; if (matiere != null) matiere.SetColor("_Papier", papier); }
         // La cellule marquée, ou null : une seule à la fois.
         public long? Marquee => marquee;
-        // Couvre tous les lieux d'une cellule posée d'une couleur sans toucher à leur teinte, qui revient quand la marque
-        // part ; faux si le terrain ne la dessine pas, et la marque d'avant reste.
+        // Cerne les lieux d'une cellule posée d'un trait de cette couleur, le long de ses côtés avec tout ce qui n'est pas
+        // elle, la mer comprise ; sa teinte ne change pas. Faux si le terrain ne la dessine pas, et la marque d'avant reste.
         public bool Marquer(long cellId, Color couleur) {
-            if (!Posee(cellId, out _)) return false;
-            couleur.a = 1f; marquee = cellId; marque = couleur; aVerser = true; return true;
+            if (!Posee(cellId, out int rang)) return false;
+            int avant = marquee.HasValue && rangs.TryGetValue(marquee.Value, out int r) ? r : -1;
+            couleur.a = 1f; marque = couleur;
+            if (marquee != cellId) { Terrain.Marque(rang, avant, champDeLaMarque); marqueAVerser = true; }
+            marquee = cellId; Marquage(); return true;
         }
-        public void Demarquer() { if (marquee.HasValue) { marquee = null; aVerser = true; } }
+        public void Demarquer() {
+            if (!marquee.HasValue) return;
+            if (rangs.TryGetValue(marquee.Value, out int avant)) { Terrain.Marque(-1, avant, champDeLaMarque); marqueAVerser = true; }
+            marquee = null; Marquage();
+        }
+        // Les numéros de texel des lieux de la cellule marquée, du premier au dernier, et la couleur du trait ; (-1, -1) sans marque.
+        private void Marquage() {
+            if (matiere == null) return;
+            Vector4 lesLieux = new Vector4(-1f, -1f, 0f, 0f);
+            if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) lesLieux = new Vector4(Terrain.PremierLieuDe(rang) + 1, Terrain.PremierLieuDe(rang) + Terrain.LieuxDe(rang), 0f, 0f);
+            matiere.SetVector("_LieuxMarques", lesLieux); matiere.SetColor("_CouleurDeLaMarque", marque);
+        }
+        // Sous un point en km locaux, la distance en km au bord de la cellule marquée, telle que le trait la dessine ; la
+        // portée quand elle est plus loin ou sans marque ; -1 sans carte posée.
+        public float DistanceALaMarque(float x, float z) => champDeLaMarque == null ? -1f : Terrain.MarqueEn(champDeLaMarque, x, z);
         // Éclaire une cellule posée : comme la marque, la couleur couvre la teinte de ses lieux sans y toucher, et le
         // relief, les bords et les frontières s'y dessinent toujours. Autant de cellules qu'on veut ; la marque passe
         // devant. Faux si le terrain ne la dessine pas.
@@ -231,17 +282,10 @@ namespace Forge.Pont {
             mer = large; rivage = auRivage; roche = cimes;
             if (matiere == null) return;
             matiere.SetColor("_Mer", mer); matiere.SetColor("_Rivage", rivage); matiere.SetColor("_Roche", roche);
-            if (!table.HasValue) matiere.SetColor("_Table", mer); // sans table donnée, la mer continue au-delà du cadre
         }
-        // Le cadre de la carte, en km locaux : la boîte des cellules, élargie de `MARGE_DU_CADRE_KM` ; vide avant la pose.
+        // Les bornes de la vue, en km locaux : la boîte des cellules, élargie de `MARGE_DU_CADRE_KM`, toute dans le terrain
+        // dessiné ; vide avant la pose. Rien ne s'y dessine : au bord, la mer continue.
         public Rect Cadre { get; private set; }
-        // Les couleurs du bord de la carte : la table au-delà du cadre, qui est aussi le fond de la caméra, et le filet du cadre.
-        public void Encadrer(Color laTable, Color leFilet) {
-            laTable.a = 1f; table = laTable; filet = leFilet;
-            if (camera != null) camera.backgroundColor = laTable;
-            if (matiere == null) return;
-            matiere.SetColor("_Table", laTable); matiere.SetColor("_Filet", leFilet);
-        }
         // Pose une carte et ses formes déjà lues, sans service : le terrain se lève sur place. Sans effet sur une carte déjà posée.
         public void Montrer(CarteLue lue, FormesLues formes) { if (!close) Poser(lue, formes, TerrainDeCarte.Lever(lue, formes)); }
         private void Start() => Demarrer();
@@ -318,6 +362,12 @@ namespace Forge.Pont {
             bords.SetPixelData(terrain.TexelsDesBords, 0); bords.Apply(false, true);
             frontieres = Creer("Frontières de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R8, FilterMode.Point, true);
             champ = new byte[terrain.Largeur * terrain.Hauteur]; Terrain = terrain; mesures = null; paysChanges = true;
+            // La mer hors de la carte se lit entre ses altitudes, comme le relief ; la marque, au texel près, partout au loin.
+            Texture2D horsCarte = Creer("Mer hors de la carte", terrain.LargeurDuRelief, terrain.HauteurDuRelief, TextureFormat.RG16, FilterMode.Bilinear, true);
+            horsCarte.SetPixelData(terrain.TexelsHorsCarte, 0); horsCarte.Apply(false, true);
+            marques = Creer("Marque de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R8, FilterMode.Point, true);
+            champDeLaMarque = new byte[terrain.Largeur * terrain.Hauteur]; for (int k = 0; k < champDeLaMarque.Length; k++) champDeLaMarque[k] = TerrainDeCarte.AU_LOIN;
+            marqueAVerser = true;
             int servies = lue.Cellules.Count;
             palette = Creer("Teintes de la carte", LARGEUR_PALETTE, (terrain.NombreDeLieux + LARGEUR_PALETTE) / LARGEUR_PALETTE, TextureFormat.RGBA32, FilterMode.Point, false);
             teintes = new Color[palette.width * palette.height]; rangs = new Dictionary<long, int>(servies); posees = new bool[servies]; nombrePosees = 0;
@@ -334,14 +384,14 @@ namespace Forge.Pont {
             matiere = new Material(relief) { name = TERRAIN }; crees.Add(matiere);
             matiere.SetTexture("_Lieux", lieux); matiere.SetTexture("_Relief", altitudes); matiere.SetTexture("_Palette", palette);
             matiere.SetTexture("_Bords", bords); matiere.SetTexture("_Frontieres", frontieres); matiere.SetTexture("_Pays", paysDesLieux); matiere.SetTexture("_TeintesDesPays", teintesDesPays);
+            matiere.SetTexture("_HorsCarte", horsCarte); matiere.SetTexture("_Marque", marques);
             matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
             matiere.SetFloat("_Pas", terrain.Pas); matiere.SetFloat("_PorteeDesBords", TerrainDeCarte.PORTEE_DES_BORDS_KM); matiere.SetFloat("_PorteeDesFrontieres", TerrainDeCarte.PORTEE_DES_FRONTIERES_KM);
-            // Le cadre, dans les km du terrain : depuis son coin du sud-ouest.
-            Vector2 coin = terrain.Coin; Bounds terres = terrain.Boite;
+            matiere.SetFloat("_PorteeDeLaMarque", TerrainDeCarte.PORTEE_DE_LA_MARQUE_KM);
+            Bounds terres = terrain.Boite;
             Cadre = Rect.MinMaxRect(terres.min.x - MARGE_DU_CADRE_KM, terres.min.z - MARGE_DU_CADRE_KM, terres.max.x + MARGE_DU_CADRE_KM, terres.max.z + MARGE_DU_CADRE_KM);
-            matiere.SetVector("_Cadre", new Vector4(Cadre.xMin - coin.x, Cadre.yMin - coin.y, Cadre.xMax - coin.x, Cadre.yMax - coin.y));
-            matiere.SetColor("_Table", table ?? mer); matiere.SetColor("_Filet", filet);
-            Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); MontrerLesPays(PaysMontres); aVerser = true; paysAVerser = true; Verser();
+            Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); MontrerLesPays(PaysMontres); MontrerLesLiseres(LiseresMontres);
+            PeindreHorsCarte(papier); Altituder(); Marquage(); aVerser = true; paysAVerser = true; Verser();
             // Le maillage levé a sa plus haute cime au plan 0 : il se pose de façon que la mer soit au niveau 0 de la carte, ses hauteurs réduites.
             var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
             sol.transform.localPosition = new Vector3(0f, TerrainDeCarte.PLAFOND * ECHELLE_DU_RELIEF, 0f); sol.transform.localScale = new Vector3(1f, ECHELLE_DU_RELIEF, 1f);
@@ -357,23 +407,24 @@ namespace Forge.Pont {
             var texture = new Texture2D(largeur, hauteur, format, false, lineaire) { name = nom, filterMode = filtre, wrapMode = TextureWrapMode.Clamp };
             crees.Add(texture); return texture;
         }
-        // Rien ne part au shader qui n'ait changé depuis le dernier versement : la palette pour une teinte ou la marque,
-        // la grille des frontières et les tables des pays pour un rattachement ou un retrait.
+        // Rien ne part au shader qui n'ait changé depuis le dernier versement : la palette pour une teinte ou un éclat,
+        // la grille de la marque quand elle change de cellule, la grille des frontières et les tables des pays pour un
+        // rattachement ou un retrait.
         private void Verser() {
             if (palette == null) return;
             if (aVerser) {
                 aVerser = false; palette.SetPixels(teintes);
                 foreach (KeyValuePair<long, Color> eclat in eclats) Couvrir(rangs[eclat.Key], eclat.Value);
-                if (marquee.HasValue && rangs.TryGetValue(marquee.Value, out int rang)) Couvrir(rang, marque);
                 palette.Apply(false);
             }
+            if (marqueAVerser) { marqueAVerser = false; marques.SetPixelData(champDeLaMarque, 0); marques.Apply(false); }
             Mesurer();
             if (frontieresAVerser) { frontieresAVerser = false; frontieres.SetPixelData(champ, 0); frontieres.Apply(false); }
             if (!paysAVerser) return;
             paysAVerser = false; paysDesLieux.SetPixelData(indices, 0); paysDesLieux.Apply(false); teintesDesPays.SetPixels(couleursDesPays); teintesDesPays.Apply(false);
         }
-        // Couvre dans la palette les cases de tous les lieux d'une cellule.
-        private void Couvrir(int rang, Color couleur) { foreach (int l in LieuxDe(rang)) palette.SetPixel((l + 1) % LARGEUR_PALETTE, (l + 1) / LARGEUR_PALETTE, couleur); }
+        // Couvre dans la palette les cases de tous les lieux d'une cellule, à l'opacité qui dit l'éclat au shader.
+        private void Couvrir(int rang, Color couleur) { couleur.a = OPACITE_D_ECLAT; foreach (int l in LieuxDe(rang)) palette.SetPixel((l + 1) % LARGEUR_PALETTE, (l + 1) / LARGEUR_PALETTE, couleur); }
         // Mesure de nouveau les frontières autour des seuls lieux dont le pays a changé depuis la dernière mesure, ou qui
         // ont quitté le dessin : un rattachement qui rend à un lieu le pays qu'il avait ne remesure rien. Un lieu que le
         // terrain ne dessine pas n'a pas de frontière et n'en fait pas.
