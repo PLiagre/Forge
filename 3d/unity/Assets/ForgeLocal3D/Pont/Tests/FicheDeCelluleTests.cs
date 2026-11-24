@@ -19,8 +19,8 @@ namespace Forge.Pont.Tests {
         private int port; private HttpListener ecoute; private Thread fil; private volatile string monde; private volatile int statutMonde;
         private GameObject objet; private CarteDessinee carte; private FicheDeCellule fiche;
         private static byte[] Fixture => File.ReadAllBytes(Application.dataPath + "/ForgeLocal3D/Pont/Tests/carte-graine0.json");
-        // `/lieu` sert le lieu de la graine 0, son `cell_id` remplacé par la terre demandée : le bourg est « Övre vik » partout.
-        private const string BOURG = "Övre vik";
+        // `/lieu` sert le lieu de la graine 0, son `cell_id` remplacé par la terre demandée : le bourg est « Örebro » partout.
+        private const string BOURG = "Örebro";
         private static string LieuServi => File.ReadAllText(Application.dataPath + "/ForgeLocal3D/Pont/Tests/lieu-graine0-tick3.json");
 
         [SetUp] public void PortLibre() {
@@ -143,7 +143,7 @@ namespace Forge.Pont.Tests {
 
             Nommee(DansLaCellule(maillee, METZ));
             Assert.AreEqual(METZ, fiche.Survolee?.CellId);
-            Assert.AreEqual("Övre vik · Metz\nPuissance : " + metz.Puissance.Nom + "\nMaison : aucune, le monde n'en nomme pas\nHabitants : 1 234 habitants · jour 31 de 1400\nFaim : 2 jours de manque\nDette de nourriture : 12,5 kg", fiche.TexteAffiche);
+            Assert.AreEqual("Örebro · Metz\nPuissance : " + metz.Puissance.Nom + "\nMaison : aucune, le monde n'en nomme pas\nHabitants : 1 234 habitants · jour 31 de 1400\nFaim : 2 jours de manque\nDette de nourriture : 12,5 kg", fiche.TexteAffiche);
             Assert.IsNull(TexteDuMonde.Interdit(fiche.TexteAffiche, "10437"), fiche.TexteAffiche); Assert.IsNull(TexteDuMonde.SansUnite(fiche.TexteAffiche), fiche.TexteAffiche);
 
             Nommee(DansLaCellule(maillee, autre));
@@ -166,7 +166,7 @@ namespace Forge.Pont.Tests {
         [Test] public void Sans_monde_la_fiche_le_dit_et_garde_la_carte() {
             statutMonde = 500; Servir(); Poser();
             Nommee(DansLaCellule(MaillageDeCarte.Mailler(Lue()), METZ));
-            StringAssert.StartsWith("Övre vik · Metz\nPuissance : ", fiche.TexteAffiche);
+            StringAssert.StartsWith("Örebro · Metz\nPuissance : ", fiche.TexteAffiche);
             Assert.AreEqual("Habitants et faim : déclaré absent par le monde", fiche.TexteAffiche.Split('\n').Last());
             Assert.IsNull(fiche.MondeLu);
             StringAssert.DoesNotContain("500", fiche.TexteAffiche); StringAssert.DoesNotContain("10437", fiche.TexteAffiche);
@@ -187,7 +187,7 @@ namespace Forge.Pont.Tests {
             while (fiche.NomDuBourg != BOURG && montre.ElapsedMilliseconds < ATTENTE_MS) { fiche.Pas(t); Thread.Sleep(10); }
             Assert.AreEqual(BOURG, fiche.NomDuBourg, "la fiche ne s'est pas réécrite : " + fiche.TexteAffiche);
             string texte = fiche.TexteAffiche;
-            Assert.AreEqual("Övre vik · Metz", texte.Split('\n')[0]);
+            Assert.AreEqual("Örebro · Metz", texte.Split('\n')[0]);
             Assert.AreEqual(FicheDeCellule.Decrire(fiche.Survolee, Lecture<MondeLu>.De(fiche.MondeLu), BOURG), texte);
             Assert.IsNull(TexteDuMonde.Interdit(texte, "10437"), texte); Assert.IsNull(TexteDuMonde.SansUnite(texte), texte);
         }
@@ -213,7 +213,7 @@ namespace Forge.Pont.Tests {
         [Test] public void LEnteteDitLeNomDuBourgOuSonAbsence() {
             Lecture<MondeLu> lu = MondeServi(); CelluleDeCarte metz = Terre(METZ, "Metz");
             string Entete(CelluleDeCarte c, string nom) => FicheDeCellule.Decrire(c, lu, nom).Split('\n')[0];
-            Assert.AreEqual("Övre vik · Metz", Entete(metz, "Övre vik"));
+            Assert.AreEqual("Örebro · Metz", Entete(metz, "Örebro"));
             Assert.AreEqual("Metz · Thionville", Entete(Terre(METZ, "Metz", "Thionville"), "Metz"));
             Assert.AreEqual("Metz", Entete(metz, "Metz"));
             Assert.AreEqual("Bourg en lecture · Metz", Entete(metz, null));

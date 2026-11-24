@@ -1469,35 +1469,67 @@ def test_photographie_et_empreinte_maitre_manuel_absent():
 
 
 def test_noms_lieux_et_priorites():
-    from sim.noms import charger_noms, noms_depuis_monde, aire_de_cellule
+    from sim.frontieres import maison_du_bourg
+    from sim.noms import charger_chefs_lieux, charger_noms, noms_depuis_monde, aire_de_cellule
     from sim.puissances import charger_table, puissances_depuis_monde
     from sim.villes import attribuer_villes, charger_villes
-    monde = World.charger(0); table = charger_table(); listes = charger_noms(); puissances = puissances_depuis_monde(monde)
+    monde = World.charger(0); table = charger_table(); listes = charger_noms(); puissances = puissances_depuis_monde(monde); chefs = charger_chefs_lieux(); registre = {m.id: m for m in monde.maisons}
     villes = attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, charger_villes()); vue = noms_depuis_monde(monde, attribution=villes)
-    def verifier(v):
-        assert v and set(v) == set(monde.cells)
+    aires = {c: aire_de_cellule(c, monde.carte[c], puissances[c], table, listes) for c in monde.cells}
+    sieges = {c: registre[i].siege for c in sorted(monde.cells) if (i := maison_du_bourg(monde, c)) is not None}; pris = {s.casefold() for s in sieges.values()}
+    def parcours(liste, cid): return liste[cid % len(liste):] + liste[:cid % len(liste)]
+    def candidates(villes, c): return sorted((v for v in villes.entrees if villes.placees.get(v.nom) == c and v.nom.casefold() not in pris), key=lambda v: (-v.population, v.nom))
+    def bourgs_attendus(listes, villes):
+        bourgs = {c: sieges.get(c) or ([v.nom for v in candidates(villes, c)] + [chefs.lignes[c].nom if c in chefs.lignes else None])[0] for c in sorted(monde.cells)}
+        portes = {n.casefold() for n in bourgs.values() if n}
+        for c in sorted(monde.cells):
+            if bourgs[c] is None:
+                assert c in chefs.sans_ville
+                bourgs[c] = next(n for n in parcours(listes['aires'][aires[c]]['lieux'], c) if n.casefold() not in portes); portes.add(bourgs[c].casefold())
+        return bourgs
+    def verifier(v, listes=listes, villes=villes):
+        assert v and set(v) == set(monde.cells); bourgs = bourgs_attendus(listes, villes)
         for cid, c in monde.cells.items():
             lieux = v[cid]['lieux']; noms = [l['nom'] for l in lieux]; assert [l['rang'] for l in lieux] == sorted(l.rang for l in c.lieux)
             assert all(n.strip() for n in noms) and len(set(noms)) == len(noms)
-            sieges = sorted((m for m in monde.maisons if m.cell_id == cid and m.sorte == 'seigneurie'), key=lambda m: m.id)
-            candidates = sorted((v for v in villes.entrees if villes.placees.get(v.nom) == cid), key=lambda v: (-v.population, v.nom))
-            aire = aire_de_cellule(cid, monde.carte[cid], puissances[cid], table, listes); historique = sieges[0].siege if sieges else candidates[0].nom if candidates else None
-            assert lieux[0]['nom'] == historique if historique else lieux[0]['nom'] in listes['aires'][aire]['lieux']
-            assert all(l['nom'] in listes['aires'][aire]['lieux'] for l in lieux[1:])
+            suite = [n for n in parcours(listes['aires'][aires[cid]]['lieux'], cid)[1:] if n.casefold() != bourgs[cid].casefold()]
+            assert len(suite) >= len(lieux) - 1 and noms == [bourgs[cid]] + suite[:len(lieux) - 1]
     verifier(vue); assert any(p == 25 and len(vue[c]['lieux']) > 1 for c,p in puissances.items()) and None in puissances.values()
     for puissance, lat, lon, aire in ((3, 44, 2, 'oc'), (3, 48, 2, 'oïl'), (25, 38, 23, 'grecque'), (None, 61, 22, 'finnoise')): assert aire_de_cellule(0, {'centroid': {'lat': lat, 'lon': lon}}, puissance, table, listes) == aire
     with pytest.raises(ValueError, match='cellule 0'): aire_de_cellule(0, {'centroid': {'lat': 38, 'lon': 23}}, 25, dataclasses.replace(table, puissances=tuple(dataclasses.replace(p, religion='musulmane') if p.id == 25 else p for p in table.puissances)), listes)
     for nom in ('Bar-le-Duc', 'Stuttgart', 'Mistra'):
         siege = next(m for m in monde.maisons if m.siege == nom and m.sorte == 'seigneurie'); assert vue[siege.cell_id]['lieux'][0]['nom'] == nom
-    cid = next(c for c in monde.cells if len(vue[c]['lieux']) > 1); bar = next(m.cell_id for m in monde.maisons if m.siege == 'Bar-le-Duc')
-    site = next(m for m in monde.maisons if m.cell_id == bar and m.sorte == 'seigneurie'); copie = copy.copy(monde); copie.maisons += (dataclasses.replace(site, id='seigneurie--a', siege='Stuttgart'),); assert noms_depuis_monde(copie, attribution=dataclasses.replace(villes, placees={**villes.placees, villes.entrees[0].nom: bar}))[bar]['lieux'][0]['nom'] == 'Stuttgart'
-    reserves = copy.deepcopy(listes); aire = aire_de_cellule(bar, monde.carte[bar], puissances[bar], table, listes); reserves['aires'][aire]['lieux'].insert(bar % (len(reserves['aires'][aire]['lieux']) + 1), site.siege); listes = reserves; verifier(noms_depuis_monde(monde, noms=reserves, attribution=villes))
-    for c, lignes in [(cid, vue[cid]['lieux'][:-1])] + [(cid, [{**l, 'nom': n if l['rang'] == 1 else l['nom']} for l in vue[cid]['lieux']]) for n in ('', vue[cid]['lieux'][0]['nom'], 'Nom étranger')] + [(bar, [{**l, 'nom': 'Haute-Rive' if l['rang'] == 0 else l['nom']} for l in vue[bar]['lieux']])]:
+    # une terre par source : siège d'une grande maison, ville placée, chef-lieu, terre sans ville
+    grande = next(m for m in monde.maisons if m.siege == 'Cracovie' and m.sorte == 'grande maison'); crac = grande.cell_id
+    assert maison_du_bourg(monde, crac) == grande.id and vue[crac]['lieux'][0]['nom'] == 'Cracovie' != parcours(listes['aires'][aires[crac]]['lieux'], crac)[0]
+    ville = next(c for c in sorted(set(villes.placees.values())) if c in monde.cells and c not in sieges and len(candidates(villes, c)) > 1 and len(vue[c]['lieux']) > 1); assert vue[ville]['lieux'][0]['nom'] == candidates(villes, ville)[0].nom
+    chef = next(c for c in sorted(chefs.lignes) if c in monde.cells and c not in sieges and not candidates(villes, c) and len(vue[c]['lieux']) > 1); assert vue[chef]['lieux'][0]['nom'] == chefs.lignes[chef].nom
+    sans = next(c for c in sorted(chefs.sans_ville) if c in monde.cells and len(vue[c]['lieux']) > 1); assert vue[sans]['lieux'][0]['nom'] in listes['aires'][aires[sans]]['lieux'] and vue[sans]['lieux'][0]['nom'].casefold() not in {n.casefold() for c in monde.cells if c != sans for n in [vue[c]['lieux'][0]['nom']]}
+    ecartees = [(v.nom, c) for v in villes.entrees if (c := villes.placees.get(v.nom)) in monde.cells and c not in sieges and v.nom.casefold() in pris]; assert ecartees and all(vue[c]['lieux'][0]['nom'] != n for n, c in ecartees)
+    def refuse(c, lignes):
         faux = copy.deepcopy(vue); faux[c]['lieux'] = lignes
         with pytest.raises(AssertionError): verifier(faux)
-    multi = next(c for c in villes.placees.values() if sum(x == c for x in villes.placees.values()) > 1 and not any(m.cell_id == c and m.sorte == 'seigneurie' for m in monde.maisons))
-    candidats = sorted((v for v in villes.entrees if villes.placees.get(v.nom) == multi), key=lambda v: (-v.population, v.nom)); inverses = dataclasses.replace(villes, entrees=tuple(dataclasses.replace(v, population=candidats[0].population + 1) if v == candidats[1] else v for v in villes.entrees))
-    assert noms_depuis_monde(monde, attribution=inverses)[multi]['lieux'][0]['nom'] == candidats[1].nom != vue[multi]['lieux'][0]['nom']
+    def pose(c, nom, rang=0): return [{**l, 'nom': nom if l['rang'] == rang else l['nom']} for l in vue[c]['lieux']]
+    def ancienne(c): return [{'rang': l['rang'], 'nom': n} for l, n in zip(vue[c]['lieux'], parcours(listes['aires'][aires[c]]['lieux'], c))]
+    # le bourg d'une terre non déclarée n'est jamais un nom des listes ; celui d'une terre déclarée n'est jamais un nom sourcé
+    for c in (crac, ville, chef): refuse(c, pose(c, parcours(listes['aires'][aires[c]]['lieux'], c)[0]))
+    # la règle d'avant : Cracovie et le chef-lieu, sans siège de seigneurie ni ville, portaient un nom des listes
+    for c in (crac, chef): assert ancienne(c)[0]['nom'] != vue[c]['lieux'][0]['nom']; refuse(c, ancienne(c))
+    for nom in ('Cracovie', chefs.lignes[chef].nom, vue[ville]['lieux'][0]['nom']): refuse(sans, pose(sans, nom))
+    cid = next(c for c in sorted(monde.cells) if len(vue[c]['lieux']) > 2); libre = next(n for n in listes['aires'][aires[cid]]['lieux'] if n not in {l['nom'] for l in vue[cid]['lieux']})
+    refuse(cid, vue[cid]['lieux'][:-1])
+    for n in ('', vue[cid]['lieux'][0]['nom'], 'Nom étranger', libre): refuse(cid, pose(cid, n, 1))
+    bar = next(m.cell_id for m in monde.maisons if m.siege == 'Bar-le-Duc'); refuse(bar, pose(bar, 'Haute-Rive'))
+    # un faux siège prend le bourg, même devant une ville placée là
+    site = next(m for m in monde.maisons if m.cell_id == bar and m.sorte == 'seigneurie'); copie = copy.copy(monde); copie.maisons += (dataclasses.replace(site, id='seigneurie--a', siege='Stuttgart'),); assert noms_depuis_monde(copie, attribution=dataclasses.replace(villes, placees={**villes.placees, villes.entrees[0].nom: bar}))[bar]['lieux'][0]['nom'] == 'Stuttgart'
+    # une liste qui porte le siège de Bar ne le réemploie jamais dans les rangs de Bar
+    reserves = copy.deepcopy(listes); liste = reserves['aires'][aires[bar]]['lieux']; liste.insert(bar % (len(liste) + 1), site.siege); rv = noms_depuis_monde(monde, noms=reserves, attribution=villes); verifier(rv, listes=reserves)
+    assert rv[bar]['lieux'][0]['nom'] == site.siege and all(l['nom'] != site.siege for l in rv[bar]['lieux'][1:]) and len(rv[bar]['lieux']) > 1
+    # deux villes dans une terre sans maison du bourg : la plus peuplée la nomme, et l'inverser change le bourg
+    multi = next(c for c in sorted(set(villes.placees.values())) if c in monde.cells and c not in sieges and len(candidates(villes, c)) > 1)
+    candidats = candidates(villes, multi); inverses = dataclasses.replace(villes, entrees=tuple(dataclasses.replace(v, population=candidats[0].population + 1) if v == candidats[1] else v for v in villes.entrees))
+    vue_inverse = noms_depuis_monde(monde, attribution=inverses); verifier(vue_inverse, villes=inverses)
+    assert vue_inverse[multi]['lieux'][0]['nom'] == candidats[1].nom != vue[multi]['lieux'][0]['nom'] == candidats[0].nom
 
 @pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes'), ('lieux', 'capacite'), ('maisons', 'capacite')])
 def test_noms_refus(tmp_path, champ, defaut):
