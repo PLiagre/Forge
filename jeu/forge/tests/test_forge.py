@@ -283,7 +283,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
 
 
-@pytest.mark.parametrize('ticks,empreinte', [(0, '383debd038d289ebad6d7d83c2826be4dfdbbbdcee9f78bd14be4933c9bb33eb'), (30, 'b1486b210ad18b2af9ed3d6d14fb34ebcb97825d7d442a5a8ffcf10eca6abe9a')])
+@pytest.mark.parametrize('ticks,empreinte', [(0, 'bae7155ada551506e80b3a24d5857221fd68b1c41693e0408e4a5926c2da364a'), (30, '41f4f0289568356cfb1905a19fb3601e5fa25e6e4ce68ebcf9803a4a3a71671b')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Les empreintes historiques de la photographie, couche après couche : le
@@ -297,13 +297,17 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     # Celles des Balkans, de l'Orient et du Maghreb changent encore les mêmes couches et elles seules, sans le
     # point d'aucun lieu : au 30e jour (comme au jour 0), la puissance de 80 cellules, la maison de 71, les noms
     # de 49, le maître de 100 lieux et le nom de 187.
+    # Les dix pays attestés qui remplacent des terres sans pays changent encore les mêmes couches et elles
+    # seules : au jour 0 comme au 30e, la puissance de 29 cellules, la maison de 26, les noms de 11, le maître
+    # de 119 lieux, le nom de 63 et le point de 58, dans les dix cellules dont le bourg passe au siège d'une
+    # capitale neuve.
     from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
     amorcer_comme_avant_la_soudure(monkeypatch)
     import hashlib
     from forge.__main__ import _simuler
     from sim.snapshot_export import serialize_snapshot
     monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
-    ancienne = {0: '631b9a44b2383644d8e54a38d64d552dbc16f9ced57279e00fecbdf9a0dd9b89', 30: '90be61b50acb283b63f0546232a80d71fa778a67ca9ece4b5f957a710426926f'}[ticks]
+    ancienne = {0: 'b74326e7419b010896460fbd9406c51fcced609d21be0db62b3e3c65b02ec5f1', 30: '94c415711f1fd1ddff73f9085d6463c0e358f8d814aa60561044ccea1b4f2027'}[ticks]
     if ticks == 30:
         # Toutes les empreintes se prennent sur le même témoin.
         with monkeypatch.context() as ctx:
@@ -313,16 +317,16 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
         chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '5cd4a0e197ab3f8d957e32ffe332abe809117da646bd6ce61f049b12a43f7117', 30: 'b8cf829eadac9608a4d404bd8366990733854de94f22540e4014ac557d489182'}[ticks]
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: '891f26c3697294da52eda47a4c89963422b49b0111160411687551677b057a5d', 30: 'efa47e3fa75c2cd3a38c7a61794dd3291d48c105a7cca8de55b5cc4263919bd4'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
     faux_flux = json.loads(chemin.read_bytes()); faux_flux['cells'][0]['lieux'][0]['flux_30j']['preleve_kg'] += 1
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux_flux)).hexdigest() == hashlib.sha256(chemin.read_bytes()).hexdigest()
     for cellule in photo_noms['cells']:
         for lieu in cellule['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'c4de91a674b859253a712a1d345c4e6f4b4657b808b5516a3872966307a8dabb', 30: '2bde460984ae1f685b8e924a38f34ede74812100d43fa2cf84a16d7894ddb279'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'bc4646a0008237872f53582c905108a34f50e6ddd35904da2c6e769ff32ea283', 30: 'b60dc2dd75df564a9b44653300ea91adc1d29e66f652b07c03a6dacf9fb14c57'}[ticks]
     points = [lieu.pop('point') for c in photo_noms['cells'] for lieu in c['lieux']]
     assert points and all(set(p) == {'x_m', 'y_m', 'latitude', 'longitude'} for p in points)
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '22d20b097476a311e398086281bdf3f037834933ab75e7c67a9210d88456aa3d', 30: '48068851996eacf92f9eedbcfde4fce28d3f64e826e47f7253da25b4f525c9d3'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '9e3db652286b575f7ac26dd87ff91069c00b692796a4386c59fafcafb5dd2da2', 30: '3fafc442a993fd9eb1374db764c9607c19f7e01f9e3e5cfc30b7536593a9275f'}[ticks]
     assert all(c.pop('noms') for c in photo_noms['cells']); assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == empreinte
     faux = dict(photo_noms, ia=[])
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
@@ -344,7 +348,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     if ticks == 30:
         normal, _ = _simuler(ticks, 0, tmp_path / 'normal.json')
         def controler(octets):
-            assert hashlib.sha256(octets).hexdigest() == '35558b7b2d4435545785b041ed27746be036bb076f6dfca6e5f83be2e05de3c3'
+            assert hashlib.sha256(octets).hexdigest() == '9e3694511c042b33b7f2823ada4125ad35808ccbfcf016d0f9ecffe9b76de3ad'
         controler(normal.read_bytes())
         with pytest.raises(AssertionError):
             controler(normal.read_bytes() + b' ')

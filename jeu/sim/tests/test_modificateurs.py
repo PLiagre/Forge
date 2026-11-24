@@ -43,10 +43,15 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # registre (32 maisons neuves, 24 retirées, le suzerain de 242), le maître de 100 lieux, 1 183 greniers (et 32
 # neufs, 24 retirés), les convois (140 groupes au lieu de 99) et les cumuls mangé et perdu ; la photographie, la
 # puissance de 80 cellules, la maison de 71, les noms de 49, le maître de 100 lieux et le nom de 187. Aucune
-# cellule ne change hors du maître de ses lieux, ni le bassin : la population reste 37 481 793.
+# cellule ne change hors du maître de ses lieux, ni le bassin : la population reste 37 481 793. Les dix pays
+# attestés qui remplacent des terres sans pays changent encore, au 365e tick, le registre (huit grandes maisons et
+# deux institutions neuves avec leurs chefs, 22 maisons plausibles neuves, 43 retirées, le suzerain de 26) et
+# les personnes, le maître de 119 lieux de onze cellules, les greniers (32 neufs, 43 retirés, 30 changés), les
+# convois et les cumuls mangé et perdu ; la photographie, la puissance, la maison, les noms et les lieux de 30
+# cellules. Aucune cellule ne change hors du maître de ses lieux : la population reste 37 481 793.
 EMPREINTES_365 = {
-    "linux": ("995e7f2c1c58be8a7d03c9ad36c02d52435cfeaac2ea343795df0bbcadb4b204",
-              "a8ee21c994b54ee37cdab932b9dd00b700ac77c41b777fa591a1ba96b9aa3ea9"),
+    "linux": ("6628508bc5895c3636f19b72c84d0b176c74e864aade2b9fad60addb639a78df",
+              "0badb819c358df68f47ef4703626e8ce4c902d3761caae2caa41cec4e8309941"),
 }
 
 
