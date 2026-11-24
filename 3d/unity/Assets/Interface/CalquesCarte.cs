@@ -228,8 +228,9 @@ namespace Forge.Interface
         {
             this.carte = carte; this.monde = monde; this.selection = selection;
             var bande = new GameObject(BANDE, typeof(RectTransform)).GetComponent<RectTransform>(); bande.SetParent(toile, false);
-            bande.anchorMin = bande.anchorMax = bande.pivot = new Vector2(0, 1); bande.anchoredPosition = new Vector2(X, -1012); bande.sizeDelta = new Vector2(LARGEUR, SocleInterface.HauteurCommande);
-            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte))) Bouton(bande, mode, (int)mode * PAS_DES_MODES);
+            bande.anchorMin = bande.anchorMax = bande.pivot = new Vector2(0, 1); bande.anchoredPosition = new Vector2(X + (LARGEUR - LARGEUR_DE_LA_BANDE) / 2f, -1012); bande.sizeDelta = new Vector2(LARGEUR_DE_LA_BANDE, SocleInterface.HauteurCommande);
+            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte))) Bouton(bande, mode);
+            Enfoncer();
             var image = new GameObject(LEGENDE, typeof(RectTransform), typeof(Image)).GetComponent<Image>(); fond = image.rectTransform; fond.SetParent(toile, false);
             fond.anchorMin = fond.anchorMax = fond.pivot = new Vector2(0, 1); image.color = SocleInterface.Couleur("fond") * new Color(1f, 1f, 1f, .72f); image.raycastTarget = true; // pour l'infobulle
             bulle = fond.gameObject.AddComponent<Infobulle>(); legende = SocleInterface.Texte(fond, "Les calques attendent la carte…", 8, MARGE, LARGEUR - 16);
@@ -237,14 +238,41 @@ namespace Forge.Interface
             Legender(legende.text, DetailDuMode(Mode));
         }
         public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null, AtlasDeCarte atlas = null, VillesDeCarte villes = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; this.atlas = atlas; villesDeCarte = villes; }
-        // Les cinq modes côte à côte dans la bande, chacun large de `LARGEUR_D_UN_MODE`.
-        const float PAS_DES_MODES = 97, LARGEUR_D_UN_MODE = 92;
-        void Bouton(Transform bande, ModeDeCarte mode, float x)
+        // Les cinq modes côte à côte, chacun réduit à son icône, la bande centrée sous la légende. L'icône est l'image de la
+        // planche quand elle est livrée (`Resources/` + `ICONES` + motif), le signe gravé du socle sinon.
+        public const float LARGEUR_D_UN_MODE = 56, ECART_DES_MODES = 8, TRAIT_ENFONCE = 4, COTE_DE_L_ICONE = 32;
+        public const string ICONES = "Forge/Icones/ModesDeCarte/", ICONE = "Icône ";
+        static readonly int MODES = Enum.GetValues(typeof(ModeDeCarte)).Length;
+        public static readonly float LARGEUR_DE_LA_BANDE = MODES * LARGEUR_D_UN_MODE + (MODES - 1) * ECART_DES_MODES;
+        readonly Dictionary<ModeDeCarte, (Button bouton, Outline trait)> modes = new Dictionary<ModeDeCarte, (Button, Outline)>();
+        void Bouton(Transform bande, ModeDeCarte mode)
         {
-            var b = SocleInterface.Commande(bande, mode.ToString(), x, 0, () => { Mode = mode; changement = true; }, phrase: PhraseDuMode(mode)); // un clic ne lit rien
-            b.GetComponent<RectTransform>().sizeDelta = new Vector2(LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande); var libelle = b.GetComponentInChildren<Text>().rectTransform;
-            libelle.anchoredPosition = Vector2.zero; libelle.sizeDelta = new Vector2(LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande);
+            var b = SocleInterface.Commande(bande, mode.ToString(), (int)mode * (LARGEUR_D_UN_MODE + ECART_DES_MODES), 0, () => { Mode = mode; changement = true; Enfoncer(); }, phrase: PhraseDuMode(mode)); // un clic ne lit rien
+            string motif = EmblemeCommande.Motif(mode.ToString()); EmblemeCommande.Reduire(b, motif, new Vector2(LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande));
+            var planche = Resources.Load<Texture2D>(ICONES + motif);
+            if (planche != null)
+            {
+                b.transform.Find("Repère " + motif).gameObject.SetActive(false);
+                var icone = new GameObject(ICONE + motif, typeof(RectTransform), typeof(RawImage)); var cadre = (RectTransform)icone.transform; cadre.SetParent(b.transform, false);
+                cadre.anchorMin = cadre.anchorMax = cadre.pivot = new Vector2(.5f, .5f); cadre.anchoredPosition = Vector2.zero; cadre.sizeDelta = new Vector2(COTE_DE_L_ICONE, COTE_DE_L_ICONE);
+                var image = icone.GetComponent<RawImage>(); image.texture = planche; image.raycastTarget = false;
+            }
+            // L'état « sélection » du socle : un trait plein d'or vieilli de quatre pixels, sur la matière pressée.
+            var trait = b.gameObject.AddComponent<Outline>(); trait.effectColor = SocleInterface.Couleur("or-vieilli"); trait.effectDistance = new Vector2(TRAIT_ENFONCE, -TRAIT_ENFONCE); trait.enabled = false;
+            modes[mode] = (b, trait);
         }
+        // Le bouton du mode en cours est enfoncé, et lui seul.
+        void Enfoncer()
+        {
+            foreach (var paire in modes)
+            {
+                bool enfonce = paire.Key == Mode; paire.Value.trait.enabled = enfonce;
+                var couleurs = paire.Value.bouton.colors; couleurs.normalColor = couleurs.selectedColor = SocleInterface.Couleur(enfonce ? "fond" : "secondaire"); if (!enfonce) couleurs.selectedColor = SocleInterface.Couleur("accent");
+                paire.Value.bouton.colors = couleurs;
+            }
+        }
+        public Button BoutonDu(ModeDeCarte mode) => modes[mode].bouton;
+        public bool Enfonce(ModeDeCarte mode) => modes[mode].trait.enabled;
         // Le liseré d'un pays le long de sa frontière : son pigment, tiré vers l'encre pour se lire sur sa propre teinte comme sur le papier.
         public static Color Lisere(Color pays) => LisereDuPigment(SocleInterface.Pigment(pays));
         public static Color LisereDuPigment(Color pigment) => Color.Lerp(pigment, SocleInterface.Couleur("encre"), FORCE_DU_LISERE);

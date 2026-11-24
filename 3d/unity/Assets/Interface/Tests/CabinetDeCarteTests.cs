@@ -655,8 +655,15 @@ namespace Forge.Interface.Tests
             foreach (var mode in cinq)
             {
                 var bouton = bande.Find(mode.ToString())?.GetComponent<Button>(); Assert.That(bouton, Is.Not.Null, mode.ToString()); string phrase = bouton.GetComponent<Infobulle>()?.Phrase;
-                Assert.That(phrase, Is.EqualTo(CalquesCarte.PhraseDuMode(mode)).And.Not.EqualTo(mode.ToString()), mode + " : phrase « " + phrase + " »");
+                Assert.That(phrase, Is.EqualTo(CalquesCarte.PhraseDuMode(mode)).And.StartWith(mode + " : ").And.Not.EqualTo(mode.ToString()), mode + " : phrase « " + phrase + " »");
+                // Réduit à son icône : 56 × 44, aucun texte montré, l'image de la planche ou, faute d'elle, le signe gravé.
+                string motif = EmblemeCommande.Motif(mode.ToString()); Transform icone = bouton.transform.Find(CalquesCarte.ICONE + motif), signe = bouton.transform.Find("Repère " + motif);
+                Assert.That(((RectTransform)bouton.transform).sizeDelta, Is.EqualTo(new Vector2(CalquesCarte.LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande)), mode.ToString());
+                Assert.That(bouton.GetComponentsInChildren<Text>(false), Is.Empty, mode + " écrit encore son nom");
+                Assert.That(icone != null && icone.gameObject.activeSelf || signe != null && signe.gameObject.activeSelf, Is.True, mode + " sans icône");
+                Assert.That(icone != null || Resources.Load<Texture2D>(CalquesCarte.ICONES + motif) == null, Is.True, mode + " : la planche livrée n'est pas montrée");
             }
+            Assert.That(Zone(bande, 1).center.x, Is.EqualTo(Zone(fond, 1).center.x).Within(.5f), "la bande n'est pas centrée sous la légende");
             Assert.That(toile.Find("Parcourir le monde"), Is.Null, "le panneau « Parcourir le monde » est encore posé");
             Button[] modes = toile.GetComponentsInChildren<Button>(true).Where(b => noms.Contains(b.name) && b.transform.parent == bande).ToArray();
             Assert.That(modes.Length == 5 && modes.Select(b => b.name).Distinct().Count() == 5 && bande.childCount == 5, Is.True, string.Join(", ", modes.Select(b => b.transform.parent.name + "/" + b.name)));
@@ -685,6 +692,27 @@ namespace Forge.Interface.Tests
             var etat = racine.GetComponentsInChildren<Text>(true).Single(t => t.name == CabinetDeCarte.ETAT); Assert.That(etat.text, Is.EqualTo("La carte se prépare…")); Assert.That(etat.preferredWidth, Is.LessThanOrEqualTo(600f));
             foreach (var (largeur, hauteur) in new[] { (1920f, 1080f), (1280f, 720f) }) { float k = largeur / 1920; Rect r = Zone(etat.rectTransform, k);
                 Assert.That(r.xMin >= 0 && r.yMin >= 0 && r.xMax <= largeur && r.yMax <= hauteur && !r.Overlaps(Zone(bande, k)) && !r.Overlaps(Zone(fond, k)), Is.True, "l'état " + r + " hors de l'écran, ou sur la bande, en " + largeur + " × " + hauteur); }
+        }
+        // Le mode en cours est enfoncé, et lui seul ; le choisir ne bouge ni la vue, ni la caméra, ni la terre gardée.
+        [Test] public void Le_mode_en_cours_est_enfonce_et_en_changer_ne_bouge_ni_la_vue_ni_la_terre_gardee()
+        {
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); var sept = Terre(7, "Ville test"); cabinet.Garder(sept); cabinet.Afficher();
+            var calques = racine.GetComponent<CalquesCarte>(); var cinq = (ModeDeCarte[])Enum.GetValues(typeof(ModeDeCarte));
+            ModeDeCarte[] Enfonces() => cinq.Where(calques.Enfonce).ToArray();
+            Assert.That(Enfonces(), Is.EqualTo(new[] { ModeDeCarte.Politique }), "le cabinet ne s'ouvre pas sur la carte politique enfoncée");
+            Vector2 centre = carte.Vue.Centre; float demi = carte.Vue.Demi; Vector3 place = camera.transform.position;
+            foreach (var mode in new[] { ModeDeCarte.Relief, ModeDeCarte.Guerres, ModeDeCarte.Vivres, ModeDeCarte.Population, ModeDeCarte.Politique, ModeDeCarte.Vivres })
+            {
+                var bouton = calques.BoutonDu(mode); bouton.onClick.Invoke(); Peindre(calques); cabinet.Afficher();
+                Assert.That(calques.Mode, Is.EqualTo(mode)); Assert.That(Enfonces(), Is.EqualTo(new[] { mode }), "un seul bouton enfoncé, celui du mode cliqué");
+                Assert.That(bouton.GetComponents<Outline>().Count(o => o.enabled && o.effectColor == SocleInterface.Couleur("or-vieilli") && o.effectDistance.x == CalquesCarte.TRAIT_ENFONCE), Is.EqualTo(1), mode + " : sans trait d'or vieilli");
+                Assert.That(bouton.colors.normalColor, Is.EqualTo(SocleInterface.Couleur("fond")), mode + " : sa matière n'est pas pressée");
+                foreach (var autre in cinq.Where(m => m != mode)) Assert.That(calques.BoutonDu(autre).colors.normalColor, Is.EqualTo(SocleInterface.Couleur("secondaire")), autre + " reste pressé");
+                Assert.That((carte.Vue.Centre, carte.Vue.Demi, camera.transform.position, cabinet.Retenue), Is.EqualTo((centre, demi, place, sept)), mode + " a bougé la vue ou lâché la terre gardée");
+            }
+            // Contre-épreuve : un geste de la vue la change bien, et la caméra la suit.
+            carte.Vue.Centrer(centre + new Vector2(40, -30), demi / 2); cabinet.Afficher();
+            Assert.That(carte.Vue.Centre == centre || carte.Vue.Demi == demi, Is.False, "échantillon vide : la vue ne bouge pas");
         }
         [Test] public void Changer_de_mode_ne_touche_ni_l_horloge_ni_les_lectures()
         {
