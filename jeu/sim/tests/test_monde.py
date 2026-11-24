@@ -5153,6 +5153,8 @@ def test_service_ia_refus(monkeypatch, capsys, erreur):
 def test_service_ia_sans(monkeypatch):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Empreintes de la base, graine 0 : cellule minimale 1175 et témoin du pont 9922.
+    # Le nom de chaque terre d'après sa vraie ville de 1400 change les réponses complètes et le bloc `noms`
+    # des deux cellules ; sans eux, les réponses sont celles d'avant.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
         4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
@@ -5167,7 +5169,7 @@ def test_service_ia_sans(monkeypatch):
         0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
-    completes = {0: ['de57685962dc181ca490b37b0c18db936195fccd6a486239d2b53da6d19e3839', '71a6d72148d243323966706fc8188fd07521c01a756fa8d426c7eb5a1b1e797e'], 4: ['d54ebee7e0061cbade94f4652f8508fd99d8e916acecbddd0ba377560f12c1ee', '53d9b66066656082e80288d965baf5717c3081a2e1b1b3e4a0e73382b52d719c']}
+    completes = {0: ['08c6d39c97f336fd7db746facb63f6e49c2d8357ca0aded6e4141380af5bd843', '726e57abe8c63eb2c173f406e3ef18b325ba15106c9b19b4f1b884bc39e2119a'], 4: ['a5bb812c0e5da3751d7e83c48561881e07af974cc7d94dd7116adf10c83d56dc', '3956264a079dde5313a4caf79377e22ef18874e5190cc012a1e9548ce46ed922']}
     from sim.service import _serialiser
     with _lancer_service_sans_part(0) as port:
         for t, attendues in empreintes.items():
@@ -5179,7 +5181,7 @@ def test_service_ia_sans(monkeypatch):
                     assert _sha(octets) == completes[t][0 if '1175' in chemin else 1]
                     for lieu in reponse['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
                     for lieu in reponse['lieux']: lieu.pop('point')  # les réponses d'avant n'ont pas de point
-                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c16d0b6f5d5699793286ab480344207940c01dc55f4630fcffb84e09fac66e18', 'd8cabad69d78b46f227e1db6d5b7e1238767de836b14c2f5998bc9d59ab87f92'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '32c0fa20e892cc305f9eac5a41dedc4f9b35c834925160a8e8319cc19f66a7bf', 'ea965093c5d6ad8b169b8558dc7a57d7e826e46247d0fe02e3e2dafdabc28ecd']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
+                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c3867adedba2935b73c39e49595c0187d54b75181e0b7064fc72ab1ef37a0678', '52265b2b8bde134deccabc698c7307ab2c04bdb8dccc531116980716666e2acf'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', 'd19239297a569f448f29f3e8417f6ca7249ab02716c6bdcd21fca6e6c82b992b', '237c30fa9d76acda8fd946a534f4b92115e335d01ecf5c422deda3102e28db44']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
                     document = json.loads(octets); assert document.pop('noms')
                     for lieu in document['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')

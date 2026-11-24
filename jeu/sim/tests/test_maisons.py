@@ -51,7 +51,7 @@ POINTS = {
     "Vienne": (48.21, 16.37, "Habsbourg"), "Prague": (50.08, 14.44, "Luxembourg"),
     "Buda": (47.50, 19.04, "Luxembourg-Hongrie"), "Londres": (51.51, -0.13, "Lancastre"),
     "Constantinople": (41.01, 28.98, "Paléologue"), "Edirne": (41.68, 26.56, "Osman"),
-    "Nicosie": (35.17, 33.36, "Lusignan"), "Venise": (45.44, 12.33, "Visconti"),
+    "Nicosie": (35.17, 33.36, "Lusignan"), "Venise": (45.44, 12.33, "Carrara"),
 }
 # Venise n'a pas de cellule à elle : sa cellule la plus proche est celle que se partagent Vérone
 # (Milan), Vicence (Milan) et Trévise (Venise). La cellule suit son bourg, donc Milan et Visconti ;
@@ -90,8 +90,8 @@ def test_lecture(tmp_path):
     sans = [p for p in table.puissances if maisons.par_puissance[p.id] is None]
     print(f"maisons_lues={len(maisons.maisons)}, puissances_lues={len(maisons.par_puissance)}, "
           f"avec_maison={len(table.puissances) - len(sans)}, sans_maison={len(sans)}")
-    assert len(maisons.maisons) == 56
-    assert len(maisons.par_puissance) == 81 and len(sans) == 20
+    assert len(maisons.maisons) == 64
+    assert len(maisons.par_puissance) == 91 and len(sans) == 22
     assert all(p.nature in NATURES_SANS_MAISON for p in sans)
     assert list(m.id for m in maisons.maisons) == sorted(m.id for m in maisons.maisons)
     document = _document()
@@ -178,9 +178,10 @@ def test_geographie(carte):
         assert (maison.nom if maison else None) == attendue, nom
     venise = next(p for p in table.puissances if p.nom == "Venise")
     assert venise.nature == "république"
-    milan = next(p for p in table.puissances if p.nom == "Milan")
+    padoue = next(p for p in table.puissances if p.nom == "Padoue")
     assert maisons.par_puissance[venise.id] is None
-    assert puissances_depuis_monde(monde)[cellules["Venise"]] == milan.id
+    # La cellule du point de Venise est celle du Véronais, dont le bourg est au siège des Carrara, à Padoue.
+    assert puissances_depuis_monde(monde)[cellules["Venise"]] == padoue.id
     # En Italie, Venise ne tient que des lieux ; ses cellules sont celles d'outre-mer, sans maison.
     de_la_republique = [c for c, p in puissances_depuis_monde(monde).items() if p == venise.id]
     assert de_la_republique and all(vue[c] is None and monde.carte[c]["centroid"]["lat"] < 43
@@ -242,7 +243,7 @@ def test_compte(carte):
     monde, table, maisons, positions, latitude, cellules = carte
     vue = maisons_depuis_monde(monde)
     avec, sans, non_couvertes, incoherentes = _compter(monde, table, maisons, vue)
-    assert (avec, sans, non_couvertes) == (457, 70, 69)
+    assert (avec, sans, non_couvertes) == (480, 73, 43)
     assert avec + sans + non_couvertes == len(monde.cells) and incoherentes == 0
     _chaque_maison(vue, maisons)
     ids = {m.nom: m.id for m in maisons.maisons}
@@ -289,7 +290,7 @@ def test_la_maison_de_chaque_cellule_est_celle_de_son_pays(carte):
     vue = maisons_depuis_monde(monde)
     ids = {m.nom: m.id for m in maisons.maisons}
     assert vue[10374] == ids["Paléologue"] and vue[10032] == ids["Osman"]
-    assert _compter(monde, table, maisons, vue) == (457, 70, 69, 0)
+    assert _compter(monde, table, maisons, vue) == (480, 73, 43, 0)
     # La table des frontières décide le pays de chaque cellule (celui de son bourg si elle est partagée,
     # aucun si elle est en lacune), et la maison est celle de ce pays.
     frontieres = charger_frontieres()
@@ -317,7 +318,7 @@ def test_la_maison_de_chaque_cellule_est_celle_de_son_pays(carte):
     alteree = dataclasses.replace(table, ancres=table.ancres + (intruse,))
     for autre in (deplacee, alteree):
         assert maisons_depuis_monde(monde, table=autre) == vue
-    print(f"cellules={len(vue)}, comptes=(457, 70, 69)")
+    print(f"cellules={len(vue)}, comptes=(480, 73, 43)")
 
 
 # Capitales : la maison jouée par l'IA est distincte de sa tenure dérivée.
@@ -337,13 +338,14 @@ CELLULES_CAPITALES = (
     None, 8992, 10143, 9788, 9831, 10059, 10420, 10191, 10452, 10294,
     10176, 10316, 10174, 10318, 10388, 10319, 10239, 10264, 10272, 10280,
     10257, 10290, 10427, 10425, 10443, 10440, 10439, 10459, 10462, 10269,
-    10281, 10464, 10261, 10358, 10328, 10325,
+    10281, 10464, 10261, 10358, 10328, 10325, 10263, 10132, 10268, 10311,
+    10331, 1370, 1422, 9902,
 )
 
 
 def test_capitale_lecture():
     capitales = charger_capitales()
-    assert len(capitales) == 56
+    assert len(capitales) == 64
     assert {c.maison for c in capitales} == {m.id for m in charger_maisons().maisons}
     assert tuple(c.maison for c in capitales) == tuple(sorted(c.maison for c in capitales))
     assert all(isinstance(c, _NoBadSpatialField) for c in capitales)
@@ -397,9 +399,9 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     monde = carte[0]
     capitales = charger_capitales()
     vue = maisons_de_l_ia(monde)
-    assert tuple(m.cell_id for m in vue[:56]) == CELLULES_CAPITALES
-    assert sum(m.cell_id is not None for m in vue[:56]) == 55
-    hors = [m for m in vue[:56] if m.cell_id is None]
+    assert tuple(m.cell_id for m in vue[:64]) == CELLULES_CAPITALES
+    assert sum(m.cell_id is not None for m in vue[:64]) == 63
+    hors = [m for m in vue[:64] if m.cell_id is None]
     assert len(hors) == 1 and hors[0].id == 21
     assert hors[0].nom == "Djötchides" and hors[0].capitale == "Saraï" and hors[0].hors_carte
     tenantes = maisons_depuis_monde(monde)
@@ -413,7 +415,7 @@ def test_capitale_polygones_et_coherence(carte, tmp_path):
     document = json.loads(CAPITALES.read_text(encoding="utf-8"))
     document["capitales"][0].update(lat=paris.lat, lon=paris.lon)
     fausse = maisons_de_l_ia(monde, capitales=charger_capitales(_ecrire(tmp_path, document)))
-    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:56] if m.cell_id is not None) == 1
+    assert sum(tenantes[m.cell_id] != m.id for m in fausse[:64] if m.cell_id is not None) == 1
     with pytest.raises(AssertionError, match="incohérentes : 1"):
         _preuve_coherence_capitales(fausse, tenantes)
 
@@ -3719,7 +3721,7 @@ ENFANTS_PALATINAT = ('marguerite-palatinat', 'frederic-palatinat', 'louis-palati
 PARENTS_PAL = 'de Robert III et d’Élisabeth de Nuremberg'
 MAISONS_AVEC_ETAT = {f'grande-{n}' for n in range(1, 31)} - {'grande-21', 'grande-24'} | {f'seigneurie-{n}' for n in range(1, 7)}
 
-MAISONS_SANS_ETAT = {f'grande-{n}' for n in range(31, 57)}
+MAISONS_SANS_ETAT = {f'grande-{n}' for n in range(31, 65)}
 
 
 def _enfant_pal(nom, naissance, qualite, identite, fait_naissance, fait_presence, reperes, url_naissance=ROBERT, url_presence=ROBERT):
@@ -3888,7 +3890,7 @@ def test_familles_historiques_palatinat():
     _palatinat({f['id']: f for f in d['familles'] + d['liens']}); _palatinat(etat=next(e for e in d['etats'] if e['maison'] == PALATINAT))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(PALATINAT_EXCLUSIONS) == 7 and len(FICHES_PALATINAT) == 9 and len(ENFANTS_PALATINAT) == 8
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
-    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
+    assert len(monde.personnages) == 2358  # les seigneurs plausibles, et leurs personnes, suivent les frontières et les pays de la table
     _preuve_monde_palatinat(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     feuilles = []
@@ -4161,7 +4163,7 @@ def test_familles_historiques_bar():
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BAR_EXCLUSIONS) == 6 and len(FICHES_BAR) == 7 and len(ENFANTS_BAR) == 6
     assert {e['maison'] for e in d['etats']} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f} == MAISONS_AVEC_ETAT
     assert {e['maison'] for e in d['etats'] if e['maison'].startswith('seigneurie-')} == {f['etat_familial']['maison'] for f in monde.personnages if 'etat_familial' in f and f['maison'].startswith('seigneurie-')} == {BAR, 'seigneurie-2', 'seigneurie-3', 'seigneurie-4', 'seigneurie-5', 'seigneurie-6'}
-    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
+    assert len(monde.personnages) == 2358  # les seigneurs plausibles, et leurs personnes, suivent les frontières et les pays de la table
     _preuve_monde_bar(list(monde.personnages))
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
     ids = {'personne-' + i for i in FICHES_BAR} | {CHEF_BAR, BAR}
@@ -4479,7 +4481,7 @@ def test_familles_historiques_wurtemberg():
     _chef_wurtemberg_moree(chef); _chef_wurtemberg_moree(next(c for c in d['chefs'] if c['maison'] == MOREE))
     _wurtemberg({f['id']: f for f in d['familles'] + d['liens']}); _wurtemberg(etat=next(e for e in d['etats'] if e['maison'] == WURTEMBERG))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(WURTEMBERG_EXCLUSIONS) == 5 and len(FICHES_WURTEMBERG) == 2
-    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
+    assert len(monde.personnages) == 2358  # les seigneurs plausibles, et leurs personnes, suivent les frontières et les pays de la table
     _preuve_monde_wurtemberg(list(monde.personnages))
     ids = {'personne-' + i for i in FICHES_WURTEMBERG} | {CHEF_WURTEMBERG, WURTEMBERG}
     # Chaque repère se lit quelque part dans les feuilles de la famille : un repère introuvable ne prouverait rien.
@@ -4840,7 +4842,7 @@ def test_familles_historiques_brankovic():
         if c['maison'] in CHEFS_TROIS: _chef_trois(c)
     _brankovic({f['id']: f for f in d['familles'] + d['liens']}); _brankovic(etat=next(e for e in d['etats'] if e['maison'] == BRANKOVIC))
     assert len(d['familles']) == 104 and len(d['liens']) == 32 and len(d['etats']) == 34 and len(BRANKOVIC_EXCLUSIONS) == 8
-    assert len(monde.personnages) == 2372  # les seigneurs plausibles, et leurs personnes, suivent les frontières
+    assert len(monde.personnages) == 2358  # les seigneurs plausibles, et leurs personnes, suivent les frontières et les pays de la table
     _preuve_monde_brankovic(list(monde.personnages))
     ids = {CHEF_BRANKOVIC, BRANKOVIC}
     _reperes_lisibles(d, ids, BRANKOVIC_DIVERGENCES)
@@ -4932,8 +4934,8 @@ def test_familles_historiques_zab(tmp_path):
 
 def _achevement(etats, chefs, maisons):
     voulues = {c['maison'] for c in chefs if not c['maison'].startswith('institution-')} - {HORDE, TLEMCEN}
-    # Les chefs des grandes maisons 31 à 56 sont posés sans famille : vingt-six chefs, pas encore d'état.
-    assert len(voulues) == 60 and MAISONS_SANS_ETAT <= voulues
+    # Les chefs des grandes maisons 31 à 64 sont posés sans famille : trente-quatre chefs, pas encore d'état.
+    assert len(voulues) == 68 and MAISONS_SANS_ETAT <= voulues
     avec = voulues - MAISONS_SANS_ETAT
     assert len(etats) == len({e['maison'] for e in etats}) == len(avec) == 34
     assert {e['maison'] for e in etats} == avec == {m.id for m in maisons if m.sorte in ('grande maison', 'seigneurie')} - {HORDE, TLEMCEN} - MAISONS_SANS_ETAT == MAISONS_AVEC_ETAT

@@ -83,7 +83,7 @@ def _pays_du_suzerain(maison, pays, fiches, pays_des_suzerains):
     règne (un seigneur de Hongrie tenu par Luxembourg), sinon la puissance dont relève la terre de
     départ (Wurtemberg relève du Saint-Empire), sinon le pays du suzerain lui-même."""
     fiche = fiches[pays]
-    if fiche["maison"]["id"] == maison.suzerain:
+    if fiche["maison"] is not None and fiche["maison"]["id"] == maison.suzerain:
         return pays
     if fiche["suzerain"] is not None:
         return fiche["suzerain"]
@@ -93,8 +93,9 @@ def _pays_du_suzerain(maison, pays, fiches, pays_des_suzerains):
 def _suzerain_du_pays(maison, fiche, fiches):
     """Le suzerain qu'une racine sert par son pays : la tête du pays suzerain que la table déclare,
     quand la maison règne sur son pays. L'hommage n'entre pas dans le registre : la maison reste
-    une racine."""
-    if maison.suzerain is not None or fiche["maison"]["id"] != maison.id or fiche["suzerain"] is None:
+    une racine. Une terre sans État n'a ni maison ni suzerain."""
+    if (maison.suzerain is not None or fiche["maison"] is None or fiche["maison"]["id"] != maison.id
+            or fiche["suzerain"] is None):
         return None
     suzerain = fiches[fiche["suzerain"]]
     return {"id": suzerain["maison"]["id"], "nom": suzerain["maison"]["nom"],
@@ -124,11 +125,11 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
                        if _raison_d_institution(m, sources.table) is None and tenus.get(m.id, 0) > 0), key=_rang)
     suzerains = [m.suzerain for m in jouables if m.suzerain in par_id]
     pays = pays_des_maisons(monde, sources.vue, sources.maisons, [m.id for m in jouables] + suzerains,
-                            sources.lieux)
+                            sources.lieux, sources.terres)
     regnes = {m.id: regne(m.id, pays[m.id], sources.maisons) for m in jouables}
     fiches = {f["id"]: f for f in fiches_des_pays(
         set(pays.values()) | {p for r in regnes.values() for p in r},
-        monde, sources.table, sources.maisons, sources.seigneuries, matiere)}
+        monde, sources.table, sources.maisons, sources.seigneuries, matiere, sources.noms_des_terres)}
 
     def court(identifiant):
         return {"id": identifiant, "nom": fiches[identifiant]["nom"]}

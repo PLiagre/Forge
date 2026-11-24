@@ -58,7 +58,15 @@
     { "id": 53, "nom": "Hohenzollern", "source": "Wikipédia en anglais, article Frederick I, Elector of Brandenburg : Frédéric VI, de la maison de Hohenzollern, burgrave de Nuremberg depuis 1397, électeur de Brandebourg à partir de 1415 (https://en.wikipedia.org/wiki/Frederick_I,_Elector_of_Brandenburg)" },
     { "id": 54, "nom": "Gediminides", "source": "Wikipédia en anglais, article Vytautas : Vytautas, de la dynastie des Gediminides, grand-duc de Lituanie de 1392 à 1430 : Vilnius (https://en.wikipedia.org/wiki/Vytautas)" },
     { "id": 55, "nom": "Piast de Mazovie", "source": "Wikipédia en anglais, article Janusz I of Warsaw : Janusz Ier l'Ancien, de la dynastie Piast, duc de Varsovie en Mazovie de 1374 à 1429 (https://en.wikipedia.org/wiki/Janusz_I_of_Warsaw)" },
-    { "id": 56, "nom": "Luxembourg-Hongrie", "source": "Wikipédia en anglais, article Sigismund, Holy Roman Emperor : Sigismond, de la maison de Luxembourg, roi de Hongrie et de Croatie depuis 1387 : Buda (https://en.wikipedia.org/wiki/Sigismund,_Holy_Roman_Emperor)" }
+    { "id": 56, "nom": "Luxembourg-Hongrie", "source": "Wikipédia en anglais, article Sigismund, Holy Roman Emperor : Sigismond, de la maison de Luxembourg, roi de Hongrie et de Croatie depuis 1387 : Buda (https://en.wikipedia.org/wiki/Sigismund,_Holy_Roman_Emperor)" },
+    { "id": 57, "nom": "Carrara", "source": "Wikipédia en anglais, article Francesco Novello da Carrara : François II de Carrare, dit Francesco Novello, de la maison de Carrare, seigneur de Padoue de 1390 à 1405 (https://en.wikipedia.org/wiki/Francesco_Novello_da_Carrara)" },
+    { "id": 58, "nom": "Doria-Bas", "source": "Wikipédia en anglais, article Marianus V of Arborea : Marien V, de la maison Doria-Bas des juges d'Arborée, juge d'Arborée de 1387 à 1407, sous la régence de son père Brancaleone Doria (https://en.wikipedia.org/wiki/Marianus_V_of_Arborea)" },
+    { "id": 59, "nom": "Malatesta", "source": "Wikipédia en anglais, article Carlo I Malatesta : Charles Ier Malatesta, de la maison Malatesta, seigneur de Rimini de 1385 à 1429 (https://en.wikipedia.org/wiki/Carlo_I_Malatesta)" },
+    { "id": 60, "nom": "Balšić", "source": "Wikipédia en anglais, article Đurađ II Balšić : Đurađ II Balšić, de la maison Balšić, seigneur de la Zeta de 1385 à 1403 (https://en.wikipedia.org/wiki/%C4%90ura%C4%91_II_Bal%C5%A1i%C4%87)" },
+    { "id": 61, "nom": "Buondelmonti", "source": "Wikipédia en anglais, article Esau de' Buondelmonti : Ésaü Buondelmonti, de la maison Buondelmonti, despote d'Épire à Ioannina de 1385 à 1411 (https://en.wikipedia.org/wiki/Esau_de%27_Buondelmonti)" },
+    { "id": 62, "nom": "Tocco", "source": "Wikipédia en anglais, article Carlo I Tocco : Charles Ier Tocco, de la maison Tocco, comte palatin de Céphalonie et Zante de 1376 à 1429 (https://en.wikipedia.org/wiki/Carlo_I_Tocco)" },
+    { "id": 63, "nom": "Crispo", "source": "Wikipédia en anglais, article Giacomo I Crispo : Jacques Ier Crispo, de la maison Crispo, duc de l'Archipel de 1397 à 1418 (https://en.wikipedia.org/wiki/Giacomo_I_Crispo)" },
+    { "id": 64, "nom": "Banou Thabit", "source": "Wikipédia en anglais, article Hafsid dynasty : les Banou Thabit tiennent Tripoli jusqu'en 1401, que les Hafsides ne leur reprennent qu'à cette date (https://en.wikipedia.org/wiki/Hafsid_dynasty)" }
   ],
   "puissances": [
     { "id": 1, "nom": "Angleterre", "nature": "royaume", "religion": "catholique", "maison": 1 },
@@ -141,7 +149,17 @@
     { "id": 78, "nom": "Évêché d'Osnabrück", "nature": "Église", "religion": "catholique", "ensemble": "Saint-Empire", "source_ensemble": "Wikipédia en anglais, article Prince-Bishopric of Osnabrück : la principauté épiscopale d'Osnabrück est un État du Saint-Empire (https://en.wikipedia.org/wiki/Prince-Bishopric_of_Osnabr%C3%BCck)" },
     { "id": 81, "nom": "Patriarcat d'Aquilée", "nature": "Église", "religion": "catholique", "ensemble": "Saint-Empire", "source_ensemble": "Wikipédia en anglais, article Patriarchate of Aquileia (state) : le patriarche d'Aquilée, prince ecclésiastique du Saint-Empire, garde son pouvoir temporel en Frioul jusqu'à l'annexion vénitienne de 1420 (https://en.wikipedia.org/wiki/Patriarchate_of_Aquileia_(state))" },
     { "id": 82, "nom": "Lituanie", "nature": "principauté", "religion": "catholique", "maison": 54, "suzerain": 23, "source_suzerain": "Wikipédia en anglais, article Vytautas : à l'accord d'Ostrów (1392), Vytautas gouverne la Lituanie au nom de Jogaila, roi de Pologne, qui en reste le duc suprême jusqu'à l'union de Vilnius et Radom (1401) (https://en.wikipedia.org/wiki/Vytautas)" },
-    { "id": 83, "nom": "Mazovie", "nature": "principauté", "religion": "catholique", "maison": 55, "suzerain": 23, "source_suzerain": "Wikipédia en anglais, article Duchy of Masovia : les ducs de Mazovie, Piast, sont vassaux de la couronne de Pologne depuis 1351 (https://en.wikipedia.org/wiki/Duchy_of_Masovia)" }
+    { "id": 83, "nom": "Mazovie", "nature": "principauté", "religion": "catholique", "maison": 55, "suzerain": 23, "source_suzerain": "Wikipédia en anglais, article Duchy of Masovia : les ducs de Mazovie, Piast, sont vassaux de la couronne de Pologne depuis 1351 (https://en.wikipedia.org/wiki/Duchy_of_Masovia)" },
+    { "id": 84, "nom": "Bologne", "nature": "république", "religion": "catholique" },
+    { "id": 85, "nom": "Padoue", "nature": "principauté", "religion": "catholique", "maison": 57 },
+    { "id": 86, "nom": "Arborée", "nature": "royaume", "religion": "catholique", "maison": 58 },
+    { "id": 87, "nom": "Rimini", "nature": "principauté", "religion": "catholique", "maison": 59 },
+    { "id": 88, "nom": "Raguse", "nature": "république", "religion": "catholique" },
+    { "id": 89, "nom": "Zeta", "nature": "principauté", "religion": "catholique", "maison": 60 },
+    { "id": 90, "nom": "Épire", "nature": "principauté", "religion": "catholique", "maison": 61 },
+    { "id": 91, "nom": "Céphalonie et Zante", "nature": "principauté", "religion": "catholique", "maison": 62 },
+    { "id": 92, "nom": "Duché de l'Archipel", "nature": "principauté", "religion": "catholique", "maison": 63 },
+    { "id": 93, "nom": "Tripolitaine", "nature": "principauté", "religion": "musulmane", "maison": 64 }
   ],
   "ancres": [
     { "id": 1, "puissance": 1, "nom": "Londres", "lat": 51.51, "lon": -0.13, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale" },
@@ -258,6 +276,16 @@
     { "id": 110, "puissance": 77, "nom": "Münster", "lat": 51.96, "lon": 7.63, "source": "Wikipédia en anglais, article Münster : Münster est le siège des princes-évêques de Münster (https://en.wikipedia.org/wiki/M%C3%BCnster)" },
     { "id": 111, "puissance": 78, "nom": "Osnabrück", "lat": 52.28, "lon": 8.05, "source": "Wikipédia en anglais, article Osnabrück : Osnabrück est le siège des princes-évêques d'Osnabrück (https://en.wikipedia.org/wiki/Osnabr%C3%BCck)" },
     { "id": 114, "puissance": 81, "nom": "Udine", "lat": 46.06, "lon": 13.24, "source": "Wikipédia en anglais, article Udine : Udine est la résidence des patriarches d'Aquilée à partir du XIIIe siècle (https://en.wikipedia.org/wiki/Udine)" },
-    { "id": 115, "puissance": 83, "nom": "Varsovie", "lat": 52.23, "lon": 21.01, "source": "Wikipédia en anglais, article Warsaw : Varsovie est la résidence des ducs de Mazovie, et la capitale du duché à partir de 1413 (https://en.wikipedia.org/wiki/Warsaw)" }
+    { "id": 115, "puissance": 83, "nom": "Varsovie", "lat": 52.23, "lon": 21.01, "source": "Wikipédia en anglais, article Warsaw : Varsovie est la résidence des ducs de Mazovie, et la capitale du duché à partir de 1413 (https://en.wikipedia.org/wiki/Warsaw)" },
+    { "id": 118, "puissance": 84, "nom": "Bologne", "lat": 44.49, "lon": 11.34, "source": "Wikipédia en anglais, article Bologna : Bologne est le siège de la commune, révoltée contre le pape depuis 1376 (https://en.wikipedia.org/wiki/Bologna)" },
+    { "id": 119, "puissance": 85, "nom": "Padoue", "lat": 45.41, "lon": 11.88, "source": "Wikipédia en anglais, article Lords of Padua : Padoue est la ville des Carrara, qui la tiennent de 1308 à 1405 (https://en.wikipedia.org/wiki/Lordship_of_Padua)" },
+    { "id": 120, "puissance": 86, "nom": "Oristano", "lat": 39.9, "lon": 8.59, "source": "Wikipédia en anglais, article Oristano : Oristano est la capitale du judicat d'Arborée, dernier royaume sarde, qui disparaît en 1420 (https://en.wikipedia.org/wiki/Oristano)" },
+    { "id": 121, "puissance": 87, "nom": "Rimini", "lat": 44.06, "lon": 12.57, "source": "Wikipédia en anglais, article Papal States : les Malatesta de Rimini ne reconnaissent le pape que de nom ; Rimini est leur ville (https://en.wikipedia.org/wiki/Papal_States)" },
+    { "id": 122, "puissance": 88, "nom": "Raguse", "lat": 42.65, "lon": 18.09, "source": "Wikipédia en anglais, article Republic of Ragusa : Raguse est le siège de la république, sous la protection du roi de Hongrie (https://en.wikipedia.org/wiki/Republic_of_Ragusa)" },
+    { "id": 123, "puissance": 89, "nom": "Antivari", "lat": 42.09, "lon": 19.1, "source": "Wikipédia en anglais, article Zeta under the Balšići : Antivari est une ville de la Zeta des Balšić, de Georges II Balšić (https://en.wikipedia.org/wiki/Zeta_under_the_Bal%C5%A1i%C4%87i)" },
+    { "id": 124, "puissance": 90, "nom": "Ioannina", "lat": 39.66, "lon": 20.85, "source": "Wikipédia en anglais, article Despotate of Epirus : Ioannina est le siège du despotat d'Épire d'Ésaü Buondelmonti (https://en.wikipedia.org/wiki/Despotate_of_Epirus)" },
+    { "id": 125, "puissance": 91, "nom": "Agios Georgios", "lat": 38.14, "lon": 20.55, "source": "Wikipédia en anglais, article Castle of Saint George, Cephalonia : forteresse de l'intérieur de l'île, capitale de Céphalonie, dans le comté palatin des Tocco (https://en.wikipedia.org/wiki/Castle_of_Saint_George,_Cephalonia)" },
+    { "id": 126, "puissance": 92, "nom": "Naxos", "lat": 37.1, "lon": 25.385, "source": "Wikipédia en anglais, article Duchy of the Archipelago : Naxos est le siège du duché de l'Archipel des Crispo ; le point est pris à l'intérieur du polygone de l'île, à moins d'un kilomètre de la ville, la côte de la carte étant plus grossière (https://en.wikipedia.org/wiki/Duchy_of_the_Archipelago)" },
+    { "id": 127, "puissance": 93, "nom": "Tripoli", "lat": 32.89, "lon": 13.19, "source": "Wikipédia en anglais, article Hafsid dynasty : Tripoli est aux Banou Thabit jusqu'en 1401, que les Hafsides en chassent (https://en.wikipedia.org/wiki/Hafsid_dynasty)" }
   ]
 }
