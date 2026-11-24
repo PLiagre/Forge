@@ -39,16 +39,24 @@ namespace Forge.Interface
                 Couleur("papier"), .16f);
         }
 
-        // Les pigments des pays de la carte politique : douze teintes sourdes, à trente degrés à peu près l'une de l'autre, dont
-        // la valeur alterne pour que deux teintes proches sur le cercle se séparent aussi par leur clarté ; le papier les patine
-        // comme tout pigment d'atlas. Deux d'entre eux sont à plus de 11 d'écart (ΔE, CIE 1976).
+        // Les pigments des pays de la carte politique : sept familles de teinte, brique, ocre, vert, sarcelle, bleu, violet et
+        // lie-de-vin, prises à 30°, 75°, 135°, 190°, 250°, 300° et 345° du cercle des teintes perçues (CIE Lab), toutes d'un même
+        // chroma sourd (30), chacune en deux clartés (L 58 et 66) ; le papier les patine comme tout pigment d'atlas. Deux familles
+        // restent à 44° de teinte et à 17 d'écart (ΔE, CIE 1976) au moins l'une de l'autre, même éclaircies pour un vassal. Le
+        // pigment k est de la famille k / 2, la plus sombre de ses deux clartés d'abord.
         static readonly (float teinte, float saturation, float valeur)[] TeintesDesPays =
         {
-            (0f, .45f, .62f), (28f, .45f, .74f), (50f, .42f, .64f), (80f, .40f, .74f), (110f, .38f, .58f), (145f, .40f, .70f),
-            (175f, .40f, .56f), (200f, .40f, .72f), (222f, .40f, .58f), (255f, .36f, .70f), (285f, .38f, .56f), (325f, .40f, .70f)
+            (3.2f, .46f, .71f), (3.5f, .42f, .82f), (32.9f, .57f, .61f), (32.6f, .50f, .72f), (109.1f, .39f, .53f), (108.6f, .34f, .63f),
+            (178.2f, .84f, .55f), (178.0f, .69f, .65f), (202.4f, .76f, .73f), (203.2f, .66f, .83f), (248.9f, .36f, .71f), (249.3f, .32f, .82f),
+            (323.9f, .41f, .68f), (324.3f, .37f, .78f)
         };
+        const int CLARTES_D_UNE_FAMILLE = 2;
         public static IReadOnlyList<Color> PigmentsDesPays { get; } = TeintesDesPays
             .Select(t => Color.Lerp(Color.HSVToRGB(t.teinte / 360f, t.saturation, t.valeur), Couleur("papier"), .16f)).ToList();
+        // La famille de teinte d'un pigment des pays : deux pigments d'une même famille n'en diffèrent que par la clarté.
+        public static int FamilleDuPigment(int pigment) => pigment / CLARTES_D_UNE_FAMILLE;
+        // Les noms des sept familles, dans l'ordre des pigments : l'indice rendu par `FamilleDuPigment` y donne le nom de la teinte.
+        public static readonly IReadOnlyList<string> NomsDesFamilles = new[] { "brique", "ocre", "vert", "sarcelle", "bleu", "violet", "lie-de-vin" };
         // Les teintes du relief servi, du marais à la haute montagne, comme sur un atlas physique : chacune tirée d'un jeton vers
         // le papier, mate, avec le nom de sa classe et le mot qui dit sa couleur dans la légende.
         public static IReadOnlyList<(string classe, string nom, string mot, Color teinte)> TeintesDuRelief { get; } = new (string, string, string, Color)[]
