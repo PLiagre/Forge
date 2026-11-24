@@ -134,6 +134,33 @@ namespace Forge.Interface.Tests
             Assert.That(juges, Is.EqualTo(97 * 55 + 65 * 37), "points jugés");
         }
 
+        // Une zone à éviter : le feuillet qui la recouvrirait passe au-dessus d'elle à `ECART_PX`, sinon au-dessous, sinon à sa droite, sinon à sa gauche, toujours dans l'écran ;
+        // sans zone, ou loin d'elle, il reste où il était posé.
+        [Test] public void LInfobulleEviteUneZone()
+        {
+            var ecran = new Vector2(1920, 1080); var taille = new Vector2(400, 100); var point = new Vector2(900, 80); var toutl = new Rect(Vector2.zero, ecran);
+            Rect sans = Infobulle.Placer(point, taille, ecran); Assert.That(Infobulle.Placer(point, taille, ecran, null), Is.EqualTo(sans));
+            Assert.That(Infobulle.Placer(point, taille, ecran, new Rect(0, 600, 100, 100)), Is.EqualTo(sans), "une zone loin du feuillet le déplace");
+            // Sans place dessous, le feuillet est posé au-dessus du point, de 104 à 204 : la zone le recouvre.
+            foreach (var (zone, attendu, cote) in new[] {
+                (new Rect(700, 120, 600, 200), new Rect(sans.x, 344, 400, 100), "au-dessus"),
+                (new Rect(700, 130, 600, 850), new Rect(sans.x, 6, 400, 100), "au-dessous"),
+                (new Rect(700, 120, 600, 900), new Rect(1324, sans.y, 400, 100), "à droite"),
+                (new Rect(700, 120, 1200, 900), new Rect(276, sans.y, 400, 100), "à gauche"),
+                (new Rect(10, 0, 1900, 1080), sans, "nulle part") })
+            {
+                Assert.That(sans.Overlaps(zone) || cote == "nulle part", Is.True, cote + " : échantillon faussé, la zone ne recouvre pas le feuillet " + sans);
+                Rect r = Infobulle.Placer(point, taille, ecran, zone); Assert.That(r, Is.EqualTo(attendu), cote); Assert.That(Dedans(r, toutl), Is.True, cote + " : hors de l'écran " + r);
+            }
+            int juges = 0; var cadre = new Rect(800, 400, 400, 300);
+            for (int i = 0; i <= ecran.x / 40; i++) for (int j = 0; j <= ecran.y / 40; j++, juges++)
+            {
+                var p = new Vector2(i * 40, j * 40); Rect r = Infobulle.Placer(p, taille, ecran, cadre);
+                if (!Dedans(r, toutl) || r.Overlaps(cadre)) Assert.Fail("point " + p + " : feuillet " + r + " hors de l'écran ou sur la zone " + cadre);
+            }
+            Assert.That(juges, Is.EqualTo(49 * 28), "points jugés");
+        }
+
         // La croix d'un panneau, telle que le socle la pose : enfant direct « Fermer » de 44 × 44 dans le coin haut droit, son repère « croix », aucun texte actif,
         // une phrase au survol. Nul si l'un manque : un panneau sans croix, ou avec un ancien bouton texte, ne passe pas.
         public static Button CroixDe(RectTransform panneau)

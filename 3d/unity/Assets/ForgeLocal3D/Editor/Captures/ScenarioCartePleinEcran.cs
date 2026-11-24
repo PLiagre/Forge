@@ -14,7 +14,7 @@ namespace ForgeLocal3D.Captures
     //                    en haut, sur tout l'écran ; l'accueil, « Votre maison » et la fiche d'une terre sont fermés, « Ma capitale » est là ;
     //   2-france         « Ma capitale » pressé : la vue se pose sur le siège servi, à la demi-hauteur du siège ; puis la molette recule,
     //                    sous le milieu de l'écran, jusqu'à ce que le nom « France », trop grand de si près, se lise en entier ;
-    //   3-province       au plus près : une province, ses lieux montrés en figurines ;
+    //   3-province       au plus près : une province, ses lieux lus et aucune figurine de lieu posée ;
     //   4-fiche-ouverte  le temps arrêté, la terre sous le centre de l'écran gardée par le chemin du clic : sa marque, la fiche « Territoire conservé » avec
     //                    sa croix, et son texte lu au service ;
     //   5-fiche-fermee   la croix de la fiche pressée : la fiche est fermée, la terre relâchée, sa marque ôtée.
@@ -24,7 +24,7 @@ namespace ForgeLocal3D.Captures
     static class ScenarioCartePleinEcran
     {
         const string GROUPE = "carte-plein-ecran", FRANCE = "France", CROIX = "Fermer", MAISON = "Votre maison", FICHE = "Territoire conservé", LECTURE = "Lecture du territoire";
-        const float TOLERANCE_DU_CENTRE_KM = 5f, TOLERANCE_DE_L_ECHELLE_KM = 0.01f, TOLERANCE_DE_L_ANGLE = 0.01f; const int IMAGES_DE_POSE = 4, LIEUX_MONTRES = 3, CRANS_POUR_LIRE_LE_PAYS = 12;
+        const float TOLERANCE_DU_CENTRE_KM = 5f, TOLERANCE_DE_L_ECHELLE_KM = 0.01f, TOLERANCE_DE_L_ANGLE = 0.01f; const int IMAGES_DE_POSE = 4, CRANS_POUR_LIRE_LE_PAYS = 12;
         const double STABLE_S = 2.5; // le texte de la fiche est récrit une image après la lecture
         static readonly Rect TOUT_L_ECRAN = new Rect(0, 0, 1, 1);
 
@@ -97,12 +97,14 @@ namespace ForgeLocal3D.Captures
             var lieux = carte.GetComponent<LieuxDeCarte>() ?? throw Faux("pas de lieux sur la carte");
             carte.Vue.Zoomer(1000f, new Vector2(.5f, .5f)); carte.Vue.Poser(carte.camera, carte.transform);
             PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
-            for (var a = AttentesDeCapture.Jusqua(() => lieux.Montres >= LIEUX_MONTRES,
-                () => "lieux montrés : " + lieux.Montres + " sur " + lieux.Poses + " posés, peints " + lieux.Peint + ", lecture en vol " + lieux.LectureEnVol); a.MoveNext();) yield return null;
+            for (var a = AttentesDeCapture.Jusqua(() => lieux.Peint && lieux.TexteLegende.Length > LieuxDeCarte.ENTETE.Length,
+                () => "lieux peints " + lieux.Peint + ", lecture en vol " + lieux.LectureEnVol); a.MoveNext();) yield return null;
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (Mathf.Abs(carte.Vue.Demi - VueDeCarte.DEMI_MIN_KM) >= 1e-3f) throw Faux("la vue n'est pas au plus près : demi " + carte.Vue.Demi + " km pour " + VueDeCarte.DEMI_MIN_KM);
-            if (lieux.Montres < LIEUX_MONTRES) throw Faux("seuls " + lieux.Montres + " lieux se montrent au plus près (" + lieux.Poses + " posés)");
-            Debug.Log("CAPTURE carte plein écran : la province au tick " + cabinet.Partie.Monde.Donnees.Monde.Tick + ", demi " + carte.Vue.Demi.ToString("0.###", CultureInfo.InvariantCulture) + " km, " + lieux.Montres + " lieux montrés sur " + lieux.Poses);
+            // Les lieux se lisent mais ne posent aucune figurine : leur forme est sur le terrain.
+            var posees = carte.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Lieux de la carte" || t.name.StartsWith("Lieu ", StringComparison.Ordinal)).Select(t => t.name).ToArray();
+            if (posees.Length > 0) throw Faux("des figurines de lieux sont posées sur la carte : " + string.Join(", ", posees));
+            Debug.Log("CAPTURE carte plein écran : la province au tick " + cabinet.Partie.Monde.Donnees.Monde.Tick + ", demi " + carte.Vue.Demi.ToString("0.###", CultureInfo.InvariantCulture) + " km, " + lieux.EnAlerte.Count + " lieux en alerte, aucune figurine de lieu");
             yield return carte.camera;
         }
 

@@ -79,47 +79,57 @@ namespace Forge.Interface.Tests
         const string JOUEUR = "maison-joueur", B = "maison-b", C = "maison-c";
         LieuxDeCarte lieux; CarteDessinee carte; LecturePartie partie; Camera camera; double horloge;
         [Test] public void LeCabinetConstruitUneSeuleVueDesLieux() { int avant = racine.GetComponents<MonoBehaviour>().Length; Assert.That(racine.GetComponents<LieuxDeCarte>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<LieuxDeCarte>(), Has.Length.EqualTo(1)); Assert.That(racine.GetComponents<MonoBehaviour>().Length, Is.EqualTo(avant)); }
-        [Test] public void TousLesLieuxDesCellulesTenuesOntLeurCouleur()
+        [Test] public void LesLieuxDesCellulesTenuesSontLusSansRienPoser()
         {
-            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); var vus = new List<long>(); var couleurs = new Dictionary<string, Color32>();
-            Servir(cell => { vus.Add(cell); return Reponse(cell, 4, false); }); Assert.That(vus, Is.EquivalentTo(new[] { 10L, 20L }), lieux.TexteLegende + " disques " + Disques()); Assert.That(Disques(), Is.EqualTo(5)); Assert.That(lieux.TexteLegende, Does.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400").And.Contain(LieuxDeCarte.ENTETE));
-            foreach (var (cell, rang, x, y, maitre) in Attendu()) { var disque = Rendu(cell, rang); Color couleur = maitre == JOUEUR ? ReperesDeDepart.COULEUR_JOUEUR : LieuxDeCarte.CouleurDuMaitre(maitre); couleurs[cell + "-" + rang] = disque.sharedMaterial.color; Assert.That(disque.transform.parent.localPosition, Is.EqualTo(carte.PositionSurLaCarte(new PointCarte(x, y), 0f).Value)); Assert.That((Color32)disque.sharedMaterial.color, Is.EqualTo((Color32)couleur));
-                // Un lieu n'est plus un disque bordé de sombre : c'est une figurine sur son socle, un bourg au rang 0 de sa terre, un hameau ailleurs, dont les toits portent la couleur.
-                Assert.That(disque.GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Bourg de taille " + (rang == 0 ? LieuxDeCarte.BOURG : LieuxDeCarte.HAMEAU)), cell + "-" + rang); Assert.That(disque.sharedMaterial.shader.name, Is.EqualTo(FormesDeCarte.SHADER));
-                Assert.That(disque.GetComponent<Collider>() == null && disque.transform.parent.childCount == 1, Is.True, cell + "-" + rang);
-                lieux.SuivreLaVue(); Assert.That(disque.transform.localScale.x, Is.EqualTo(FormesDeCarte.EchellePourLEcran(carte.camera, disque.transform.parent.position, FormesDeCarte.RayonDuBourg(LieuxDeCarte.Taille(rang)), LieuxDeCarte.MIN_PX)).Within(1e-4f), "la figurine " + cell + "-" + rang + " n'est pas réglée sur la vue"); }
-            Assert.That(Rendu(10, 1).sharedMaterial, Is.SameAs(Rendu(20, 0).sharedMaterial)); Assert.That(Rendu(10, 0).sharedMaterial, Is.SameAs(Rendu(20, 1).sharedMaterial)); Assert.That((Color32)Rendu(10, 2).sharedMaterial.color, Is.Not.EqualTo((Color32)Rendu(10, 1).sharedMaterial.color)); Assert.That((Color32)Rendu(10, 2).sharedMaterial.color, Is.Not.EqualTo((Color32)LieuxDeCarte.ROUGE));
-            vus.Clear(); Servir(cell => { vus.Add(cell); return Reponse(cell, 11, true); }); Assert.That(vus, Is.EquivalentTo(new[] { 10L, 20L })); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 12 de 1400")); foreach (var (cell, rang, _, _, _) in Attendu()) Assert.That((Color32)Rendu(cell, rang).sharedMaterial.color, Is.EqualTo(couleurs[cell + "-" + rang]), "inverse " + cell);
-            Servir(cell => Reponse(cell, 12, false)); Assert.That(Disques(), Is.EqualTo(5)); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 13 de 1400")); foreach (var (cell, rang, _, _, _) in Attendu()) Assert.That((Color32)Rendu(cell, rang).sharedMaterial.color, Is.EqualTo(couleurs[cell + "-" + rang]), "tick 12 " + cell);
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); var vus = new List<long>();
+            Servir(cell => { vus.Add(cell); return Reponse(cell, 4, false, 3); }); Assert.That(vus, Is.EquivalentTo(new[] { 10L, 20L }), lieux.TexteLegende); Assert.That(lieux.TexteLegende, Does.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400").And.Contain(LieuxDeCarte.ENTETE));
+            // Les lieux du joueur (10-0 et 20-1) voient partir plus de gens qu'il n'en arrive : eux seuls sont en alerte, pas ceux de B ni de C ; et rien n'est posé sur la carte.
+            Assert.That(Alertes(), Is.EqualTo("10-0,20-1")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1)); Assert.That(Posees(), Is.Empty, "la lecture des lieux a posé quelque chose sur la carte");
+            // Servie renversée, la même réponse donne le même ensemble trié et la même version.
+            Servir(cell => Reponse(cell, 11, true, 3)); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 12 de 1400")); Assert.That(Alertes(), Is.EqualTo("10-0,20-1")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1), "une relecture identique change la version"); Assert.That(Posees(), Is.Empty);
+            Servir(cell => Reponse(cell, 12, false, 1)); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 13 de 1400")); Assert.That(Alertes(), Is.Empty); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(2)); Assert.That(Posees(), Is.Empty);
         }
-        [TestCase(JOUEUR, 7L, 2L, true)] [TestCase(JOUEUR, 2L, 7L, false)] [TestCase(JOUEUR, 7L, 7L, false)] [TestCase(JOUEUR, 0L, 0L, false)] [TestCase(B, 7L, 2L, true)] [TestCase(B, 2L, 7L, false)] [TestCase(B, 7L, 7L, false)] [TestCase(B, 0L, 0L, false)] public void LeRougeSuitLeSolde(string maitre, long partis, long arrives, bool rouge)
+        [TestCase(JOUEUR, 7L, 2L, true)] [TestCase(JOUEUR, 9L, 2L, true)] [TestCase(JOUEUR, 2L, 7L, false)] [TestCase(JOUEUR, 7L, 7L, false)] [TestCase(JOUEUR, 0L, 0L, false)] [TestCase(B, 7L, 2L, false)] [TestCase(B, 9L, 2L, false)] [TestCase(B, 2L, 7L, false)] [TestCase(B, 7L, 7L, false)] [TestCase(B, 0L, 0L, false)] public void LAlerteSuitLeSoldeDesLieuxDuJoueur(string maitre, long partis, long arrives, bool alerte)
         {
-            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); Servir(_ => LectureLieu.De(Cellule(10, 3, Place(10, 0, 1000, 2000, maitre, partis, arrives)))); var disque = Rendu(10, 0); Color attendu = rouge ? LieuxDeCarte.ROUGE : maitre == JOUEUR ? ReperesDeDepart.COULEUR_JOUEUR : LieuxDeCarte.CouleurDuMaitre(maitre); Assert.That(Disques() == 1 && disque != null && ((Color32)disque.sharedMaterial.color).Equals((Color32)attendu), Is.True, maitre + " " + partis + "/" + arrives); if (partis == 0 && arrives == 0) Assert.That(lieux.TexteLegende.Contains("absent"), Is.False, lieux.TexteLegende);
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); Servir(_ => LectureLieu.De(Cellule(10, 3, Place(10, 0, 1000, 2000, maitre, partis, arrives))));
+            Assert.That(Alertes(), Is.EqualTo(alerte ? "10-0" : ""), maitre + " " + partis + "/" + arrives); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(alerte ? 1 : 0)); Assert.That(Posees(), Is.Empty);
+            if (partis == 0 && arrives == 0) Assert.That(lieux.TexteLegende.Contains("absent"), Is.False, lieux.TexteLegende);
         }
-        [Test] public void LeRougePeutDisparaitre()
+        [Test] public void LAlertePeutDisparaitreEtReparaitre()
         {
-            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0));
-            Material rougeMat = null, maitreMat = null; long tick = 4; FluxDeLieu flux = new FluxDeLieu(0, 7, 2); string cause = null;
-            for (int etape = 0; etape < 4; etape++) { if (etape == 1) { flux = new FluxDeLieu(0, 7, 7); tick = 5; } if (etape == 2) { flux = null; cause = "flux non fournis"; tick = 6; } if (etape == 3) { flux = new FluxDeLieu(0, 7, 2); cause = null; tick = 7; } Servir(_ => LectureLieu.De(Cellule(10, tick, new LieuPlace(0, new PointCarte(1000, 2000), JOUEUR, flux, cause, nom: NomDe(10, 0))))); var mat = Rendu(10, 0).sharedMaterial; if (etape == 0) { rougeMat = mat; Assert.That((Color32)mat.color, Is.EqualTo((Color32)LieuxDeCarte.ROUGE)); } if (etape == 1) { maitreMat = mat; Assert.That(mat, Is.Not.SameAs(rougeMat)); Assert.That((Color32)mat.color, Is.EqualTo((Color32)ReperesDeDepart.COULEUR_JOUEUR)); } if (etape == 2) Assert.That(mat == maitreMat && lieux.TexteLegende.Contains("\nAlba : flux non fournis") && lieux.TexteLegende.Contains("relevé au jour 7 de 1400"), Is.True, lieux.TexteLegende); if (etape == 3) Assert.That(mat == rougeMat && !lieux.TexteLegende.Contains("flux non fournis") && lieux.TexteLegende.Contains("relevé au jour 8 de 1400"), Is.True, lieux.TexteLegende); Assert.That(Disques(), Is.EqualTo(1)); }
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); long tick = 4; FluxDeLieu flux = new FluxDeLieu(0, 7, 2); string cause = null;
+            void Lire() => Servir(_ => LectureLieu.De(Cellule(10, tick, new LieuPlace(0, new PointCarte(1000, 2000), JOUEUR, flux, cause, nom: NomDe(10, 0)))));
+            void Passer() { lieux.Pas(horloge); var fin = DateTime.UtcNow.AddSeconds(5); while (lieux.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); lieux.Pas(horloge); horloge += LieuxDeCarte.PERIODE_S; }
+            Lire(); Assert.That(Alertes(), Is.EqualTo("10-0")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1));
+            tick = 5; Lire(); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 6 de 1400")); Assert.That(Alertes(), Is.EqualTo("10-0")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1), "une relecture identique change la version");
+            flux = new FluxDeLieu(0, 7, 7); tick = 6; Lire(); Assert.That(Alertes(), Is.Empty); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(2));
+            flux = null; cause = "flux non fournis"; tick = 7; Lire(); Assert.That(lieux.TexteLegende, Does.Contain("\nAlba : flux non fournis").And.Contain("relevé au jour 8 de 1400")); Assert.That(Alertes(), Is.Empty, "un lieu sans flux servi est en alerte"); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(2));
+            flux = new FluxDeLieu(0, 7, 2); cause = null; tick = 8; Lire(); Assert.That(lieux.TexteLegende, Does.Not.Contain("flux non fournis").And.Contain("relevé au jour 9 de 1400")); Assert.That(Alertes(), Is.EqualTo("10-0")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(3));
+            // La maison change : l'alerte de l'ancienne ne reste pas.
+            Publier(C, new LieuTenu(10, 0)); Passer(); Assert.That(Alertes(), Is.Empty); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(4)); Assert.That(lieux.Peint, Is.True);
+            Publier(JOUEUR, new LieuTenu(10, 0)); Passer(); tick = 9; Lire(); Assert.That(Alertes(), Is.EqualTo("10-0")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(5));
+            // La maison se vide : plus d'alerte, plus de lieux peints.
+            Poser(partie, "Monde", null); Passer(); Assert.That(Alertes(), Is.Empty); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(6)); Assert.That(lieux.Peint, Is.False);
         }
         [Test] public void LesAbsencesEtLaNavigationRestentHonnetes()
         {
-            Preparer(); int n = 0; lieux.Lecteur = _ => { n++; return null; }; lieux.Pas(0); lieux.Pas(3); Assert.That(n == 0 && Disques() == 0, Is.True);
+            Preparer(); int n = 0; lieux.Lecteur = _ => { n++; return null; }; lieux.Pas(0); lieux.Pas(3); Assert.That(n == 0 && Alertes() == "" && Posees().Length == 0, Is.True);
             var porte = new System.Threading.Tasks.TaskCompletionSource<bool>(); lieux.Lecteur = cell => { System.Threading.Interlocked.Increment(ref n); porte.Task.Wait(8000); return Complet(cell, 3); };
             Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(20, 0)); lieux.Pas(0); var fin = DateTime.UtcNow.AddSeconds(5); while (n < 1 && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); lieux.Pas(1); Assert.That(n, Is.EqualTo(1), lieux.TexteLegende);
             Publier("maison-ancienne", new LieuTenu(10, 0), new LieuTenu(20, 0)); porte.TrySetResult(true); fin = DateTime.UtcNow.AddSeconds(5); while (lieux.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); lieux.Pas(1);
-            Assert.That(Disques() == 0 && n == 2 && !lieux.LectureEnVol, Is.True, lieux.TexteLegende); horloge = 2; Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); Servir(cell => Complet(cell, 8)); Assert.That(Rendu(10, 0) != null && Rendu(20, 0) != null, Is.True);
-            void Reprise(Func<long, LectureLieu> mauvais, Func<bool> bon, string texte) { Servir(mauvais); Assert.That(bon() && lieux.TexteLegende.Contains(texte), Is.True, lieux.TexteLegende); Servir(cell => Complet(cell, 8)); }
-            Reprise(cell => cell == 10 ? LectureLieu.Absent("lecture refusée") : Complet(cell, 8), () => Rendu(10, 0) == null && Rendu(10, 1) == null && Rendu(20, 0) != null, "\nTerre sans lieux lus : lecture refusée");
-            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8)) : Complet(cell, 8), () => Rendu(10, 0) == null && Rendu(20, 0) != null, "\nTerre sans lieux lus : liste vide");
-            Reprise(cell => cell == 10 ? LectureLieu.De(new Lieu(10, 8, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: null, absenceDesLieux: "clé absente : lieux")) : Complet(cell, 8), () => Rendu(10, 0) == null && Rendu(20, 0) != null, "\nTerre sans lieux lus : clé absente : lieux");
-            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 1, 2), new LieuPlace(1, null, B, new FluxDeLieu(0, 1, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), () => Rendu(10, 0) != null && Rendu(10, 1) == null && Rendu(20, 0) != null, "\nAlba · Brivas : point absent");
-            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 1, 2), new LieuPlace(1, new PointCarte(4000, 2000), null, new FluxDeLieu(0, 1, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), () => Rendu(10, 1) == null && Rendu(10, 0) != null, "\nAlba · Brivas : maître absent");
-            Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle; Vector3 pos = camera.transform.position; Color teinte = carte.TeinteDe(10).Value; int nombre = Disques(); Servir(cell => Complet(cell, 9)); Servir(cell => Complet(cell, 10)); Servir(cell => Complet(cell, 11));
-            Assert.That(Disques() == nombre && carte.Vue.Centre == centre && carte.Vue.Echelle == echelle && camera.transform.position == pos && carte.TeinteDe(10) == teinte, Is.True); Assert.That(racine.transform.Find(LieuxDeCarte.RACINE).GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(Alertes() == "" && n == 2 && !lieux.LectureEnVol, Is.True, lieux.TexteLegende); horloge = 2; Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); Servir(cell => Complet(cell, 8)); Assert.That(Alertes(), Is.EqualTo("10-0,20-0"));
+            void Reprise(Func<long, LectureLieu> mauvais, string alertes, string texte) { Servir(mauvais); Assert.That(Alertes(), Is.EqualTo(alertes), lieux.TexteLegende); Assert.That(lieux.TexteLegende, Does.Contain(texte)); Servir(cell => Complet(cell, 8)); Assert.That(Alertes(), Is.EqualTo("10-0,20-0")); }
+            Reprise(cell => cell == 10 ? LectureLieu.Absent("lecture refusée") : Complet(cell, 8), "20-0", "\nTerre sans lieux lus : lecture refusée");
+            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8)) : Complet(cell, 8), "20-0", "\nTerre sans lieux lus : liste vide");
+            Reprise(cell => cell == 10 ? LectureLieu.De(new Lieu(10, 8, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: null, absenceDesLieux: "clé absente : lieux")) : Complet(cell, 8), "20-0", "\nTerre sans lieux lus : clé absente : lieux");
+            // Un lieu du joueur sans point reste en alerte : son flux est servi ; son point absent se dit dans le relevé.
+            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 2, 1), new LieuPlace(1, null, JOUEUR, new FluxDeLieu(0, 2, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), "10-0,10-1,20-0", "\nAlba · Brivas : point absent");
+            Reprise(cell => cell == 10 ? LectureLieu.De(Cellule(10, 8, Place(10, 0, 1000, 2000, JOUEUR, 2, 1), new LieuPlace(1, new PointCarte(4000, 2000), null, new FluxDeLieu(0, 2, 1), nom: NomDe(10, 1)))) : Complet(cell, 8), "10-0,20-0", "\nAlba · Brivas : maître absent");
+            Vector2 centre = carte.Vue.Centre; float echelle = carte.Vue.Echelle; Vector3 pos = camera.transform.position; Color teinte = carte.TeinteDe(10).Value; string alertes = Alertes(); int version = lieux.VersionDesAlertes; Servir(cell => Complet(cell, 9)); Servir(cell => Complet(cell, 10)); Servir(cell => Complet(cell, 11));
+            Assert.That(Alertes() == alertes && lieux.VersionDesAlertes == version && carte.Vue.Centre == centre && carte.Vue.Echelle == echelle && camera.transform.position == pos && carte.TeinteDe(10) == teinte, Is.True); Assert.That(Posees(), Is.Empty);
         }
         // Flèches du prélèvement et du dû.
-        FlechesDeCarte fleches; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
+        FlechesDeCarte fleches;
         [Test] public void LeCabinetConstruitUneSeuleVueDesFleches() { Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); }
         [TestCase(0d, 0f)] [TestCase(1000d, 4f)] [TestCase(200000d, 4f)] [TestCase(218086d, 4.36172f)] [TestCase(300000d, 6f)] [TestCase(400000d, 8f)] [TestCase(10000000d, 8f)] public void LEpaisseurEstAbsolueEtPlafonnee(double kg, float km) => Assert.That(FlechesDeCarte.Epaisseur(kg), Is.EqualTo(km).Within(1e-4f));
         [Test] public void UneFlecheParLieuTenuVersLeSiege()
@@ -159,7 +169,7 @@ namespace Forge.Interface.Tests
                 : Cellule(10, 4, new LieuPlace(0, new PointCarte(1000, 2000), JOUEUR, new FluxDeLieu(0, 1, 1), absenceDuNom: "nom absent pour 10-0"), new LieuPlace(1, new PointCarte(4000, 2000), JOUEUR, null, "flux absents au tick 4", nom: "Brivas"), new LieuPlace(2, null, JOUEUR, new FluxDeLieu(0, 1, 1)))));
             string t = lieux.TexteLegende; const string SANS = "\nBourg sans nom (déclaré absent par le monde)";
             Assert.That(t, Does.Contain(SANS + " · relevé au jour 5 de 1400").And.Contain(SANS + " · Brivas : déclaré absent par le monde").And.Contain(SANS + " · lieu sans nom (nom non fourni) : point absent").And.Contain("\nDara · relevé au jour 5 de 1400").And.Contain("\nTerre sans lieux lus : déclaré absent par le monde"));
-            Assert.That(TexteDuMonde.Interdit(t, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(t), Is.Null, t); Assert.That(racine.transform.Find(LieuxDeCarte.RACINE + "/Lieu 10-1"), Is.Not.Null);
+            Assert.That(TexteDuMonde.Interdit(t, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(t), Is.Null, t); Assert.That(Posees(), Is.Empty, "le relevé est dit, mais rien n'est posé");
         }
         [Test] public void La_legende_des_fleches_nomme_et_pese()
         {
@@ -188,6 +198,21 @@ namespace Forge.Interface.Tests
             Assert.That(politique.Legende(false), Is.EqualTo(CalquesCarte.PAYS_NON_LUS + CalquesCarte.ROUGE), "contre-épreuve : sans lieux peints"); Assert.That(CalquesCarte.DetailDuMode(politique, null, null, null), Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Politique)), "contre-épreuve : sans vue des lieux");
             Assert.Throws<ArgumentException>(() => calques.Legender(CalquesCarte.PAYS_NON_LUS + CalquesCarte.ROUGE + "\n" + FlechesDeCarte.ENTETE, detail), "contre-épreuve : l'en-tête des flèches ne tient pas dans la légende");
         }
+        // Le survol d'un bouton de mode : son infobulle ne recouvre pas le cadre de la légende, qu'elle masquerait sans la zone à éviter.
+        static Rect EnPixels(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c[0].x, c[0].y, c[2].x, c[2].y); } // la toile du cabinet est en surimpression : le monde y est l'écran
+        [Test] public void L_infobulle_d_un_mode_ne_recouvre_pas_la_legende()
+        {
+            var calques = racine.GetComponent<CalquesCarte>(); var fond = (RectTransform)racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE); var feuille = (Func<RectTransform>)(() => (RectTransform)racine.transform.Find("Cabinet/Infobulle")); int jugees = 0;
+            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte)))
+            {
+                var bouton = calques.BoutonDu(mode); var bulle = bouton.GetComponent<Infobulle>(); var survol = new UnityEngine.EventSystems.PointerEventData(null) { position = EnPixels((RectTransform)bouton.transform).center };
+                Assert.That(bulle.eviter, Is.SameAs(fond), mode + " : la légende n'est pas la zone à éviter");
+                bulle.OnPointerEnter(survol); Rect avec = EnPixels(feuille()), legende = EnPixels(fond); Assert.That(avec.Overlaps(legende), Is.False, mode + " : l'infobulle " + avec + " recouvre la légende " + legende);
+                bulle.eviter = null; bulle.OnPointerEnter(survol); Rect sans = EnPixels(feuille()); Assert.That(sans.Overlaps(legende), Is.True, mode + " : contre-épreuve, sans zone l'infobulle " + sans + " ne recouvre pas la légende " + legende);
+                bulle.eviter = fond; jugees++;
+            }
+            Assert.That(jugees, Is.EqualTo(5), "boutons jugés");
+        }
         [Test] public void Les_fleches_ne_se_montrent_qu_en_mode_Vivres()
         {
             Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); var calques = racine.GetComponent<CalquesCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); const double a = 100000, b = 218086;
@@ -208,7 +233,7 @@ namespace Forge.Interface.Tests
             var f = racine.transform.Find(FlechesDeCarte.RACINE + "/Flèche " + nom); var v = f.GetComponent<MeshFilter>().sharedMesh.vertices; Vector3 a = carte.PositionSurLaCarte(depart, FlechesDeCarte.HAUTEUR).Value, b = carte.PositionSurLaCarte(arrivee ?? new PointCarte(1, 2), FlechesDeCarte.HAUTEUR).Value, pied = (v[0] + v[1]) / 2f, pointe = v[v.Length - 1];
             // La flèche est un ruban drapé : sa première tranche est son pied, sa dernière sa pointe, et chaque sommet est à sa hauteur au-dessus du sol.
             float APlat(Vector3 p, Vector3 q) => new Vector2(p.x - q.x, p.z - q.z).magnitude;
-            Assert.That(Mathf.Abs(APlat(pied, a) - R) < 1e-2f && Mathf.Abs(APlat(pointe, b) - R) < 1e-2f && Vector3.Dot(pointe - pied, b - a) > 0f && f.GetComponent<Collider>() == null, Is.True, nom + " pied " + pied + " pointe " + pointe);
+            Assert.That(APlat(pied, a) < 1e-2f && APlat(pointe, b) < 1e-2f && Vector3.Dot(pointe - pied, b - a) > 0f && f.GetComponent<Collider>() == null, Is.True, nom + " pied " + pied + " pointe " + pointe);
             Assert.That(v.All(p => Mathf.Abs(p.y - carte.SurLeSol(p.x, p.z, FlechesDeCarte.HAUTEUR).y) < 1e-4f), Is.True, nom + " : un sommet de la flèche n'est pas posé sur le sol");
             Assert.That(v.Length % 2 == 0 && v.Length >= 8, Is.True, nom + " : " + v.Length + " sommets, deux par tranche de la hampe et de la pointe");
             // Deux tranches qui se suivent ne sont jamais à plus d'un pas de drapé l'une de l'autre : entre elles, le ruban ne peut pas couper le relief.
@@ -217,61 +242,30 @@ namespace Forge.Interface.Tests
             Assert.That(APlat(pied, pointe), Is.GreaterThan(CarteDessinee.PAS_DU_DRAPE_KM), "échantillon vide : la flèche " + nom + " tient dans un seul pas");
             Assert.That(APlat(v[0], v[1]), Is.EqualTo(FlechesDeCarte.Epaisseur(kg)).Within(1e-2f), nom + " : la hampe n'a pas l'épaisseur de ce qui est envoyé"); Assert.That((Color32)f.GetComponent<MeshRenderer>().sharedMaterial.color, Is.EqualTo((Color32)(nom == "du dû" ? FlechesDeCarte.VIOLET : FlechesDeCarte.ORANGE)));
         }
-        [Test] public void De_loin_deux_lieux_qui_se_recouvriraient_n_en_montrent_qu_un_le_rouge_puis_le_bourg()
+        // L'alerte se lit sur les lieux servis : de près, de loin, sous une armée ou sous le nombre de ses hommes, c'est le même ensemble trié et la même version.
+        [Test] public void L_alerte_ne_depend_ni_de_la_vue_ni_des_armees()
         {
-            // Trois lieux en ligne, d'ouest en est, à 40 km l'un de l'autre : le bourg, un hameau, un hameau.
-            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); EnLigne(true, false);
-            // De près, 900 pixels pour 120 km : chacun se voit.
-            Voir(60); Assert.That(Vector2.Distance(camera.WorldToScreenPoint(Figurine(10, 0).parent.position), camera.WorldToScreenPoint(Figurine(10, 1).parent.position)) * 120f / ECRAN_PX, Is.EqualTo(40f).Within(.01f), "échantillon faussé : les lieux témoins ne sont pas à 40 km"); Assert.That(Montres(), Is.EqualTo((true, true, true)), "un lieu est caché de près"); Assert.That((lieux.Poses, lieux.Montres), Is.EqualTo((3, 3)));
-            // 900 pixels pour 2 000 km : les figurines font 26 pixels et les lieux sont à 18 pixels l'un de l'autre.
-            // Le hameau du milieu recouvrirait le bourg : il se cache. Celui de l'est, à 36 pixels du bourg, reste.
-            Voir(1000); Assert.That(Montres(), Is.EqualTo((true, false, true)), "ce n'est pas le hameau qui se cache derrière le bourg"); Assert.That(lieux.Montres, Is.EqualTo(2));
-            // De deux fois plus loin, le hameau de l'est aussi recouvrirait le bourg : seul le bourg reste.
-            Voir(2000); Assert.That(Montres(), Is.EqualTo((true, false, false)), "ce n'est pas le bourg qui reste");
-            // Le hameau de l'est passe au rouge : c'est lui qui reste, et le bourg qui se cache.
-            EnLigne(true, true); Voir(2000); Assert.That(Montres(), Is.EqualTo((false, false, true)), "un lieu en rouge se cache derrière un lieu sans alerte");
-            Voir(1000); Assert.That(Montres(), Is.EqualTo((true, false, true)));
-            // Deux hameaux sans alerte : le premier servi reste.
-            EnLigne(false, false); Voir(2000); Assert.That((Figurine(10, 1).gameObject.activeSelf, Figurine(10, 2).gameObject.activeSelf), Is.EqualTo((true, false)), "de deux hameaux, ce n'est pas le premier servi qui reste");
-            // La vue revenue, tous reviennent.
-            EnLigne(true, true); Voir(60); Assert.That(Montres(), Is.EqualTo((true, true, true)), "les lieux ne reviennent pas quand la vue s'approche");
+            // Trois lieux du joueur en alerte, servis dans le désordre, un sans alerte ; un lieu d'un autre maître en alerte, qui ne compte pas.
+            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(20, 0)); var guerre = racine.GetComponent<CarteDeLaGuerre>(); var calques = racine.GetComponent<CalquesCarte>();
+            Servir(cell => LectureLieu.De(cell == 10 ? Cellule(10, 3, Place(10, 2, 81000, 2000, JOUEUR, 7, 2), Place(10, 1, 41000, 2000, JOUEUR, 1, 2), Place(10, 0, 1000, 2000, JOUEUR, 9, 2)) : Cellule(20, 3, Place(20, 1, 61000, 2000, B, 9, 2), Place(20, 0, 21000, 2000, JOUEUR, 3, 1))));
+            Assert.That(Alertes(), Is.EqualTo("10-0,10-2,20-0")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1));
+            void Inchange(string vue) { Assert.That(Alertes(), Is.EqualTo("10-0,10-2,20-0"), vue); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1), vue); Assert.That(Posees(), Is.Empty, vue); }
+            foreach (float demi in new[] { 60f, 1000f, 2000f }) { Voir(demi); Inchange("demi " + demi + " km"); }
+            // L'armée arrive sur un lieu : sa figurine et le nombre de ses hommes ne cachent aucune alerte.
+            Armees(guerre, calques, new ArmeeLue(0, JOUEUR, 10, 0, 1200, 500, 10L, null, new long[0], new PointCarte(81000, 2000), new PointCarte[0])); Voir(1000); Assert.That(calques.PlacesDesNombres, Has.Count.EqualTo(1), "échantillon vide : le nombre de l'armée n'est pas montré"); Inchange("sous l'armée");
+            // Une relecture identique garde la version ; un lieu de moins en alerte la change.
+            Servir(cell => LectureLieu.De(cell == 10 ? Cellule(10, 4, Place(10, 2, 81000, 2000, JOUEUR, 7, 2), Place(10, 1, 41000, 2000, JOUEUR, 1, 2), Place(10, 0, 1000, 2000, JOUEUR, 9, 2)) : Cellule(20, 4, Place(20, 1, 61000, 2000, B, 9, 2), Place(20, 0, 21000, 2000, JOUEUR, 3, 1)))); Inchange("relecture identique");
+            Servir(cell => LectureLieu.De(cell == 10 ? Cellule(10, 5, Place(10, 2, 81000, 2000, JOUEUR, 7, 2), Place(10, 1, 41000, 2000, JOUEUR, 1, 2), Place(10, 0, 1000, 2000, JOUEUR, 9, 2)) : Cellule(20, 5, Place(20, 1, 61000, 2000, B, 9, 2), Place(20, 0, 21000, 2000, JOUEUR, 1, 3))));
+            Assert.That(Alertes(), Is.EqualTo("10-0,10-2")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(2));
         }
-        [Test] public void De_loin_un_lieu_se_cache_sous_une_armee_et_sous_le_nombre_de_ses_hommes()
-        {
-            // Le bourg ; un hameau à 60 km à l'est ; un hameau à 70 km au sud du point où l'armée se tiendra, 20 km à l'est du premier hameau.
-            Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); var guerre = racine.GetComponent<CarteDeLaGuerre>(); var calques = racine.GetComponent<CalquesCarte>();
-            Servir(_ => LectureLieu.De(Cellule(10, 3, Place(10, 0, 1000, 2000, B, 1, 2), Place(10, 1, 61000, 2000, JOUEUR, 1, 2), Place(10, 2, 81000, -68000, C, 1, 2))));
-            // 900 pixels pour 2 000 km, sans armée : les trois lieux, à plus de 26 pixels l'un de l'autre, se voient.
-            Armees(guerre, calques); Voir(1000); Assert.That(Montres(), Is.EqualTo((true, true, true)), "échantillon faussé : un lieu est caché sans armée");
-            // L'armée arrive : sa figurine, de 34 pixels, est à 9 pixels du hameau, qui se cache sous elle.
-            Armees(guerre, calques, new ArmeeLue(0, JOUEUR, 10, 0, 1200, 500, 10L, null, new long[0], new PointCarte(81000, 2000), new PointCarte[0])); Voir(1000);
-            var places = new List<Vector3>(); guerre.PlacesDesArmees(camera, places); Assert.That(places, Has.Count.EqualTo(1)); Assert.That(places[0].z, Is.EqualTo(CarteDeLaGuerre.MIN_PX / 2f).Within(.01f), "la place de l'armée ne dit pas le rayon de sa figurine");
-            Assert.That(((Vector2)places[0] - (Vector2)camera.WorldToScreenPoint(Figurine(10, 1).parent.position)).magnitude, Is.EqualTo(9f).Within(.1f), "la place de l'armée n'est pas là où elle se dessine");
-            // Le hameau du sud est hors de la figurine de l'armée, mais sous le nombre de ses hommes : il se cache aussi.
-            Vector2 sud = camera.WorldToScreenPoint(Figurine(10, 2).parent.position); Assert.That(calques.PlacesDesNombres, Has.Count.EqualTo(1), "le nombre de l'armée n'est pas montré");
-            Assert.That(calques.PlacesDesNombres[0].Contains(sud), Is.True, "échantillon faussé : le hameau du sud n'est pas sous le nombre " + calques.PlacesDesNombres[0] + " " + sud);
-            Assert.That((sud - (Vector2)places[0]).magnitude, Is.GreaterThan(LieuxDeCarte.MIN_PX / 2f + places[0].z), "échantillon faussé : le hameau du sud touche la figurine de l'armée");
-            Assert.That(Montres(), Is.EqualTo((true, false, false)), "un lieu se montre sous l'armée ou sous son nombre"); Assert.That(lieux.Montres, Is.EqualTo(1));
-            // De près, l'armée est à 150 pixels du hameau et son nombre loin de celui du sud : tous reviennent.
-            Voir(60);
-            Assert.That(Montres(), Is.EqualTo((true, true, true)), "les lieux ne reviennent pas quand la vue s'approche de l'armée");
-            // L'armée partie, plus rien ne se cache de loin.
-            Armees(guerre, calques); Voir(1000); Assert.That(calques.PlacesDesNombres, Is.Empty); Assert.That(Montres(), Is.EqualTo((true, true, true)), "un lieu reste caché sous une armée partie");
-        }
-        // Les trois lieux témoins de la terre 10, en ligne d'ouest en est à 40 km l'un de l'autre ; sans son bourg, il en reste deux.
-        void EnLigne(bool bourg, bool rougeALEst)
-        {
-            var places = new List<LieuPlace> { Place(10, 1, 41000, 2000, JOUEUR, 1, 2), Place(10, 2, 81000, 2000, C, rougeALEst ? 7 : 1, 2) }; if (bourg) places.Insert(0, Place(10, 0, 1000, 2000, B, 1, 2));
-            Servir(_ => LectureLieu.De(Cellule(10, 3, places.ToArray())));
-        }
-        // La caméra témoin regarde d'en haut le lieu de rang 1 : `demi` km de part et d'autre sur un écran de 900 pixels de haut, et les lieux s'y règlent.
+        // La caméra témoin regarde d'en haut le point (41000, 2000) : `demi` km de part et d'autre sur un écran de 900 pixels de haut, et les armées s'y règlent.
         const int ECRAN_PX = 900; RenderTexture ecran;
         void Voir(float demi)
         {
             if (ecran == null) { ecran = new RenderTexture(1600, ECRAN_PX, 16); camera.targetTexture = ecran; camera.orthographic = true; }
-            camera.transform.SetPositionAndRotation(Figurine(10, 1).parent.position + Vector3.up * 100f, Quaternion.Euler(90, 0, 0)); camera.orthographicSize = demi;
-            // Dans l'ordre d'une image : les armées et leurs nombres se règlent sur la vue, les étiquettes se posent, puis les lieux se rangent.
-            racine.GetComponent<CarteDeLaGuerre>().SuivreLaVue(); var calques = racine.GetComponent<CalquesCarte>(); Peindre(calques); Peindre(calques); lieux.SuivreLaVue();
+            camera.transform.SetPositionAndRotation(carte.PositionSurLaCarte(new PointCarte(41000, 2000), 0f).Value + Vector3.up * 100f, Quaternion.Euler(90, 0, 0)); camera.orthographicSize = demi;
+            // Dans l'ordre d'une image : les armées et leurs nombres se règlent sur la vue, puis les étiquettes se posent.
+            racine.GetComponent<CarteDeLaGuerre>().SuivreLaVue(); var calques = racine.GetComponent<CalquesCarte>(); Peindre(calques); Peindre(calques);
         }
         static void Peindre(CalquesCarte calques) => typeof(CalquesCarte).GetMethod("LateUpdate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(calques, null);
         // Les armées que la carte de la guerre lit et pose, sur la terre 10 tenue par le joueur.
@@ -287,21 +281,20 @@ namespace Forge.Interface.Tests
             Assert.That(guerre.NombresDesArmees.Count(n => n != null), Is.EqualTo(armees.Length), "les armées témoins ne sont pas posées : " + guerre.AbsenceDesGuerres + " " + guerre.AbsenceDesTerres);
         }
         double horlogeDeGuerre;
-        Transform Figurine(long cell, long rang) => racine.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/" + LieuxDeCarte.FIGURINE);
-        (bool, bool, bool) Montres() => (Figurine(10, 0).gameObject.activeSelf, Figurine(10, 1).gameObject.activeSelf, Figurine(10, 2).gameObject.activeSelf);
         // La terre 10 est posée pour de bon ; l'origine et la vue sont ensuite celles que les lieux témoins attendent.
         void Preparer() { horloge = 0; lieux = racine.GetComponent<LieuxDeCarte>(); Dessiner(10); typeof(CarteDessinee).GetField("origine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(carte, (PointCarte?)new PointCarte(3000000, 1500000)); Poser(carte, "Vue", new VueDeCarte(new Bounds(Vector3.zero, new Vector3(8000f, 1f, 6000f)), 1.6f)); camera = new GameObject("caméra témoin").AddComponent<Camera>(); camera.transform.SetParent(racine.transform, false); camera.transform.position = new Vector3(3, 4, 5); carte.camera = camera; Assert.That(carte.Vue != null && carte.PositionSurLaCarte(new PointCarte(1, 1), 0f) != null, Is.True); }
         void Publier(string id, params LieuTenu[] tenus) { if (partie == null) partie = new LecturePartie(() => null, _ => null, () => null, _ => null); cabinet.Partie = partie; Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(1, new DateDuMonde(1400, 1), 0, new CelluleDuMonde[0]), id))); Poser(partie, "Maison", Lecture<MaisonLue>.De(new MaisonLue(id, "Maison", new SiegeDeMaison(tenus[0].CellId, tenus[0].Rang, "Siège", new PointCarte(1, 2)), tenus, new Dictionary<string, string>()))); }
         static void Poser(object cible, string nom, object valeur) => cible.GetType().GetProperty(nom).GetSetMethod(true).Invoke(cible, new[] { valeur });
         void Servir(Func<long, LectureLieu> lire) { lieux.Lecteur = lire; lieux.Pas(horloge); var fin = DateTime.UtcNow.AddSeconds(5); while (lieux.LectureEnVol && DateTime.UtcNow < fin) System.Threading.Thread.Sleep(5); Assert.That(lieux.LectureEnVol, Is.False, lieux.TexteLegende); lieux.Pas(horloge); horloge += LieuxDeCarte.PERIODE_S; }
         static (long, long, double, double, string)[] Attendu() => new[] { (10L, 0L, 1000d, 2000d, JOUEUR), (10L, 1L, 5000d, 2500d, B), (10L, 2L, 1500d, 7000d, C), (20L, 0L, 9000d, 1000d, B), (20L, 1L, 12000d, 4000d, JOUEUR) };
-        static LectureLieu Reponse(long cell, long tick, bool inverse) { var tous = Attendu().Where(p => p.Item1 == cell).Select(p => Place(cell, p.Item2, p.Item3, p.Item4, p.Item5, 1, 2)).ToArray(); if (inverse) Array.Reverse(tous); return LectureLieu.De(Cellule(cell, tick, tous)); }
-        static LectureLieu Complet(long cell, long tick) => cell == 20 ? LectureLieu.De(Cellule(20, tick, Place(20, 0, 8000, 3000, JOUEUR, 0, 1))) : cell == 10 ? LectureLieu.De(Cellule(10, tick, Place(10, 0, 1000, 2000, JOUEUR, 1, 2), Place(10, 1, 4000, 2000, B, 1, 1))) : LectureLieu.Absent("cellule extérieure " + cell);
+        static LectureLieu Reponse(long cell, long tick, bool inverse, long partis = 1) { var tous = Attendu().Where(p => p.Item1 == cell).Select(p => Place(cell, p.Item2, p.Item3, p.Item4, p.Item5, partis, 2)).ToArray(); if (inverse) Array.Reverse(tous); return LectureLieu.De(Cellule(cell, tick, tous)); }
+        static LectureLieu Complet(long cell, long tick) => cell == 20 ? LectureLieu.De(Cellule(20, tick, Place(20, 0, 8000, 3000, JOUEUR, 2, 1))) : cell == 10 ? LectureLieu.De(Cellule(10, tick, Place(10, 0, 1000, 2000, JOUEUR, 2, 1), Place(10, 1, 4000, 2000, B, 1, 1))) : LectureLieu.Absent("cellule extérieure " + cell);
         static Lieu Cellule(long cell, long tick, params LieuPlace[] places) => new Lieu(cell, tick, 1400, (int)tick + 1, 1, new Dictionary<string, double>(), 0, 0, lieux: places); // le service sert le jour tick + 1
         static LieuPlace Place(long cell, long rang, double x, double y, string maitre, long partis, long arrives) => new LieuPlace(rang, new PointCarte(x, y), maitre, new FluxDeLieu(0, partis, arrives), nom: NomDe(cell, rang));
         static string NomDe(long cell, long rang) => (cell, rang) switch { (10, 0) => "Alba", (10, 1) => "Brivas", (10, 2) => "Cerda", (20, 0) => "Dara", (20, 1) => "Elne", _ => throw new ArgumentOutOfRangeException(nameof(rang), "aucun nom pour " + cell + "-" + rang) };
-        MeshRenderer Rendu(long cell, long rang) { var t = racine.transform.Find(LieuxDeCarte.RACINE + "/" + ReperesDeDepart.NomDuLieu(cell, rang) + "/" + LieuxDeCarte.FIGURINE); return t != null && t.gameObject.activeInHierarchy ? t.GetComponent<MeshRenderer>() : null; }
-        int Disques() { var r = racine.transform.Find(LieuxDeCarte.RACINE); if (r == null) return 0; int n = 0; foreach (Transform e in r) { var d = e.Find(LieuxDeCarte.FIGURINE); if (d != null && d.gameObject.activeInHierarchy) n++; } return n; }
+        // Les lieux en alerte, « cellule-rang » séparés par des virgules ; et ce que la lecture des lieux aurait posé sur la carte (rien).
+        string Alertes() => string.Join(",", lieux.EnAlerte.Select(a => a.cell + "-" + a.rang));
+        string[] Posees() => racine.GetComponentsInChildren<Transform>(true).Select(t => t.name).Where(n => n == "Lieux de la carte" || n.StartsWith("Lieu ", StringComparison.Ordinal)).ToArray();
         // Un clic gauche court garde la terre, un glisser ne choisit rien, Échap ferme le dossier avant d'ouvrir le menu.
         static readonly Vector2 O = new Vector2(400, 300);
         static CelluleDeCarte Terre(long id, string ville) => new CelluleDeCarte(id, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"), null, new[] { new VilleDeCarte(ville, 12, new PointCarte(0, 0)) });
