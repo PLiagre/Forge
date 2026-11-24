@@ -10,9 +10,13 @@
 // rend au large la couleur exacte de `_Mer`, celle du fond de la caméra. Rien n'est éclairé par la scène : la carte
 // est mate. La lumière est un peu chaude sur les versants éclairés, un peu froide dans l'ombre. De près, quand un pixel
 // couvre moins d'un km, un grain fin anime le relief, plus fort sur les pentes : sans lui le relief, levé tous les
-// deux km, se lit comme un flou. Autour de la carte, un cadre : un filet épais doublé d'un filet fin, et au-delà la
-// table, de la couleur du fond de la caméra. Le terrain se dessine avant tout le reste de la carte : les noms des pays s'impriment sur lui, puis
-// viennent les objets posés dessus.
+// deux km, se lit comme un flou. La mer hors de la carte (`_HorsCarte`, au-delà d'une coupe de la terre) est un papier
+// qui s'estompe vers la mer du large, sans côte ni lignes d'eau le long de la coupe. `_ParAltitude` à 1 teint la terre
+// par l'altitude du relief, de palier en palier (`_Palier0` à `_Palier4`, posés à `_Socles` et `_DernierSocle`), au lieu
+// de la palette ; un éclat, dont la case de palette est moins opaque, se voit toujours. `_ForceDesLiseres` à 0 efface le
+// liseré des pays sans effacer leurs frontières. La cellule marquée (`_LieuxMarques`, ses numéros de texel) est cernée
+// d'un trait tiré de `_Marque`, la distance à ses côtés, côte comprise, par-dessus tout le reste. Le terrain se dessine
+// avant tout le reste de la carte : les noms des pays s'impriment sur lui, puis viennent les objets posés dessus.
 Shader "Forge/CarteRelief"
 {
     Properties
@@ -40,9 +44,21 @@ Shader "Forge/CarteRelief"
         _Vigueur("Vigueur de l'ombre", Float) = 1.6
         _Grain("Force du grain de près", Float) = 1
         _ForceDesPays("Force du liseré et des frontières des pays : 0 les efface", Float) = 1
-        _Table("Table autour de la carte", Color) = (0.08, 0.16, 0.3, 1)
-        _Filet("Filet du cadre", Color) = (0.1, 0.08, 0.06, 0)
-        _Cadre("Cadre de la carte, en km depuis le coin du terrain : ouest, sud, est, nord", Vector) = (-1000000, -1000000, 1000000, 1000000)
+        _ForceDesLiseres("Force du liseré des pays seul : 0 l'efface", Float) = 1
+        [NoScaleOffset] _HorsCarte("Mer hors de la carte, et proximité à la coupe", 2D) = "black" {}
+        _Papier("Papier hors de la carte", Color) = (0.85, 0.83, 0.78, 1)
+        _ParAltitude("Teinte par l'altitude : 1 au lieu de la palette", Float) = 0
+        _Palier0("Teinte du premier palier", Color) = (0.4, 0.5, 0.4, 1)
+        _Palier1("Teinte du deuxième palier", Color) = (0.5, 0.6, 0.4, 1)
+        _Palier2("Teinte du troisième palier", Color) = (0.6, 0.6, 0.4, 1)
+        _Palier3("Teinte du quatrième palier", Color) = (0.55, 0.45, 0.35, 1)
+        _Palier4("Teinte du dernier palier", Color) = (0.85, 0.85, 0.85, 1)
+        _Socles("Altitude des quatre premiers paliers, en km", Vector) = (0.3, 1.2, 5, 14)
+        _DernierSocle("Altitude du dernier palier, en km", Float) = 26
+        [NoScaleOffset] _Marque("Distances au bord de la cellule marquée", 2D) = "white" {}
+        _PorteeDeLaMarque("Portée des distances à la marque, en km", Float) = 16
+        _LieuxMarques("Premier et dernier numéros de texel de la cellule marquée ; -1 sans marque", Vector) = (-1, -1, 0, 0)
+        _CouleurDeLaMarque("Couleur du trait de la marque", Color) = (0.1, 0.08, 0.06, 1)
     }
     SubShader
     {
@@ -52,8 +68,9 @@ Shader "Forge/CarteRelief"
         CBUFFER_START(UnityPerMaterial)
             float4 _Lieux_TexelSize, _Palette_TexelSize, _Relief_TexelSize;
             float4 _Mer, _Rivage, _Roche, _EncreDesCotes, _EncreDesBords, _EncreDesFrontieres, _EncreDesEaux;
-            float4 _Table, _Filet, _Cadre;
+            float4 _Papier, _Palier0, _Palier1, _Palier2, _Palier3, _Palier4, _Socles, _LieuxMarques, _CouleurDeLaMarque;
             float _Pas, _PorteeDesBords, _PorteeDesFrontieres, _PasDuRelief, _Fond, _Plafond, _Vigueur, _Grain, _ForceDesPays;
+            float _ForceDesLiseres, _ParAltitude, _DernierSocle, _PorteeDeLaMarque;
         CBUFFER_END
         struct A { float3 p : POSITION; float2 uv : TEXCOORD0; };
         struct V { float4 clip : SV_POSITION; float2 uv : TEXCOORD0; };
@@ -68,7 +85,7 @@ Shader "Forge/CarteRelief"
             #pragma vertex Vert
             #pragma fragment Frag
             TEXTURE2D(_Lieux); TEXTURE2D(_Palette); TEXTURE2D(_Relief); SAMPLER(sampler_Relief);
-            TEXTURE2D(_Bords); TEXTURE2D(_Frontieres); TEXTURE2D(_Pays); TEXTURE2D(_TeintesDesPays);
+            TEXTURE2D(_Bords); TEXTURE2D(_Frontieres); TEXTURE2D(_Pays); TEXTURE2D(_TeintesDesPays); TEXTURE2D(_HorsCarte); TEXTURE2D(_Marque);
             static const float3 LUMIERE = float3(-0.5145, 0.686, 0.5145); // du nord-ouest, à mi-hauteur
             // En km : sous ce plancher, un texel posé sur un bord ne dit plus de quel côté il est.
             static const float PLANCHER = 0.02;
@@ -82,12 +99,29 @@ Shader "Forge/CarteRelief"
             // dépasse le km, où elles se toucheraient.
             static const float3 EAUX_KM = float3(2.5, 5.5, 9.0), EAUX = float3(0.34, 0.22, 0.12);
 
-            // Le cadre : son filet épais a cette demi-largeur, en km et jamais moins qu'en pixels ; le filet fin est en dedans.
-            static const float FILET_KM = 7.0, FILET_PX = 2.0, FILET_FIN_PX = 0.8;
+            // Le trait de la marque : sa demi-largeur en km, jamais moins qu'en pixels. Le papier hors de la carte : la part de
+            // la mer du large qu'il a pris au plus loin de la coupe.
+            static const float MARQUE_KM = 0.6, MARQUE_PX = 1.6, PAPIER_AU_LARGE = 0.55;
             // La lumière des versants éclairés et celle de l'ombre.
             static const float3 CHAUDE = float3(1.05, 1.0, 0.93), FROIDE = float3(0.9, 0.95, 1.05);
 
             float Altitude(float2 uv) { return SAMPLE_TEXTURE2D(_Relief, sampler_Relief, uv).r; }
+
+            // La teinte d'altitude : fondue d'un palier à l'autre entre leurs socles, celle du premier en dessous, du dernier au-dessus.
+            float3 TeinteDAltitude(float h)
+            {
+                float3 c = _Palier0.rgb;
+                c = lerp(c, _Palier1.rgb, saturate((h - _Socles.x) / (_Socles.y - _Socles.x)));
+                c = lerp(c, _Palier2.rgb, saturate((h - _Socles.y) / (_Socles.z - _Socles.y)));
+                c = lerp(c, _Palier3.rgb, saturate((h - _Socles.z) / (_Socles.w - _Socles.z)));
+                return lerp(c, _Palier4.rgb, saturate((h - _Socles.w) / (_DernierSocle - _Socles.w)));
+            }
+            // La teinte d'un lieu de terre : celle de sa case de palette, ou celle de l'altitude, sauf sous un éclat.
+            float3 TeinteDuLieu(float4 caseDePalette, float3 altitude)
+            {
+                bool eclat = caseDePalette.a < 0.95;
+                return _ParAltitude > 0.5 && !eclat ? altitude : caseDePalette.rgb;
+            }
 
             // Un nombre de 0 à 1 par case d'une grille, toujours le même pour la même case ; puis un bruit lisse entre
             // ces nombres, et le grain : deux bruits, l'un de 1,7 km, l'autre de 600 m.
@@ -127,7 +161,7 @@ Shader "Forge/CarteRelief"
                 float2 p = i.uv * _Lieux_TexelSize.zw - 0.5, base = floor(p), f = p - base;
                 int2 dernier = int2(_Lieux_TexelSize.zw) - 1; uint largeurPalette = (uint)_Palette_TexelSize.z;
                 float poids[4] = { (1 - f.x) * (1 - f.y), f.x * (1 - f.y), (1 - f.x) * f.y, f.x * f.y };
-                float numero[4], pays[4], bord[4], cote[4], frontiere[4], s[4], vote[4]; float4 teinte[4];
+                float numero[4], pays[4], bord[4], cote[4], frontiere[4], marque[4], s[4], vote[4]; float4 teinte[4];
                 int k, a;
                 for (k = 0; k < 4; k++)
                 {
@@ -139,6 +173,7 @@ Shader "Forge/CarteRelief"
                     float2 b = LOAD_TEXTURE2D(_Bords, q).rg; float v = LOAD_TEXTURE2D(_Frontieres, q).r;
                     bord[k] = max(_PorteeDesBords * b.r * b.r, PLANCHER); cote[k] = _PorteeDesBords * b.g * b.g;
                     frontiere[k] = _PorteeDesFrontieres * v * v;
+                    float m = LOAD_TEXTURE2D(_Marque, q).r; marque[k] = _PorteeDeLaMarque * m * m;
                 }
                 // Le point, en km de la carte, et ce qu'un pixel de l'écran en couvre.
                 float2 km = i.uv * _Lieux_TexelSize.zw * _Pas, dx = ddx(km), dy = ddy(km);
@@ -175,13 +210,18 @@ Shader "Forge/CarteRelief"
                 float3 ombre = eclat * lerp(FROIDE, CHAUDE, saturate((eclat - 0.45) / 0.85));
                 float cime = smoothstep(0.5 * _Plafond, 0.9 * _Plafond, h);
                 float3 mer = lerp(_Rivage.rgb, _Mer.rgb, saturate(-h / _Fond));
+                // Hors de la carte, le papier : plein contre la coupe, il prend peu à peu la mer du large en s'en éloignant.
+                // La grille dit 1 au-delà de la coupe et 0 en deçà : à mi-chemin, sur la coupe, c'est déjà du papier.
+                float2 auDela = SAMPLE_TEXTURE2D(_HorsCarte, sampler_Relief, i.uv).rg; float hors = saturate(2.0 * auDela.r);
+                mer = lerp(mer, lerp(_Papier.rgb, _Mer.rgb, PAPIER_AU_LARGE * (1.0 - auDela.g)), hors);
 
                 // La teinte du lieu, fondue sur un pixel dans celle d'en face ; un lieu sans teinte rend la mer.
+                float3 altitude = TeinteDAltitude(h);
                 bool terre = teinte[ici].a > 0.5;
-                float3 couleur = terre ? lerp(teinte[ici].rgb, _Roche.rgb, 0.4 * cime) * ombre : mer;
+                float3 couleur = terre ? lerp(TeinteDuLieu(teinte[ici], altitude), _Roche.rgb, 0.4 * cime) * ombre : mer;
                 if (voisine)
                 {
-                    float3 autre = teinte[enFace].a > 0.5 ? lerp(teinte[enFace].rgb, _Roche.rgb, 0.4 * cime) * ombre : mer;
+                    float3 autre = teinte[enFace].a > 0.5 ? lerp(TeinteDuLieu(teinte[enFace], altitude), _Roche.rgb, 0.4 * cime) * ombre : mer;
                     couleur = lerp(autre, couleur, saturate(0.5 + auBord.px));
                 }
 
@@ -193,7 +233,7 @@ Shader "Forge/CarteRelief"
                 float3 teinteDuPays = LOAD_TEXTURE2D(_TeintesDesPays, int2(c % largeurPalette, c / largeurPalette)).rgb;
                 float bande = saturate(1.0 - aLaFrontiere.brute / clamp(LISERE_PX * kmParPixel, LISERE_MIN_KM, LISERE_MAX_KM));
                 float surTerre = terre ? 1.0 : 0.0;
-                couleur = lerp(couleur, teinteDuPays * ombre, surTerre * (c > 0 ? 1.0 : 0.0) * FORCE_DU_LISERE * bande * _ForceDesPays);
+                couleur = lerp(couleur, teinteDuPays * ombre, surTerre * (c > 0 ? 1.0 : 0.0) * FORCE_DU_LISERE * bande * _ForceDesPays * _ForceDesLiseres);
                 // Le bord entre deux lieux de terre, léger de près, effacé de loin.
                 float entreTerres = voisine && teinte[enFace].a > 0.5 ? surTerre : 0.0;
                 couleur = lerp(couleur, _EncreDesBords.rgb, entreTerres * BORD_PRES * (1.0 - smoothstep(BORD_PRES_KM, BORD_LOIN_KM, kmParPixel)) * Trait(auBord.px, BORD_PX));
@@ -203,16 +243,16 @@ Shader "Forge/CarteRelief"
                 for (k = 0; k < 4; k++) s[k] = cote[k] * (numero[k] != 0 ? 1.0 : -1.0);
                 Lecture aLaCote = Lire(s, poids, f, dx, dy);
                 float3 auLarge = abs(-aLaCote.brute - EAUX_KM) / aLaCote.pixel;
-                float eaux = dot(EAUX, saturate(1.2 - auLarge)) * (1.0 - smoothstep(0.6, 1.1, kmParPixel));
+                // Ni lignes d'eau ni côte contre le papier : la coupe n'est pas un rivage.
+                float eaux = dot(EAUX, saturate(1.2 - auLarge)) * (1.0 - smoothstep(0.6, 1.1, kmParPixel)) * (1.0 - hors);
                 couleur = lerp(couleur, _EncreDesEaux.rgb, eaux);
-                couleur = lerp(couleur, _EncreDesCotes.rgb, _EncreDesCotes.a * Trait(abs(aLaCote.px), max(COTE_PX, COTE_KM / kmParPixel)));
+                couleur = lerp(couleur, _EncreDesCotes.rgb, _EncreDesCotes.a * (1.0 - hors) * Trait(abs(aLaCote.px), max(COTE_PX, COTE_KM / kmParPixel)));
 
-                // Le bord de la carte : au-delà du cadre, la table ; sur lui, le filet épais ; un peu en dedans, le filet fin.
-                float2 auDela = max(_Cadre.xy - km, km - _Cadre.zw); float dehors = max(auDela.x, auDela.y) / kmParPixel; // en pixels, négatif en dedans
-                float epais = max(FILET_PX, FILET_KM / kmParPixel);
-                couleur = lerp(couleur, _Table.rgb, saturate(dehors + 0.5));
-                couleur = lerp(couleur, _Filet.rgb, _Filet.a * Trait(abs(dehors + epais), epais));
-                couleur = lerp(couleur, _Filet.rgb, _Filet.a * Trait(abs(dehors + 3.2 * epais), FILET_FIN_PX));
+                // Le trait de la marque, par-dessus tout : là où s'annule la distance signée au bord de la cellule marquée.
+                for (k = 0; k < 4; k++) s[k] = marque[k] * ((numero[k] >= _LieuxMarques.x && numero[k] <= _LieuxMarques.y) ? 1.0 : -1.0);
+                Lecture aLaMarque = Lire(s, poids, f, dx, dy);
+                float marquee = _LieuxMarques.x > 0.0 ? 1.0 : 0.0;
+                couleur = lerp(couleur, _CouleurDeLaMarque.rgb, marquee * Trait(abs(aLaMarque.px), max(MARQUE_PX, MARQUE_KM / kmParPixel)));
                 return half4(couleur, 1);
             }
             ENDHLSL

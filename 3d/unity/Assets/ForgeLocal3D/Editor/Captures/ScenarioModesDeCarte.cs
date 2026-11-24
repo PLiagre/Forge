@@ -21,15 +21,22 @@ namespace ForgeLocal3D.Captures
     //   5-guerres       la France déclare la guerre à l'Angleterre, les jours passent jusqu'à ce que la caserne ouvre la levée, et la
     //                   France lève une armée (les intentions du joueur) ; la vue revient sur l'Europe : seuls les pays que `/guerres`
     //                   dit en guerre gardent leur couleur, l'armée se voit, et la légende dit les sièges, ou qu'il n'y en a aucun ;
-    //   6-ma-capitale   la carte politique de nouveau, puis « Ma capitale » : la vue sur le siège.
-    // Chaque image vérifie ce qu'elle montre et échoue sinon : le bouton du mode enfoncé, et lui seul ; la légende du mode, datée du jour
-    // que le service sert ; la caméra qui ne bouge pas quand le mode change. Le tick est celui que le service sert, jamais écrit en dur.
+    //   6-ma-capitale   la carte politique de nouveau, puis « Ma capitale » : la vue sur le siège ;
+    //   7-au-plus-loin  la molette jusqu'au bout : les quatre coins de l'écran tombent sur le sol, dans le cadre de la carte ;
+    //   8-bord-de-l-anatolie  la vue centrée sur la coupe de l'est de l'Anatolie : du papier d'atlas au-delà de la coupe, de la terre en deçà.
+    // Chaque image vérifie ce qu'elle montre et échoue sinon : le bouton du mode enfoncé, et lui seul ; la légende du mode, une échelle de
+    // trois étiquettes, datée du jour que le service sert ; la caméra qui ne bouge pas quand le mode change ; aucune figurine de lieu sur
+    // la carte. Le tick est celui que le service sert, jamais écrit en dur.
     static class ScenarioModesDeCarte
     {
         const string GROUPE = "modes-de-carte", FRANCE = "France", ANGLETERRE = "Angleterre";
         const int LARGEUR = 1920, HAUTEUR = 1080, IMAGES_DE_POSE = 6;
         const double STABLE_S = 2.5; // les textes du cabinet sont récrits une image après la lecture
         const float TOLERANCE_DU_CENTRE_KM = 5f;
+        // La coupe de l'est de l'Anatolie : son milieu tombe dans ce rectangle d'EPSG:3035 (mètres), et la vue s'y cadre sur 180 km de demi-hauteur ;
+        // le papier et la terre se comptent sur une grille de l'écran, chacun pour au moins une part des points.
+        const double ANATOLIE_X_MIN = 6340000, ANATOLIE_X_MAX = 6520000, ANATOLIE_Y_MIN = 1880000, ANATOLIE_Y_MAX = 2440000;
+        const float DEMI_DU_BORD_KM = 180f, PART_MIN_DE_LA_GRILLE = 0.05f; const int PAS_DE_LA_GRILLE_PX = 80;
         // La levée de la photo des guerres : la caserne s'attend par paquets de jours, au plus `JOURS_MAX_DE_LA_CASERNE` ; puis une
         // armée d'au plus `HOMMES_LEVES` hommes, avec des vivres pour `JOURS_DE_VIVRES` jours, au plus une part du grain libre servi.
         const int PAQUET_DE_JOURS = 8, JOURS_MAX_DE_LA_CASERNE = 80; const long HOMMES_LEVES = 3000; const double JOURS_DE_VIVRES = 30, PART_DU_GRAIN = 0.5;
@@ -62,6 +69,11 @@ namespace ForgeLocal3D.Captures
                 () => "fiche de la France : « " + cabinet.Accueil.TexteDuNom + " »"); a.MoveNext();) yield return null;
             string maison = cabinet.Accueil.Montree.Id;
             Cliquer(carte, cabinet.Accueil.Commencer);
+            // Le choix reçu attend que le temps reprenne pour s'appliquer : « Reprendre », puis le temps s'arrête de nouveau plus bas.
+            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Partie.Recu?.Acceptee == true, () => "le choix n'est pas reçu : « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " »"); a.MoveNext();) yield return null;
+            var reprendre = carte.GetComponent<HorlogeDeCarte>() ?? throw Faux("pas d'horloge sur la carte");
+            for (var a = AttentesDeCapture.Jusqua(() => reprendre.Lue != null, () => "l'horloge n'est pas servie : " + reprendre.Absence); a.MoveNext();) yield return null;
+            if (reprendre.EnPause) cabinet.GetComponentsInChildren<Button>(true).Single(b => b.name == "Pause / Reprendre").onClick.Invoke();
             for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) == maison && cabinet.Partie.Maison?.Presente == true && Capitale(cabinet).gameObject.activeInHierarchy,
                 () => "après « Commencer » : maison « " + ScenarioAccueil.Servie(cabinet) + " »"); a.MoveNext();) yield return null;
             // Le temps arrêté : la date servie ne bouge plus pendant les photos.
@@ -85,6 +97,11 @@ namespace ForgeLocal3D.Captures
             }
             var c = Choisir(ModeDeCarte.Politique, () => "Pays au " + TexteDuMonde.Date(guerre.Terres.Date)); while (c.MoveNext()) yield return null;
             if (!carte.PaysMontres || !guerre.NomsMontres || guerre.NomsDesPays.Count(n => n.Opacite > 0f) == 0) throw Faux("la carte politique ne montre ni frontières ni noms de pays");
+            // La légende politique est une échelle dont « rouge » ne se dit qu'une fois (les lieux en alerte), et les lisérés des pays se voient.
+            VerifierLEchelle(carte, ModeDeCarte.Politique); SansFigurines(carte);
+            int rouges = calques.Legende.text.ToLowerInvariant().Split(new[] { "rouge" }, StringSplitOptions.None).Length - 1;
+            if (rouges != 1) throw Faux("« rouge » apparaît " + rouges + " fois dans la légende politique : « " + calques.Legende.text + " »");
+            if (!carte.LiseresMontres) throw Faux("les lisérés des pays ne se voient pas en mode Politique");
             yield return carte.camera;
         }
 
@@ -92,7 +109,8 @@ namespace ForgeLocal3D.Captures
         static IEnumerator Relief(Camera camera)
         {
             var (carte, _, guerre) = ScenarioAccueil.Lire();
-            var c = Choisir(ModeDeCarte.Relief, () => "Relief servi, qui ne change pas"); while (c.MoveNext()) yield return null;
+            var c = Choisir(ModeDeCarte.Relief, () => "Le relief servi ne change pas"); while (c.MoveNext()) yield return null;
+            if (!carte.ParAltitude) throw Faux("le relief ne teint pas la terre par son altitude");
             var relief = new ReliefDesTerres(carte.Lue); var pigments = new HashSet<Color32>(guerre.Terres.Pays.Select(p => (Color32)guerre.CouleurDuPays(p.Id)));
             int peintes = 0;
             foreach (var cellule in carte.Lue.Cellules)
@@ -103,6 +121,8 @@ namespace ForgeLocal3D.Captures
             }
             if (peintes == 0) throw Faux("aucune terre peinte");
             if (carte.PaysMontres || guerre.NomsMontres || guerre.Ecriture.Racine.gameObject.activeInHierarchy) throw Faux("les frontières ou les noms des pays se voient en mode Relief");
+            if (carte.LiseresMontres) throw Faux("les lisérés des pays se voient en mode Relief");
+            VerifierLEchelle(carte, ModeDeCarte.Relief); SansFigurines(carte);
             Debug.Log("CAPTURE modes de carte : relief sur " + peintes + " terres, " + relief.SansRelief + " sans relief servi");
             yield return carte.camera;
         }
@@ -112,10 +132,12 @@ namespace ForgeLocal3D.Captures
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
             var c = Choisir(ModeDeCarte.Population, () => TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
-            // La densité de chaque terre : ses habitants servis par `/monde`, divisés par son aire servie par `/carte`.
+            VerifierLEchelle(carte, ModeDeCarte.Population); SansFigurines(carte); VerifierLesNuances(carte, ModeDeCarte.Population);
+            // La densité du bourg de chaque terre (son lieu de rang 0) : ses habitants servis par `/lieux`, divisés par sa surface servie.
             var aires = carte.Lue.Cellules.ToDictionary(x => x.CellId, x => x.AireKm2);
             if (aires.Values.Any(a => !(a > 0))) throw Faux("une terre n'a pas d'aire servie par /carte");
-            var peintes = Monde(cabinet).Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue && x.CellId != cabinet.Retenue?.CellId).Select(x => (x.CellId, densite: x.Population / aires[x.CellId])).ToList();
+            var lieux = Calques(carte).LieuxLus?.Donnees ?? throw Faux("les lieux servis ne sont pas lus");
+            var peintes = lieux.Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue).Select(x => (x.CellId, densite: x.Lieux[0].Population / x.Lieux[0].SurfaceKm2)).ToList();
             var plus = peintes.OrderByDescending(x => x.densite).First(); var moins = peintes.OrderBy(x => x.densite).First();
             float Clair(long cell) => carte.TeinteDe(cell).Value.grayscale;
             if (plus.densite <= moins.densite) throw Faux("échantillon vide : toutes les terres ont la même densité");
@@ -134,7 +156,8 @@ namespace ForgeLocal3D.Captures
         static IEnumerator Vivres(Camera camera)
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
-            var c = Choisir(ModeDeCarte.Vivres, () => "Vivres au " + TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
+            var c = Choisir(ModeDeCarte.Vivres, () => "Réserves au " + TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
+            VerifierLEchelle(carte, ModeDeCarte.Vivres); SansFigurines(carte); VerifierLesNuances(carte, ModeDeCarte.Vivres);
             // La vue sur la capitale, d'un clic sur « Ma capitale », où les flèches des lieux vers le siège se lisent.
             Cliquer(carte, Capitale(cabinet)); PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
@@ -154,6 +177,21 @@ namespace ForgeLocal3D.Captures
         static IEnumerator Guerres(Camera camera)
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            // Avant toute déclaration, le mode Guerres n'a rien à échelonner : sa légende dit « Aucune armée en campagne », sans échelle. Si le
+            // service sert déjà une guerre ou une armée (une IA en a déclaré une), cet état n'existe pas : la vérification est sautée, sans échec.
+            for (var a = AttentesDeCapture.Jusqua(() => guerre.Guerres != null, () => "guerres non lues avant la déclaration : " + (guerre.AbsenceDesGuerres ?? "lecture en cours")); a.MoveNext();) yield return null;
+            if (guerre.Guerres.Guerres.Count > 0 || guerre.Guerres.Armees.Count > 0)
+                Debug.Log("CAPTURE modes de carte : " + guerre.Guerres.Guerres.Count + " guerres et " + guerre.Guerres.Armees.Count + " armées déjà servies avant la déclaration : l'état sans guerre est sauté");
+            else
+            {
+                var avant = Calques(carte); Cliquer(carte, avant.BoutonDu(ModeDeCarte.Guerres));
+                for (var a = AttentesDeCapture.Jusqua(() => avant.Mode == ModeDeCarte.Guerres && avant.EchelleMontree == null && avant.Legende.text == BelligerantsDesPays.AUCUNE_ARMEE,
+                    () => "sans guerre servie, la légende des guerres dit « " + avant.Legende.text + " » (échelle " + (avant.EchelleMontree == null ? "nulle" : avant.EchelleMontree.Texte) + ") et non « " + BelligerantsDesPays.AUCUNE_ARMEE + " »"); a.MoveNext();) yield return null;
+                SansFigurines(carte);
+                // Le mode Politique revient, pour que le choix des guerres plus bas soit un vrai changement de mode.
+                Cliquer(carte, avant.BoutonDu(ModeDeCarte.Politique));
+                for (var a = AttentesDeCapture.Jusqua(() => avant.Mode == ModeDeCarte.Politique, () => "le mode Politique ne revient pas : " + avant.Mode); a.MoveNext();) yield return null;
+            }
             // Le joueur déclare la guerre à l'Angleterre par l'intention que le service attend, puis un jour passe.
             string maison = ScenarioAccueil.Servie(cabinet), anglais = guerre.Terres.Terres.First(t => t.Pays == Pays(guerre, ANGLETERRE)).Maitre;
             GestesDeCapture.Deposer(carte.port, IntentionsDeGuerre.Declarer(maison, anglais)); GestesDeCapture.Tick(carte.port);
@@ -178,6 +216,8 @@ namespace ForgeLocal3D.Captures
                 () => "aucune armée de la France servie et dessinée après la levée"); a.MoveNext();) yield return null;
             var t = ToutLEurope(carte, cabinet, guerre); while (t.MoveNext()) yield return null;
             var c = Choisir(ModeDeCarte.Guerres, () => "Guerres au " + TexteDuMonde.Date(guerre.Guerres.Date)); while (c.MoveNext()) yield return null;
+            VerifierLEchelle(carte, ModeDeCarte.Guerres); SansFigurines(carte);
+            if (!Calques(carte).EchelleMontree.Etiquettes.SequenceEqual(new[] { "en guerre", "en paix", "assiégée" })) throw Faux("l'échelle des guerres dit « " + Calques(carte).EchelleMontree.Texte + " », non « en guerre · en paix · assiégée »");
             // Les pays en guerre, lus de `/guerres` : chaque maison ramenée au pays des terres dont elle tient le bourg.
             var enGuerre = new HashSet<string>(guerre.Guerres.Guerres.SelectMany(g => new[] { guerre.PaysDeLaMaison(g.Agresseur), guerre.PaysDeLaMaison(g.Defenseur) }));
             var assiegees = new HashSet<long>(guerre.Guerres.Armees.Where(x => x.Siege != null).Select(x => x.Siege.Value));
@@ -200,7 +240,7 @@ namespace ForgeLocal3D.Captures
             if (vues == 0) throw Faux("aucune armée ne se voit dans l'image");
             // Les sièges : une terre assiégée prend sa teinte et la légende la nomme ; sans siège, l'infobulle le dit.
             string bulle = Calques(carte).Legende.GetComponentInParent<Infobulle>().Phrase;
-            if (assiegees.Count > 0 ? !Calques(carte).Legende.text.Contains("terre assiégée") : !bulle.Contains("Aucune terre assiégée.")) throw Faux("la légende ne dit pas les sièges : « " + bulle + " »");
+            if (assiegees.Count > 0 ? !Calques(carte).Legende.text.Contains("assiégée") : !bulle.Contains("Aucune terre assiégée.")) throw Faux("la légende ne dit pas les sièges : « " + bulle + " »");
             Debug.Log("CAPTURE modes de carte : " + guerre.Guerres.Guerres.Count + " guerres servies, pays en guerre " + string.Join(", ", enGuerre.Select(p => guerre.Terres.NomDuPays(p) ?? p))
                 + ", " + marquees + " terres marquées, " + servies + " armées servies, " + dessinees + " dessinées, " + vues + " dans l'image, " + assiegees.Count + " terres assiégées ; "
                 + string.Join(" ; ", guerre.Guerres.Armees.Select(CarteDeLaGuerre.Nombre)));
@@ -217,6 +257,69 @@ namespace ForgeLocal3D.Captures
             VerifierLeSiege(carte, cabinet);
             if (!Calques(carte).Enfonce(ModeDeCarte.Politique)) throw Faux("« Ma capitale » a changé le mode enfoncé");
             var s = Stable(carte); while (s.MoveNext()) yield return null;
+            VerifierLEchelle(carte, ModeDeCarte.Politique); SansFigurines(carte);
+            yield return carte.camera;
+        }
+
+        // La molette jusqu'au bout : la vue tient dans la carte, et les quatre coins de l'écran ont un sol qui tombe dans le cadre dessiné.
+        [ScenarioDeCapture(GROUPE, "7-au-plus-loin", Largeur = LARGEUR, Hauteur = HAUTEUR)]
+        static IEnumerator AuPlusLoin(Camera camera)
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            if (Calques(carte).Mode != ModeDeCarte.Politique) throw Faux("la carte n'est pas en mode Politique : " + Calques(carte).Mode);
+            carte.Vue.Zoomer(-1000f, new Vector2(.5f, .5f)); carte.Vue.Poser(carte.camera, carte.transform);
+            PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            if (!Mathf.Approximately(carte.Vue.Echelle, 1f)) throw Faux("la molette n'a pas mené la vue au plus loin : échelle " + carte.Vue.Echelle.ToString("0.###", CultureInfo.InvariantCulture));
+            // Au niveau de la mer, le rectangle visé tient dans les bornes de la carte ; le rayon d'un coin, qui descend jusqu'au fond de
+            // la mer, touche un sol du terrain dessiné, bordé de mer bien au-delà des bornes.
+            int l = carte.camera.pixelWidth - 1, h = carte.camera.pixelHeight - 1; Rect cadre = carte.Cadre; const float EPSILON_KM = 1e-2f;
+            var terrain = carte.Terrain; Rect dessine = new Rect(terrain.Coin, new Vector2(terrain.Largeur, terrain.Hauteur) * terrain.Pas);
+            foreach (var coin in new[] { new Vector2(0, 0), new Vector2(l, 0), new Vector2(0, h), new Vector2(l, h) })
+            {
+                Vector2 vise = carte.Vue.PointSous(new Vector2(coin.x / l, coin.y / h));
+                if (vise.x < cadre.xMin - EPSILON_KM || vise.x > cadre.xMax + EPSILON_KM || vise.y < cadre.yMin - EPSILON_KM || vise.y > cadre.yMax + EPSILON_KM)
+                    throw Faux("au plus loin, le coin " + coin + " de l'écran vise " + vise + " km au niveau de la mer, hors des bornes " + cadre);
+                if (!(carte.SolSous(coin) is Vector3 sol)) throw Faux("au plus loin, le coin " + coin + " de l'écran ne tombe sur aucun sol");
+                Vector3 local = carte.transform.InverseTransformPoint(sol);
+                if (!dessine.Contains(new Vector2(local.x, local.z))) throw Faux("au plus loin, le coin " + coin + " de l'écran tombe en (" + local.x + ", " + local.z + ") km, hors du terrain dessiné " + dessine);
+            }
+            SansFigurines(carte);
+            Debug.Log("CAPTURE modes de carte : au plus loin, les quatre coins de l'écran tombent dans le cadre " + cadre);
+            yield return carte.camera;
+        }
+
+        // La vue sur le milieu de la coupe de l'est de l'Anatolie : de l'autre côté, la mer hors de la carte est du papier, en deçà la terre.
+        [ScenarioDeCapture(GROUPE, "8-bord-de-l-anatolie", Largeur = LARGEUR, Hauteur = HAUTEUR)]
+        static IEnumerator BordDeLAnatolie(Camera camera)
+        {
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            var terrain = carte.Terrain ?? throw Faux("pas de terrain sur la carte");
+            var origine = terrain.Origine; Vector2? milieu = null; float longueur = 0f;
+            foreach (Vector4 cote in terrain.Coupes)
+            {
+                var m = new Vector2((cote.x + cote.z) / 2f, (cote.y + cote.w) / 2f); double x = origine.X + 1000.0 * m.x, y = origine.Y + 1000.0 * m.y;
+                float taille = new Vector2(cote.z - cote.x, cote.w - cote.y).magnitude;
+                if (x >= ANATOLIE_X_MIN && x <= ANATOLIE_X_MAX && y >= ANATOLIE_Y_MIN && y <= ANATOLIE_Y_MAX && taille > longueur) { milieu = m; longueur = taille; }
+            }
+            if (milieu == null) throw Faux("aucune coupe de la carte à l'est de l'Anatolie parmi les " + terrain.Coupes.Count + " servies");
+            carte.Vue.Centrer(milieu.Value, DEMI_DU_BORD_KM); carte.Vue.Poser(carte.camera, carte.transform);
+            PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
+            int points = 0, papier = 0, terre = 0, sansSol = 0;
+            for (int px = 0; px < carte.camera.pixelWidth; px += PAS_DE_LA_GRILLE_PX)
+                for (int py = 0; py < carte.camera.pixelHeight; py += PAS_DE_LA_GRILLE_PX)
+                {
+                    points++;
+                    if (!(carte.SolSous(new Vector2(px, py)) is Vector3 sol)) { sansSol++; continue; }
+                    Vector3 local = carte.transform.InverseTransformPoint(sol);
+                    if (terrain.HorsCarteEn(local.x, local.z)) papier++; else if (terrain.CelluleEn(local.x, local.z) != 0) terre++;
+                }
+            Debug.Log("CAPTURE modes de carte : bord de l'Anatolie, coupe de " + longueur.ToString("0.#", CultureInfo.InvariantCulture) + " km centrée en " + milieu.Value + ", " + points + " points de grille, "
+                + papier + " sur le papier, " + terre + " sur la terre, " + sansSol + " sans sol");
+            if (papier < points * PART_MIN_DE_LA_GRILLE) throw Faux("le papier hors de la carte ne couvre que " + papier + " des " + points + " points de l'écran au bord de l'Anatolie");
+            if (terre < points * PART_MIN_DE_LA_GRILLE) throw Faux("la terre ne couvre que " + terre + " des " + points + " points de l'écran au bord de l'Anatolie");
+            SansFigurines(carte);
             yield return carte.camera;
         }
 
@@ -233,9 +336,11 @@ namespace ForgeLocal3D.Captures
             if (enfonces != mode.ToString()) throw Faux("boutons enfoncés : « " + enfonces + " » pour le mode " + mode);
             if (carte.camera.transform.position != place || carte.camera.transform.rotation != regard || carte.Vue.Centre != centre || carte.Vue.Demi != demi)
                 throw Faux("choisir « " + mode + " » a bougé la caméra : centre " + centre + " → " + carte.Vue.Centre + ", demi " + demi + " → " + carte.Vue.Demi);
-            string Texte() => calques.Legende.text;
-            for (var a = AttentesDeCapture.Jusqua(() => Texte().Contains(attendu()), () => "légende du mode " + mode + " : « " + Texte() + " », attendu « " + attendu() + " »"); a.MoveNext();) yield return null;
-            if (Texte().StartsWith("Mode ", StringComparison.Ordinal) || Texte().StartsWith("Pays indisponibles", StringComparison.Ordinal) || Texte() == CalquesCarte.COUPEE) throw Faux("mode " + mode + " indisponible : « " + Texte() + " »");
+            string Texte() => calques.Legende.GetComponentInParent<Infobulle>().Phrase; // la légende, puis la date et la règle du mode
+            // Pendant la lecture des lieux, Population et Vivres disent « lieux en lecture » sur la carte politique, dont l'infobulle porte aussi la
+            // date : le mode s'attend disponible, pas seulement daté.
+            bool Indisponible() => Texte().StartsWith("Mode ", StringComparison.Ordinal) || Texte().StartsWith("Pays indisponibles", StringComparison.Ordinal) || Texte().StartsWith(CalquesCarte.COUPEE, StringComparison.Ordinal);
+            for (var a = AttentesDeCapture.Jusqua(() => !Indisponible() && Texte().Contains(attendu()), () => "légende du mode " + mode + " : « " + Texte() + " », attendu « " + attendu() + " »"); a.MoveNext();) yield return null;
             var s = Stable(carte); while (s.MoveNext()) yield return null;
             Debug.Log("CAPTURE modes de carte : " + mode + " au tick " + Monde(cabinet).Tick + " ; « " + Texte().Replace("\n", " | ") + " »");
         }
@@ -284,6 +389,40 @@ namespace ForgeLocal3D.Captures
         {
             Vector3 siege = carte.PositionSurLaCarte(cabinet.Partie.Maison.Donnees.Siege.Position.Value, 0f).Value;
             if ((carte.Vue.Centre - new Vector2(siege.x, siege.z)).magnitude > TOLERANCE_DU_CENTRE_KM) throw Faux("« Ma capitale » ne pose pas la vue sur le siège : centre " + carte.Vue.Centre + " pour " + new Vector2(siege.x, siege.z));
+        }
+
+        // Aucune figurine de lieu sous la carte : les lieux se lisent sur le terrain.
+        static void SansFigurines(CarteDessinee carte)
+        {
+            var posees = carte.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Lieux de la carte" || t.name.StartsWith("Lieu ", StringComparison.Ordinal)).Select(t => t.name).ToArray();
+            if (posees.Length > 0) throw Faux("des figurines de lieux sont posées sur la carte : " + string.Join(", ", posees));
+        }
+
+        // La légende du mode est une échelle de trois étiquettes non vides, et les trois textes sous l'échelle les montrent.
+        static void VerifierLEchelle(CarteDessinee carte, ModeDeCarte mode)
+        {
+            var calques = Calques(carte); var echelle = calques.EchelleMontree ?? throw Faux("la légende de « " + mode + " » n'est pas une échelle : « " + calques.Legende.text + " »");
+            if (echelle.Etiquettes.Count != 3 || echelle.Etiquettes.Any(string.IsNullOrWhiteSpace)) throw Faux("l'échelle de « " + mode + " » n'a pas trois étiquettes non vides : « " + echelle.Texte + " »");
+            if (calques.Echelle == null || !calques.Echelle.gameObject.activeInHierarchy) throw Faux("l'échelle de « " + mode + " » ne se dessine pas");
+            var textes = calques.EtiquettesDeLEchelle; if (textes.Count != 3) throw Faux("l'échelle de « " + mode + " » a " + textes.Count + " textes sous elle, non trois");
+            for (int k = 0; k < 3; k++)
+                if (!textes[k].gameObject.activeInHierarchy || textes[k].text != echelle.Etiquettes[k]) throw Faux("l'étiquette " + k + " de « " + mode + " » montre « " + textes[k].text + " » au lieu de « " + echelle.Etiquettes[k] + " »");
+        }
+
+        // Au moins une cellule a des lieux de teintes différentes : sans cela, le mode peindrait la cellule d'une seule teinte, non lieu par lieu.
+        static void VerifierLesNuances(CarteDessinee carte, ModeDeCarte mode)
+        {
+            if (carte.LiseresMontres) throw Faux("les lisérés des pays se voient en mode " + mode);
+            int jugees = 0, nuancees = 0;
+            foreach (var cellule in carte.Lue.Cellules)
+            {
+                var teintes = new HashSet<Color32>();
+                for (long rang = 0; carte.TeinteDuLieu(cellule.CellId, rang) is Color teinte; rang++) teintes.Add((Color32)teinte);
+                if (teintes.Count == 0) continue;
+                jugees++; if (teintes.Count > 1) nuancees++;
+            }
+            Debug.Log("CAPTURE modes de carte : " + mode + ", " + jugees + " cellules jugées, " + nuancees + " aux lieux de teintes différentes");
+            if (nuancees == 0) throw Faux("en mode " + mode + ", aucune des " + jugees + " cellules jugées n'a des lieux de teintes différentes");
         }
 
         static bool Dans(CarteDessinee carte, Vector3 monde) { Vector3 v = carte.camera.WorldToViewportPoint(monde); return v.z > 0f && v.x >= 0f && v.x <= 1f && v.y >= 0f && v.y <= 1f; }
