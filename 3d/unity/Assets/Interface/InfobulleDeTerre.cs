@@ -2,16 +2,20 @@ using System; using System.Collections.Generic; using System.Linq; using Forge.P
 
 namespace Forge.Interface
 {
-    // Près du curseur, les trois premières lignes du dossier de la terre survolée. LateUpdate suit SurvolDeCarte.
+    // Près du curseur, le lieu survolé comme Europa dit une province : son pays d'abord (`/terres` : nom, suzerain ou ensemble, habitants du pays),
+    // puis le lieu et ses habitants, sa province et les siens, et son seigneur en dernier (`/lieu`). LateUpdate suit SurvolDeCarte.
     // Puis, du registre `/modificateurs` lu au même tick, une ligne par modificateur du bourg et le total de chaque grandeur, tels que le monde les sert.
     public sealed class InfobulleDeTerre : MonoBehaviour
     {
-        public const int LIGNES = 3; public const double PERIODE_S = 2; public const string CHEMIN_MODIFICATEURS = "/modificateurs"; public const string SANS_FIN = "tant que sa source tient";
+        public const double PERIODE_S = 2; public const string CHEMIN_MODIFICATEURS = "/modificateurs"; public const string SANS_FIN = "tant que sa source tient";
         public bool automatique; public LectureDossier Lecture { get; set; } public LectureDossier LectureModificateurs { get; set; } public string TexteAffiche { get; private set; }
-        Canvas toile; Func<CelluleDeCarte> survolee; double prochaine, prochaineModificateurs; long? cellule; DocumentDuMonde document, registre; string erreur, erreurRegistre, texte;
+        // Les terres de `/terres`, nulles tant qu'elles ne sont pas lues.
+        public Func<TerresDeLaCarte> Terres { get; set; }
+        Canvas toile; Func<CelluleDeCarte> survolee; Func<long> rangSurvole; double prochaine, prochaineModificateurs; long? cellule, rangDit; DocumentDuMonde document, registre; TerresDeLaCarte terresDites; string erreur, erreurRegistre, texte;
 
-        public static string Decrire(string erreur, DocumentDuMonde document, long cellule)
-        { var lignes = DossierTerritoire.Texte(erreur, document, cellule).Split('\n'); return lignes.Length < LIGNES ? lignes[0] : string.Join("\n", lignes, 0, LIGNES); }
+        // Les lignes du pays du lieu de ce rang, puis celles du lieu, de sa province et de son seigneur ; rien n'est compté ici.
+        public static string Decrire(string erreur, DocumentDuMonde document, TerresDeLaCarte terres, long cellule, long rang)
+            => string.Join("\n", DossierTerritoire.LignesDuPays(terres, cellule, rang).Concat(DossierTerritoire.LignesDuLieu(erreur, document, cellule, rang)));
 
         // Les lignes du bourg (rang 0) de la terre, dans l'ordre servi : une par pose, puis le total de sa grandeur. Rien n'est additionné ici ; vide si le bourg n'a pas de pose.
         public static string[] DecrireModificateurs(DocumentDuMonde modificateurs, long cellule)
@@ -34,17 +38,19 @@ namespace Forge.Interface
         }
 
         // Le texte montré : les lignes du dossier, et celles des modificateurs seulement s'ils sont lus, sans faute, au tick de ce dossier ; sinon le texte du dossier seul, au caractère près.
-        static string Montrer(string erreur, DocumentDuMonde dossier, DocumentDuMonde registre, string erreurRegistre, long cellule)
+        static string Montrer(string erreur, DocumentDuMonde dossier, TerresDeLaCarte terres, DocumentDuMonde registre, string erreurRegistre, long cellule, long rang)
         {
-            string base3 = Decrire(erreur, dossier, cellule);
+            string base3 = Decrire(erreur, dossier, terres, cellule, rang);
             if (erreur != null || dossier == null || registre == null || erreurRegistre != null || registre.Tick != dossier.Tick) return base3;
             try { var lignes = DecrireModificateurs(registre, cellule); return lignes.Length == 0 ? base3 : base3 + "\n" + string.Join("\n", lignes); }
             catch (ArgumentException faute) { Debug.LogWarning("InfobulleDeTerre : modificateurs illisibles, ignorés : " + faute.Message); return base3; }
         }
 
-        public void Initialiser(Canvas toile, LectureDossier lecture, Func<CelluleDeCarte> survolee, LectureDossier modificateurs = null) { this.toile = toile; Lecture = lecture; LectureModificateurs = modificateurs; this.survolee = survolee; }
+        // `rang` : le rang du lieu survolé dans sa terre (0, le bourg, s'il manque) ; `terres` : les terres de `/terres`.
+        public void Initialiser(Canvas toile, LectureDossier lecture, Func<CelluleDeCarte> survolee, LectureDossier modificateurs = null, Func<long> rang = null, Func<TerresDeLaCarte> terres = null)
+        { this.toile = toile; Lecture = lecture; LectureModificateurs = modificateurs; this.survolee = survolee; rangSurvole = rang; Terres = terres; }
 
-        public void Pas(Vector2 point, CelluleDeCarte terre, double maintenant)
+        public void Pas(Vector2 point, CelluleDeCarte terre, double maintenant, long rang = 0)
         {
             if (terre == null)
             {
@@ -59,11 +65,20 @@ namespace Forge.Interface
             if (modificateurs != null && !modificateurs.EnCours && (modificateurs.Cle != CHEMIN_MODIFICATEURS || maintenant >= prochaineModificateurs)) { _ = modificateurs.Actualiser(CHEMIN_MODIFICATEURS); prochaineModificateurs = maintenant + PERIODE_S; }
             bool meme = Lecture.Cle == chemin; var lu = meme ? Lecture.Document : null; string faute = meme ? Lecture.Erreur : null;
             var registreLu = modificateurs?.Cle == CHEMIN_MODIFICATEURS ? modificateurs.Document : null; string fauteRegistre = modificateurs?.Cle == CHEMIN_MODIFICATEURS ? modificateurs.Erreur : null;
-            if (cellule != terre.CellId || document != lu || erreur != faute || registre != registreLu || erreurRegistre != fauteRegistre)
-            { cellule = terre.CellId; document = lu; erreur = faute; registre = registreLu; erreurRegistre = fauteRegistre; texte = Montrer(faute, lu, registreLu, fauteRegistre, terre.CellId); }
+            var terres = Terres?.Invoke();
+            if (cellule != terre.CellId || rangDit != rang || document != lu || erreur != faute || terresDites != terres || registre != registreLu || erreurRegistre != fauteRegistre)
+            {
+                cellule = terre.CellId; rangDit = rang; document = lu; erreur = faute; terresDites = terres; registre = registreLu; erreurRegistre = fauteRegistre;
+                texte = Montrer(faute, lu, terres, registreLu, fauteRegistre, terre.CellId, rang);
+            }
             TexteAffiche = texte; Infobulle.Montrer(toile, TexteAffiche, point);
         }
 
-        void LateUpdate() { if (automatique || Mouse.current == null) return; Pas(Mouse.current.position.ReadValue(), survolee(), Time.realtimeSinceStartupAsDouble); }
+        void LateUpdate()
+        {
+            if (automatique || Mouse.current == null) return;
+            var terre = survolee();
+            Pas(Mouse.current.position.ReadValue(), terre, Time.realtimeSinceStartupAsDouble, terre != null && rangSurvole != null ? rangSurvole() : 0);
+        }
     }
 }

@@ -63,6 +63,23 @@ namespace Forge.Interface.Tests
             Assert.That(Gestes.Panneau.name, Is.EqualTo(PremiersGestes.TITRE));
         }
 
+        // Le choix reçu, le monde reste en pause sans maison servie : l'encart s'ouvre déjà, écrit les gestes de la carte,
+        // et grise « Lever » avec sa raison ; fermé à ce moment, il le reste quand la maison arrive.
+        [Test] public void Le_choix_recu_ouvre_l_encart_et_ecrit_les_gestes_de_la_carte()
+        {
+            Servir(null, Zab); Assert.That(Gestes.Visible, Is.False, "visible avant le choix");
+            Poser(partie, "Recu", RecuIntention.AccepteeAu(2)); cabinet.Afficher(); Assert.That(Gestes.Visible, Is.True, "caché après le choix reçu");
+            var ligne = Gestes.Panneau.GetComponentsInChildren<Text>(true).Single(t => t.name == PremiersGestes.LIGNE_DES_GESTES);
+            Assert.That(ligne.text, Is.EqualTo("Glisser : déplacer la carte · Molette : zoomer · Clic : ouvrir une terre")); Assert.That(Gestes.TexteDesGestes, Is.EqualTo(ligne.text));
+            Assert.That(ligne.gameObject.activeInHierarchy && ligne.preferredWidth <= ligne.rectTransform.sizeDelta.x, Is.True, "la ligne des gestes est cachée ou déborde");
+            Assert.That(Gestes.BoutonArmee.interactable, Is.False, "l'ost se lève sans maison servie");
+            Assert.That(Gestes.BoutonArmee.GetComponent<Infobulle>().Phrase, Is.EqualTo(PremiersGestes.ARMEE_ATTENDUE));
+            Gestes.BoutonFermer.onClick.Invoke(); cabinet.Afficher(); Assert.That(Gestes.Visible, Is.False, "l'image suivante le rouvre");
+            Servir("seigneurie-6", Zab); Assert.That(Gestes.Visible, Is.False, "fermé avant la maison, il revient avec elle");
+            // Contre-épreuve : ouvert à l'arrivée de la maison, « Lever » s'active.
+            PremiersGestes.OublierLesFermetures(); Demonter(); Monter(); Servir("seigneurie-6", Zab); Assert.That(Gestes.Visible && Gestes.BoutonArmee.interactable, Is.True, "« Lever » reste grisé avec la maison servie");
+        }
+
         [Test] public void Chaque_bouton_de_l_encart_dit_ce_qu_il_fait()
         {
             Servir("grande-3", Zab, Valois);
@@ -176,6 +193,10 @@ namespace Forge.Interface.Tests
             Assert.That(cadre.anchoredPosition.x + cadre.sizeDelta.x, Is.LessThanOrEqualTo(764), "l'encart mord sur la bande des modes");
             foreach (var bouton in Gestes.Panneau.GetComponentsInChildren<Button>(true))
                 Assert.That(zone.Contains(Monde((RectTransform)bouton.transform).min) && zone.Contains(Monde((RectTransform)bouton.transform).max), Is.True, "« " + bouton.name + " » sort de l'encart");
+            // La ligne des gestes de la carte tient dans l'encart, sous les trois lignes et à l'écart de la croix.
+            Rect gestes = Monde(Gestes.Panneau.GetComponentsInChildren<Text>(true).Single(t => t.name == PremiersGestes.LIGNE_DES_GESTES).rectTransform);
+            Assert.That(zone.Contains(gestes.min) && zone.Contains(gestes.max), Is.True, "la ligne des gestes sort de l'encart");
+            foreach (var bouton in Gestes.Panneau.GetComponentsInChildren<Button>(true)) Assert.That(gestes.Overlaps(Monde((RectTransform)bouton.transform)), Is.False, "la ligne des gestes recouvre « " + bouton.name + " »");
             foreach (var phrase in new[] { PremiersGestes.TEMPS, PremiersGestes.VILLE, PremiersGestes.ARMEE })
             { var texte = Gestes.Panneau.GetComponentsInChildren<Text>(true).Single(t => t.text == phrase);
               Assert.That(texte.preferredWidth, Is.LessThanOrEqualTo(texte.rectTransform.sizeDelta.x), "la ligne déborde : " + texte.text); }

@@ -42,7 +42,7 @@ namespace ForgeLocal3D.Captures
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == FRANCE && cabinet.Accueil.Montree != null && cabinet.Accueil.Commencer.interactable,
                 () => "fiche de la France : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
             string maison = cabinet.Accueil.Montree.Id;
-            cabinet.Accueil.Commencer.onClick.Invoke();
+            var commencer = ScenarioAccueil.CommencerPuisLancer(cabinet); while (commencer.MoveNext()) yield return commencer.Current;
             for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) == maison && cabinet.Partie.Jouable != null && cabinet.Partie.Maison?.Presente == true
                 && !cabinet.Accueil.Ouvert && !cabinet.Accueil.Panneau.gameObject.activeSelf,
                 () => "après « Commencer » : maison « " + ScenarioAccueil.Servie(cabinet) + " », reçu « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " », accueil ouvert " + cabinet.Accueil.Ouvert); a.MoveNext();) yield return null;

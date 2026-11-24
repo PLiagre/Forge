@@ -3845,6 +3845,42 @@ def _lire_en_retard(ticks, alterer=False):
         return lus_tot, _tout_lire_publie(tard, etat), tot, tard, cid
 
 
+def _terres_vivantes(monde, matiere):
+    """Le document de `/terres` que le monde vivant servirait, sans la date ni le tick : habitants des pays compris."""
+    from sim.carte_servie import habitants_des_pays, terres_pays_et_lieux
+    document, des_lieux = terres_pays_et_lieux(monde, matiere)
+    populations = {(cid, lieu.rang): lieu.population for cid, c in monde.cells.items() for lieu in c.lieux}
+    return document | {"habitants_des_pays": habitants_des_pays([p["id"] for p in document["pays"]], des_lieux, populations)}
+
+
+def test_terres_servent_les_habitants_des_pays_du_jour_sous_le_meme_corps():
+    from sim.service import ServeurMonde
+    with ServeurMonde(("127.0.0.1", 0), 0, 0) as serveur:
+        etat = serveur.jouer_un_tick()
+        corps = serveur._terres[2]
+        hier = json.loads(etat.terres.octets())
+        habitants = hier["habitants_des_pays"]
+        assert list(hier) == ["date", "habitants_des_pays", "pays", "terres", "tick"]
+        # Chaque pays servi a son nombre, et eux seuls ; un pays sans lieu compte 0, une mesure.
+        assert set(habitants) == {p["id"] for p in hier["pays"]}
+        assert all(type(n) is int and n >= 0 for n in habitants.values())
+        tenus = sum(lieu.population for c in serveur.world.cells.values() for lieu in c.lieux if lieu.maitre is not None)
+        assert tenus > 0 and sum(habitants.values()) == tenus
+        assert habitants == _terres_vivantes(serveur.world, etat.maisons)["habitants_des_pays"]
+        # Mille habitants de plus dans un lieu tenu, sans qu'aucun maître change : le jour suivant garde le
+        # même corps des terres et des pays, mais sert les habitants de son jour.
+        with serveur.verrou_tick:
+            lieu = next(l for _cid, c in sorted(serveur.world.cells.items()) for l in c.lieux if l.maitre is not None)
+            lieu.population += 1000
+        assert json.loads(etat.terres.octets())["habitants_des_pays"] == habitants, "le jour publié a changé après coup"
+        etat = serveur.jouer_un_tick()
+        assert serveur._terres[2] is corps, "le corps des terres s'est refait sans qu'un maître change"
+        aujourd_hui = json.loads(etat.terres.octets())
+        assert (aujourd_hui["terres"], aujourd_hui["pays"]) == (hier["terres"], hier["pays"])
+        assert aujourd_hui["habitants_des_pays"] == _terres_vivantes(serveur.world, etat.maisons)["habitants_des_pays"]
+        assert aujourd_hui["habitants_des_pays"] != habitants
+
+
 def test_publication_differee_lit_le_tick_publie(monkeypatch):
     from sim import service
     lus_tot, lus_tard, tot, tard, cid = _lire_en_retard(35, alterer=True)
@@ -3857,9 +3893,11 @@ def test_publication_differee_lit_le_tick_publie(monkeypatch):
     from sim.guerre import document_de_la_guerre
     assert tard.etat_publie.guerres.octets() != service._serialiser(document_de_la_guerre(tard.world))
     # Idem pour /terres : les octets publiés ne sont pas ceux que le monde vivant servirait à la lecture tardive.
-    from sim.carte_servie import terres_et_pays
-    vivant = {"date": tard.etat_publie.date, "tick": tard.etat_publie.tick} | terres_et_pays(tard.world, tard.etat_publie.maisons)
+    vivant = {"date": tard.etat_publie.date, "tick": tard.etat_publie.tick} | _terres_vivantes(tard.world, tard.etat_publie.maisons)
     assert tard.etat_publie.terres.octets() != service._serialiser(vivant)
+    # Les habitants des pays aussi sont ceux du tick : le bourg altéré compte un habitant de plus au monde vivant.
+    publies = json.loads(tard.etat_publie.terres.octets())["habitants_des_pays"]
+    assert sum(publies.values()) != sum(vivant["habitants_des_pays"].values())
     publie = {t["cell_id"]: t["maitre"] for t in json.loads(tard.etat_publie.terres.octets())["terres"]}
     assert publie[cid] != tard.world.cells[cid].lieux[0].maitre
     # Contre-épreuve : un bourg qui garde le panier vivant au lieu d'une copie change après coup.
