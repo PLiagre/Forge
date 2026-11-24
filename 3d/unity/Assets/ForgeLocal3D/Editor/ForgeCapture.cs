@@ -21,7 +21,7 @@ namespace ForgeLocal3D
     // La photo d'une scène, prise sans écran sur le PC :
     //   Unity -batchmode -quit -projectPath 3d/unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier>
     //         [-forgeSeed S] [-forgeTicks N] [-forgeCell C] [-forgeScenario G] [-forgeServiceEpreuve] [-forgeServiceIa]
-    //         [-forgeServiceProgramme] [-forgeServiceModificateurs] [-forgeTravailEnceinte J]
+    //         [-forgeServiceProgramme] [-forgeServiceModificateurs] [-forgeTravailEnceinte J] [-forgeRangerLaPlanche]
     // Avant le Play, on lance le service de `sim/` (graine S, poussé au tick N ; `--epreuve` avec
     // -forgeServiceEpreuve, suivi de `--travail-enceinte J` avec -forgeTravailEnceinte, un nombre fini > 0
     // qui exige -forgeServiceEpreuve ; `--ia` avec -forgeServiceIa ; avec -forgeServiceProgramme, le service
@@ -71,8 +71,14 @@ namespace ForgeLocal3D
         const string AMORCAGE_PROGRAMME = "-c \"import pytest, sim.tests.test_monde as t; t._brancher_programme(pytest.MonkeyPatch()); import runpy; runpy.run_module('sim.service', run_name='__main__')\"";
         const string AMORCAGE_MODIFICATEURS = "-c \"import pytest, sim.tests.test_modificateurs as t; t._amorcer_paris_cinq_poses(pytest.MonkeyPatch()); import runpy; runpy.run_module('sim.service', run_name='__main__')\"";
         public const string TRAVAIL_ENCEINTE = "-forgeTravailEnceinte";
+        // La planche de l'atlas se range aussi dans le dépôt (`ScenarioCarteEtAtlas`) : sans ce drapeau, aucune capture ne récrit un fichier versionné.
+        public const string RANGER_LA_PLANCHE = "-forgeRangerLaPlanche";
         // Le dossier de -forgeCaptures, où un scénario écrit aussi son rapport.
         public static string DossierDesCaptures => SessionState.GetString(Dossier, ".");
+        // Ce dont le service a été lancé : sa graine, les jours poussés avant le Play, et les drapeaux qui changent son monde.
+        internal static int GraineDuService => SessionState.GetInt(Graine, GRAINE_PAR_DEFAUT);
+        internal static int JoursPousses => SessionState.GetInt(Ticks, TICKS_PAR_DEFAUT);
+        internal static bool Drapeau(string nom) => Environment.GetCommandLineArgs().Contains(nom);
 
         static int images, derniere = -1;
         static double debutPanneau = -1;

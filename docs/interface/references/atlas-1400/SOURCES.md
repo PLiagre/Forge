@@ -9,6 +9,29 @@ calculé sur les terres servies des pays du cadre : pour l'Italie, les îles de
 Venise et les comptoirs de Gênes l'élargissent à la Méditerranée centrale, et
 la zone de l'atlas la suit, pour que les deux images montrent la même étendue.
 
+Chaque zone nomme aussi ses grands pays (`pays`), tirés des repères de 1400
+et écrits comme le service les sert : la planche échoue si l'un d'eux n'est
+pas servi sous ce nom, ou si son nom ne se lit pas en entier sur la carte du
+cadre. Une zone sans grand pays échoue aussi.
+
+## La planche rangée
+
+La planche du monde livré est rangée dans [`planche-du-jeu/`](planche-du-jeu/) :
+une image par cadre (`europe.png`, `france-et-iles.png`…) et `planche.json`,
+qui dit le monde dont elle est la photo (graine, jours poussés, IA ou non,
+date servie), les grands pays lus par cadre et l'empreinte des terres
+(SHA-256 des lignes « cellule=pays » et « cellule/rang=pays » triées). Le
+build (`ForgeLocal3D.Build.Nuit`) la copie à côté du lanceur, et dit si son
+monde est encore celui du build.
+
+Elle ne s'écrit qu'avec le drapeau `-forgeRangerLaPlanche`, sur le monde
+frais (aucun pays choisi, aucun jour joué depuis le lancement du service) ;
+sans lui, aucune capture ne récrit un fichier du dépôt. Pour la refaire :
+
+```powershell
+& $unity -batchmode -projectPath 3d\unity -executeMethod ForgeLocal3D.Capture.Photographier -forgeCaptures <dossier> -forgeScenario etape-1-d-un-trait -forgeServiceIa -forgeRangerLaPlanche -logFile <journal>
+```
+
 ## L'atlas
 
 | | |

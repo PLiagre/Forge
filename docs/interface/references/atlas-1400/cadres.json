@@ -5,10 +5,15 @@
   "source": "Atlas : W. R. Shepherd, Historical Atlas (1926), « Europe about 1360 », domaine public",
   "ecart": "L'atlas montre l'Europe vers 1360, quarante ans avant le jeu : les Ottomans n'y tiennent pas encore les Balkans, la Serbie et la Bulgarie y sont libres, l'Union de Kalmar et la Bourgogne de Flandre n'existent pas encore.",
   "zones": [
-    { "cadre": "europe", "titre": "l'Europe entière", "x": 30, "y": 20, "largeur": 1760, "hauteur": 1090 },
-    { "cadre": "france-et-iles", "titre": "la France et les Îles", "x": 160, "y": 40, "largeur": 600, "hauteur": 620 },
-    { "cadre": "empire", "titre": "le Saint-Empire", "x": 470, "y": 170, "largeur": 530, "hauteur": 490 },
-    { "cadre": "italie", "titre": "l'Italie et la Méditerranée centrale", "x": 470, "y": 330, "largeur": 730, "hauteur": 670 },
-    { "cadre": "balkans-et-orient", "titre": "les Balkans et l'Orient", "x": 780, "y": 360, "largeur": 680, "hauteur": 620 }
+    { "cadre": "europe", "titre": "l'Europe entière", "x": 30, "y": 20, "largeur": 1760, "hauteur": 1090,
+      "pays": ["France", "Angleterre", "Castille", "Aragon", "Portugal", "Pologne", "Lituanie", "Hongrie", "Union de Kalmar", "Ottomans"] },
+    { "cadre": "france-et-iles", "titre": "la France et les Îles", "x": 160, "y": 40, "largeur": 600, "hauteur": 620,
+      "pays": ["France", "Angleterre", "Écosse", "Irlande", "Bretagne", "Bourgogne", "Navarre"] },
+    { "cadre": "empire", "titre": "le Saint-Empire", "x": 470, "y": 170, "largeur": 530, "hauteur": 490,
+      "pays": ["Bohême", "Autriche", "Bavière", "Brandebourg", "Saxe"] },
+    { "cadre": "italie", "titre": "l'Italie et la Méditerranée centrale", "x": 470, "y": 330, "largeur": 730, "hauteur": 670,
+      "pays": ["Milan", "Venise", "Gênes", "États de l'Église", "Naples", "Sicile", "Savoie"] },
+    { "cadre": "balkans-et-orient", "titre": "les Balkans et l'Orient", "x": 780, "y": 360, "largeur": 680, "hauteur": 620,
+      "pays": ["Ottomans", "Byzance", "Hongrie", "Serbie", "Bosnie", "Valachie", "Moldavie"] }
   ]
 }
