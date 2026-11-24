@@ -396,11 +396,37 @@ namespace Forge.Interface.Tests
             cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Despotat témoin").onClick.Invoke(); cabinet.Afficher();
         }
         static HorlogeLue Horloge(double joursParSeconde) => new HorlogeLue(7, new DateDuMonde(1400, 8), joursParSeconde);
+        // Le choix accepté ne lance pas le temps : l'horloge reste en pause, rien ne lui est demandé, et « Pause / Reprendre » porte
+        // l'engagement du socle (comme « Commencer ») tant que le monde attend ; la date dit « En pause » et le guide dit quoi faire.
+        [Test] public async System.Threading.Tasks.Task Apres_le_choix_le_temps_reste_en_pause_et_sa_commande_est_mise_en_avant()
+        {
+            partie = new LecturePartie(() => null, _ => null, () => null, _ => RecuIntention.AccepteeAu(7)); cabinet.Partie = partie; Poser(partie, "Monde", MondeDe(null));
+            Poser(partie, "Jouables", JouablesDe(Jouable("seigneurie-42", 10340)));
+            var horloge = racine.GetComponent<HorlogeDeCarte>(); Poser(horloge, "Lue", Horloge(0));
+            var bouton = racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Pause / Reprendre"); var ordinaire = bouton.colors.normalColor;
+            cabinet.Afficher(); racine.GetComponentsInChildren<Button>(true).Single(b => b.name == "Despotat témoin").onClick.Invoke(); cabinet.Afficher();
+            Assert.That(cabinet.TempsMisEnAvant, Is.False, "le temps est mis en avant avant le choix");
+            await cabinet.Accueil.Lancer(); cabinet.Afficher();
+            Assert.That(partie.Recu?.Acceptee, Is.True, "le choix n'est pas reçu : échantillon vide");
+            var demandee = typeof(HorlogeDeCarte).GetField("vitesseDemandee", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.That(demandee.GetValue(horloge), Is.Null, "le choix a demandé une vitesse à l'horloge"); Assert.That(horloge.EnPause, Is.True);
+            Assert.That(cabinet.TempsMisEnAvant, Is.True, "« Pause / Reprendre » n'est pas mis en avant après le choix");
+            Assert.That(bouton.colors.normalColor, Is.EqualTo(SocleInterface.Couleur("alerte")), "la matière d'engagement n'est pas posée");
+            Assert.That(bouton.GetComponentInChildren<Text>().text, Is.EqualTo("Reprendre"));
+            Assert.That(Nomme(CabinetDeCarte.GUIDE).text, Is.EqualTo(CabinetDeCarte.CHOIX_RECU));
+            Assert.That(racine.GetComponentsInChildren<Text>().Any(t => t.text == HorlogeDeCarte.Decrire(Horloge(0)) && t.text.EndsWith("En pause")), Is.True, "la date ne dit pas « En pause »");
+            // Le temps lancé, la commande redevient ordinaire ; la maison servie et le monde remis en pause, elle revient.
+            Poser(horloge, "Lue", Horloge(6)); cabinet.Afficher();
+            Assert.That(cabinet.TempsMisEnAvant || bouton.colors.normalColor != ordinaire, Is.False, "la commande reste mise en avant quand le temps file");
+            Publier(JOUEUR, new LieuTenu(10, 0)); Poser(horloge, "Lue", Horloge(0)); cabinet.Afficher(); Assert.That(cabinet.TempsMisEnAvant, Is.True, "la maison servie en pause n'appelle pas le temps");
+            // Contre-épreuve : basculer l'horloge, ce que faisait le choix, lui demande bien une vitesse.
+            horloge.Basculer(); Assert.That(demandee.GetValue(horloge), Is.Not.Null);
+        }
         [Test] public void La_ligne_du_prochain_geste_suit_la_partie()
         {
             Assert.That(CabinetDeCarte.CHOISIR, Is.EqualTo("Choisissez votre pays, puis « Commencer »"));
-            Assert.That(CabinetDeCarte.CHOIX_RECU, Is.EqualTo("Choix reçu : « Reprendre » lance le temps, le monde l'applique au jour suivant"));
-            Assert.That(CabinetDeCarte.LANCER, Is.EqualTo("« Reprendre » lance le temps du monde"));
+            Assert.That(CabinetDeCarte.CHOIX_RECU, Is.EqualTo("Choix reçu · En pause : « Reprendre » lance le temps"));
+            Assert.That(CabinetDeCarte.LANCER, Is.EqualTo("En pause : « Reprendre » lance le temps"));
             string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<JouablesLus> jouables, RecuIntention recu, HorlogeLue h, bool ville = false) => CabinetDeCarte.Guide(monde, jouables, recu, h, ville);
             var jouables = JouablesDe(Jouable("seigneurie-42", 10340)); var sans = MondeDe(null); var avec = MondeDe(JOUEUR); var recu = RecuIntention.AccepteeAu(7);
             Assert.That(Guide(null, jouables, null, Horloge(0)), Is.Null); Assert.That(Guide(Lecture<MondeAvecMaisonLu>.Absent("panne"), jouables, null, Horloge(0)), Is.Null);

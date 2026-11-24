@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace Forge.Interface
 {
     // L'accueil, tant que le monde n'a pas servi de maison du joueur : on y choisit son pays sur la carte ou parmi les départs
-    // conseillés, on lit sa fiche, et « Commencer » envoie le choix puis lance le temps. Tout ce qui s'écrit vient de `/jouables`,
+    // conseillés, on lit sa fiche, et « Commencer » envoie le choix ; le temps reste en pause jusqu'à ce que le joueur le lance. Tout ce qui s'écrit vient de `/jouables`,
     // de `/terres` (le pays d'une terre, sa maison et les habitants du pays seul) et de `/pays` (les habitants de la maison avec ses
     // vassaux) : l'accueil n'additionne rien, et chaque nombre dit ce qu'il compte.
     // Une classe simple : le cabinet l'appelle à chaque image, et lui passe les terres cliquées sur la carte.
@@ -20,7 +20,7 @@ namespace Forge.Interface
         public const string NOM = "Nom du pays", FICHE = "Fiche du pays", ETAT = "État du choix", LISTE = "Départs proposés";
         public const string SANS_PAYS = "Choisissez d'abord un pays : cliquez-le sur la carte, ou prenez un départ conseillé.";
         public const string NON_JOUABLE = "Le monde ne propose pas ce pays au joueur : choisissez-en un autre.";
-        public const string CHOIX_RECU = "Choix reçu : le monde l'applique au jour suivant.";
+        public const string CHOIX_RECU = "Choix reçu. Le temps reste en pause : « Reprendre », en haut à droite, le lance.";
         public const string AUCUN = "Aucun pays choisi", INVITATION = "Cliquez un pays sur la carte : sa fiche s'ouvre ici.";
         const string SANS_NOM = "Pays sans nom", MAISON_SANS_NOM = "maison non nommée par le monde";
         const float X = 1312, Y = 124, LARGEUR = 584, HAUTEUR = 932, INTERIEUR = 536, HAUTEUR_COMMENCER = 72;
@@ -32,11 +32,9 @@ namespace Forge.Interface
         readonly Func<LecturePartie> partie;
         readonly Func<TerresDeLaCarte> terres;
         readonly Func<string, Lecture<TerresDuPays>> lireHabitants;
-        readonly Func<bool> enPause;
-        readonly Action lancerLeTemps;
         // Le pays montré : sa fiche jouable (nulle pour un pays que le monde ne propose pas), son identifiant, son nom et sa maison servis.
         FicheJouable montree; string paysMontre, nomMontre; IdentiteDeMaison maisonMontree; bool designe;
-        bool maisonVue, tempsLance, envoi;
+        bool maisonVue, envoi;
         string cleDeLaListe;
         (string maison, Lecture<TerresDuPays> lu) habitants; Task<(string, Lecture<TerresDuPays>)> vol;
 
@@ -51,10 +49,9 @@ namespace Forge.Interface
         public string TexteDeLEtat => etat.text;
         public string PhraseDeCommencer => bulle.Phrase;
 
-        public AccueilDuPays(Transform toile, Func<LecturePartie> partie, Func<TerresDeLaCarte> terres, Func<string, Lecture<TerresDuPays>> lireHabitants,
-            Func<bool> enPause, Action lancerLeTemps)
+        public AccueilDuPays(Transform toile, Func<LecturePartie> partie, Func<TerresDeLaCarte> terres, Func<string, Lecture<TerresDuPays>> lireHabitants)
         {
-            this.partie = partie; this.terres = terres; this.lireHabitants = lireHabitants; this.enPause = enPause; this.lancerLeTemps = lancerLeTemps;
+            this.partie = partie; this.terres = terres; this.lireHabitants = lireHabitants;
             panneau = SocleInterface.Panneau(toile, TITRE, X, Y, LARGEUR, HAUTEUR);
             var phrase = SocleInterface.Texte(panneau, PHRASE, SocleInterface.Espacement, 86, INTERIEUR); phrase.rectTransform.sizeDelta = new Vector2(INTERIEUR, 52);
             SocleInterface.Rubrique(panneau, CONSEILLES, SocleInterface.Espacement, 150, INTERIEUR);
@@ -108,7 +105,8 @@ namespace Forge.Interface
             (montree, paysMontre, nomMontre, maisonMontree, designe) = (jouable, jouable.Pays.Id, jouable.Pays.Nom, null, true);
         }
 
-        // Envoie le choix du pays montré, puis lance le temps s'il est en pause ; une seule fois.
+        // Envoie le choix du pays montré, une seule requête à la fois. Le temps n'est pas touché : le monde ouvert en pause y reste,
+        // et le joueur le lance par la commande du temps, que le cabinet met en avant.
         public async Task Lancer()
         {
             var lue = partie(); var choisie = montree;
@@ -116,7 +114,6 @@ namespace Forge.Interface
             envoi = true;
             try { await lue.Choisir(choisie.Id); }
             finally { envoi = false; }
-            if (lue.Recu?.Acceptee == true && !tempsLance && enPause()) { tempsLance = true; lancerLeTemps(); }
         }
 
         public void Afficher()
@@ -133,7 +130,7 @@ namespace Forge.Interface
             bool recu = lue?.Recu?.Acceptee == true;
             commencer.interactable = montree != null && lue != null && lue.PeutChoisir && !envoi;
             bulle.phrase = !designe ? SANS_PAYS : montree == null ? NON_JOUABLE : recu ? CHOIX_RECU
-                : "Prend " + Nom() + " et lance le temps : le monde applique votre choix au jour suivant.";
+                : "Prend " + Nom() + " : le temps reste en pause, et le monde applique votre choix dès que vous le lancez.";
             etat.text = Etat(lue);
         }
 

@@ -47,17 +47,17 @@ namespace Forge.Interface.Tests
             new[] { new TerreLue(300, "plausible-1", "puissance-60", "grande-44"), new TerreLue(301, "plausible-2", "puissance-59", "grande-44") }, habitants);
 
         GameObject toile; AccueilDuPays accueil; LecturePartie partie;
-        readonly List<string> choix = new List<string>(); int lancements; bool enPause; RecuIntention reponse; string maisonServie;
+        readonly List<string> choix = new List<string>(); RecuIntention reponse; string maisonServie;
         readonly List<string> lectures = new List<string>();
 
         [SetUp] public void Ouvrir()
         {
-            choix.Clear(); lectures.Clear(); lancements = 0; enPause = true; reponse = RecuIntention.AccepteeAu(1); maisonServie = null;
+            choix.Clear(); lectures.Clear(); reponse = RecuIntention.AccepteeAu(1); maisonServie = null;
             toile = new GameObject("Toile témoin", typeof(RectTransform), typeof(Canvas));
             partie = new LecturePartie(() => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(0, Jour, 0, new CelluleDuMonde[0]), maisonServie)), _ => null,
                 () => Lecture<JouablesLus>.De(new JouablesLus(0, Jour, new[] { Bar, Zab, Valois, Luxembourg })),
                 id => { lock (choix) choix.Add(id); return reponse; });
-            accueil = new AccueilDuPays(toile.transform, () => partie, () => Terres, Habitants, () => enPause, () => lancements++);
+            accueil = new AccueilDuPays(toile.transform, () => partie, () => Terres, Habitants);
         }
         [TearDown] public void Fermer() => Object.DestroyImmediate(toile);
 
@@ -76,7 +76,7 @@ namespace Forge.Interface.Tests
             Object.DestroyImmediate(accueil.Panneau.gameObject);
             partie = new LecturePartie(() => Lecture<MondeAvecMaisonLu>.De(new MondeAvecMaisonLu(new MondeLu(0, Jour, 0, new CelluleDuMonde[0]), maisonServie)), _ => null,
                 () => Lecture<JouablesLus>.De(new JouablesLus(0, Jour, fiches)), id => reponse);
-            accueil = new AccueilDuPays(toile.transform, () => partie, terres, habitantsDeMaison, () => enPause, () => lancements++);
+            accueil = new AccueilDuPays(toile.transform, () => partie, terres, habitantsDeMaison);
         }
         void Afficher()
         {
@@ -96,7 +96,7 @@ namespace Forge.Interface.Tests
             Assert.That(accueil.PhraseDeCommencer, Does.StartWith("Choisissez d'abord un pays"));
             Assert.That(accueil.TexteDuNom, Is.EqualTo(AccueilDuPays.AUCUN)); Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.SANS_PAYS));
             Assert.That(toile.GetComponentsInChildren<Button>(true).Count(b => b.name == AccueilDuPays.COMMENCER), Is.EqualTo(1), "un seul bouton « Commencer »");
-            await accueil.Lancer(); Assert.That(choix, Is.Empty, "rien ne part sans pays"); Assert.That(lancements, Is.Zero);
+            await accueil.Lancer(); Assert.That(choix, Is.Empty, "rien ne part sans pays");
         }
 
         [Test] public async Task La_fiche_de_la_France_dit_son_nom_sa_maison_son_siege_ses_habitants_et_sa_ville()
@@ -188,28 +188,31 @@ namespace Forge.Interface.Tests
             }
         }
 
-        [Test] public async Task Commencer_depose_le_choix_par_maison_puis_lance_le_temps_une_seule_fois()
+        // « Commencer » ne fait que choisir : l'accueil n'a pas la main sur l'horloge, et sa phrase ne promet pas de lancer le temps.
+        [Test] public async Task Commencer_depose_le_choix_par_maison_une_seule_fois_et_laisse_le_temps_en_pause()
         {
             await Lu(); Bouton("Émirat du Zab").onClick.Invoke(); Afficher();
             Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"));
             await accueil.Lancer(); Afficher();
-            Assert.That(choix, Is.EqualTo(new[] { "seigneurie-6" }), "le choix part par l'identifiant de la maison"); Assert.That(lancements, Is.EqualTo(1));
+            Assert.That(choix, Is.EqualTo(new[] { "seigneurie-6" }), "le choix part par l'identifiant de la maison");
             Assert.That(LecturePartie.IntentionDeChoix(choix[0]), Is.EqualTo("{\"type\":\"choisir_depart\",\"maison\":\"seigneurie-6\"}"));
             Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.CHOIX_RECU)); Assert.That(accueil.Commencer.interactable, Is.False, "un choix reçu ne se renvoie pas");
             Assert.That(Bouton("Duché de Bar").interactable, Is.False, "un choix reçu ferme la liste");
-            await accueil.Lancer(); await accueil.Lancer(); Assert.That(choix.Count, Is.EqualTo(1)); Assert.That(lancements, Is.EqualTo(1), "le temps est lancé une seule fois");
+            await accueil.Lancer(); await accueil.Lancer(); Assert.That(choix.Count, Is.EqualTo(1), "le choix part deux fois");
+            Assert.That(accueil.TexteDeLEtat, Does.Contain("pause").And.Contain("« Reprendre »"), "l'état ne dit pas comment lancer le temps");
             // La maison servie ferme l'accueil, qui ne revient pas.
             maisonServie = "seigneurie-6"; await Lu(); Assert.That(accueil.Ouvert, Is.False); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False);
             maisonServie = null; await Lu(); Assert.That(accueil.Ouvert, Is.False);
         }
 
-        [Test] public async Task Un_temps_qui_file_ou_un_refus_ne_lance_rien_de_plus()
+        [Test] public async Task Commencer_ne_promet_pas_de_lancer_le_temps_et_un_refus_se_dit()
         {
-            enPause = false; await Lu(); accueil.Designer(200); Afficher(); await accueil.Lancer();
-            Assert.That(choix, Is.EqualTo(new[] { "grande-3" })); Assert.That(lancements, Is.Zero, "le temps file déjà : il n'est pas basculé");
+            await Lu(); accueil.Designer(200); Afficher();
+            Assert.That(accueil.PhraseDeCommencer, Does.StartWith("Prend France").And.Contain("en pause").And.Not.Contain("et lance le temps"));
+            await accueil.Lancer(); Assert.That(choix, Is.EqualTo(new[] { "grande-3" }));
             Fermer(); Ouvrir(); reponse = RecuIntention.Refusee(409, "départ déjà choisi : seigneurie-1");
             await Lu(); accueil.Prendre(Bar); Afficher(); await accueil.Lancer(); Afficher();
-            Assert.That(lancements, Is.Zero, "un refus ne lance pas le temps"); Assert.That(accueil.TexteDeLEtat, Does.StartWith("Demande refusée : "));
+            Assert.That(accueil.TexteDeLEtat, Does.StartWith("Demande refusée : "));
             Assert.That(TexteDuMonde.Interdit(accueil.TexteDeLEtat, "seigneurie-1"), Is.Null, "le refus montre un identifiant");
         }
 
@@ -230,7 +233,7 @@ namespace Forge.Interface.Tests
             Assert.That(accueil.Conseilles().Select(f => f.Siege.CellId), Is.EqualTo(new long?[] { 10340, 10103 }));
             Assert.That(CabinetDeCarte.CommandesSansPhrase(toile.transform), Is.Empty);
             // Avant que les terres soient lues, le siège d'un départ conseillé se reconnaît encore.
-            accueil = new AccueilDuPays(toile.transform, () => partie, () => null, Habitants, () => enPause, () => lancements++); Afficher();
+            accueil = new AccueilDuPays(toile.transform, () => partie, () => null, Habitants); Afficher();
             accueil.Designer(10103); Afficher(); Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"));
             accueil.Designer(200); Afficher(); Assert.That(accueil.Montree.Id, Is.EqualTo("seigneurie-6"), "sans terres lues, une autre terre ne montre rien");
         }

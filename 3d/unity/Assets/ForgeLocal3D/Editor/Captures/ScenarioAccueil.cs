@@ -15,7 +15,7 @@ namespace ForgeLocal3D.Captures
     // L'accueil du jeu sur la carte de 1400, joué par ses boutons et photographié trois fois :
     //   1-accueil                l'accueil ouvert au jour servi, la carte cadrée sur l'Europe où se lisent France, Bohême, Hongrie et
     //                            Castille, la maison en petit sous chaque pays ; la fiche de la Bohême, cliquée sur la carte ;
-    //   2-commencer-zab          l'Émirat du Zab pris dans les départs conseillés, « Commencer » pressé ; le choix appliqué, la carte
+    //   2-commencer-zab          l'Émirat du Zab pris dans les départs conseillés, « Commencer » puis « Reprendre » pressés ; le choix appliqué, la carte
     //                            est centrée sur Biskra, l'encart des premiers gestes est visible, « Entrer dans la ville » est actif ;
     //   3-commencer-sans-ville   le service relancé (un choix ne se défait pas), la France choisie : « Entrer dans la ville » est
     //                            grisé, et son infobulle dit la raison servie.
@@ -81,7 +81,7 @@ namespace ForgeLocal3D.Captures
             zab.onClick.Invoke();
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.Montree?.Id == ZAB && cabinet.Accueil.Commencer.interactable && cabinet.Accueil.TexteDeLaFiche.EndsWith("Ville à bâtir : oui", StringComparison.Ordinal),
                 () => "fiche du Zab : « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
-            cabinet.Accueil.Commencer.onClick.Invoke();
+            var commencer = CommencerPuisLancer(cabinet); while (commencer.MoveNext()) yield return commencer.Current;
             for (var a = AttentesDeCapture.Jusqua(() => Servie(cabinet) == ZAB && cabinet.Partie.Jouable != null && cabinet.Partie.Maison?.Presente == true && cabinet.Ville.Actif && cabinet.Gestes.Visible,
                 () => "après « Commencer » : maison « " + Servie(cabinet) + " », reçu « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " », bouton " + cabinet.Ville.Actif + ", encart " + cabinet.Gestes.Visible); a.MoveNext();) yield return null;
             var siege = cabinet.Partie.Maison.Donnees.Siege;
@@ -109,7 +109,7 @@ namespace ForgeLocal3D.Captures
             for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == FRANCE && cabinet.Accueil.Montree != null && cabinet.Accueil.Commencer.interactable,
                 () => "fiche de la France : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
             string maison = cabinet.Accueil.Montree.Id;
-            cabinet.Accueil.Commencer.onClick.Invoke();
+            var commencer = CommencerPuisLancer(cabinet); while (commencer.MoveNext()) yield return commencer.Current;
             for (var a = AttentesDeCapture.Jusqua(() => Servie(cabinet) == maison && cabinet.Partie.Jouable != null && cabinet.Ville.Bouton.gameObject.activeSelf && cabinet.Gestes.Visible,
                 () => "après « Commencer » : maison « " + Servie(cabinet) + " », reçu « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " »"); a.MoveNext();) yield return null;
             yield return null;
@@ -164,6 +164,17 @@ namespace ForgeLocal3D.Captures
         }
 
         internal static string Servie(CabinetDeCarte cabinet) => cabinet.Partie?.Monde?.Presente == true ? cabinet.Partie.Monde.Donnees.MaisonDuJoueur : null;
+
+        // « Commencer », puis « Reprendre » comme le joueur : le choix reçu laisse le monde en pause, et sa maison n'est servie
+        // qu'au jour suivant. Le temps déjà lancé n'est pas basculé.
+        internal static IEnumerator CommencerPuisLancer(CabinetDeCarte cabinet)
+        {
+            cabinet.Accueil.Commencer.onClick.Invoke();
+            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Partie.Recu?.Acceptee == true, () => "le choix n'est pas reçu : « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " »"); a.MoveNext();) yield return null;
+            var horloge = cabinet.GetComponent<HorlogeDeCarte>();
+            for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null, () => "l'horloge n'est pas servie : " + horloge.Absence); a.MoveNext();) yield return null;
+            if (horloge.EnPause) cabinet.GetComponentsInChildren<Button>(true).Single(b => b.name == "Pause / Reprendre").onClick.Invoke();
+        }
 
         // Les pays de la carte portent leur nom de 1400, jamais celui d'une dynastie servie : la maison d'un pays qui porte un autre
         // nom qu'elle, quand aucun pays servi ne porte ce nom. Les pays attendus sont écrits.

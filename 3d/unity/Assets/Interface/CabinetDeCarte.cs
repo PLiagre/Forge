@@ -21,8 +21,9 @@ namespace Forge.Interface
         public const string GUIDE = "Prochain geste";
         // Elle nomme des boutons, jamais une touche.
         public const string CHOISIR = "Choisissez votre pays, puis « Commencer »";
-        public const string CHOIX_RECU = "Choix reçu : « Reprendre » lance le temps, le monde l'applique au jour suivant";
-        public const string LANCER = "« Reprendre » lance le temps du monde";
+        // Le monde reste en pause après le choix : le guide dit l'état du temps et la commande qui le lance.
+        public const string LANCER = "En pause : « Reprendre » lance le temps";
+        public const string CHOIX_RECU = "Choix reçu · " + LANCER;
         public const string ENTRER = " · « Entrer dans la ville » ouvre votre capitale";
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
@@ -55,6 +56,7 @@ namespace Forge.Interface
         readonly HashSet<long> terresEclairees = new HashSet<long>(); // les terres de départ que la carte dessine
         string ensembleDesTerres;
         Button[] temps;
+        ColorBlock tempsOrdinaire, tempsEngage; GameObject sceauDuTemps; // « Pause / Reprendre » sans et avec la matière d'engagement
         CelluleDeCarte retenue; long rangRetenu; // la terre gardée, et le rang du lieu cliqué dans cette terre
         CarteDeLaGuerre laGuerre;
         double prochaineLecture;
@@ -113,6 +115,10 @@ namespace Forge.Interface
             temps = new[] { Bouton(bandeau, "Ralentir", 1296, 20, 180, horloge.Ralentir, "Passe le temps du monde à la vitesse inférieure."),
                 Bouton(bandeau, "Pause / Reprendre", 1496, 20, 200, horloge.Basculer, "Arrête le temps du monde, ou le relance à la vitesse choisie."),
                 Bouton(bandeau, "Accélérer", 1716, 20, 180, horloge.Accelerer, "Passe le temps du monde à la vitesse supérieure.") };
+            // La matière d'engagement du socle, posée une fois sur « Pause / Reprendre » ; `Afficher` la montre tant que le pays attend le temps.
+            tempsOrdinaire = temps[1].colors; int enfants = temps[1].transform.childCount; MatieresCabinet.Engagement(temps[1]);
+            tempsEngage = temps[1].colors; sceauDuTemps = temps[1].transform.GetChild(enfants).gameObject;
+            temps[1].colors = tempsOrdinaire; sceauDuTemps.SetActive(false);
             // « Votre maison » s'ouvre de l'icône à écu, la première des dossiers, et se ferme de sa croix ; l'accueil le cache.
             dossier = SocleInterface.Panneau(toile.transform, "Votre maison", 1312, 124, 584, 536);
             SocleInterface.Croix(dossier, () => OuvrirLaMaison(false), "Ferme le panneau de votre maison.");
@@ -162,8 +168,7 @@ namespace Forge.Interface
             // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,
-                id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); },
-                () => horloge.Lue != null && horloge.Lue.JoursParSeconde == 0, horloge.Basculer);
+                id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); });
             foreach (var texte in accueil.Panneau.GetComponentsInChildren<Text>(true)) texte.supportRichText = false;
             // Les trois premiers gestes, en bas à gauche sous les feuillets ; « Lever une armée » ouvre le feuillet de la guerre comme sa commande de « Votre maison ».
             var dossierDeLaGuerre = GetComponent<DossierGuerre>();
@@ -251,6 +256,11 @@ namespace Forge.Interface
             return conseilles.Count == 0 ? null : conseilles.Where(f => f.Siege.CellId != null).Select(f => f.Siege.CellId.Value).ToArray();
         }
 
+        // « Pause / Reprendre » porte l'engagement : le pays est choisi (reçu) ou servi, et le monde est en pause.
+        public bool TempsMisEnAvant => sceauDuTemps != null && sceauDuTemps.activeSelf;
+        public static bool TempsAttendu(Lecture<MondeAvecMaisonLu> monde, RecuIntention recu, HorlogeLue horloge)
+            => horloge != null && horloge.JoursParSeconde == 0 && (recu?.Acceptee == true || monde != null && monde.Presente && monde.Donnees.MaisonDuJoueur != null);
+
         // La phrase du prochain geste, ou null quand la ligne se tait. Le monde s'ouvre en pause : choisir, puis lancer le temps.
         public static string Guide(Lecture<MondeAvecMaisonLu> monde, Lecture<JouablesLus> jouables, RecuIntention recu, HorlogeLue horloge, bool siegeAvecVille)
         {
@@ -303,6 +313,8 @@ namespace Forge.Interface
                 : horloge.Lue != null ? HorlogeDeCarte.Decrire(horloge.Lue) : "Date en attente du monde";
             foreach (var bouton in temps) bouton.interactable = horloge.Lue != null && horloge.Absence == null;
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
+            bool enAvant = TempsAttendu(Partie.Monde, Partie.Recu, horloge.Lue);
+            if (enAvant != sceauDuTemps.activeSelf) { temps[1].colors = enAvant ? tempsEngage : tempsOrdinaire; sceauDuTemps.SetActive(enAvant); }
             barre.text = Barre(Partie.Monde, Partie.Comptes);
             jauges.Afficher(Partie.Monde, Partie.Pays);
             etat.gameObject.SetActive(carte.CellulesServies < 0);
