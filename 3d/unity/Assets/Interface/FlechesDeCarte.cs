@@ -18,8 +18,8 @@ namespace Forge.Interface
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
         public Func<string, Lecture<ComptesDeMaison>> Lecteur;
-        public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lu par l'infobulle de la légende du mode Flux, plus écrit sur la toile
-        public bool Visibles => calques != null && calques.Mode == ModeDeCarte.Flux; // calculées dans tous les modes, montrées en Flux seulement
+        public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lu par l'infobulle de la légende du mode Vivres, plus écrit sur la toile
+        public bool Visibles => calques != null && calques.Mode == ModeDeCarte.Vivres; // calculées dans tous les modes, montrées en Vivres seulement
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
         CarteDessinee carte; CabinetDeCarte cabinet; LieuxDeCarte lieux; CalquesCarte calques; Transform racine; string lignesLieux = "", ligneDu = "", duDe;
         readonly Dictionary<Color, Material> mats = new Dictionary<Color, Material>();

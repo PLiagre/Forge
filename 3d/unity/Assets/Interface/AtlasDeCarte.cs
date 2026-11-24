@@ -151,9 +151,9 @@ namespace Forge.Interface
                 float kmParPixel = FormesDeCarte.KmParPixel(camera, trait.transform.TransformPoint(trait.GetPosition(0)));
                 trait.widthMultiplier = kmParPixel > 0f ? Mathf.Clamp(LARGEUR_DU_FLEUVE_KM, MIN_PX * kmParPixel, MAX_PX * kmParPixel) : LARGEUR_DU_FLEUVE_KM;
             }
-            prises.Clear(); guerre?.Ecriture?.Reserver(camera, prises); if (calques != null) prises.AddRange(calques.PlacesDesCapitales);
+            prises.Clear(); guerre?.ReserverLesNoms(camera, prises); if (calques != null) prises.AddRange(calques.PlacesDesCapitales);
             // Une région qui porte le nom d'un pays lisible le redirait : elle se tait.
-            lisibles.Clear(); if (guerre != null) foreach (NomCourbe pays in guerre.NomsDesPays) if (pays.Opacite > 0f) lisibles.Add(pays.Texte);
+            lisibles.Clear(); if (guerre != null && guerre.NomsMontres) foreach (NomCourbe pays in guerre.NomsDesPays) if (pays.Opacite > 0f) lisibles.Add(pays.Texte);
             foreach (NomCourbe nom in ecriture.Noms)
             {
                 lettres.Clear(); ecriture.Places(camera, nom, lettres);
