@@ -102,8 +102,8 @@ def test_la_carte_qui_dit_le_monde_servi_est_egale(epreuve, carte, monde, lieu_m
 
 def test_un_bourg_et_une_ville_se_lisent_ensemble(epreuve, carte, monde, lieu):
     lieu = terre(lieu, METZ)
-    assert epreuve.bourg(lieu) == "Övre vik"
-    egal, lignes = epreuve.juger(rapport(carte, fiche(epreuve, carte, monde, METZ, "Övre vik")), carte, monde, lieu, METZ)
+    assert epreuve.bourg(lieu) == "Örebro"
+    egal, lignes = epreuve.juger(rapport(carte, fiche(epreuve, carte, monde, METZ, "Örebro")), carte, monde, lieu, METZ)
     assert egal, lignes
     assert "villes : fiche ['Metz'] · service ['Metz'] · égal" in lignes
 
@@ -127,7 +127,7 @@ def test_chaque_nombre_compte(epreuve, carte, monde, lieu_metz, champ, valeur):
 
 
 @pytest.mark.parametrize("premiere_ligne, attendu", [
-    ("Övre vik · Metz", "bourg : fiche 'Övre vik' · service 'Metz' · ÉCART"),
+    ("Örebro · Metz", "bourg : fiche 'Örebro' · service 'Metz' · ÉCART"),
     ("Bourg en lecture · Metz", "bourg : fiche None · service 'Metz' · ÉCART"),
     ("Metz · Metz", "villes : fiche ['Metz'] · service [] · ÉCART")])
 def test_le_bourg_et_les_villes_comptent(epreuve, carte, monde, lieu_metz, premiere_ligne, attendu):
@@ -141,7 +141,7 @@ def test_une_faim_non_calculee_se_relit(epreuve, carte, monde, lieu):
     autre = next(c["cell_id"] for c in carte["cells"] if c["cell_id"] != METZ)
     monde = copy.deepcopy(monde)
     monde["cells"][1]["cell_id"] = autre
-    egal, lignes = epreuve.juger(rapport(carte, fiche(epreuve, carte, monde, autre, "Övre vik"), cellule=autre), carte, monde,
+    egal, lignes = epreuve.juger(rapport(carte, fiche(epreuve, carte, monde, autre, "Örebro"), cellule=autre), carte, monde,
                                  terre(lieu, autre), autre)
     assert egal, lignes
     assert "faim : fiche 'non calculée' · service 'non calculée' · égal" in lignes
@@ -326,10 +326,10 @@ def lieu():
 
 
 def test_le_bourg_est_le_lieu_de_rang_0(epreuve, lieu):
-    assert epreuve.bourg(lieu) == "Övre vik"
+    assert epreuve.bourg(lieu) == "Örebro"
     lieu["lieux"].reverse()
     assert lieu["lieux"][0]["rang"] != 0
-    assert epreuve.bourg(lieu) == "Övre vik", "le rang compte, pas la place"
+    assert epreuve.bourg(lieu) == "Örebro", "le rang compte, pas la place"
 
 
 def _sans_rang_0(lieu):
