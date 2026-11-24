@@ -92,7 +92,7 @@ namespace ForgeLocal3D.Captures
             string navarre = Pays(guerre, "Navarre"); var terres = Terres(guerre, new[] { navarre }).ToList();
             NomCourbe nom = guerre.NomsDesPays.SingleOrDefault(n => n.Pays == navarre) ?? throw Faux("la Navarre n'a pas de nom sur la carte");
             // Le nom s'efface quand il remplirait la vue : assez de recul pour qu'il reste sous `PART_DU_NOM_A_L_ECRAN` de la hauteur.
-            var (centre, demi) = Cadrer(carte, terres, ASPECT); demi = Mathf.Max(demi, nom.Corps / (2f * PART_DU_NOM_A_L_ECRAN));
+            var (centre, demi) = Cadrer(carte, terres, ASPECT); demi = Mathf.Max(demi, guerre.Ecriture.CorpsDOrigine(nom) / (2f * PART_DU_NOM_A_L_ECRAN));
             void Pampelune()
             {
                 var capitale = villes.Capitales.SingleOrDefault(c => c.nom == "Pampelune");
@@ -114,7 +114,7 @@ namespace ForgeLocal3D.Captures
                 NomCourbe ligne = nom.Vassalite; if (ligne == null || ligne.Texte != "vassal d'Angleterre") throw Faux("guyenne-de-pres : la ligne de vassalité de la Guyenne est « " + ligne?.Texte + " », pas « vassal d'Angleterre »");
                 if (ligne.Opacite <= 0f || !ligne.Rendu.enabled) throw Faux("guyenne-de-pres : « " + ligne.Texte + " » ne se lit pas (" + ligne.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px, opacité " + ligne.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (ligne.Rendu.enabled ? "" : ", éteint") + ")");
             }
-            var p = Photographier("guyenne-de-pres", terres, new[] { guyenne }, (nom.Trace.Centre, nom.Corps * NOM_DE_PRES), Vassalite); while (p.MoveNext()) yield return p.Current;
+            var p = Photographier("guyenne-de-pres", terres, new[] { guyenne }, (nom.Trace.Centre, guerre.Ecriture.CorpsDOrigine(nom) * NOM_DE_PRES), Vassalite); while (p.MoveNext()) yield return p.Current;
         }
 
         // Les terres servies que montre chaque cadre de la carte politique, d'après les pays servis ; la planche de l'atlas

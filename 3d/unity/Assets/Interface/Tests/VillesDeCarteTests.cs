@@ -222,17 +222,29 @@ namespace Forge.Interface.Tests
             var noms = europe.Guerre.NomsDesPays.ToDictionary(n => n.Pays); var tenants = new HashSet<string>(Terres.Terres.Select(t => t.Pays).Where(p => p != null));
             var pays = Terres.Pays.Select(p => p.Id).Where(id => tenants.Contains(id) && noms.ContainsKey(id) && europe.Villes.Capitales.Any(c => c.pays.Contains(id))).OrderBy(id => id, System.StringComparer.Ordinal).ToList();
             Assert.That(pays.Count, Is.GreaterThan(50), "échantillon vide : trop peu de pays nommés à la capitale placée"); Assert.That(pays, Does.Contain(NAVARRE), "échantillon vide : la Navarre n'a pas de capitale placée");
-            var fautes = new List<string>(); var couvertes = new List<string>();
+            var fautes = new List<string>(); var couvertes = new List<string>(); int deplaces = 0;
             foreach (string id in pays)
             {
-                NomCourbe nom = noms[id]; var c = CapitaleDe(id); var (centre, demi) = Cadre(id, nom.Corps, new Vector2(c.pied.x, c.pied.z)); europe.Voir(centre, demi);
+                NomCourbe nom = noms[id]; var c = CapitaleDe(id); var (centre, demi) = Cadre(id, europe.Guerre.Ecriture.CorpsDOrigine(nom), new Vector2(c.pied.x, c.pied.z)); europe.Voir(centre, demi);
                 var etiquette = europe.Calques.EtiquetteDe(c.texte); bool nommee = etiquette != null && etiquette.enabled;
                 if (!nommee && etiquette != null && (!c.figurine.gameObject.activeInHierarchy || europe.Calques.PlacesDesCapitales.Any(r => r.Overlaps(PlaceDeLEtiquette(c.texte, etiquette)))))
                 { couvertes.Add(Terres.NomDuPays(id) + " (" + c.nom + ")"); continue; }
                 bool lisible = !nom.Masque && nom.Opacite > 0f;
+                // Un nom qui s'écarte de sa capitale reste sur la terre de son pays : il ne s'écrit jamais sur un voisin.
+                if (europe.Guerre.Ecriture.VarianteDe(nom) != (0, 0f))
+                {
+                    deplaces++; TerrainDeCarte terrain = europe.Carte.Terrain; int dehors = 0;
+                    for (int i = 0; i < nom.Ecrit.Length; i++)
+                    {
+                        if (char.IsWhiteSpace(nom.Ecrit[i])) continue; Vector2 p = nom.Compose.Lettres[i].Point; ushort n = terrain.LieuEn(p.x, p.y);
+                        if (n == 0 || Terres.PaysDe(europe.Carte.Lue.Cellules[terrain.CelluleDuLieu(n - 1)].CellId) != id) dehors++;
+                    }
+                    if (dehors > NomsCourbes.LETTRES_HORS_DE_SA_TERRE) fautes.Add(Terres.NomDuPays(id) + " : son nom écarté de " + c.nom + " a " + dehors + " lettres hors de sa terre");
+                }
                 if (!nommee || !lisible) fautes.Add(Terres.NomDuPays(id) + " à " + demi.ToString("0") + " km : " + (nommee ? "" : c.nom + " non nommée ; ") + (lisible ? "nom lisible" : "nom illisible") + " (" + nom.CorpsPx.ToString("0") + " px)");
             }
-            TestContext.WriteLine(pays.Count + " pays vus, " + couvertes.Count + " capitales couvertes par une autre : " + string.Join(", ", couvertes));
+            Assert.That(deplaces, Is.GreaterThan(0), "échantillon vide : aucun nom ne s'est écarté de sa capitale");
+            TestContext.WriteLine(pays.Count + " pays vus, " + deplaces + " noms écartés de leur capitale, " + couvertes.Count + " capitales couvertes par une autre : " + string.Join(", ", couvertes));
             Assert.That(fautes, Is.Empty, fautes.Count + " pays sur " + pays.Count + " : " + string.Join(" ; ", fautes));
             Assert.That(couvertes.Count, Is.LessThan(pays.Count / 5), "trop de capitales couvertes par une autre : " + string.Join(", ", couvertes));
             Assert.That(couvertes.Any(n => n.StartsWith(Terres.NomDuPays(NAVARRE))), Is.False, "Pampelune est couverte par une autre capitale : la contre-épreuve ne prouve rien");

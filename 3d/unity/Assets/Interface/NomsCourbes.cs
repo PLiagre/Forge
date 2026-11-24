@@ -69,8 +69,19 @@ namespace Forge.Interface
         // L'italique : la pente des lettres (le décalage vers l'est par corps de hauteur), et l'espace ajouté après chaque lettre, en corps.
         public const float PENTE_DE_L_ITALIQUE = 0.22f, ESPACEMENT_DE_L_ITALIQUE = 0.12f;
         // Les variantes d'un nom qui couvre une capitale : décalé en travers de son tracé par pas de `PAS_DU_DECALAGE` corps, au-dessus
-        // puis au-dessous, jusqu'à `DECALAGES` pas ; puis réduit de `REDUCTION` autour du milieu de son tracé, en place et décalé de même.
+        // puis au-dessous, jusqu'à `DECALAGES` pas ; puis réduit de `REDUCTION`, puis de son carré, sur un tracé raccourci d'autant posé au
+        // milieu, au début ou à la fin du tracé d'origine, en place et décalé de même. `ECHELLES` : la part gardée du tracé et sa place
+        // (-1 au début, 0 au milieu, 1 à la fin), la première étant le tracé d'origine.
         public const float PAS_DU_DECALAGE = 0.5f, REDUCTION = 0.6f; public const int DECALAGES = 8;
+        static readonly (float part, float place)[] ECHELLES = { (1f, 0f), (REDUCTION, 0f), (REDUCTION, -1f), (REDUCTION, 1f), (REDUCTION * REDUCTION, 0f), (REDUCTION * REDUCTION, -1f), (REDUCTION * REDUCTION, 1f) };
+        // Une variante garde le nom sur la terre de son pays : au plus `LETTRES_HORS_DE_SA_TERRE` de ses lettres hors d'elle, comme le
+        // tracé d'origine tolère un trou. `SurSaTerre` dit si un point (km de la carte) est sur la terre d'un pays ; sans lui, toute variante l'est.
+        public const int LETTRES_HORS_DE_SA_TERRE = 1;
+        public Func<string, Vector2, bool> SurSaTerre { get; set; }
+        // La variante montrée du nom d'un pays : son échelle (son rang dans `ECHELLES`, 0 d'origine) et son décalage en travers, en km ; (0, 0) pour un nom posé à son tracé d'origine.
+        public (int echelle, float decalage) VarianteDe(NomCourbe nom) { foreach (Groupe g in groupes) if (g.Lignes[0] == nom) return (g.Echelle, g.Decalage); return (0, 0f); }
+        // Le corps du nom d'un pays sur son tracé d'origine, en km, quelle que soit la variante montrée.
+        public float CorpsDOrigine(NomCourbe nom) { foreach (Groupe g in groupes) if (g.Lignes[0] == nom) return g.Dispositions[0][0].compose.Corps; return nom?.Corps ?? 0f; }
         // Les tailles tirées de la police, en pixels ; la mise en page se fait à la taille de référence.
         static readonly int[] TAILLES = { 12, 16, 24, 32, 48, 64, 96, 128 }; const int REFERENCE = 64;
         const string CAPITALE = "H"; const float HAUTEUR_DE_CAPITALE = 0.7f, AVANCE_INCONNUE = 0.5f; const int ESSAIS = 4;
@@ -80,13 +91,14 @@ namespace Forge.Interface
         readonly List<NomCourbe> noms = new List<NomCourbe>(), lignes = new List<NomCourbe>(); bool refait; readonly Color32 deSecours; readonly Func<Vector2, Vector3> sol;
         readonly List<Groupe> groupes = new List<Groupe>();
         // Les lignes d'un pays (son nom, sa maison, sa vassalité) et ce que leurs lettres avancent ; leur disposition sur le tracé
-        // d'origine et sur le tracé réduit (nulle s'il ne s'y compose pas), avec le milieu et le rayon de leurs lettres, en km ; puis la
-        // variante montrée : son échelle (0 d'origine, 1 réduite) et son décalage en travers, en km vers le haut des lettres.
+        // d'origine et sur chaque tracé réduit de `ECHELLES` (nulle s'il ne s'y compose pas), avec le milieu et le rayon de leurs lettres,
+        // en km ; puis la variante montrée : son échelle (son rang dans `ECHELLES`, 0 d'origine) et son décalage en travers, en km vers le
+        // haut des lettres.
         sealed class Groupe
         {
             public float[][] Avances; public bool AMaison, AVassal; public NomCourbe[] Lignes; public TraceDeNom Trace;
-            public readonly (TraceDeNom trace, NomCompose compose)[][] Dispositions = new (TraceDeNom, NomCompose)[2][];
-            public readonly Vector2[] Milieux = new Vector2[2]; public readonly float[] Rayons = new float[2];
+            public readonly (TraceDeNom trace, NomCompose compose)[][] Dispositions = new (TraceDeNom, NomCompose)[ECHELLES.Length][];
+            public readonly Vector2[] Milieux = new Vector2[ECHELLES.Length]; public readonly float[] Rayons = new float[ECHELLES.Length];
             public int Echelle; public float Decalage;
         }
         // Les lettres à demander à la police pour chaque taille, et ce dont elles ont été tirées : refaites seulement quand les noms montrés à cette taille changent.
@@ -192,8 +204,8 @@ namespace Forge.Interface
                 NomCourbe nom = g.Lignes[0]; noms.Add(nom); lignes.AddRange(g.Lignes);
                 for (int k = 1; k < g.Lignes.Length; k++) g.Lignes[k].NomDuPays = nom;
                 if (aMaison) nom.Maison = g.Lignes[1]; if (vassal != null) nom.Vassalite = g.Lignes[g.Lignes.Length - 1];
-                g.Dispositions[0] = disposition; g.Dispositions[1] = Disposer(Reduire(trace), g);
-                for (int e = 0; e < 2; e++) if (g.Dispositions[e] != null) (g.Milieux[e], g.Rayons[e]) = Etendue(g.Dispositions[e]);
+                g.Dispositions[0] = disposition; for (int e = 1; e < ECHELLES.Length; e++) g.Dispositions[e] = Disposer(Reduire(trace, ECHELLES[e].part, ECHELLES[e].place), g);
+                for (int e = 0; e < ECHELLES.Length; e++) if (g.Dispositions[e] != null) (g.Milieux[e], g.Rayons[e]) = Etendue(g.Dispositions[e]);
                 groupes.Add(g);
             }
         }
@@ -217,12 +229,12 @@ namespace Forge.Interface
             }
             return lignes;
         }
-        // Le même arc, raccourci et rétréci de `REDUCTION` autour de son milieu : un nom plus petit au même endroit.
-        static TraceDeNom Reduire(TraceDeNom t)
+        // Le même arc, raccourci et rétréci à `part` de lui-même, posé à son milieu, à son début (`place` -1) ou à sa fin (1) : un nom plus petit.
+        static TraceDeNom Reduire(TraceDeNom t, float part, float place)
         {
             const float S = 100f; float a = Vector2.Dot(t.Point(0f) - t.Centre, t.Travers), b = (Vector2.Dot(t.Point(S) - t.Centre - t.Axe * S, t.Travers) - a - t.Courbure * S * S) / S;
-            float milieu = (t.Debut + t.Fin) / 2f, demi = (t.Fin - t.Debut) / 2f * REDUCTION;
-            return new TraceDeNom(t.Centre, t.Axe, milieu - demi, milieu + demi, a, b, t.Courbure, t.Largeur * REDUCTION, t.Echantillons);
+            float demiOrigine = (t.Fin - t.Debut) / 2f, demi = demiOrigine * part, milieu = (t.Debut + t.Fin) / 2f + place * (demiOrigine - demi);
+            return new TraceDeNom(t.Centre, t.Axe, milieu - demi, milieu + demi, a, b, t.Courbure, t.Largeur * part, t.Echantillons);
         }
         // Le milieu des lettres d'une disposition et le rayon qui les contient toutes, lettres comprises, en km.
         static (Vector2, float) Etendue((TraceDeNom trace, NomCompose compose)[] disposition)
@@ -254,17 +266,25 @@ namespace Forge.Interface
         (int, float) Choisir(Camera camera, Groupe g, IReadOnlyList<Rect> places)
         {
             if (places == null || places.Count == 0 || g.Lignes[0].Opacite <= 0f || Libre(camera, g, 0, 0f, places)) return (0, 0f);
-            for (int e = 0; e < 2; e++)
+            for (int e = 0; e < ECHELLES.Length; e++)
             {
                 if (g.Dispositions[e] == null || (e > 0 && Px(g, e, 0) < LISIBLE_PX)) continue;
                 float pas = PAS_DU_DECALAGE * g.Dispositions[e][0].compose.Corps;
                 for (int k = e == 0 ? 1 : 0; k <= DECALAGES; k++)
                 {
-                    if (Libre(camera, g, e, k * pas, places)) return (e, k * pas);
-                    if (k > 0 && Libre(camera, g, e, -k * pas, places)) return (e, -k * pas);
+                    if (SurLaTerre(g, e, k * pas) && Libre(camera, g, e, k * pas, places)) return (e, k * pas);
+                    if (k > 0 && SurLaTerre(g, e, -k * pas) && Libre(camera, g, e, -k * pas, places)) return (e, -k * pas);
                 }
             }
             return (0, 0f);
+        }
+        // Les lettres du nom de cette variante sont sur la terre de son pays, à `LETTRES_HORS_DE_SA_TERRE` près.
+        bool SurLaTerre(Groupe g, int echelle, float decalage)
+        {
+            if (SurSaTerre == null) return true;
+            NomCourbe nom = g.Lignes[0]; var lettres = g.Dispositions[echelle][0].compose.Lettres; Vector2 enTravers = g.Trace.Travers * decalage; int dehors = 0;
+            for (int i = 0; i < nom.Ecrit.Length; i++) if (!char.IsWhiteSpace(nom.Ecrit[i]) && !SurSaTerre(nom.Pays, lettres[i].Point + enTravers) && ++dehors > LETTRES_HORS_DE_SA_TERRE) return false;
+            return true;
         }
         // Le corps à l'écran qu'aurait cette ligne dans cette échelle, d'après celui de la dernière image.
         static float Px(Groupe g, int echelle, int ligne) { NomCourbe l = g.Lignes[ligne]; return l.Corps > 0f ? l.CorpsPx * g.Dispositions[echelle][ligne].compose.Corps / l.Corps : 0f; }

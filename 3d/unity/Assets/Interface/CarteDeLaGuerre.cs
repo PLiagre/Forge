@@ -199,6 +199,9 @@ namespace Forge.Interface
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
             Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
+            // Un nom qui s'écarte d'une capitale reste sur la terre de son pays, lue comme son tracé : le pays de la cellule du lieu sous le point.
+            TerrainDeCarte terrain = carte.Terrain; var paysDesRangs = pays; var parRang = Terres.Pays.Select(p => p.Id).ToList();
+            ecriture.SurSaTerre = (id, p) => { ushort n = terrain.LieuEn(p.x, p.y); if (n == 0) return false; int k = paysDesRangs[terrain.CelluleDuLieu(n - 1)]; return k >= 0 && parRang[k] == id; };
             // Le nom servi du pays, jamais un nom de remplacement : un pays que le monde ne nomme pas n'a pas de nom sur la carte.
             // En petit dessous, celui de sa maison quand il diffère.
             // Un vassal porte aussi, plus petit, « vassal de » son suzerain, tel que le monde le nomme.
