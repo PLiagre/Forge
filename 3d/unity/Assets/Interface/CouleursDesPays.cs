@@ -7,19 +7,21 @@ using UnityEngine;
 namespace Forge.Interface
 {
     // La couleur de chaque pays servi sur la carte politique, et son liseré. Un bloc est un pays racine et tous ceux qui
-    // relèvent de lui en remontant la chaîne `suzerain` ; deux blocs voisins prennent deux pigments différents de
-    // `SocleInterface.PigmentsDesPays`, et deux pays voisins de blocs différents restent à `ECART_MIN` au moins (ΔE, CIE 1976).
-    // La racine porte le pigment de son bloc ; un vassal le porte éclairci d'une des `PARTS`, toujours plus clair que son
-    // suzerain, et deux vassaux voisins d'un même bloc ne sont pas éclaircis de la même part. Le liseré d'un membre d'un
-    // `ensemble` est celui de l'ensemble (`SocleInterface.LisereDeLEnsemble`) ; celui d'un autre pays est tiré de son pigment.
-    // Chaque bloc préfère le pigment tiré de l'identifiant de sa racine, et garde d'une lecture à l'autre celui qu'il avait
-    // tant qu'aucun voisin ne le lui interdit : une terre prise ne recolore que ce qu'elle force. De la présentation : aucun
-    // nombre du monde n'en sort, et la même lecture donne les mêmes couleurs.
+    // relèvent de lui en remontant la chaîne `suzerain` : tout le bloc porte une même famille de teinte
+    // (`SocleInterface.FamilleDuPigment`), et deux blocs voisins n'ont jamais la même ; deux pays voisins de blocs différents
+    // restent en outre à `ECART_MIN` au moins (ΔE, CIE 1976). La racine porte le pigment de son bloc ; un vassal le porte
+    // éclairci d'une des `PARTS`, toujours plus clair que son suzerain et dans sa famille, et deux vassaux voisins d'un même
+    // bloc ne sont pas éclaircis de la même part. Le liseré d'un membre d'un `ensemble` est celui de l'ensemble
+    // (`SocleInterface.LisereDeLEnsemble`) ; celui d'un autre pays est tiré du pigment de la racine de son bloc, pour que le bloc
+    // se cerne d'un même trait. Chaque bloc préfère le pigment tiré de l'identifiant de sa racine, et garde d'une lecture à
+    // l'autre celui qu'il avait tant qu'aucun voisin ne le lui interdit : une terre prise ne recolore que ce qu'elle force. De
+    // la présentation : aucun nombre du monde n'en sort, et la même lecture donne les mêmes couleurs.
     public sealed class CouleursDesPays
     {
-        public const float ECART_MIN = 10f;
-        // Les parts d'éclaircissement d'un vassal, de la plus sombre à la plus claire.
-        public static readonly IReadOnlyList<float> PARTS = new[] { .22f, .34f, .46f, .58f };
+        // L'écart perçu (ΔE) et l'écart de teinte perçue, en degrés, que deux familles de pigments tiennent entre elles à toute part.
+        public const float ECART_MIN = 16f, ECART_DE_TEINTE_MIN = 40f;
+        // Les parts d'éclaircissement d'un vassal, de la plus sombre à la plus claire : assez petites pour qu'il reste de la famille de son bloc.
+        public static readonly IReadOnlyList<float> PARTS = new[] { .08f, .15f, .22f, .29f };
 
         readonly Dictionary<string, string> racines = new Dictionary<string, string>();
         readonly Dictionary<string, int> pigments = new Dictionary<string, int>(); // par racine, l'indice de son pigment
@@ -40,6 +42,8 @@ namespace Forge.Interface
         public Color Lisere(string id) => id != null && liseres.TryGetValue(id, out Color c) ? c : CalquesCarte.LisereDuPigment(Couleur(id));
         // La racine du bloc du pays, et l'indice de son éclaircissement (0 : la racine elle-même).
         public string Racine(string id) => id != null && racines.TryGetValue(id, out string r) ? r : id;
+        // La famille de teinte du bloc du pays (`SocleInterface.FamilleDuPigment`) ; -1 quand son bloc n'est pas colorié.
+        public int FamilleDe(string id) => pigments.TryGetValue(Racine(id) ?? "", out int k) ? SocleInterface.FamilleDuPigment(k) : -1;
         public int Part(string id) => id != null && parts.TryGetValue(id, out int p) ? p : 0;
         public static Color SansPays => SocleInterface.Pigment(MaillageDeCarte.CouleurSansPuissance);
         public static Color Repli(string id) => SocleInterface.PigmentsDesPays[Prefere(id)];
@@ -59,6 +63,16 @@ namespace Forge.Interface
         {
             Vector3 p = Lab(a), q = Lab(b); return (p - q).magnitude;
         }
+        // La teinte perçue d'une couleur, en degrés de 0 à 360 : l'angle de ses coordonnées a et b (CIE Lab).
+        public static float AngleDeTeinte(Color c)
+        {
+            Vector3 p = Lab(c); float angle = Mathf.Atan2(p.z, p.y) * Mathf.Rad2Deg; return angle < 0f ? angle + 360f : angle;
+        }
+        // L'écart de deux teintes perçues sur le cercle, de 0 à 180 degrés.
+        public static float EcartDeTeinte(Color a, Color b)
+        {
+            float d = Mathf.Abs(AngleDeTeinte(a) - AngleDeTeinte(b)) % 360f; return Mathf.Min(d, 360f - d);
+        }
         static Vector3 Lab(Color c)
         {
             float Lin(float v) => v <= .04045f ? v / 12.92f : Mathf.Pow((v + .055f) / 1.055f, 2.4f);
@@ -68,9 +82,11 @@ namespace Forge.Interface
             return new Vector3(116f * y - 16f, 500f * (x - y), 200f * (y - z));
         }
 
-        // Les voisinages entre pays. Deux terres qui se touchent lient leurs pays ; un lieu d'un autre pays lie le sien à celui
-        // de sa terre et à ceux des terres d'à côté. `lieux` : les lieux qui se touchent sur le terrain (`LieuxQuiSeTouchent`),
-        // qui lient aussi deux lieux d'une même terre ; sans eux, deux lieux d'autres pays d'une même terre ne se lient pas.
+        // Les voisinages entre pays. Deux terres qui se touchent lient leurs pays. `lieux` : les lieux qui se touchent sur le terrain
+        // (`LieuxQuiSeTouchent`) ; donnés, ils lient seuls le pays d'un lieu à ceux des lieux qu'il touche, d'une même terre ou d'à
+        // côté. Sans eux, un lieu d'un autre pays lie le sien à celui de sa terre et à ceux des terres d'à côté, et deux lieux d'autres
+        // pays d'une même terre ne se lient pas : une règle grossière qui, sur un terrain découpé en lieux, ferait de chaque petit pays
+        // d'une terre le voisin de tout son entourage.
         public static Dictionary<string, HashSet<string>> VoisinsDesPays(TerresDeLaCarte terres, IEnumerable<CoteDeCarte> cotes, IEnumerable<(long terre, long rang, long autreTerre, long autreRang)> lieux = null)
         {
             var voisins = new Dictionary<string, HashSet<string>>();
@@ -87,13 +103,14 @@ namespace Forge.Interface
                     Lier(terres.PaysDe(cote.Dedans), terres.PaysDe(cote.Dehors));
                     if (!autour.TryGetValue(cote.Dedans, out var liste)) autour[cote.Dedans] = liste = new List<long>(); liste.Add(cote.Dehors);
                 }
-            foreach (var terre in terres.Terres)
-                foreach (var lieu in terre.AutresPays)
-                {
-                    Lier(lieu.Pays, terre.Pays);
-                    if (autour.TryGetValue(terre.CellId, out var proches)) foreach (long proche in proches) Lier(lieu.Pays, terres.PaysDe(proche));
-                }
             if (lieux != null) foreach (var (t, r, u, s) in lieux) Lier(terres.PaysDuLieu(t, r), terres.PaysDuLieu(u, s));
+            else
+                foreach (var terre in terres.Terres)
+                    foreach (var lieu in terre.AutresPays)
+                    {
+                        Lier(lieu.Pays, terre.Pays);
+                        if (autour.TryGetValue(terre.CellId, out var proches)) foreach (long proche in proches) Lier(lieu.Pays, terres.PaysDe(proche));
+                    }
             return voisins;
         }
 
@@ -136,7 +153,7 @@ namespace Forge.Interface
             {
                 c.couleurs[id] = Peindre(c.pigments[c.racines[id]], c.parts[id]);
                 string ensemble = terres.EnsembleDe(id);
-                c.liseres[id] = ensemble != null ? SocleInterface.LisereDeLEnsemble(ensemble) : CalquesCarte.LisereDuPigment(c.couleurs[id]);
+                c.liseres[id] = ensemble != null ? SocleInterface.LisereDeLEnsemble(ensemble) : CalquesCarte.LisereDuPigment(Peindre(c.pigments[c.racines[id]], 0));
             }
             return c;
         }
@@ -161,17 +178,19 @@ namespace Forge.Interface
 
         // Le pigment de chaque bloc. D'abord ceux qui gardent le leur, dans l'ordre des racines ; puis les autres, le plus
         // contraint d'abord (le plus de pigments déjà pris autour de lui, puis le plus de voisins), chacun au premier pigment
-        // permis à partir de celui qu'il avait, sinon du sien. Sans pigment permis, celui qui écarte le plus de ses voisins, puis
-        // son entourage se replace autour de lui ; si un conflit reste, toute la carte se replace, et ce qui reste se compte.
+        // permis à partir de celui qu'il avait, sinon du sien. Sans pigment permis, il déloge le moins de voisins qu'il peut, chacun
+        // vers un pigment permis autour de lui ; à défaut, son entourage se replace autour de lui ; si un conflit reste, toute la
+        // carte se replace, et ce qui reste se compte.
         void Teindre(Dictionary<string, List<string>> blocs, Func<string, HashSet<string>> voisinsDe, CouleursDesPays avant)
         {
             int n = SocleInterface.PigmentsDesPays.Count;
             var voisinsDuBloc = blocs.ToDictionary(b => b.Key, b => new HashSet<string>(b.Value.SelectMany(voisinsDe).Where(racines.ContainsKey).Select(v => racines[v]).Where(r => r != b.Key)));
-            // Le plus petit écart entre ce bloc, au pigment k, et ses voisins déjà teints ; infini s'il n'en a aucun.
+            // Le plus petit écart entre ce bloc, au pigment k, et ses voisins déjà teints ; infini s'il n'en a aucun, négatif si un
+            // voisin a déjà la famille de k.
             float EcartAuxVoisins(string bloc, int k)
             {
-                float pire = float.PositiveInfinity;
-                foreach (string r in voisinsDuBloc[bloc]) if (pigments.TryGetValue(r, out int autre) && autre == k) return -1f;
+                float pire = float.PositiveInfinity; int famille = SocleInterface.FamilleDuPigment(k);
+                foreach (string r in voisinsDuBloc[bloc]) if (pigments.TryGetValue(r, out int autre) && SocleInterface.FamilleDuPigment(autre) == famille) return -1f;
                 foreach (string id in blocs[bloc])
                     foreach (string v in voisinsDe(id))
                         if (racines.TryGetValue(v, out string r) && r != bloc && pigments.TryGetValue(r, out int autre))
@@ -201,15 +220,52 @@ namespace Forge.Interface
                 }
                 return manques;
             }
-            // Un bloc sans pigment permis se replace le premier, ses voisins repris après lui : seul son entourage change.
+            // Le pigment d'où un bloc part : celui qu'il avait, sinon le sien.
+            int Depart(string bloc) => avant != null && avant.pigments.TryGetValue(bloc, out int ancien) ? ancien : Prefere(bloc);
+            // Le premier pigment permis à ce bloc à partir du sien, ou -1.
+            int Permis(string bloc)
+            {
+                int depart = Depart(bloc);
+                for (int d = 0; d < n; d++) { int k = (depart + d) % n; if (EcartAuxVoisins(bloc, k) >= ECART_MIN) return k; }
+                return -1;
+            }
+            // Un bloc sans pigment permis prend celui qui déloge le moins de ses voisins, ceux de sa famille, pourvu que chacun d'eux
+            // trouve un pigment permis autour de lui : seuls ce bloc et ces voisins changent. Faux si aucun ne le permet, et rien n'a changé.
+            bool Deloger(string bloc)
+            {
+                int sien = pigments[bloc], depart = Depart(bloc);
+                var essais = Enumerable.Range(0, n).Select(d => (depart + d) % n)
+                    .Select(k => (k, genants: voisinsDuBloc[bloc].Where(r => pigments.TryGetValue(r, out int a) && SocleInterface.FamilleDuPigment(a) == SocleInterface.FamilleDuPigment(k)).OrderBy(r => r, StringComparer.Ordinal).ToList()))
+                    .OrderBy(e => e.genants.Count).ToList();
+                foreach (var (k, genants) in essais)
+                {
+                    var leurs = genants.ToDictionary(x => x, x => pigments[x]);
+                    pigments.Remove(bloc); foreach (string g in genants) pigments.Remove(g);
+                    bool place = EcartAuxVoisins(bloc, k) >= ECART_MIN;
+                    if (place)
+                    {
+                        pigments[bloc] = k;
+                        foreach (string g in genants.OrderByDescending(x => voisinsDuBloc[x].Count).ThenBy(x => x, StringComparer.Ordinal))
+                        {
+                            int p = Permis(g); if (p < 0) { place = false; break; }
+                            pigments[g] = p;
+                        }
+                    }
+                    if (place) return true;
+                    foreach (var l in leurs) pigments[l.Key] = l.Value; pigments[bloc] = sien;
+                }
+                return false;
+            }
             var conflits = Placer(blocs.Keys.Where(b => !pigments.ContainsKey(b)).ToList());
+            foreach (string bloc in conflits.ToList()) if (Deloger(bloc)) conflits.Remove(bloc);
+            // Un bloc qui ne déloge personne se replace le premier, ses voisins repris après lui : seul son entourage change.
             foreach (string bloc in conflits.ToList())
             {
                 var zone = new List<string> { bloc }; zone.AddRange(voisinsDuBloc[bloc]); foreach (string b in zone) pigments.Remove(b);
                 var restes = Placer(zone, bloc); conflits.Remove(bloc); conflits.AddRange(restes.Where(b => !conflits.Contains(b)));
             }
             // Si un conflit reste, toute la carte se replace, chaque bloc essayant d'abord le pigment qu'il avait.
-            if (conflits.Count > 0) { pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); }
+            if (conflits.Count > 0) { pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); foreach (string bloc in conflits.ToList()) if (Deloger(bloc)) conflits.Remove(bloc); }
             Conflits = conflits.Count;
         }
     }

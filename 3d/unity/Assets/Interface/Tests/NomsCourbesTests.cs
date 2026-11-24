@@ -111,5 +111,55 @@ namespace Forge.Interface.Tests
             Voir(boheme.Corps * ECRAN_PX / (2f * NomsCourbes.DISPARU * ECRAN_PX)); Assert.That(boheme.Opacite, Is.Zero); Assert.That(maison.Opacite, Is.Zero, "la maison reste quand le nom s'efface");
             noms.Ecrire(new[] { ("puissance-2", "France", (string)null, trace) }); Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name.StartsWith("Maison du pays ")), Is.Zero, "la maison d'avant reste dessinée");
         }
+
+        // Un vassal porte sous son nom une ligne de plus, en italique et plus petite que la maison : sous la maison quand il en a une, sous le nom sinon.
+        // Elle suit la règle de la maison : plus petite, elle se cache la première de loin, et s'efface avec le nom de près.
+        [Test] public void La_vassalite_s_ecrit_en_italique_sous_la_maison_ou_le_nom_et_suit_son_opacite()
+        {
+            noms = new NomsCourbes(racine.transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), null);
+            var trace = new TraceDeNom(Vector2.zero, Vector2.right, -300f, 300f, 0f, 0f, 0f, 300f, 100);
+            noms.Ecrire(new[] { ("puissance-42", "Guyenne", "Lancastre-Aquitaine", "Angleterre", trace), ("puissance-40", "Bourgogne", (string)null, "France", trace), ("puissance-1", "Angleterre", "Lancastre", (string)null, trace) });
+            Assert.That(noms.Noms.Count, Is.EqualTo(3), "la vassalité est comptée comme un nom de pays");
+            NomCourbe guyenne = noms.Noms[0], bourgogne = noms.Noms[1], angleterre = noms.Noms[2];
+            Assert.That(angleterre.Vassalite, Is.Null, "un pays sans suzerain écrit une vassalité"); Assert.That(angleterre.Maison, Is.Not.Null, "échantillon vide : l'Angleterre n'écrit pas sa maison");
+            NomCourbe de = guyenne.Vassalite, deLa = bourgogne.Vassalite;
+            Assert.That(de, Is.Not.Null, "la Guyenne n'écrit pas sa vassalité"); Assert.That(deLa, Is.Not.Null, "la Bourgogne n'écrit pas sa vassalité");
+            Assert.That((de.Texte, de.Style, de.Pays, de.NomDuPays), Is.EqualTo(("vassal d'Angleterre", StyleDeNom.Italique, "puissance-42", guyenne)));
+            Assert.That((deLa.Texte, deLa.Style, deLa.Pays, deLa.NomDuPays), Is.EqualTo(("vassal de France", StyleDeNom.Italique, "puissance-40", bourgogne)));
+            Assert.That(noms.Lignes.Count, Is.EqualTo(3 + 2 + 2), "les lignes ne sont pas : trois noms, deux maisons, deux vassalités"); Assert.That(noms.Lignes.Contains(de) && noms.Lignes.Contains(deLa), Is.True, "la vassalité ne réserve pas sa place");
+            Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name.StartsWith("Vassalité du pays ")), Is.EqualTo(2));
+            // La place : la Guyenne l'écrit sous sa maison, plus petite qu'elle ; la Bourgogne, qui n'a pas de maison, sous son nom.
+            NomCourbe maison = guyenne.Maison; Assert.That(maison, Is.Not.Null, "échantillon vide : la Guyenne n'écrit pas sa maison"); Assert.That(bourgogne.Maison, Is.Null);
+            Assert.That(de.Corps, Is.LessThan(maison.Corps), "la vassalité n'est pas plus petite que la maison"); Assert.That(de.Corps, Is.GreaterThan(0.1f * guyenne.Corps), "la vassalité est illisible à côté du nom");
+            Assert.That(de.Corps, Is.LessThanOrEqualTo(NomsCourbes.PART_DE_LA_VASSALITE * guyenne.Corps + 1e-4f)); Assert.That(deLa.Corps, Is.LessThanOrEqualTo(NomsCourbes.PART_DE_LA_VASSALITE * bourgogne.Corps + 1e-4f));
+            float basDeLaMaison = maison.Compose.Lettres.Min(l => l.Point.y) - maison.Corps / 2f, hautDeLaVassalite = de.Compose.Lettres.Max(l => l.Point.y) + de.Corps / 2f;
+            Assert.That(hautDeLaVassalite, Is.LessThan(basDeLaMaison), "les lettres de la vassalité touchent celles de la maison");
+            Assert.That(de.Compose.Lettres.Max(l => l.Point.y), Is.LessThan(maison.Compose.Lettres.Min(l => l.Point.y)), "la vassalité n'est pas au sud de la maison");
+            float basDuNom = bourgogne.Compose.Lettres.Min(l => l.Point.y) - bourgogne.Corps / 2f;
+            Assert.That(deLa.Compose.Lettres.Max(l => l.Point.y) + deLa.Corps / 2f, Is.LessThan(basDuNom), "les lettres de la vassalité touchent celles du nom"); Assert.That(deLa.Compose.Lettres.Max(l => l.Point.y), Is.LessThan(bourgogne.Compose.Lettres.Min(l => l.Point.y)), "la vassalité n'est pas au sud du nom");
+            // L'opacité : à une distance où la maison se lit mais où la vassalité, plus petite, ne se lit plus, elle est cachée.
+            Voir(de.Corps * ECRAN_PX / (2f * (NomsCourbes.LISIBLE_PX - NomsCourbes.FONDU_PX - 0.5f)));
+            Assert.That(guyenne.Opacite, Is.EqualTo(1f)); Assert.That(maison.Opacite, Is.GreaterThan(0f), "échantillon vide : la maison ne se lit pas à cette distance");
+            Assert.That(de.Opacite, Is.Zero, "une vassalité trop petite pour se lire se montre"); Assert.That(de.Rendu.enabled, Is.False);
+            // Plus près, les deux se lisent, sans que le nom ne s'efface.
+            Voir(de.Corps * ECRAN_PX / (2f * 20f)); Assert.That((guyenne.Opacite, maison.Opacite, de.Opacite), Is.EqualTo((1f, 1f, 1f)));
+            Assert.That(de.Rendu.enabled && de.Maillage.vertexCount > 0, Is.True, "la vassalité lisible n'est pas dessinée"); Assert.That(deLa.Opacite, Is.EqualTo(1f)); Assert.That(deLa.Rendu.enabled, Is.True);
+            // De plus loin, la maison se cache, et la vassalité avec elle.
+            Voir(maison.Corps * ECRAN_PX / (2f * 5f)); Assert.That(guyenne.Opacite, Is.EqualTo(1f)); Assert.That(maison.Opacite, Is.Zero); Assert.That(de.Opacite, Is.Zero, "la vassalité se montre quand la maison est cachée");
+            // De trop près, elle s'efface avec le nom.
+            Voir(guyenne.Corps * ECRAN_PX / (2f * NomsCourbes.DISPARU * ECRAN_PX)); Assert.That(guyenne.Opacite, Is.Zero); Assert.That(de.Opacite, Is.Zero, "la vassalité reste quand le nom s'efface"); Assert.That(de.Rendu.enabled, Is.False);
+            // Sans suzerain, plus aucune ligne de vassal n'est dessinée.
+            noms.Ecrire(new[] { ("puissance-42", "Guyenne", "Lancastre-Aquitaine", (string)null, trace) });
+            Assert.That(noms.Noms.Single().Vassalite, Is.Null); Assert.That(racine.GetComponentsInChildren<MeshFilter>(true).Count(f => f.name.StartsWith("Vassalité du pays ")), Is.Zero, "la vassalité d'avant reste dessinée");
+        }
+
+        // « vassal de » devant une consonne, « vassal d' » devant une voyelle, accentuée ou non ; le h reste aspiré (Hongrie, Hainaut, Hesse).
+        [TestCase("Écosse", "vassal d'Écosse")] [TestCase("Angleterre", "vassal d'Angleterre")] [TestCase("Aragon", "vassal d'Aragon")] [TestCase("Ile-de-France", "vassal d'Ile-de-France")] [TestCase("Orléans", "vassal d'Orléans")]
+        [TestCase("Utrecht", "vassal d'Utrecht")] [TestCase("Ypres", "vassal d'Ypres")] [TestCase("Ève", "vassal d'Ève")] [TestCase("Âge", "vassal d'Âge")] [TestCase("Île", "vassal d'Île")] [TestCase("Ôde", "vassal d'Ôde")] [TestCase("Ûr", "vassal d'Ûr")] [TestCase("Èze", "vassal d'Èze")] [TestCase("Êta", "vassal d'Êta")] [TestCase("Îles", "vassal d'Îles")] [TestCase("écosse", "vassal d'écosse")]
+        [TestCase("France", "vassal de France")] [TestCase("Hongrie", "vassal de Hongrie")] [TestCase("Hainaut", "vassal de Hainaut")] [TestCase("Hesse", "vassal de Hesse")] [TestCase("Bohême", "vassal de Bohême")] [TestCase("Comté de Wurtemberg", "vassal de Comté de Wurtemberg")]
+        public void La_vassalite_elide_devant_une_voyelle_et_jamais_devant_un_h(string suzerain, string attendu) => Assert.That(NomsCourbes.Vassalite(suzerain), Is.EqualTo(attendu));
+
+        [TestCase(null)] [TestCase("")] [TestCase("  ")]
+        public void Sans_suzerain_servi_la_vassalite_n_a_pas_de_texte(string suzerain) => Assert.That(NomsCourbes.Vassalite(suzerain), Is.Null);
     }
 }
