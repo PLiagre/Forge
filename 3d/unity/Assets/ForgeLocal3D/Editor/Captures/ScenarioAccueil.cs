@@ -44,9 +44,11 @@ namespace ForgeLocal3D.Captures
             string boheme = guerre.Terres.Pays.Single(p => p.Nom == "Bohême").Id, maisonDeLaBoheme = guerre.Terres.MaisonDuPays(boheme)?.Nom ?? throw Faux("la Bohême n'a pas de maison servie");
             cabinet.Accueil.Designer(guerre.Terres.Terres.First(t => t.Pays == boheme).CellId);
             // « Commencer » s'active une image après la fiche : il s'attend avec elle.
-            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.Contains("Habitants : ") && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture") && cabinet.Accueil.Commencer.interactable,
+            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.StartsWith("Bohême : ", StringComparison.Ordinal) && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture") && cabinet.Accueil.Commencer.interactable,
                 () => "fiche de la Bohême : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " », « Commencer » " + (cabinet.Accueil.Commencer.interactable ? "actif" : "inactif")); a.MoveNext();) yield return null;
-            if (!cabinet.Accueil.TexteDeLaFiche.StartsWith("Maison : " + maisonDeLaBoheme, StringComparison.Ordinal)) throw Faux("la fiche de la Bohême ne dit pas sa maison : « " + cabinet.Accueil.TexteDeLaFiche + " »");
+            string[] lignesDeLaFiche = cabinet.Accueil.TexteDeLaFiche.Split('\n');
+            // La fiche compte la Bohême seule, puis la maison qui y règne, avec ses vassaux : deux nombres, chacun nommé.
+            if (lignesDeLaFiche.Length < 2 || !lignesDeLaFiche[1].StartsWith("Maison ", StringComparison.Ordinal) || !lignesDeLaFiche[1].Contains(maisonDeLaBoheme)) throw Faux("la fiche de la Bohême ne dit pas sa maison : « " + cabinet.Accueil.TexteDeLaFiche + " »");
             if (cabinet.Accueil.Commencer.interactable != true) throw Faux("« Commencer » est inactif pour la Bohême");
             // Cadrée sur les quatre pays : tous lisibles à la fois, chacun avec sa maison dessous quand elle porte un autre nom.
             var noms = PAYS_LUS.Select(n => guerre.NomsDesPays.Single(x => x.Texte == n)).ToArray();

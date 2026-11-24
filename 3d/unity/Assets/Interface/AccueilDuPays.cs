@@ -10,7 +10,8 @@ namespace Forge.Interface
 {
     // L'accueil, tant que le monde n'a pas servi de maison du joueur : on y choisit son pays sur la carte ou parmi les départs
     // conseillés, on lit sa fiche, et « Commencer » envoie le choix puis lance le temps. Tout ce qui s'écrit vient de `/jouables`,
-    // de `/terres` (le pays d'une terre et sa maison) et de `/pays` (les habitants) : l'accueil ne calcule aucun nombre.
+    // de `/terres` (le pays d'une terre, sa maison et les habitants du pays seul) et de `/pays` (les habitants de la maison avec ses
+    // vassaux) : l'accueil n'additionne rien, et chaque nombre dit ce qu'il compte.
     // Une classe simple : le cabinet l'appelle à chaque image, et lui passe les terres cliquées sur la carte.
     public sealed class AccueilDuPays
     {
@@ -186,30 +187,45 @@ namespace Forge.Interface
             vol = Task.Run(() => (id, lireHabitants(id)));
         }
 
-        string Habitants()
+        static string Compte(long n) => TexteDuMonde.Nombre(n) + (n > 1 ? " habitants" : " habitant");
+
+        // La ligne du pays : ses habitants à lui seul, tels que `/terres` les sert ; l'attente tant que les terres ne sont pas lues.
+        string HabitantsDuPays()
         {
-            if (lireHabitants == null || habitants.maison != montree.Id || habitants.lu == null) return "Habitants : en lecture…";
+            var lues = terres();
+            if (lues == null) return Nom() + " : habitants en lecture…";
+            return Nom() + " : " + (lues.HabitantsDu(paysMontre) is long n ? Compte(n) : "habitants non servis par le monde");
+        }
+
+        // La ligne de la maison, d'après `/pays` : ses habitants avec ceux de ses vassaux, le nom de la maison devant le total qu'il compte.
+        string HabitantsDeLaMaison()
+        {
+            string maison = montree.Nom ?? MAISON_SANS_NOM;
+            string tete = montree.Nom == null ? "Maison non nommée par le monde"
+                : "Maison " + (maison.StartsWith("de ", StringComparison.Ordinal) || maison.StartsWith("d'", StringComparison.Ordinal) || maison.StartsWith("d’", StringComparison.Ordinal) ? "" : "de ") + maison;
+            if (lireHabitants == null || habitants.maison != montree.Id || habitants.lu == null) return tete + " : habitants en lecture…";
             var lu = habitants.lu;
-            if (!lu.Presente) return "Habitants : non lus (" + TexteDuMonde.Absence(lu.Absence, montree.Id) + ")";
-            if (lu.Donnees.MaisonId != montree.Id) return "Habitants : en lecture…";
-            return "Habitants : " + TexteDuMonde.Nombre(lu.Donnees.Habitants);
+            if (!lu.Presente) return tete + " : habitants non lus (" + TexteDuMonde.Absence(lu.Absence, montree.Id) + ")";
+            if (lu.Donnees.MaisonId != montree.Id) return tete + " : habitants en lecture…";
+            return tete + (lu.Donnees.VassauxTous.Count > 0 ? ", avec ses vassaux" : "") + " : " + Compte(lu.Donnees.Habitants);
         }
 
         void EcrireLaFiche()
         {
             if (!designe) { nom.text = AUCUN; fiche.text = INVITATION; return; }
             nom.text = Nom();
+            var lignes = new List<string> { HabitantsDuPays() };
             if (montree == null)
             {
-                fiche.text = "Maison : " + (maisonMontree == null ? MAISON_SANS_NOM : maisonMontree.Nom ?? MAISON_SANS_NOM);
+                lignes.Add("Maison : " + (maisonMontree == null ? MAISON_SANS_NOM : maisonMontree.Nom ?? MAISON_SANS_NOM));
+                fiche.text = string.Join("\n", lignes);
                 return;
             }
-            var lignes = new List<string> { "Maison : " + (montree.Nom ?? MAISON_SANS_NOM) };
+            lignes.Add(HabitantsDeLaMaison());
             var autres = montree.Regne.Where(p => p.Id != paysMontre).Select(p => p.Nom ?? SANS_NOM).ToArray();
             if (autres.Length > 0) lignes.Add("Règne aussi sur : " + string.Join(", ", autres));
             if (montree.Siege.Nom != null) lignes.Add("Siège : " + montree.Siege.Nom);
             if (montree.Suzerain != null) lignes.Add("Suzerain : " + (montree.Suzerain.Nom ?? MAISON_SANS_NOM) + (montree.Suzerain.Pays.Nom != null ? " (" + montree.Suzerain.Pays.Nom + ")" : ""));
-            lignes.Add(Habitants());
             lignes.Add(montree.Ville.Batie ? "Ville à bâtir : oui" : "Ville à bâtir : non, pas encore de ville\n" + PhraseDeRaison(montree.Ville.Raison));
             fiche.text = string.Join("\n", lignes);
         }
