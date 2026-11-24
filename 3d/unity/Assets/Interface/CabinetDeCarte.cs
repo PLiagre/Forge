@@ -150,7 +150,8 @@ namespace Forge.Interface
             gameObject.AddComponent<VillesDeCarte>().Installer();
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
-            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre); lieux.Eviter(guerre, calques);
+            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var atlas = gameObject.AddComponent<AtlasDeCarte>(); atlas.Installer(guerre);
+            var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas); lieux.Eviter(guerre, calques);
             // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,

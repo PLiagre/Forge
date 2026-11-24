@@ -2912,8 +2912,9 @@ de 1400 et la carte figée, jamais un maître, un stock ni un tick : une prise d
 bourg ne les change pas, et le service ne prend pas le verrou du tick pour les
 calculer. Le tick ne lit jamais cette vue. Une erreur de calcul rend `500` avec
 `erreur`, sans arrêter le service. Rien ne se stocke dans le monde, et aucune règle,
-ni l'IA, ne lit un nom de l'atlas. Cette vue n'est pas encore lue par Unity : écrire
-ces noms et tracer ces fleuves sur la carte est le travail de l'écran.
+ni l'IA, ne lit un nom de l'atlas. La carte d'Unity la lit une fois (`ClientAtlas`,
+`AtlasDeCarte`) : elle trace chaque fleuve d'un point servi au suivant et écrit en italique
+les noms des fleuves, des mers et des régions à leur place servie, sans rien en calculer.
 
 **Niveau 1 :** les noms et les places, justes dans les grandes lignes, d'après les
 coordonnées publiques des articles cités ; le Nil et ses sources. **Niveau 2,

@@ -8,10 +8,15 @@ using UnityEngine.Rendering;
 
 namespace Forge.Interface
 {
-    // Le nom d'un pays, écrit en capitales le long de son tracé : le nom servi, ce qui en est écrit, et comment.
+    // Comment un nom s'écrit : en capitales droites (un pays, sa maison), ou en italique, tel que servi et espacé (une mer, une région, un fleuve).
+    public enum StyleDeNom { Capitales, Italique }
+
+    // Un nom écrit le long de son tracé : le nom servi, ce qui en est écrit, et comment.
     public sealed class NomCourbe
     {
-        public string Pays { get; } public string Texte { get; } public string Ecrit { get; }
+        public string Pays { get; } public string Texte { get; } public string Ecrit { get; } public StyleDeNom Style { get; }
+        // Masqué par celui qui l'écrit (un nom plus important est déjà là) : il se cache comme un nom illisible.
+        public bool Masque { get; internal set; }
         public TraceDeNom Trace { get; } public NomCompose Compose { get; }
         // Le corps des lettres en km de la carte : il suit l'étendue du territoire.
         public float Corps => Compose != null ? Compose.Corps : 0f;
@@ -24,8 +29,8 @@ namespace Forge.Interface
         // Pour la ligne d'une maison, le nom du pays qu'elle accompagne ; nul pour un nom de pays.
         public NomCourbe NomDuPays { get; internal set; }
         internal bool AMailler;
-        internal NomCourbe(string pays, string texte, string ecrit, TraceDeNom trace, NomCompose compose, MeshRenderer rendu, Mesh maillage)
-        { Pays = pays; Texte = texte; Ecrit = ecrit; Trace = trace; Compose = compose; Rendu = rendu; Maillage = maillage; }
+        internal NomCourbe(string pays, string texte, string ecrit, StyleDeNom style, TraceDeNom trace, NomCompose compose, MeshRenderer rendu, Mesh maillage)
+        { Pays = pays; Texte = texte; Ecrit = ecrit; Style = style; Trace = trace; Compose = compose; Rendu = rendu; Maillage = maillage; }
     }
 
     // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire. Une lettre est un carré de
@@ -54,6 +59,8 @@ namespace Forge.Interface
         public const float OPACITE_QUI_RESERVE = 0.5f;
         // La maison sous le nom : son corps au plus, en part de celui du nom, et l'écart des deux lignes, en corps du nom.
         public const float PART_DE_LA_MAISON = 0.45f, ECART_DE_LA_MAISON = 0.8f;
+        // L'italique : la pente des lettres (le décalage vers l'est par corps de hauteur), et l'espace ajouté après chaque lettre, en corps.
+        public const float PENTE_DE_L_ITALIQUE = 0.22f, ESPACEMENT_DE_L_ITALIQUE = 0.12f;
         // Les tailles tirées de la police, en pixels ; la mise en page se fait à la taille de référence.
         static readonly int[] TAILLES = { 12, 16, 24, 32, 48, 64, 96, 128 }; const int REFERENCE = 64;
         const string CAPITALE = "H"; const float HAUTEUR_DE_CAPITALE = 0.7f, AVANCE_INCONNUE = 0.5f; const int ESSAIS = 4;
@@ -123,20 +130,22 @@ namespace Forge.Interface
         public void Reserver(Camera camera, List<Rect> places)
         {
             if (camera == null) return;
-            Rect ecran = camera.pixelRect;
-            foreach (NomCourbe nom in lignes)
+            foreach (NomCourbe nom in lignes) if (nom.Opacite >= OPACITE_QUI_RESERVE) Places(camera, nom, places);
+        }
+        // La place de chaque lettre d'un nom à l'écran, à son corps de la dernière image, qu'il soit montré ou non ; seules celles qui sont dans l'écran.
+        public void Places(Camera camera, NomCourbe nom, List<Rect> places)
+        {
+            if (camera == null || nom?.Compose == null) return;
+            Rect ecran = camera.pixelRect; float demi = nom.CorpsPx * 0.45f;
+            for (int i = 0; i < nom.Ecrit.Length; i++)
             {
-                if (nom.Opacite < OPACITE_QUI_RESERVE) continue;
-                float demi = nom.CorpsPx * 0.45f;
-                for (int i = 0; i < nom.Ecrit.Length; i++)
-                {
-                    if (char.IsWhiteSpace(nom.Ecrit[i])) continue;
-                    Vector2 p = camera.WorldToScreenPoint(racine.TransformPoint(Poser(nom.Compose.Lettres[i].Point)));
-                    var place = new Rect(p.x - demi, p.y - demi, 2f * demi, 2f * demi);
-                    if (place.Overlaps(ecran)) places.Add(place);
-                }
+                if (char.IsWhiteSpace(nom.Ecrit[i])) continue;
+                Vector3 p = camera.WorldToScreenPoint(racine.TransformPoint(Poser(nom.Compose.Lettres[i].Point)));
+                var place = new Rect(p.x - demi, p.y - demi, 2f * demi, 2f * demi);
+                if (p.z > 0f && place.Overlaps(ecran)) places.Add(place);
             }
         }
+        public IReadOnlyList<NomCourbe> Lignes => lignes;
 
         // Écrit un nom par pays tracé, à la place de ceux d'avant. Un pays dont le tracé ne laisse rien écrire n'a pas de nom.
         public void Ecrire(IEnumerable<(string pays, string nom, TraceDeNom trace)> pays) => Ecrire(pays.Select(p => (p.pays, p.nom, (string)null, p.trace)));
@@ -148,30 +157,55 @@ namespace Forge.Interface
             Vider(); for (int t = 0; t < TAILLES.Length; t++) { demandes[t] = null; signatures[t] = 0; }
             foreach (var (id, texte, maison, trace) in pays)
             {
-                NomCourbe nom = Poser("Pays " + id, id, texte, trace);
+                NomCourbe nom = Poser("Pays " + id, id, texte, StyleDeNom.Capitales, trace);
                 if (nom == null) continue;
                 noms.Add(nom); lignes.Add(nom);
                 if (string.IsNullOrWhiteSpace(maison) || string.Equals(maison.Trim(), texte.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
                 float corps = nom.Corps * PART_DE_LA_MAISON;
-                NomCourbe sous = Poser("Maison du pays " + id, id, maison, trace.Dessous(nom.Corps * ECART_DE_LA_MAISON, corps / TraceDeNom.PART_DE_LA_LARGEUR));
+                NomCourbe sous = Poser("Maison du pays " + id, id, maison, StyleDeNom.Capitales, trace.Dessous(nom.Corps * ECART_DE_LA_MAISON, corps / TraceDeNom.PART_DE_LA_LARGEUR));
                 if (sous == null) continue;
                 sous.NomDuPays = nom; nom.Maison = sous; lignes.Add(sous);
             }
         }
 
+        // Écrit des noms à plat, chacun droit sur son axe, centré sur son point, à un corps donné en km, dans son style : les
+        // noms d'un atlas. Un nom de corps nul ou sans texte n'est pas écrit.
+        public void Ecrire(IEnumerable<(string id, string texte, Vector2 centre, Vector2 axe, float corps, StyleDeNom style)> aPlat)
+        {
+            Vider(); for (int t = 0; t < TAILLES.Length; t++) { demandes[t] = null; signatures[t] = 0; }
+            foreach (var (id, texte, centre, axe, corps, style) in aPlat)
+            {
+                if (string.IsNullOrEmpty(texte) || !(corps > 0f)) continue;
+                float[] avances = Avances(Ecrit(texte, style), style); float naturel = avances.Sum();
+                // Un tracé droit juste assez long et assez large pour que le nom y tienne à ce corps, et pas plus grand.
+                float longueur = corps * naturel / TraceDeNom.PART_DE_LA_LONGUEUR * 1.0001f, largeur = corps / TraceDeNom.PART_DE_LA_LARGEUR * 1.0001f;
+                Vector2 sens = axe.sqrMagnitude > 0f ? axe.normalized : Vector2.right; if (sens.x < 0f) sens = -sens;
+                NomCourbe nom = Poser("Nom " + id, id, texte, style, new TraceDeNom(centre, sens, -longueur / 2f, longueur / 2f, 0f, 0f, 0f, largeur, 1));
+                if (nom != null) { noms.Add(nom); lignes.Add(nom); }
+            }
+        }
+
+        static string Ecrit(string texte, StyleDeNom style) => style == StyleDeNom.Capitales ? texte.ToUpperInvariant() : texte;
+        // Ce que chaque lettre avance, en corps ; l'italique s'espace.
+        float[] Avances(string ecrit, StyleDeNom style)
+        {
+            Demander(ecrit, REFERENCE); var avances = new float[ecrit.Length];
+            for (int i = 0; i < ecrit.Length; i++)
+                avances[i] = (police.GetCharacterInfo(ecrit[i], out CharacterInfo lettre, REFERENCE) ? lettre.advance / (float)REFERENCE : AVANCE_INCONNUE) + (style == StyleDeNom.Italique ? ESPACEMENT_DE_L_ITALIQUE : 0f);
+            return avances;
+        }
+
         // Compose un texte sur son tracé et pose son maillage, encore vide ; null s'il n'y a rien à écrire.
-        NomCourbe Poser(string objetNomme, string id, string texte, TraceDeNom trace)
+        NomCourbe Poser(string objetNomme, string id, string texte, StyleDeNom style, TraceDeNom trace)
         {
             if (trace == null || string.IsNullOrEmpty(texte)) return null;
-            string ecrit = texte.ToUpperInvariant(); Demander(ecrit, REFERENCE);
-            var avances = new float[ecrit.Length];
-            for (int i = 0; i < ecrit.Length; i++) avances[i] = police.GetCharacterInfo(ecrit[i], out CharacterInfo lettre, REFERENCE) ? lettre.advance / (float)REFERENCE : AVANCE_INCONNUE;
-            NomCompose compose = trace.Composer(avances);
+            string ecrit = Ecrit(texte, style);
+            NomCompose compose = trace.Composer(Avances(ecrit, style));
             if (compose == null) return null;
             var objet = new GameObject(objetNomme, typeof(MeshFilter), typeof(MeshRenderer)); objet.transform.SetParent(racine, false);
             var maillage = new Mesh { name = "Nom de " + id }; maillage.MarkDynamic(); objet.GetComponent<MeshFilter>().sharedMesh = maillage;
             var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterials = matieres; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false; rendu.enabled = false;
-            return new NomCourbe(id, texte, ecrit, trace, compose, rendu, maillage);
+            return new NomCourbe(id, texte, ecrit, style, trace, compose, rendu, maillage);
         }
 
         // Règle chaque nom sur la vue : son opacité, son halo, la taille de ses lettres, et son maillage quand il le
@@ -185,6 +219,7 @@ namespace Forge.Interface
             {
                 float px = CorpsALEcran(camera, nom), opacite = Opacite(px, ecran), force = ForceDuHalo(px); nom.CorpsPx = px;
                 if (nom.NomDuPays != null) opacite = Mathf.Min(opacite, nom.NomDuPays.Opacite);
+                if (nom.Masque) opacite = 0f;
                 if (opacite > 0f) { int taille = TaillePour(px); if (taille != nom.Taille) { nom.Taille = taille; nom.AMailler = true; } }
                 if (Mathf.Abs(opacite - nom.Opacite) > 1f / 512f || (opacite == 0f) != (nom.Opacite == 0f) || Mathf.Abs(force - nom.Halo) > 1f / 128f)
                 { nom.Opacite = opacite; nom.Halo = force; if (!nom.AMailler) Teinter(nom); }
@@ -231,6 +266,7 @@ namespace Forge.Interface
         {
             int taille = nom.Taille; float echelle = nom.Corps / taille, rayon = RAYON_DU_HALO * taille, marge = Mathf.Ceil(rayon) + 1f;
             float capitale = police.GetCharacterInfo(CAPITALE[0], out CharacterInfo h, taille) && h.maxY > 0 ? h.maxY : HAUTEUR_DE_CAPITALE * taille;
+            float pente = nom.Style == StyleDeNom.Italique ? PENTE_DE_L_ITALIQUE : 0f, espace = nom.Style == StyleDeNom.Italique ? ESPACEMENT_DE_L_ITALIQUE * taille : 0f;
             int n = nom.Ecrit.Length; var sommets = new List<Vector3>(4 * n); var uv = new List<Vector2>(4 * n); var cadres = new List<Vector4>(4 * n); var rayons = new List<Vector2>(4 * n); var triangles = new List<int>(6 * n);
             bool complet = true;
             for (int i = 0; i < n; i++)
@@ -248,7 +284,7 @@ namespace Forge.Interface
                     for (int colonne = 0; colonne < cote; colonne++)
                     {
                         float x = Mathf.Lerp(x0, x1, colonne / (float)carreaux), y = Mathf.Lerp(y0, y1, ligne / (float)carreaux);
-                        sommets.Add(Poser(place.Point + sens * ((x - lettre.advance / 2f) * echelle) + haut * ((y - capitale / 2f) * echelle)));
+                        sommets.Add(Poser(place.Point + sens * ((x - (lettre.advance + espace) / 2f + pente * (y - capitale / 2f)) * echelle) + haut * ((y - capitale / 2f) * echelle)));
                         uv.Add(bas + versLaDroite * (x - lettre.minX) + versLeHaut * (y - lettre.minY)); cadres.Add(cadre); rayons.Add(new Vector2(rayon, 0f));
                     }
                 for (int ligne = 0; ligne < carreaux; ligne++)

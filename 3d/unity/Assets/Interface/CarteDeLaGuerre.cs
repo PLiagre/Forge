@@ -190,8 +190,9 @@ namespace Forge.Interface
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
             Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
-            // Le nom servi du pays, et en petit dessous celui de sa maison quand il diffère.
-            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom ?? "Pays sans nom", p.Maison?.Nom, traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
+            // Le nom servi du pays, jamais un nom de remplacement : un pays que le monde ne nomme pas n'a pas de nom sur la carte.
+            // En petit dessous, celui de sa maison quand il diffère.
+            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom, p.Maison?.Nom, traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
             SuivreLaVue();
         }
 
