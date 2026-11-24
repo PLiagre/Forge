@@ -199,7 +199,7 @@ namespace Forge.Interface
         {
             string maison = montree.Nom ?? MAISON_SANS_NOM;
             string tete = montree.Nom == null ? "Maison non nommée par le monde"
-                : "Maison " + (maison.StartsWith("de ", StringComparison.Ordinal) || maison.StartsWith("d'", StringComparison.Ordinal) || maison.StartsWith("d’", StringComparison.Ordinal) ? "" : "de ") + maison;
+                : "Maison " + DossierTerritoire.De(maison);
             if (lireHabitants == null || habitants.maison != montree.Id || habitants.lu == null) return tete + " : habitants en lecture…";
             var lu = habitants.lu;
             if (!lu.Presente) return tete + " : habitants non lus (" + TexteDuMonde.Absence(lu.Absence, montree.Id) + ")";

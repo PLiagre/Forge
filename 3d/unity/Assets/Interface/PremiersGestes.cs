@@ -22,8 +22,8 @@ namespace Forge.Interface
         public const string ARMEE_ATTENDUE = "Votre maison n'est pas encore servie : lancez le temps, le monde applique votre choix au jour suivant.";
         const string LEVER_L_OST = "Ouvre le feuillet de la guerre : on y lève l'ost, avec le prix de chaque ordre.";
         public const string GESTES = "Glisser : déplacer la carte · Molette : zoomer · Clic : ouvrir une terre", LIGNE_DES_GESTES = "Gestes de la carte";
-        public const float X = 24, Y = 860, LARGEUR = 740, HAUTEUR = 196; // sous les feuillets (124 à 856), le bas à 1056, au-dessus de la bande des modes
-        const float BORD = 24, LARGEUR_TEXTE = 508, X_BOUTON = 556, LARGEUR_BOUTON = 160, HAUTEUR_LIGNE = 30, PREMIERE_LIGNE = 76, PAS = 32, HAUTEUR_DES_GESTES = 22;
+        public const float X = 24, Y = 858, LARGEUR = 740, HAUTEUR = 198; // sous les feuillets (124 à 856), le bas à 1056, au-dessus de la bande des modes
+        const float BORD = 24, LARGEUR_TEXTE = 508, X_BOUTON = 556, LARGEUR_BOUTON = 160, HAUTEUR_LIGNE = 28, PREMIERE_LIGNE = 74, PAS = 30, HAUTEUR_DES_GESTES = 22;
 
         static readonly HashSet<string> fermes = new HashSet<string>(); // les maisons dont le joueur a fermé l'encart
 

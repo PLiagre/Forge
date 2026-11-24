@@ -42,14 +42,23 @@ namespace Forge.Interface.Tests
             foreach (var interdit in new[] { "rang", "tick", "1234", "Molette", "dans le territoire", "Maison :" }) StringAssert.DoesNotContain(interdit, texte);
             Assert.IsNull(TexteDuMonde.Interdit(texte, "10340", "puissance-60", "m-1"), texte); Assert.IsNull(TexteDuMonde.SansUnite(texte), texte);
             Assert.AreEqual("Province de Tournai", DossierTerritoire.Titre(Lieu(TOURNAI, "Tournai"), TOURNAI));
+            Assert.AreEqual("Province d'Avignon", DossierTerritoire.Titre(Lieu(AVIGNON, "Avignon"), AVIGNON));
+            StringAssert.Contains("\nProvince d'Avignon : ",DossierTerritoire.Decrire(Lieu(AVIGNON, "Avignon"), Terres(), AVIGNON, 0));
             Assert.AreEqual(DossierTerritoire.PROVINCE_EN_LECTURE, DossierTerritoire.Titre(null, TOURNAI)); Assert.AreEqual(DossierTerritoire.PROVINCE_EN_LECTURE, DossierTerritoire.Titre(Lieu(TOURNAI, "Tournai"), AVIGNON));
+        }
+
+        // « de » s'élide devant une voyelle, et ne se double pas devant un nom qui porte déjà sa particule.
+        [Test] public void De_s_elide_devant_une_voyelle_et_ne_se_double_pas()
+        {
+            Assert.That(new[] { "Avignon", "Évreux", "Tournai", "Lancastre-Aquitaine", "de Basse Haie", "d'Armagnac", "Œttingen" }.Select(DossierTerritoire.De),
+                Is.EqualTo(new[] { "d'Avignon", "d'Évreux", "de Tournai", "de Lancastre-Aquitaine", "de Basse Haie", "d'Armagnac", "d'Œttingen" }));
         }
 
         // Chaque nombre d'habitants dit ce qu'il compte : le lieu, la province, ou le pays qu'il nomme.
         [Test] public void Chaque_nombre_d_habitants_dit_ce_qu_il_compte()
         {
             var terres = Terres(); int vues = 0;
-            bool Dit(string ligne, string pays) => ligne.EndsWith(" dans ce lieu") || ligne.Contains(" dans ce lieu · ") || ligne.StartsWith("Province de ") || ligne.StartsWith(pays + " : ");
+            bool Dit(string ligne, string pays) => ligne.EndsWith(" dans ce lieu") || ligne.Contains(" dans ce lieu · ") || ligne.StartsWith("Province d") || ligne.StartsWith(pays + " : ");
             foreach (var (cell, bourg, rang, pays) in new[] { (TOURNAI, "Tournai", 0L, "Hainaut"), (AVIGNON, "Avignon", 0L, "États de l'Église"), (BORDEAUX, "Bordeaux", 2L, "Guyenne"), (PAMPELUNE, "Pampelune", 2L, "Castille") })
                 foreach (string ligne in DossierTerritoire.Decrire(Lieu(cell, bourg), terres, cell, rang).Split('\n').Where(l => l.Contains("habitant")))
                 {

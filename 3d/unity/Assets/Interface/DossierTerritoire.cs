@@ -73,7 +73,7 @@ namespace Forge.Interface
         public static string Titre(DocumentDuMonde document, long cellule)
         {
             if (document == null) return PROVINCE_EN_LECTURE;
-            try { return "Province de " + Nom(EnTete(document, cellule, 0).lieux.First(l => DocumentDuMonde.Entier(l, "rang") == 0)); }
+            try { return "Province " + De(Nom(EnTete(document, cellule, 0).lieux.First(l => DocumentDuMonde.Entier(l, "rang") == 0))); }
             catch (ArgumentException) { return PROVINCE_EN_LECTURE; }
         }
 
@@ -128,10 +128,18 @@ namespace Forge.Interface
             var lignes = new List<string>
             {
                 Nom(lieu) + " : " + Habitants(DocumentDuMonde.Entier(lieu, "population")) + " dans ce lieu",
-                "Province de " + Nom(bourg) + " : " + Habitants(DocumentDuMonde.Entier(racine, "population")),
+                "Province " + De(Nom(bourg)) + " : " + Habitants(DocumentDuMonde.Entier(racine, "population")),
                 Seigneur(racine, lieu),
             };
             return (lignes, lieux);
+        }
+
+        // « de » devant un nom, élidé devant une voyelle (« d'Avignon », « d'Évreux ») ; un nom qui porte déjà sa particule
+        // (« de Basse Haie », « d'Armagnac ») la garde seule.
+        public static string De(string nom)
+        {
+            if (nom.StartsWith("de ", StringComparison.Ordinal) || nom.StartsWith("d'", StringComparison.Ordinal) || nom.StartsWith("d’", StringComparison.Ordinal)) return nom;
+            return nom.Length > 0 && "aeiouyàâäéèêëîïôöûùüÿœ".IndexOf(char.ToLowerInvariant(nom[0])) >= 0 ? "d'" + nom : "de " + nom;
         }
 
         static string Nom(Dictionary<string, object> lieu) => DocumentDuMonde.Valeur(lieu, "nom") as string ?? "Nom du lieu non transmis";

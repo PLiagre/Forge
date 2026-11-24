@@ -179,7 +179,7 @@ namespace Forge.Interface.Tests
         [Test] public async Task Un_nom_de_maison_en_de_ne_double_pas_la_particule()
         {
             var terres = TerresDeWittelsbach(new Dictionary<string, long> { ["puissance-60"] = 250000 });
-            foreach (var (nomDeLaMaison, attendu) in new[] { ("de Basse Haie", "Maison de Basse Haie"), ("d'Avesnes", "Maison d'Avesnes"), ("Basse Haie", "Maison de Basse Haie") })
+            foreach (var (nomDeLaMaison, attendu) in new[] { ("de Basse Haie", "Maison de Basse Haie"), ("d'Avesnes", "Maison d'Avesnes"), ("Basse Haie", "Maison de Basse Haie"), ("Évreux", "Maison d'Évreux") })
             {
                 var fiche = Fiche("grande-44", nomDeLaMaison, "grande maison", "puissance-60", "Hainaut", "Straubing", 10600, new VilleJouable(true, "scene", null));
                 Rebatir(() => terres, id => Maison(id, 900000, "plausible-1"), fiche); await Lu();
