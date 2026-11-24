@@ -13,12 +13,14 @@ using Object = UnityEngine.Object;
 namespace ForgeLocal3D.Captures
 {
     // Les cinq modes de la carte, choisis chacun d'un clic de pointeur sur son bouton à l'écran, contre le vrai service, en 1920 × 1080 :
-    //   1-politique     la France choisie et « Commencer » pressé, le temps arrêté, la vue sur toute l'Europe : les pays, leurs noms ;
+    //   1-politique     la France choisie et « Commencer » pressé, le temps arrêté, une caserne commandée dans la capitale (l'intention du
+    //                   joueur), la vue sur toute l'Europe : les pays, leurs noms ;
     //   2-relief        le terrain nu : chaque terre à la teinte de sa classe de relief servie, aucune au pigment d'un pays, aucun nom de pays ;
     //   3-population    du clair au foncé : la terre la plus peuplée est plus foncée que la moins peuplée ;
     //   4-vivres        puis « Ma capitale » pressé : la vue sur Paris, où les flèches des lieux vers le siège se voient ;
-    //   5-guerres       la France déclare la guerre à l'Angleterre (l'intention du joueur), la vue revient sur l'Europe : seuls les
-    //                   pays que `/guerres` dit en guerre gardent leur couleur ;
+    //   5-guerres       la France déclare la guerre à l'Angleterre, les jours passent jusqu'à ce que la caserne ouvre la levée, et la
+    //                   France lève une armée (les intentions du joueur) ; la vue revient sur l'Europe : seuls les pays que `/guerres`
+    //                   dit en guerre gardent leur couleur, l'armée se voit, et la légende dit les sièges, ou qu'il n'y en a aucun ;
     //   6-ma-capitale   la carte politique de nouveau, puis « Ma capitale » : la vue sur le siège.
     // Chaque image vérifie ce qu'elle montre et échoue sinon : le bouton du mode enfoncé, et lui seul ; la légende du mode, datée du jour
     // que le service sert ; la caméra qui ne bouge pas quand le mode change. Le tick est celui que le service sert, jamais écrit en dur.
@@ -28,6 +30,22 @@ namespace ForgeLocal3D.Captures
         const int LARGEUR = 1920, HAUTEUR = 1080, IMAGES_DE_POSE = 6;
         const double STABLE_S = 2.5; // les textes du cabinet sont récrits une image après la lecture
         const float TOLERANCE_DU_CENTRE_KM = 5f;
+        // La levée de la photo des guerres : la caserne s'attend par paquets de jours, au plus `JOURS_MAX_DE_LA_CASERNE` ; puis une
+        // armée d'au plus `HOMMES_LEVES` hommes, avec des vivres pour `JOURS_DE_VIVRES` jours, au plus une part du grain libre servi.
+        const int PAQUET_DE_JOURS = 8, JOURS_MAX_DE_LA_CASERNE = 80; const long HOMMES_LEVES = 3000; const double JOURS_DE_VIVRES = 30, PART_DU_GRAIN = 0.5;
+        static readonly TimeSpan DELAI_DU_SERVICE = TimeSpan.FromSeconds(30);
+        // `n` jours poussés au service, hors du fil de l'éditeur.
+        static IEnumerator Pousser(int port, int n)
+        {
+            string url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/tick?n=" + n.ToString(CultureInfo.InvariantCulture);
+            var appel = System.Threading.Tasks.Task.Run(() =>
+            {
+                using (var http = new System.Net.Http.HttpClient { Timeout = DELAI_DU_SERVICE }) using (var corps = new System.Net.Http.ByteArrayContent(new byte[0]))
+                using (var reponse = http.PostAsync(url, corps).GetAwaiter().GetResult()) return (int)reponse.StatusCode;
+            });
+            for (var e = AttentesDeCapture.Attendre(appel, "POST " + url); e.MoveNext();) yield return null;
+            if (appel.Result != 200) throw Faux("POST " + url + " a rendu " + appel.Result);
+        }
 
         [ScenarioDeCapture(GROUPE, "1-politique", Largeur = LARGEUR, Hauteur = HAUTEUR)]
         static IEnumerator Politique(Camera camera)
@@ -51,6 +69,9 @@ namespace ForgeLocal3D.Captures
             for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null, () => "horloge non lue"); a.MoveNext();) yield return null;
             if (horloge.Lue.JoursParSeconde != 0) horloge.Basculer();
             for (var a = AttentesDeCapture.Jusqua(() => horloge.Lue != null && horloge.Lue.JoursParSeconde == 0, () => "le temps ne s'arrête pas"); a.MoveNext();) yield return null;
+            // La caserne de la capitale, commandée dès le départ par l'intention du joueur : la photo des guerres lèvera une armée quand elle sera achevée.
+            var siege = cabinet.Partie.Maison.Donnees.Siege; if (siege?.CellId == null) throw Faux("la maison servie n'a pas de capitale");
+            GestesDeCapture.Deposer(carte.port, "{\"type\":\"batir_dans_une_province\",\"maison\":\"" + maison + "\",\"cell\":" + siege.CellId.Value.ToString(CultureInfo.InvariantCulture) + ",\"nature\":\"caserne\"}");
             var t = ToutLEurope(carte, cabinet, guerre); while (t.MoveNext()) yield return null;
             var calques = Calques(carte);
             if (calques.Mode != ModeDeCarte.Politique) throw Faux("la carte ne s'ouvre pas sur le mode Politique : " + calques.Mode);
@@ -137,6 +158,24 @@ namespace ForgeLocal3D.Captures
             string maison = ScenarioAccueil.Servie(cabinet), anglais = guerre.Terres.Terres.First(t => t.Pays == Pays(guerre, ANGLETERRE)).Maitre;
             GestesDeCapture.Deposer(carte.port, IntentionsDeGuerre.Declarer(maison, anglais)); GestesDeCapture.Tick(carte.port);
             for (var a = AttentesDeCapture.Jusqua(() => guerre.Guerres != null && guerre.Guerres.Guerres.Count > 0, () => "aucune guerre servie après la déclaration : " + (guerre.AbsenceDesGuerres ?? "guerres lues vides")); a.MoveNext();) yield return null;
+            // Les jours passent par paquets jusqu'à ce que la caserne commandée au départ ouvre la levée, que le devis du service dit.
+            Lecture<OrdresDeGuerre> devis = null;
+            for (int jours = 0; ; jours += PAQUET_DE_JOURS)
+            {
+                var lu = System.Threading.Tasks.Task.Run(() => { using (var c = new ClientGuerre(carte.port, DELAI_DU_SERVICE)) return c.LireOrdres(maison, null); });
+                for (var a = AttentesDeCapture.Attendre(lu, "lecture du devis de guerre"); a.MoveNext();) yield return null;
+                devis = lu.Result;
+                if (devis.Presente && devis.Donnees.Levee.Refus == null) break;
+                if (jours >= JOURS_MAX_DE_LA_CASERNE) throw Faux("la levée reste fermée après " + jours + " jours : " + (devis.Presente ? devis.Donnees.Levee.Refus : devis.Absence));
+                for (var p = Pousser(carte.port, PAQUET_DE_JOURS); p.MoveNext();) yield return null;
+            }
+            // Le joueur lève une armée par l'intention que le service attend, avec des vivres pour un mois, puis un jour passe.
+            var levee = devis.Donnees.Levee; long hommes = Math.Min(IntentionsDeGuerre.Maximum(levee), HOMMES_LEVES);
+            if (hommes < 1) throw Faux("la levée est ouverte mais ne donne aucun homme");
+            long vivres = (long)Math.Min(levee.GrainLibreKg * PART_DU_GRAIN, hommes * levee.RationKgParHommeParJour * JOURS_DE_VIVRES);
+            GestesDeCapture.Deposer(carte.port, IntentionsDeGuerre.Lever(maison, IntentionsDeGuerre.Repartir(levee, hommes), vivres)); GestesDeCapture.Tick(carte.port);
+            for (var a = AttentesDeCapture.Jusqua(() => guerre.Guerres != null && guerre.Guerres.Armees.Any(x => x.Maison == maison) && guerre.NombresDesArmees.Count > 0,
+                () => "aucune armée de la France servie et dessinée après la levée"); a.MoveNext();) yield return null;
             var t = ToutLEurope(carte, cabinet, guerre); while (t.MoveNext()) yield return null;
             var c = Choisir(ModeDeCarte.Guerres, () => "Guerres au " + TexteDuMonde.Date(guerre.Guerres.Date)); while (c.MoveNext()) yield return null;
             // Les pays en guerre, lus de `/guerres` : chaque maison ramenée au pays des terres dont elle tient le bourg.
@@ -152,10 +191,19 @@ namespace ForgeLocal3D.Captures
                 if (marquee) marquees++;
             }
             if (marquees == 0) throw Faux("aucune terre d'un pays en guerre n'est marquée");
+            // Les armées : au moins une servie, chacune dessinée, et au moins une dans l'image. Un échantillon vide échoue.
             int dessinees = guerre.NombresDesArmees.Count, servies = guerre.Guerres.Armees.Count(x => carte.PositionSurLaCarte(x.Point, 0f) != null);
+            if (servies == 0) throw Faux("aucune armée servie sur la carte : la photo des guerres ne montrerait pas d'armée");
             if (dessinees != servies) throw Faux(servies + " armées servies sur la carte, " + dessinees + " dessinées");
+            var places = new List<Vector3>(); guerre.PlacesDesArmees(carte.camera, places);
+            int vues = places.Count(p => carte.camera.pixelRect.Contains(new Vector2(p.x, p.y)));
+            if (vues == 0) throw Faux("aucune armée ne se voit dans l'image");
+            // Les sièges : une terre assiégée prend sa teinte et la légende la nomme ; sans siège, l'infobulle le dit.
+            string bulle = Calques(carte).Legende.GetComponentInParent<Infobulle>().Phrase;
+            if (assiegees.Count > 0 ? !Calques(carte).Legende.text.Contains("terre assiégée") : !bulle.Contains("Aucune terre assiégée.")) throw Faux("la légende ne dit pas les sièges : « " + bulle + " »");
             Debug.Log("CAPTURE modes de carte : " + guerre.Guerres.Guerres.Count + " guerres servies, pays en guerre " + string.Join(", ", enGuerre.Select(p => guerre.Terres.NomDuPays(p) ?? p))
-                + ", " + marquees + " terres marquées, " + dessinees + " armées dessinées, " + assiegees.Count + " terres assiégées");
+                + ", " + marquees + " terres marquées, " + servies + " armées servies, " + dessinees + " dessinées, " + vues + " dans l'image, " + assiegees.Count + " terres assiégées ; "
+                + string.Join(" ; ", guerre.Guerres.Armees.Select(CarteDeLaGuerre.Nombre)));
             yield return carte.camera;
         }
 
