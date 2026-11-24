@@ -1,0 +1,9 @@
+{
+  "date": "1400-01-01",
+  "reference": "EPSG:4326",
+  "unite": "Latitudes et longitudes en degrés décimaux, WGS84 ; la conversion en mètres EPSG:3035 se fait au chargement.",
+  "description": "Le chef-lieu de chaque terre de la carte figée que ni le siège d'une maison du registre ni une ville de villes-1400.json ne nomme : la ville principale de la cellule en 1400, placée par appartenance à son polygone, avec sa source publique ; et les terres où l'histoire ne nomme aucune ville, avec leur raison.",
+  "fidelite": "Niveau 1 : le nom et la place du chef-lieu, justes dans les grandes lignes, d'après les coordonnées publiques de l'article cité. Niveau 2 : le nom plausible d'une terre déclarée sans ville.",
+  "chefs_lieux": [],
+  "sans_ville": []
+}
