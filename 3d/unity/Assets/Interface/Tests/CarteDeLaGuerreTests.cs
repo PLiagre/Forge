@@ -40,7 +40,7 @@ namespace Forge.Interface.Tests
         static CelluleDeCarte Carre(long id, double x, string relief = null)
         {
             var anneau = new[] { new PointCarte(x, 0), new PointCarte(x + 10000, 0), new PointCarte(x + 10000, 10000), new PointCarte(x, 10000), new PointCarte(x, 0) };
-            return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0], relief);
+            return new CelluleDeCarte(id, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0], relief, 100); // 10 km × 10 km
         }
         // Le mode choisi d'un clic sur son bouton, puis la carte repeinte.
         void Choisir(ModeDeCarte mode) { toile.transform.Find(CalquesCarte.BANDE + "/" + mode).GetComponent<UnityEngine.UI.Button>().onClick.Invoke(); Assert.That(calques.Mode, Is.EqualTo(mode)); Peindre(); }
@@ -130,8 +130,8 @@ namespace Forge.Interface.Tests
                 toileHabitants.transform.Find(CalquesCarte.BANDE + "/" + ModeDeCarte.Population).GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
                 Assert.That(habitants.Mode, Is.EqualTo(ModeDeCarte.Population));
                 typeof(CalquesCarte).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(habitants, null);
-                float position = new RepartitionHabitants(monde).Position(20); Assert.That(position, Is.GreaterThan(0f), "échantillon vide : la terre 20 est la moins peuplée");
-                Color32 attendue = new LectureDuMode(ModeDeCarte.Population, monde, null, guerre.Terres, null).Teinte(20, B, guerre.CouleurDuPays(B), false);
+                float position = new RepartitionHabitants(monde, carte.Lue).Position(20); Assert.That(position, Is.GreaterThan(0f), "échantillon vide : la terre 20 est la moins dense");
+                Color32 attendue = new LectureDuMode(ModeDeCarte.Population, monde, carte.Lue, guerre.Terres, null).Teinte(20, B, guerre.CouleurDuPays(B), false);
                 Assert.That((Color32)carte.TeinteDuLieu(20, 1).Value, Is.EqualTo(attendue), "le lieu n'a pas la teinte des habitants");
                 Assert.That((Color32)carte.TeinteDuLieu(20, 0).Value, Is.EqualTo(attendue), "le bourg n'a pas la teinte des habitants");
                 Assert.That((Color32)carte.TeinteDe(10).Value, Is.Not.EqualTo(attendue), "échantillon vide : deux terres de peuplement différent de même teinte");

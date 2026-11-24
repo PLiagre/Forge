@@ -67,8 +67,11 @@ def test_carte_une_fois(monde, photographie):
         assert document["villes_hors_carte"] == photographie["villes_hors_carte"]
         for cellule in document["cells"]:
             cid = cellule["cell_id"]
-            assert set(cellule) == {"cell_id", "contour", "relief", "puissance", "maison", "villes"}
+            assert set(cellule) == {"cell_id", "contour", "relief", "area_km2", "puissance", "maison", "villes"}
             assert cellule["relief"] == monde.carte[cid]["relief"]
+            # L'aire de la terre, telle que le monde la tient : celle que la photographie publie, sans arrondi ni recalcul.
+            assert cellule["area_km2"] == monde.cells[cid].area_km2 == photos[cid]["area_km2"]
+            assert cellule["area_km2"] > 0
             for champ in ("puissance", "maison"):
                 assert cellule[champ] == photos[cid][champ]
             assert [{k: v[k] for k in ("nom", "population")} for v in cellule["villes"]] == photos[cid]["villes"]

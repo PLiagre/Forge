@@ -661,7 +661,8 @@ namespace Forge.Interface.Tests
                 Assert.That(((RectTransform)bouton.transform).sizeDelta, Is.EqualTo(new Vector2(CalquesCarte.LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande)), mode.ToString());
                 Assert.That(bouton.GetComponentsInChildren<Text>(false), Is.Empty, mode + " écrit encore son nom");
                 Assert.That(icone != null && icone.gameObject.activeSelf || signe != null && signe.gameObject.activeSelf, Is.True, mode + " sans icône");
-                Assert.That(icone != null || Resources.Load<Texture2D>(CalquesCarte.ICONES + motif) == null, Is.True, mode + " : la planche livrée n'est pas montrée");
+                bool livree = Resources.Load<Texture2D>(CalquesCarte.Planche(mode)) != null;
+                Assert.That(livree ? icone != null && icone.gameObject.activeSelf && !signe.gameObject.activeSelf : icone == null, Is.True, mode + " : la planche " + (livree ? "livrée n'est pas montrée" : "absente est montrée"));
             }
             Assert.That(Zone(bande, 1).center.x, Is.EqualTo(Zone(fond, 1).center.x).Within(.5f), "la bande n'est pas centrée sous la légende");
             Assert.That(toile.Find("Parcourir le monde"), Is.Null, "le panneau « Parcourir le monde » est encore posé");
@@ -672,7 +673,7 @@ namespace Forge.Interface.Tests
             var monde = new MondeLu(364, new DateDuMonde(1400, 365), 2, new[] { new CelluleDuMonde(10, 1, 0, 0), new CelluleDuMonde(20, 275000, 12345, 2e6) });
             var terres = new TerresDeLaCarte(364, new DateDuMonde(1400, 365), new[] { new PaysDeLaCarte("pays-a", "Avalon") }, new[] { new TerreLue(10, "m10", "pays-a") });
             var guerres = new GuerresLues(364, new DateDuMonde(1400, 365), new[] { new GuerreLue(1, "m10", "m20", 3) }, new[] { new ArmeeLue(0, "m10", 10, 0, 1200, 500, 10, null, new long[0], new PointCarte(0, 0), new PointCarte[0]) }, new PriseLue[0], 0);
-            var carteLue = new CarteLue(2, new[] { new CelluleDeCarte(10, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], "marais"), new CelluleDeCarte(20, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null) });
+            var carteLue = new CarteLue(2, new[] { new CelluleDeCarte(10, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], "marais", 7400), new CelluleDeCarte(20, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, 28900) });
             foreach (var mode in cinq)
             {
                 var lecture = new LectureDuMode(mode, monde, carteLue, terres, guerres); string texte = lecture.Legende(false);

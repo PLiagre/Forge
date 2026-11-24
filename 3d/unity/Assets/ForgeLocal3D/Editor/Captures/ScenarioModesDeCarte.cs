@@ -54,6 +54,14 @@ namespace ForgeLocal3D.Captures
             var t = ToutLEurope(carte, cabinet, guerre); while (t.MoveNext()) yield return null;
             var calques = Calques(carte);
             if (calques.Mode != ModeDeCarte.Politique) throw Faux("la carte ne s'ouvre pas sur le mode Politique : " + calques.Mode);
+            // La planche d'icônes livrée se montre sur chaque bouton, à la place du signe gravé.
+            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte)))
+            {
+                string motif = EmblemeCommande.Motif(mode.ToString()); Transform bouton = calques.BoutonDu(mode).transform, icone = bouton.Find(CalquesCarte.ICONE + motif);
+                bool livree = Resources.Load<Texture2D>(CalquesCarte.Planche(mode)) != null;
+                if (livree && (icone == null || !icone.gameObject.activeInHierarchy || bouton.Find("Repère " + motif).gameObject.activeSelf)) throw Faux("« " + mode + " » ne montre pas l'icône livrée de la planche");
+                Debug.Log("CAPTURE modes de carte : « " + mode + " » montre " + (livree ? "l'icône de la planche" : "le signe gravé (planche non livrée)"));
+            }
             var c = Choisir(ModeDeCarte.Politique, () => "Pays au " + TexteDuMonde.Date(guerre.Terres.Date)); while (c.MoveNext()) yield return null;
             if (!carte.PaysMontres || !guerre.NomsMontres || guerre.NomsDesPays.Count(n => n.Opacite > 0f) == 0) throw Faux("la carte politique ne montre ni frontières ni noms de pays");
             yield return carte.camera;
@@ -81,15 +89,23 @@ namespace ForgeLocal3D.Captures
         [ScenarioDeCapture(GROUPE, "3-population", Largeur = LARGEUR, Hauteur = HAUTEUR)]
         static IEnumerator Population(Camera camera)
         {
-            var (carte, cabinet, _) = ScenarioAccueil.Lire();
+            var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
             var c = Choisir(ModeDeCarte.Population, () => TexteDuMonde.Date(Monde(cabinet).Date)); while (c.MoveNext()) yield return null;
-            var peintes = Monde(cabinet).Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue && x.CellId != cabinet.Retenue?.CellId).ToList();
-            CelluleDuMonde plus = peintes.OrderByDescending(x => x.Population).First(), moins = peintes.OrderBy(x => x.Population).First();
-            float clair(CelluleDuMonde x) => carte.TeinteDe(x.CellId).Value.grayscale;
-            if (plus.Population <= moins.Population) throw Faux("échantillon vide : toutes les terres ont le même nombre d'habitants");
-            if (!(clair(plus) < clair(moins))) throw Faux("la terre la plus peuplée (" + plus.Population + ") n'est pas plus foncée que la moins peuplée (" + moins.Population + ")");
-            if (!Calques(carte).Legende.text.Contains("habitants")) throw Faux("la légende de la population ne compte pas en habitants");
-            Debug.Log("CAPTURE modes de carte : population de " + TexteDuMonde.Nombre(moins.Population) + " à " + TexteDuMonde.Nombre(plus.Population) + " habitants");
+            // La densité de chaque terre : ses habitants servis par `/monde`, divisés par son aire servie par `/carte`.
+            var aires = carte.Lue.Cellules.ToDictionary(x => x.CellId, x => x.AireKm2);
+            if (aires.Values.Any(a => !(a > 0))) throw Faux("une terre n'a pas d'aire servie par /carte");
+            var peintes = Monde(cabinet).Cellules.Where(x => carte.TeinteDe(x.CellId).HasValue && x.CellId != cabinet.Retenue?.CellId).Select(x => (x.CellId, densite: x.Population / aires[x.CellId])).ToList();
+            var plus = peintes.OrderByDescending(x => x.densite).First(); var moins = peintes.OrderBy(x => x.densite).First();
+            float Clair(long cell) => carte.TeinteDe(cell).Value.grayscale;
+            if (plus.densite <= moins.densite) throw Faux("échantillon vide : toutes les terres ont la même densité");
+            if (!(Clair(plus.CellId) < Clair(moins.CellId))) throw Faux("la terre la plus dense (" + RepartitionHabitants.Densite(plus.densite) + ") n'est pas plus foncée que la moins dense (" + RepartitionHabitants.Densite(moins.densite) + ")");
+            if (!Calques(carte).Legende.text.Contains("hab./km²")) throw Faux("la légende de la population ne dit pas sa densité en hab./km²");
+            // La densité de quelques pays, toutes leurs terres ensemble : à poser à côté de l'atlas.
+            var monde = Monde(cabinet).Cellules.ToDictionary(x => x.CellId, x => x.Population);
+            string DuPays(string nom) { var terres = guerre.Terres.Terres.Where(t => t.Pays != null && guerre.Terres.NomDuPays(t.Pays) == nom && monde.ContainsKey(t.CellId)).ToList();
+                return terres.Count == 0 ? nom + " sans terre" : nom + " " + RepartitionHabitants.Densite(terres.Sum(t => monde[t.CellId]) / terres.Sum(t => aires[t.CellId])); }
+            Debug.Log("CAPTURE modes de carte : densité de " + RepartitionHabitants.Densite(moins.densite) + " à " + RepartitionHabitants.Densite(plus.densite) + " ; "
+                + string.Join(", ", new[] { "France", "Lituanie", "Angleterre", "Castille", "Milan", "Mamelouks" }.Select(DuPays)));
             yield return carte.camera;
         }
 

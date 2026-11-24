@@ -36,48 +36,81 @@ namespace Forge.Interface.Tests
                 }
         }
         static MondeLu Monde(params CelluleDuMonde[] cellules) => new MondeLu(8, new DateDuMonde(1400, 9), cellules.Length, cellules);
-        [Test] public void La_legende_et_les_teintes_derivent_des_populations_recues()
+        // La carte des terres du monde, chacune de l'aire donnée (1 km² : la densité vaut alors les habitants).
+        static CarteLue Aires(MondeLu monde, double aire = 1) => new CarteLue(monde.Cellules.Count, monde.Cellules.Select(c => new CelluleDeCarte(c.CellId, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, aire)));
+        static RepartitionHabitants Repartition(params CelluleDuMonde[] cellules) { var monde = Monde(cellules); return new RepartitionHabitants(monde, Aires(monde)); }
+        [Test] public void La_legende_et_les_teintes_derivent_des_densites_recues()
         {
-            var repartition = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 0, -1, -1), new CelluleDuMonde(20, 90, -1, -1)));
+            var repartition = Repartition(new CelluleDuMonde(10, 0, -1, -1), new CelluleDuMonde(20, 90, -1, -1));
             Assert.AreEqual(0, repartition.Minimum); Assert.AreEqual(90, repartition.Maximum);
             Assert.AreEqual(0, repartition.Position(10)); Assert.AreEqual(1, repartition.Position(20));
             StringAssert.Contains("jour 9 de 1400", repartition.Legende);
-            StringAssert.Contains("90 habitants (foncé)", repartition.Legende);
+            StringAssert.Contains("90 hab./km² (foncé)", repartition.Legende);
             StringAssert.Contains("échelle est logarithmique", CalquesCarte.DetailDuMode(ModeDeCarte.Population));
             Assert.Throws<ArgumentException>(() => repartition.Position(30));
         }
-        // Vingt et une terres de 100 à 2 100 habitants, plus une vide et une immense : l'échelle se borne aux centiles, la légende le dit,
+        // La densité est le rapport de deux nombres servis : à habitants égaux, la terre la plus petite est la plus dense, donc la plus foncée.
+        [Test] public void A_habitants_egaux_la_terre_la_plus_petite_est_la_plus_foncee()
+        {
+            var monde = Monde(new CelluleDuMonde(10, 120000, 0, 0), new CelluleDuMonde(20, 120000, 0, 0), new CelluleDuMonde(30, 120000, 0, 0));
+            var carte = new CarteLue(3, new[] { (10L, 29000d), (20L, 7400d), (30L, 15000d) }.Select(t => new CelluleDeCarte(t.Item1, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, t.Item2)));
+            var lecture = new LectureDuMode(ModeDeCarte.Population, monde, carte, null, null);
+            Assert.That(lecture.Population.DensiteDe(20), Is.EqualTo(120000d / 7400d)); Assert.That(lecture.Population.DensiteDe(10), Is.EqualTo(120000d / 29000d));
+            float Clarte(long cell) => lecture.Teinte(cell, null, Color.white, false).grayscale;
+            Assert.That(Clarte(20), Is.LessThan(Clarte(30)), "la terre de 7 400 km² n'est pas plus foncée que celle de 15 000 km²");
+            Assert.That(Clarte(30), Is.LessThan(Clarte(10)), "la terre de 15 000 km² n'est pas plus foncée que celle de 29 000 km²");
+            // Contre-épreuve : aux mêmes aires, les mêmes habitants donnent la même teinte.
+            var egales = new LectureDuMode(ModeDeCarte.Population, monde, Aires(monde, 10000), null, null);
+            Assert.That(egales.Teinte(10, null, Color.white, false), Is.EqualTo(egales.Teinte(20, null, Color.white, false)));
+            Assert.That(lecture.Legende(false), Does.StartWith("Densité : 4,1 hab./km² (clair) → 8 hab./km² (mi-teinte) → 16 hab./km² (foncé) · jour 9 de 1400"));
+        }
+        // Une terre sans aire servie : le mode le dit, comme un relief non servi, au lieu de peindre des totaux.
+        [Test] public void Sans_aire_servie_le_mode_Population_le_dit()
+        {
+            var monde = Monde(new CelluleDuMonde(10, 4, 0, 0), new CelluleDuMonde(20, 9, 0, 0));
+            var sansAire = new CarteLue(2, new[] { 10L, 20L }.Select(id => new CelluleDeCarte(id, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, id == 20 ? -1 : 50)));
+            Assert.That(Assert.Throws<ArgumentException>(() => new LectureDuMode(ModeDeCarte.Population, monde, sansAire, null, null)).Message, Is.EqualTo("aire des terres non servie par la carte"));
+            Assert.That(Assert.Throws<ArgumentException>(() => new LectureDuMode(ModeDeCarte.Population, monde, null, null, null)).Message, Is.EqualTo("carte non lue"));
+            Assert.That(CalquesCarte.Indisponible(ModeDeCarte.Population, "aire des terres non servie par la carte"), Is.EqualTo("Mode Population indisponible : aire des terres non servie par la carte. Carte politique montrée."));
+            Assert.DoesNotThrow(() => new LectureDuMode(ModeDeCarte.Population, monde, Aires(monde, 50), null, null), "contre-épreuve : les aires servies, le mode se lit");
+        }
+        // Vingt et une terres de 100 à 2 100 hab./km², plus une vide et une immense : l'échelle se borne aux centiles, la légende le dit,
         // et les terres hors des bornes prennent la teinte de la borne au lieu de tasser toutes les autres.
-        [Test] public void L_echelle_des_habitants_se_borne_aux_centiles_et_le_dit()
+        [Test] public void L_echelle_des_densites_se_borne_aux_centiles_et_le_dit()
         {
             var cellules = Enumerable.Range(1, 21).Select(k => new CelluleDuMonde(k, 100 * k, 0, 0)).Concat(new[] { new CelluleDuMonde(100, 0, 0, 0), new CelluleDuMonde(200, 9000000, 0, 0) }).ToArray();
-            var r = new RepartitionHabitants(Monde(cellules));
-            Assert.That((r.Minimum, r.Maximum, r.Bas, r.Mediane, r.Haut), Is.EqualTo((0L, 9000000L, 100L, 1100L, 2100L)));
-            Assert.That(r.Legende, Is.EqualTo("Habitants : jusqu'à 100 habitants (clair) → 1 100 habitants (mi-teinte) → dès 2 100 habitants (foncé) · jour 9 de 1400"));
+            var r = Repartition(cellules);
+            Assert.That((r.Minimum, r.Maximum, r.Bas, r.Mediane, r.Haut), Is.EqualTo((0d, 9000000d, 100d, 1100d, 2100d)));
+            Assert.That(r.Legende, Is.EqualTo("Densité : jusqu'à 100 hab./km² (clair) → 1 100 hab./km² (mi-teinte) → dès 2 100 hab./km² (foncé) · jour 9 de 1400"));
             Assert.That((r.Position(100), r.Position(1), r.Position(11), r.Position(21), r.Position(200)), Is.EqualTo((0f, 0f, .5f, 1f, 1f)));
             Assert.That(r.Position(6), Is.EqualTo(.5f * (float)(Math.Log(601d / 101d) / Math.Log(1101d / 101d))).Within(1e-5f), "la moitié claire de l'échelle n'est pas au logarithme");
             Assert.That(r.Position(16), Is.EqualTo(.5f + .5f * (float)(Math.Log(1601d / 1101d) / Math.Log(2101d / 1101d))).Within(1e-5f), "la moitié foncée de l'échelle n'est pas au logarithme");
             // Contre-épreuve : sans terre hors des bornes, la légende dit le minimum et le maximum sans « jusqu'à » ni « dès ».
-            Assert.That(new RepartitionHabitants(Monde(cellules.Take(3).ToArray())).Legende, Does.StartWith("Habitants : 100 habitants (clair) → 200 habitants (mi-teinte) → 300 habitants (foncé)"));
-            // Au plus long, avec les nombres de l'Europe servie : trois lignes.
-            Tenir(new LectureDuMode(ModeDeCarte.Population, Monde(Enumerable.Range(1, 40).Select(k => new CelluleDuMonde(k, k == 1 ? 5 : k == 40 ? 362628 : k * 4871, 0, 0)).ToArray()), null, null, null).Legende(false));
+            Assert.That(Repartition(cellules.Take(3).ToArray()).Legende, Does.StartWith("Densité : 100 hab./km² (clair) → 200 hab./km² (mi-teinte) → 300 hab./km² (foncé)"));
+            // Au plus long, avec les densités de l'Europe servie : trois lignes.
+            var europe = Monde(Enumerable.Range(1, 40).Select(k => new CelluleDuMonde(k, k == 1 ? 5 : k == 40 ? 362628 : k * 4871, 0, 0)).ToArray());
+            Tenir(new LectureDuMode(ModeDeCarte.Population, europe, Aires(europe, 7.5), null, null).Legende(false));
+            Assert.That((RepartitionHabitants.Densite(0.04), RepartitionHabitants.Densite(3.26), RepartitionHabitants.Densite(9.96), RepartitionHabitants.Densite(1234.5)),
+                Is.EqualTo(("0 hab./km²", "3,3 hab./km²", "10 hab./km²", "1 235 hab./km²")));
         }
         [Test] public void Une_cellule_manquante_dupliquee_ou_negative_refuse_le_calque()
         {
             var cellule = new CelluleDuMonde(10, 3, -1, -1);
-            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Monde()));
-            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Monde(cellule, cellule)));
-            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Monde(new CelluleDuMonde(10, -1, -1, -1))));
-            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(new MondeLu(0, new DateDuMonde(1400, 1), 2, new[] { cellule })));
-            Assert.AreEqual(.5f, new RepartitionHabitants(Monde(cellule)).Position(10));
+            Assert.Throws<ArgumentException>(() => Repartition());
+            Assert.Throws<ArgumentException>(() => Repartition(cellule, cellule));
+            Assert.Throws<ArgumentException>(() => Repartition(new CelluleDuMonde(10, -1, -1, -1)));
+            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(new MondeLu(0, new DateDuMonde(1400, 1), 2, new[] { cellule }), Aires(Monde(cellule))));
+            Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Monde(cellule, new CelluleDuMonde(20, 3, -1, -1)), Aires(Monde(cellule))), "une terre que la carte ne sert pas");
+            Assert.AreEqual(.5f, Repartition(cellule).Position(10));
         }
-        [Test] public void La_legende_des_habitants_dit_la_date_et_compte_en_habitants()
+        [Test] public void La_legende_des_densites_dit_la_date_et_compte_en_habitants_par_km2()
         {
-            string legende = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1))).Legende;
+            string legende = Repartition(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1)).Legende;
             Assert.AreEqual("5 631", TexteDuMonde.Nombre(5631));
-            Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · jour 9 de 1400", legende);
+            Assert.AreEqual("Densité : 1 hab./km² (clair) → 5 631 hab./km² (foncé) · jour 9 de 1400", legende);
             Assert.IsNull(TexteDuMonde.Interdit(legende), legende); Assert.IsNull(TexteDuMonde.SansUnite(legende), legende);
-            Assert.Catch<ArgumentException>(() => new RepartitionHabitants(new MondeLu(8, new DateDuMonde(1400, 0), 1, new[] { new CelluleDuMonde(10, 1, -1, -1) })));
+            Assert.AreEqual("12", TexteDuMonde.SansUnite("Densité : 12 hab. par km²"), "contre-épreuve : une densité mal écrite est un nombre sans unité");
+            Assert.Catch<ArgumentException>(() => { var m = new MondeLu(8, new DateDuMonde(1400, 0), 1, new[] { new CelluleDuMonde(10, 1, -1, -1) }); new RepartitionHabitants(m, Aires(m)); });
             LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : Population absente du territoire 30");
             Assert.AreEqual("Mode Population indisponible : déclaré absent par le monde. Carte politique montrée.", CalquesCarte.Indisponible(ModeDeCarte.Population, "Population absente du territoire 30"));
             Assert.AreEqual("Mode Population indisponible : population non lue. Carte politique montrée.", CalquesCarte.Indisponible(ModeDeCarte.Population, "population non lue"));
@@ -91,7 +124,7 @@ namespace Forge.Interface.Tests
             new[] { new TerreLue(10, "m10", A), new TerreLue(20, "m20", B), new TerreLue(30, "m30", C) });
         static GuerresLues Guerres(GuerreLue[] guerres, params long[] sieges) => new GuerresLues(5, new DateDuMonde(1400, 6), guerres,
             sieges.Select((s, i) => new ArmeeLue(i, "m10", s, 0, 1200, 500, s, null, new long[0], new PointCarte(0, 0), new PointCarte[0])), new PriseLue[0], 0);
-        static CelluleDeCarte Cellule(long id, string relief) => new CelluleDeCarte(id, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], relief);
+        static CelluleDeCarte Cellule(long id, string relief, double aire = 1000) => new CelluleDeCarte(id, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], relief, aire);
         static CarteLue Carte(params string[] reliefs) => new CarteLue(reliefs.Length, reliefs.Select((r, i) => Cellule(10 * (i + 1), r)));
         static readonly (long cell, string pays, Color pigment)[] TROIS = { (10, A, PA), (20, B, PB), (30, C, PC) };
         static Color[] Peintes(LectureDuMode l) => TROIS.Select(t => l.Teinte(t.cell, t.pays, t.pigment, false)).ToArray();
@@ -117,7 +150,7 @@ namespace Forge.Interface.Tests
             {
                 [ModeDeCarte.Politique] = new[] { "Pays au jour 6 de 1400" },
                 [ModeDeCarte.Relief] = new[] { "Relief servi, qui ne change pas", "marais", "haute montagne" },
-                [ModeDeCarte.Population] = new[] { "habitants", "jour 9 de 1400" },
+                [ModeDeCarte.Population] = new[] { "Densité : ", "hab./km²", "jour 9 de 1400" },
                 [ModeDeCarte.Vivres] = new[] { "Vivres au jour 9 de 1400", "faim : 1 jour (cuivre) → 12 jours (brun)", "or : du grain", CalquesCarte.FLECHES },
                 [ModeDeCarte.Guerres] = new[] { "Guerres au jour 6 de 1400", "pays en guerre", "terre assiégée" }
             };

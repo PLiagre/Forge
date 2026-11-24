@@ -2671,11 +2671,15 @@ frontières réelles, suzeraineté hors des seuls liens de départ du registre, 
 `GET /carte` sert `crs` (`EPSG:3035`), `tolerance_m`, la `version` de la
 carte, `cell_count`, `cells` triées par `cell_id` et `villes_hors_carte`.
 Chaque cellule porte exactement `cell_id`, `contour` (toujours un
-`MultiPolygon`), `relief`, `puissance`, `maison` (`id`, `nom` ou `null`)
-et `villes` (`nom`, `population`, `x_m`, `y_m`), triées par nom. Les identités
+`MultiPolygon`), `relief`, `area_km2`, `puissance`, `maison` (`id`, `nom` ou `null`)
+et `villes` (`nom`, `population`, `x_m`, `y_m`), triées par nom. `area_km2`
+est l'aire de la carte figée, copiée sans arrondi ni recalcul : celle que tient
+`Cell.area_km2` et que publie la photographie ; le mode Population de la carte
+y divise les habitants servis par `/monde` pour montrer une densité. Les identités
 et les villes viennent des mêmes vues que la photographie ; les villes
 hors carte sont déclarées par leurs noms triés. Aucun tick, stock ou
-population de cellule n'entre dans ce document.
+population de cellule n'entre dans ce document : seule l'aire, qui ne change
+pas de la partie, accompagne le contour.
 
 Douglas-Peucker simplifie chaque anneau à `TOLERANCE_CONTOUR_M = 1000` mètres,
 en gardant son premier sommet, puis arrondit ses coordonnées au mètre.

@@ -146,7 +146,7 @@ def document_carte(world, table=None, maisons=None):
             villes[cid].append({"nom": ville.nom, "population": ville.population,
                                "x_m": ville.x_m, "y_m": ville.y_m})
     cellules = [{"cell_id": cid, "contour": contour_servi(cellule),
-                 "relief": cellule["relief"], "puissance": puissances.get(vue[cid]),
+                 "relief": cellule["relief"], "area_km2": cellule["area_km2"], "puissance": puissances.get(vue[cid]),
                  "maison": identites.get(tenantes[cid]), "villes": villes[cid]}
                 for cid, cellule in sorted(world.carte.items())]
     return {"crs": "EPSG:3035", "tolerance_m": TOLERANCE_CONTOUR_M,

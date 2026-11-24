@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -231,6 +232,27 @@ namespace Forge.Pont.Tests
             Assert.Throws<ArgumentNullException>(() => new VilleDeCarte(null, 1, new PointCarte(0, 0)));
             Assert.Throws<ArgumentException>(() => LectureCarte.Absent(""));
         }
+
+        // L'aire servie d'une cellule est relue telle quelle ; une cellule qui ne la sert pas la déclare non servie (-1), et les
+        // réponses figées d'avant l'aire restent lisibles. Servie, elle est un nombre > 0.
+        [Test]
+        public void L_aire_servie_est_relue_telle_quelle()
+        {
+            LectureCarte lecture = Lire(RemplacerUneFois(CARTE_TROIS, "\"relief\":\"montagne\"", "\"relief\":\"montagne\",\"area_km2\":28933.25"));
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            Assert.AreEqual(new[] { -1d, 28933.25, -1d }, lecture.Carte.Cellules.Select(c => c.AireKm2).ToArray());
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CelluleDeCarte(1, new PolygoneDeCarte[0], null, null, new VilleDeCarte[0], null, 0));
+        }
+        [Test]
+        public void Une_aire_absente_se_declare_non_servie()
+        {
+            LectureCarte lecture = Lire(CARTE_TROIS);
+            Assert.IsTrue(lecture.Presente, lecture.Absence);
+            Assert.IsTrue(lecture.Carte.Cellules.All(c => c.AireKm2 == -1), "sans aire servie, une aire est lue");
+        }
+        [TestCase("0")] [TestCase("-12.5")] [TestCase("\"grande\"")] [TestCase("null")]
+        public void Une_aire_servie_qui_n_est_pas_un_nombre_positif_refuse_la_carte(string fautive) =>
+            Absente(Lire(RemplacerUneFois(CARTE_TROIS, "\"relief\":\"montagne\"", "\"relief\":\"montagne\",\"area_km2\":" + fautive)), "cells[1].area_km2", "un nombre > 0");
 
         // Le relief de chaque cellule, relu tel que servi.
         [Test]

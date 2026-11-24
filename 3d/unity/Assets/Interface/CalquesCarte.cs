@@ -7,49 +7,59 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // Les habitants de chaque terre (`/monde`), sur une échelle logarithmique bornée aux terres du 5e et du 95e centile, la terre
-    // du milieu à mi-teinte : les quelques terres vides ou immenses ne tassent pas toutes les autres dans la même teinte. La
-    // légende dit les bornes et la terre du milieu, et « jusqu'à » ou « dès » quand des terres dépassent une borne.
+    // La densité de chaque terre : ses habitants servis (`/monde`) divisés par son aire servie (`/carte`), deux nombres du monde
+    // dont la vue ne fait que le rapport, pour que des terres de 7 000 et de 29 000 km² se comparent. L'échelle est logarithmique,
+    // bornée aux terres du 5e et du 95e centile, la terre du milieu à mi-teinte : les quelques terres vides ou très denses ne
+    // tassent pas toutes les autres dans la même teinte. La légende dit les bornes et la terre du milieu en hab./km², et
+    // « jusqu'à » ou « dès » quand des terres dépassent une borne. Une terre sans aire servie rend le mode indisponible.
     public sealed class RepartitionHabitants
     {
         public const double CENTILE_BAS = .05, CENTILE_HAUT = .95;
         // Les deux bouts de l'échelle : le papier, et l'accent tiré vers l'encre.
         public static readonly Color CLAIRE = SocleInterface.Couleur("papier"), FONCEE = Color.Lerp(SocleInterface.Couleur("accent"), SocleInterface.Couleur("encre"), .3f);
-        readonly Dictionary<long, long> populations = new Dictionary<long, long>();
-        public long Minimum { get; }
-        public long Maximum { get; }
-        public long Bas { get; }
-        public long Haut { get; }
+        static readonly System.Globalization.CultureInfo Fr = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+        readonly Dictionary<long, double> densites = new Dictionary<long, double>();
+        public double Minimum { get; }
+        public double Maximum { get; }
+        public double Bas { get; }
+        public double Haut { get; }
         public string Legende { get; }
-        public RepartitionHabitants(MondeLu monde)
+        public RepartitionHabitants(MondeLu monde, CarteLue carte)
         {
             if (monde == null) throw new ArgumentException("population non lue");
+            if (carte == null) throw new ArgumentException("carte non lue");
             if (monde.Cellules.Count == 0 || monde.Cellules.Count != monde.CellCount)
                 throw new ArgumentException("Population des territoires incomplète");
+            var aires = new Dictionary<long, double>(); foreach (var c in carte.Cellules) aires[c.CellId] = c.AireKm2;
             foreach (var cellule in monde.Cellules)
             {
-                if (cellule.Population < 0 || populations.ContainsKey(cellule.CellId))
+                if (cellule.Population < 0 || densites.ContainsKey(cellule.CellId))
                     throw new ArgumentException("Population négative ou territoire dupliqué");
-                populations.Add(cellule.CellId, cellule.Population);
+                if (!aires.TryGetValue(cellule.CellId, out double aire)) throw new ArgumentException("Aire absente du territoire " + cellule.CellId);
+                if (!(aire > 0)) throw new ArgumentException("aire des terres non servie par la carte");
+                densites.Add(cellule.CellId, cellule.Population / aire);
             }
-            var triees = populations.Values.OrderBy(n => n).ToList(); int dernier = triees.Count - 1;
+            var triees = densites.Values.OrderBy(n => n).ToList(); int dernier = triees.Count - 1;
             Minimum = triees[0]; Maximum = triees[dernier];
             Bas = triees[(int)Math.Floor(CENTILE_BAS * dernier)]; Haut = triees[(int)Math.Ceiling(CENTILE_HAUT * dernier)]; Mediane = triees[dernier / 2];
-            string H(long n) => TexteDuMonde.Nombre(n) + (n < 2 ? " habitant" : " habitants");
-            Legende = "Habitants : " + (Bas > Minimum ? "jusqu'à " : "") + H(Bas) + " (clair) → " + (AvecMediane ? H(Mediane) + " (mi-teinte) → " : "")
-                + (Haut < Maximum ? "dès " : "") + H(Haut) + " (foncé) · " + TexteDuMonde.Date(monde.Date);
+            Legende = "Densité : " + (Bas > Minimum ? "jusqu'à " : "") + Densite(Bas) + " (clair) → " + (AvecMediane ? Densite(Mediane) + " (mi-teinte) → " : "")
+                + (Haut < Maximum ? "dès " : "") + Densite(Haut) + " (foncé) · " + TexteDuMonde.Date(monde.Date);
         }
-        // La terre du milieu : la moitié des terres en compte moins, l'autre moitié plus. Elle prend la mi-teinte quand elle est entre les bornes.
-        public long Mediane { get; }
+        // Une densité comme on la lit : au dixième sous 10 hab./km², à l'unité au-delà.
+        public static string Densite(double d) => (d < 10 ? Math.Round(d, 1, MidpointRounding.AwayFromZero).ToString("0.#", Fr) : TexteDuMonde.Nombre((long)Math.Round(d, MidpointRounding.AwayFromZero))) + " hab./km²";
+        // La terre du milieu : la moitié des terres est moins dense, l'autre moitié plus. Elle prend la mi-teinte quand elle est entre les bornes.
+        public double Mediane { get; }
         bool AvecMediane => Mediane > Bas && Mediane < Haut;
+        // La densité de la terre, en habitants par km².
+        public double DensiteDe(long cellId) => densites.TryGetValue(cellId, out double d) ? d : throw new ArgumentException("Population absente du territoire " + cellId);
         // De 0 (clair) à 1 (foncé), au logarithme : de la borne claire à la terre du milieu, puis de la terre du milieu à la borne foncée,
         // chacune sur une moitié de l'échelle ; au-delà d'une borne, la teinte de la borne.
         public float Position(long cellId)
         {
-            if (!populations.TryGetValue(cellId, out long nombre)) throw new ArgumentException("Population absente du territoire " + cellId);
+            double d = DensiteDe(cellId);
             if (Bas == Haut) return .5f;
-            long n = Math.Min(Math.Max(nombre, Bas), Haut);
-            float Entre(long a, long b) => (float)((Math.Log(1d + n) - Math.Log(1d + a)) / (Math.Log(1d + b) - Math.Log(1d + a)));
+            double n = Math.Min(Math.Max(d, Bas), Haut);
+            float Entre(double a, double b) => (float)((Math.Log(1d + n) - Math.Log(1d + a)) / (Math.Log(1d + b) - Math.Log(1d + a)));
             return !AvecMediane ? Entre(Bas, Haut) : n <= Mediane ? .5f * Entre(Bas, Mediane) : .5f + .5f * Entre(Mediane, Haut);
         }
     }
@@ -179,7 +189,7 @@ namespace Forge.Interface
         public LectureDuMode(ModeDeCarte mode, MondeLu monde, CarteLue carte, TerresDeLaCarte terres, GuerresLues guerres, string absenceDesTerres = null, string absenceDesGuerres = null)
         {
             Mode = mode; Terres = terres;
-            if (mode == ModeDeCarte.Population) Population = new RepartitionHabitants(monde);
+            if (mode == ModeDeCarte.Population) Population = new RepartitionHabitants(monde, carte);
             else if (mode == ModeDeCarte.Relief) Relief = new ReliefDesTerres(carte);
             else if (mode == ModeDeCarte.Vivres) Vivres = new VivresDesTerres(monde);
             else if (mode == ModeDeCarte.Guerres) Guerres = new BelligerantsDesPays(guerres, terres, absenceDesGuerres, absenceDesTerres);
@@ -240,7 +250,7 @@ namespace Forge.Interface
         // Ce que dit le bouton de chaque mode au survol : ce qu'il montre, jamais son nom seul.
         public static string PhraseDuMode(ModeDeCarte mode) => mode == ModeDeCarte.Politique ? "Politique : chaque terre à la couleur du pays qui la tient, avec son nom et ses frontières."
             : mode == ModeDeCarte.Relief ? "Relief : le terrain nu, du marais à la haute montagne, sans couleur ni frontière de pays."
-            : mode == ModeDeCarte.Population ? "Population : chaque terre plus ou moins foncée selon le nombre de ses habitants."
+            : mode == ModeDeCarte.Population ? "Population : chaque terre plus ou moins foncée selon ses habitants par km²."
             : mode == ModeDeCarte.Vivres ? "Vivres : qui a du grain et qui a faim, et ce que vos lieux envoient à votre siège."
             : "Guerres : seuls les pays en guerre en couleur, leurs armées et les terres assiégées.";
         public void Initialiser(CarteDessinee carte, Transform toile, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
@@ -258,7 +268,7 @@ namespace Forge.Interface
         }
         public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null, AtlasDeCarte atlas = null, VillesDeCarte villes = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; this.atlas = atlas; villesDeCarte = villes; }
         // Les cinq modes côte à côte, chacun réduit à son icône, la bande centrée sous la légende. L'icône est l'image de la
-        // planche quand elle est livrée (`Resources/` + `ICONES` + motif), le signe gravé du socle sinon.
+        // planche quand elle est livrée (`Planche`), le signe gravé du socle sinon.
         public const float LARGEUR_D_UN_MODE = 56, ECART_DES_MODES = 8, TRAIT_ENFONCE = 4, COTE_DE_L_ICONE = 32;
         public const string ICONES = "Forge/Icones/ModesDeCarte/", ICONE = "Icône ", TRAIT = "Trait du mode en cours";
         static readonly int MODES = Enum.GetValues(typeof(ModeDeCarte)).Length;
@@ -268,7 +278,7 @@ namespace Forge.Interface
         {
             var b = SocleInterface.Commande(bande, mode.ToString(), (int)mode * (LARGEUR_D_UN_MODE + ECART_DES_MODES), 0, () => { Mode = mode; changement = true; Enfoncer(); }, phrase: PhraseDuMode(mode)); // un clic ne lit rien
             string motif = EmblemeCommande.Motif(mode.ToString()); EmblemeCommande.Reduire(b, motif, new Vector2(LARGEUR_D_UN_MODE, SocleInterface.HauteurCommande));
-            var planche = Resources.Load<Texture2D>(ICONES + motif);
+            var planche = Resources.Load<Texture2D>(Planche(mode));
             if (planche != null)
             {
                 b.transform.Find("Repère " + motif).gameObject.SetActive(false);
@@ -300,12 +310,14 @@ namespace Forge.Interface
             }
         }
         public Button BoutonDu(ModeDeCarte mode) => modes[mode].bouton;
+        // Le chemin, sous `Resources/`, de l'icône de la planche d'un mode : un fichier par mode, à son nom en minuscules (`politique.png`).
+        public static string Planche(ModeDeCarte mode) => ICONES + mode.ToString().ToLowerInvariant();
         public bool Enfonce(ModeDeCarte mode) => modes[mode].trait.activeSelf;
         // Le liseré d'un pays le long de sa frontière : son pigment, tiré vers l'encre pour se lire sur sa propre teinte comme sur le papier.
         public static Color Lisere(Color pays) => LisereDuPigment(SocleInterface.Pigment(pays));
         public static Color LisereDuPigment(Color pigment) => Color.Lerp(pigment, SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
         // La règle de chaque mode, dite dans l'infobulle de sa légende avant ce que ses données disent.
-        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus une terre est foncée, plus elle compte d'habitants. La mi-teinte est la terre du milieu : la moitié des terres en compte moins, l'autre moitié plus. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes. Les terres les moins et les plus peuplées, un vingtième de chaque côté, prennent la teinte de la borne."
+        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus une terre est foncée, plus elle est dense : ses habitants divisés par son aire, en habitants par km², pour que les terres petites et grandes se comparent. La mi-teinte est la terre du milieu : la moitié des terres est moins dense, l'autre moitié plus. L'échelle est logarithmique : chaque pas de teinte multiplie la densité au lieu de l'additionner, pour que les terres presque vides restent lisibles à côté des plus denses. Les terres les moins et les plus denses, un vingtième de chaque côté, prennent la teinte de la borne."
             : mode == ModeDeCarte.Relief ? "Le terrain nu : chaque terre porte la teinte de sa classe de relief servie, sans couleur ni frontière de pays, et les noms des pays se taisent."
             : mode == ModeDeCarte.Vivres ? "Une terre en or a eu son grain au dernier jour servi ; une terre qui a faim tire du cuivre au brun avec ses jours de faim d'affilée, jusqu'à la plus affamée. En gris, une terre dont le monde n'a pas encore calculé la faim. Les flèches partent de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaississent avec ce qui est envoyé."
             : mode == ModeDeCarte.Guerres ? "Seuls les pays qu'une guerre servie nomme gardent leur couleur ; les autres passent au papier. Une terre qu'une armée assiège est en brun sombre."
