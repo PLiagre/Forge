@@ -11,8 +11,10 @@ partagée il est du pays du bourg.
 """
 import collections
 import copy
+import dataclasses
 import json
 import pathlib
+import types
 from types import SimpleNamespace
 
 import pytest
@@ -279,3 +281,124 @@ def test_le_juge_voit_un_chef_lieu_hors_des_villes_des_frontieres(epreuve):
     chefs = copy.deepcopy(epreuve.chefs)
     _ligne(chefs, epreuve.partagee)["lat"] += 0.01
     assert _de(juger(c, epreuve.bourgs, chefs), FRONTIERES)
+
+
+# --- Le fichier des chefs-lieux et la règle du bourg ---------------------------------------------
+
+def _document():
+    return json.loads(CHEMIN_CHEFS_LIEUX.read_text(encoding="utf-8"))
+
+
+def _gater(document, defaut):
+    ligne, autre, sans = document["chefs_lieux"][0], document["chefs_lieux"][1], document["sans_ville"][0]
+    if defaut == "clé en trop": document["auteur"] = "x"
+    elif defaut == "clé absente": del document["fidelite"]
+    elif defaut == "date": document["date"] = "1401-01-01"
+    elif defaut == "fidélité vide": document["fidelite"] = "  "
+    elif defaut == "cellule en texte": ligne["cell_id"] = str(ligne["cell_id"])
+    elif defaut == "cellule booléenne": ligne["cell_id"] = True
+    elif defaut == "cellule deux fois": autre["cell_id"] = ligne["cell_id"]
+    elif defaut == "nommée et sans ville": sans["cell_id"] = ligne["cell_id"]
+    elif defaut == "nom deux fois": autre["nom"] = ligne["nom"].upper()
+    elif defaut == "nom vide": ligne["nom"] = ""
+    elif defaut == "source sans URL": ligne["source"] = "Wikipédia, article sans lien"
+    elif defaut == "latitude hors bornes": ligne["lat"] = 91
+    elif defaut == "longitude non finie": ligne["lon"] = float("nan")
+    elif defaut == "champ en trop": ligne["population"] = 1000
+    elif defaut == "raison vide": sans["raison"] = ""
+    return document
+
+
+DEFAUTS = ("clé en trop", "clé absente", "date", "fidélité vide", "cellule en texte", "cellule booléenne", "cellule deux fois",
+           "nommée et sans ville", "nom deux fois", "nom vide", "source sans URL", "latitude hors bornes",
+           "longitude non finie", "champ en trop", "raison vide")
+
+
+@pytest.mark.parametrize("defaut", DEFAUTS)
+def test_le_fichier_des_chefs_lieux_refuse_chaque_defaut(tmp_path, defaut):
+    from sim.noms import charger_chefs_lieux
+    chemin = tmp_path / "chefs.json"
+    chemin.write_text(json.dumps(_document(), ensure_ascii=False), encoding="utf-8")
+    assert charger_chefs_lieux(chemin).lignes, "le fichier livré, recopié, doit se lire"
+    gate = tmp_path / "gate.json"
+    gate.write_text(json.dumps(_gater(_document(), defaut), ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="chefs-lieux"):
+        charger_chefs_lieux(gate)
+
+
+def test_le_fichier_des_chefs_lieux_se_lit_une_fois_et_ne_change_pas():
+    from sim.noms import charger_chefs_lieux
+    chefs = charger_chefs_lieux()
+    assert charger_chefs_lieux() is chefs is charger_chefs_lieux(CHEMIN_CHEFS_LIEUX)
+    cid = next(iter(chefs.lignes))
+    with pytest.raises(TypeError):
+        chefs.lignes[cid] = None
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        chefs.lignes[cid].nom = "Autre"
+
+
+def test_le_bourg_suit_le_siege_puis_la_ville_puis_le_chef_lieu(livre):
+    from sim.frontieres import maison_du_bourg
+    from sim.noms import bourgs_historiques
+    monde, attribution = livre.monde, livre.monde.attribution_villes
+    bourgs = bourgs_historiques(monde, attribution)
+    registre = {m.id: m for m in monde.maisons}
+    sieges = {cid: registre[m].siege for cid in monde.cells if (m := maison_du_bourg(monde, cid)) is not None}
+    villes = collections.defaultdict(list)
+    for v in sorted(attribution.entrees, key=lambda v: (-v.population, v.nom)):
+        if attribution.placees.get(v.nom) is not None:
+            villes[attribution.placees[v.nom]].append(v.nom)
+    assert sieges and all(bourgs[cid] == nom for cid, nom in sieges.items())
+    # Une ville que le siège d'une autre terre nomme déjà ne nomme pas la sienne (Tolède, à cheval sur deux terres).
+    prises = [cid for cid, noms in villes.items() if cid not in sieges and noms[0] in sieges.values()]
+    assert prises and all(bourgs[cid] != villes[cid][0] for cid in prises)
+    # Un siège passe devant la plus grande ville de sa terre (Eisenach devant Erfurt).
+    devant = [cid for cid in sieges if villes.get(cid) and villes[cid][0] != sieges[cid]]
+    assert devant and all(bourgs[cid] == sieges[cid] for cid in devant)
+    chefs = livre.chefs
+    assert all(bourgs[l["cell_id"]] == l["nom"] for l in chefs["chefs_lieux"])
+    assert not set(bourgs) & {l["cell_id"] for l in chefs["sans_ville"]}
+    assert set(bourgs) | {l["cell_id"] for l in chefs["sans_ville"]} == set(monde.cells)
+
+
+def test_la_regle_du_bourg_refuse_chaque_ligne_fausse(livre):
+    from sim.noms import ChefLieu, ChefsLieux, bourgs_historiques, charger_chefs_lieux
+    monde, attribution, chefs = livre.monde, livre.monde.attribution_villes, charger_chefs_lieux()
+    def avec(lignes=None, sans_ville=None):
+        return ChefsLieux(types.MappingProxyType(dict(chefs.lignes) if lignes is None else lignes),
+                          types.MappingProxyType(dict(chefs.sans_ville) if sans_ville is None else sans_ville))
+    cid, ligne = next(iter(chefs.lignes.items()))
+    loin = monde.carte[next(c for c in sorted(chefs.lignes) if c != cid)]["centroid"]
+    deplacee = {**chefs.lignes, cid: dataclasses.replace(ligne, lat=loin["lat"], lon=loin["lon"])}
+    with pytest.raises(ValueError, match=f"cellule {cid} : .* hors du polygone"):
+        bourgs_historiques(monde, attribution, avec(lignes=deplacee))
+    nommee = next(c for c in sorted(monde.cells) if c not in chefs.lignes and c not in chefs.sans_ville)
+    with pytest.raises(ValueError, match=f"cellule {nommee} : déjà nommée"):
+        bourgs_historiques(monde, attribution, avec(lignes={**chefs.lignes, nommee: ligne}))
+    with pytest.raises(ValueError, match=f"cellule {nommee} : déjà nommée"):
+        bourgs_historiques(monde, attribution, avec(sans_ville={**chefs.sans_ville, nommee: "aucune ville"}))
+    oubliee = {c: l for c, l in chefs.lignes.items() if c != cid}
+    with pytest.raises(ValueError, match=f"cellule {cid} : ni nommée ni déclarée"):
+        bourgs_historiques(monde, attribution, avec(lignes=oubliee))
+    # Un monde d'épreuve qui n'a qu'une part des terres laisse de côté les lignes des autres.
+    part = copy.copy(monde)
+    part.cells = {c: monde.cells[c] for c in sorted(monde.cells)[:40]}
+    assert bourgs_historiques(part, attribution) == {c: n for c, n in bourgs_historiques(monde, attribution).items() if c in part.cells}
+    assert bourgs_historiques(part, attribution, avec(lignes={**chefs.lignes, 10 ** 9: ligne}))
+
+
+def test_une_terre_sans_ville_porte_un_nom_plausible_que_nulle_autre_ne_porte(livre):
+    from sim.noms import charger_chefs_lieux, _parcours
+    from sim.puissances import puissances_depuis_monde
+    from sim.noms import aire_de_cellule
+    chefs, listes, table = charger_chefs_lieux(), charger_noms(), charger_table()
+    vue = puissances_depuis_monde(livre.monde, table=table)
+    assert chefs.sans_ville
+    for cid in chefs.sans_ville:
+        aire = aire_de_cellule(cid, livre.monde.carte[cid], vue[cid], table, listes)
+        parcours = _parcours(listes["aires"][aire]["lieux"], cid)
+        assert livre.bourgs[cid] in parcours
+        autres = {n.casefold() for c, n in livre.bourgs.items() if c != cid}
+        # Le premier nom libre du parcours, dans l'ordre des cellules : les terres déclarées avant lui l'ont pu prendre.
+        avant = parcours[:parcours.index(livre.bourgs[cid])]
+        assert all(n.casefold() in autres for n in avant)
