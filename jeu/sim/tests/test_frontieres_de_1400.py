@@ -57,7 +57,7 @@ TEMOINS_NOMMES = {
     "nord": ("Roskilde", "Stockholm", "Bergen", "Kalmar"),
     "est": ("Cracovie", "Vilnius", "Buda", "Novgorod", "Pskov", "Marienbourg"),
     "balkans": ("Constantinople", "Edirne", "Mistra", "Kruševac", "Bobovac", "Târgoviște", "Suceava",
-                "Thessalonique", "Sofia", "Brousse", "Konya", "Raguse", "Antivari", "Ioannina", "Argostoli"),
+                "Thessalonique", "Sofia", "Brousse", "Konya", "Raguse", "Antivari", "Ioannina", "Agios Georgios"),
     "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer", "Naxos"),
     "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine", "Tripoli"),
 }
