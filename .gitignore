@@ -30,6 +30,9 @@ venv/
 # protéger le jour où le dossier bouge.
 **/Assets/Vendor/
 **/Assets/Vendor.meta
+# Les captures d'Europa Universalis IV, posées à côté de la carte du jeu pour la juger : la carte appartient à Paradox,
+# elle ne se republie pas. La planche de l'atlas les lit là, et y écrit la planche complète.
+/references/eu4/
 # Emplacement d'import initial du Terrain Sample Project, avant rangement dans Vendor.
 **/Assets/TerrainDemoScene_HDRP/
 **/Assets/TerrainDemoScene_HDRP.meta

@@ -21,7 +21,7 @@ namespace Forge.Interface
         public const string FIGURINE = "Figurine"; public const float PERIODE_S = 2f, MIN_PX = 26f, RECOUVREMENT = 0.25f; public const int BOURG = 1, HAMEAU = 0; public static readonly Color ROUGE = new Color(0.86f, 0.05f, 0.04f); // « alerte » (#8B342E) rend un rose terne sur la carte éclairée
         const float TEINTE_MIN = 0.18f, ETENDUE_TEINTE = 0.5f, SATURATION = 0.7f, VALEUR = 0.75f; const uint PAS_DE_TEINTE = 500; // du jaune au bleu : ni blanc ni rouge
         public Func<long, LectureLieu> Lecteur;
-        public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lus par la légende du mode Puissances et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
+        public string TexteLegende { get; private set; } public bool Peint => peinte != null; // lus par la légende du mode Politique et son infobulle ; peint, une maison du joueur est lue et ses lieux se peignent
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
         public int Poses => vus.Count; public int Montres { get; private set; } // les lieux posés au dernier réglage sur la vue, et ceux qui se montrent
         public event Action<string, IReadOnlyList<(long cell, LectureLieu lieu)>> Applique; // la maison et la réponse appliquée ; maison nulle quand l'ancien domaine est vidé

@@ -48,6 +48,7 @@ namespace Forge.Pont
 
     // Une cellule de la carte de 1400. `Puissance` ou `Maison` nulle est une mesure : le service a servi `null`.
     // `Relief` est la classe servie telle quelle (« plaine », « montagne »…) ; nul, il dit « relief non servi ».
+    // `AireKm2` est l'aire servie de la terre, en km², toujours > 0 ; -1 dit « aire non servie ».
     public sealed class CelluleDeCarte
     {
         public long CellId { get; }
@@ -56,8 +57,11 @@ namespace Forge.Pont
         public IdentiteDeCarte Maison { get; }
         public IReadOnlyList<VilleDeCarte> Villes { get; }
         public string Relief { get; }
-        public CelluleDeCarte(long cellId, IEnumerable<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IEnumerable<VilleDeCarte> villes, string relief = null)
+        public double AireKm2 { get; }
+        public CelluleDeCarte(long cellId, IEnumerable<PolygoneDeCarte> contour, IdentiteDeCarte puissance, IdentiteDeCarte maison, IEnumerable<VilleDeCarte> villes, string relief = null, double aireKm2 = -1)
         {
+            if (aireKm2 != -1 && !(aireKm2 > 0 && !double.IsInfinity(aireKm2))) throw new ArgumentOutOfRangeException(nameof(aireKm2), aireKm2, "une aire > 0 ou -1 (non servie) attendue");
+            AireKm2 = aireKm2;
             CellId = cellId;
             Contour = ClientCarte.Copier(contour, nameof(contour));
             Puissance = puissance;
@@ -170,7 +174,14 @@ namespace Forge.Pont
             });
             List<VilleDeCarte> villes = Liste(Valeur(cellule, chemin + ".villes"), chemin + ".villes", 0, Ville);
             string relief = TexteFacultatif(cellule, chemin + ".relief");
-            return new CelluleDeCarte(cellId, polygones, Identite(cellule, chemin + ".puissance"), Identite(cellule, chemin + ".maison"), villes, relief);
+            // L'aire, facultative comme le relief : absente, elle est « non servie » (-1) ; servie, un nombre > 0.
+            double aire = -1;
+            if (cellule.ContainsKey("area_km2"))
+            {
+                object brute = Valeur(cellule, chemin + ".area_km2");
+                aire = brute is double nombre && nombre > 0 && !double.IsInfinity(nombre) ? nombre : throw Refus(chemin + ".area_km2", "un nombre > 0", brute);
+            }
+            return new CelluleDeCarte(cellId, polygones, Identite(cellule, chemin + ".puissance"), Identite(cellule, chemin + ".maison"), villes, relief, aire);
         }
 
         // Un anneau : au moins 4 points de exactement 2 nombres, le dernier égal au premier.

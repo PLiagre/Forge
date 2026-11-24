@@ -92,7 +92,13 @@ namespace Forge.Interface
         // Le pigment d'une terre : celui de son pays, le gris d'une terre sans pays ; null tant que les terres ne sont pas lues.
         public Color? CouleurDe(long cellId) => Terres == null ? (Color?)null : CouleurDuPays(Terres.PaysDe(cellId));
         // Le pays d'une maison : celui des terres dont elle tient le bourg ; une maison sans bourg est son propre pays.
-        public string PaysDeLaMaison(string maison) => Terres?.Terres.FirstOrDefault(t => t.Maitre == maison)?.Pays ?? maison;
+        public string PaysDeLaMaison(string maison) => PaysDeLaMaison(Terres, maison);
+        public static string PaysDeLaMaison(TerresDeLaCarte terres, string maison) => terres?.Terres.FirstOrDefault(t => t.Maitre == maison)?.Pays ?? maison;
+        // Les noms des pays se montrent-ils : cachés, ils ne se dessinent plus et ne réservent plus la place de leurs lettres.
+        public bool NomsMontres { get; private set; } = true;
+        public void MontrerLesNoms(bool montres) { NomsMontres = montres; if (ecriture != null) ecriture.Racine.gameObject.SetActive(montres); }
+        // La place des lettres des noms de pays lisibles, quand ils se montrent : un nom de ville ou de l'atlas ne s'écrit pas dessus.
+        public void ReserverLesNoms(Camera camera, List<Rect> places) { if (NomsMontres) ecriture?.Reserver(camera, places); }
         public bool Possede(Transform t) => (ecriture != null && t.IsChildOf(ecriture.Racine)) || (racineDesArmees != null && t.IsChildOf(racineDesArmees));
         public static string Nombre(ArmeeLue armee) => TexteDuMonde.Nombre(armee.Hommes) + (armee.Hommes > 1 ? " hommes" : " homme") + (armee.Siege != null ? " · siège" : "");
 
@@ -185,7 +191,7 @@ namespace Forge.Interface
         void NommerLesPays()
         {
             if (carte.Terrain == null || carte.Lue == null || Terres == null) { ecriture?.Ecrire(new (string, string, TraceDeNom)[0]); return; }
-            if (ecriture == null) ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), p => carte.SurLeSol(p.x, p.y, NomsCourbes.HAUTEUR));
+            if (ecriture == null) { ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), p => carte.SurLeSol(p.x, p.y, NomsCourbes.HAUTEUR)); ecriture.Racine.gameObject.SetActive(NomsMontres); }
             var rangs = new Dictionary<string, int>(); for (int k = 0; k < Terres.Pays.Count; k++) rangs[Terres.Pays[k].Id] = k;
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }

@@ -8,10 +8,10 @@ namespace Forge.Interface
     public sealed class EmblemeCommande : MaskableGraphic
     {
         string motif;
-        static string Motif(string nom) => nom == "Terres et comptes" ? "coffre" : nom == "Autres maisons" ? "maisons" : nom == "Menu" ? "livre"
-            : nom == "Plan du bourg" ? "bourg" : nom == "Puissances" ? "banniere"
-            : nom == "Habitants" ? "foule" : nom == "Flux" ? "fleche" : nom == "Le pays" ? "couronne"
-            : nom == "Fermer" ? "croix" : nom == "Votre maison" ? "ecu" : null;
+        public static string Motif(string nom) => nom == "Terres et comptes" ? "coffre" : nom == "Autres maisons" ? "maisons" : nom == "Menu" ? "livre"
+            : nom == "Plan du bourg" ? "bourg" : nom == "Politique" ? "banniere"
+            : nom == "Population" ? "foule" : nom == "Relief" ? "montagne" : nom == "Vivres" ? "gerbe" : nom == "Guerres" ? "epees"
+            : nom == "Le pays" ? "couronne" : nom == "Fermer" ? "croix" : nom == "Votre maison" ? "ecu" : null;
         public static void Poser(Button bouton, string nom)
         {
             string motif = Motif(nom);
@@ -76,10 +76,26 @@ namespace Forge.Interface
                 Trait(dessin, -8, -7, 4, 5); Trait(dessin, -2, -7, 4, 7); Trait(dessin, 4, -7, 4, 5);
                 Trait(dessin, -7, -1, 2, 2); Trait(dessin, -1, 2, 2, 3); Trait(dessin, 5, -1, 2, 2);
             }
-            else if (motif == "fleche")
+            else if (motif == "montagne") // deux cimes en zigzag (la plus haute à gauche) posées sur une ligne de sol
             {
-                Trait(dessin, -8, -1, 11, 2); Trait(dessin, 3, -5, 2, 10);
-                Trait(dessin, 5, -3, 2, 6); Trait(dessin, 7, -1, 2, 2);
+                Trait(dessin, -8, -7, 16, 2);
+                Oblique(dessin, -8, -5, -3, 6, 2); Oblique(dessin, -3, 6, 2, -1, 2);
+                Oblique(dessin, 2, -1, 5, 4, 2); Oblique(dessin, 5, 4, 8, -5, 2);
+            }
+            else if (motif == "gerbe") // quatre tiges en éventail depuis le pied, un épi épaissi au sommet de chacune et un lien au tiers bas
+            {
+                Oblique(dessin, 0, -7, -6.75f, 3, 2); Oblique(dessin, 0, -7, -2.25f, 4, 2);
+                Oblique(dessin, 0, -7, 2.25f, 4, 2); Oblique(dessin, 0, -7, 6.75f, 3, 2);
+                Trait(dessin, -8.25f, 3, 3, 4); Trait(dessin, -3.75f, 4, 3, 4);
+                Trait(dessin, 0.75f, 4, 3, 4); Trait(dessin, 5.25f, 3, 3, 4);
+                Trait(dessin, -5, -4, 10, 2);
+            }
+            else if (motif == "epees") // deux épées croisées en X : la lame oblique, la garde en travers, la poignée et le pommeau de chacune
+            {
+                Oblique(dessin, -4, -4, 7, 7, 2.4f); Oblique(dessin, -5.8f, -2.2f, -2.2f, -5.8f, 2);
+                Oblique(dessin, -4, -4, -6.5f, -6.5f, 2); Trait(dessin, -8, -8, 3, 3);
+                Oblique(dessin, 4, -4, -7, 7, 2.4f); Oblique(dessin, 5.8f, -2.2f, 2.2f, -5.8f, 2);
+                Oblique(dessin, 4, -4, 6.5f, -6.5f, 2); Trait(dessin, 5, -8, 3, 3);
             }
             else if (motif == "couronne") // un bandeau, trois fleurons au-dessus (au milieu et aux deux bords) et une pierre au centre
             {

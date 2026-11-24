@@ -199,6 +199,13 @@ namespace Forge.Pont {
             if (matiere == null) return;
             matiere.SetColor("_EncreDesCotes", cotes); matiere.SetColor("_EncreDesBords", bords); matiere.SetColor("_EncreDesFrontieres", desFrontieres); matiere.SetColor("_EncreDesEaux", eaux);
         }
+        // Les pays se voient-ils sur le terrain : leur liseré et leurs frontières. Éteints, le terrain se montre nu, et les
+        // rattachements restent : rien ne se remesure, et les frontières reviennent telles quelles.
+        public bool PaysMontres { get; private set; } = true;
+        public void MontrerLesPays(bool montres) {
+            PaysMontres = montres;
+            if (matiere != null) matiere.SetFloat("_ForceDesPays", montres ? 1f : 0f);
+        }
         // La cellule marquée, ou null : une seule à la fois.
         public long? Marquee => marquee;
         // Couvre tous les lieux d'une cellule posée d'une couleur sans toucher à leur teinte, qui revient quand la marque
@@ -334,7 +341,7 @@ namespace Forge.Pont {
             Cadre = Rect.MinMaxRect(terres.min.x - MARGE_DU_CADRE_KM, terres.min.z - MARGE_DU_CADRE_KM, terres.max.x + MARGE_DU_CADRE_KM, terres.max.z + MARGE_DU_CADRE_KM);
             matiere.SetVector("_Cadre", new Vector4(Cadre.xMin - coin.x, Cadre.yMin - coin.y, Cadre.xMax - coin.x, Cadre.yMax - coin.y));
             matiere.SetColor("_Table", table ?? mer); matiere.SetColor("_Filet", filet);
-            Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); aVerser = true; paysAVerser = true; Verser();
+            Habiller(mer, rivage, roche); Encrer(encreDesCotes, encreDesBords, encreDesFrontieres, encreDesEaux); MontrerLesPays(PaysMontres); aVerser = true; paysAVerser = true; Verser();
             // Le maillage levé a sa plus haute cime au plan 0 : il se pose de façon que la mer soit au niveau 0 de la carte, ses hauteurs réduites.
             var sol = new GameObject(TERRAIN, typeof(MeshFilter), typeof(MeshRenderer)); sol.transform.SetParent(transform, false);
             sol.transform.localPosition = new Vector3(0f, TerrainDeCarte.PLAFOND * ECHELLE_DU_RELIEF, 0f); sol.transform.localScale = new Vector3(1f, ECHELLE_DU_RELIEF, 1f);

@@ -27,6 +27,9 @@ namespace ForgeLocal3D
 
         public string Groupe { get; }
         public string Nom { get; }
+        // La taille de la photo, en pixels : 1600 × 900 sauf si le scénario en demande une autre (`Largeur = 1920, Hauteur = 1080`).
+        public int Largeur { get; set; } = 1600;
+        public int Hauteur { get; set; } = 900;
 
         public ScenarioDeCaptureAttribute(string groupe, string nom)
         {
@@ -39,6 +42,7 @@ namespace ForgeLocal3D
         {
             if (Groupe == null || !NomPermis.IsMatch(Groupe)) return "groupe « " + Groupe + " » : minuscules, chiffres et tirets seulement";
             if (Nom == null || !NomPermis.IsMatch(Nom)) return "nom « " + Nom + " » : minuscules, chiffres et tirets seulement";
+            if (Largeur < 16 || Hauteur < 16 || Largeur > 7680 || Hauteur > 4320) return "photo de " + Largeur + " × " + Hauteur + " : de 16 à 7680 × 4320";
             return null;
         }
     }

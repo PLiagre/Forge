@@ -49,6 +49,16 @@ namespace Forge.Interface
         };
         public static IReadOnlyList<Color> PigmentsDesPays { get; } = TeintesDesPays
             .Select(t => Color.Lerp(Color.HSVToRGB(t.teinte / 360f, t.saturation, t.valeur), Couleur("papier"), .16f)).ToList();
+        // Les teintes du relief servi, du marais à la haute montagne, comme sur un atlas physique : chacune tirée d'un jeton vers
+        // le papier, mate, avec le nom de sa classe et le mot qui dit sa couleur dans la légende.
+        public static IReadOnlyList<(string classe, string nom, string mot, Color teinte)> TeintesDuRelief { get; } = new (string, string, string, Color)[]
+        {
+            ("marais", "marais", "vert-de-gris", Color.Lerp(Couleur("papier"), Couleur("vert-de-gris"), .7f)),
+            ("plaine", "plaine", "vert pâle", Color.Lerp(Couleur("papier"), Couleur("accord"), .4f)),
+            ("colline", "colline", "ocre", Color.Lerp(Couleur("papier"), Couleur("or-vieilli"), .6f)),
+            ("montagne", "montagne", "cuivre", Color.Lerp(Couleur("papier"), Couleur("cuivre"), .75f)),
+            ("haute_montagne", "haute montagne", "brun de roche", Color.Lerp(Couleur("papier"), Couleur("secondaire"), .9f))
+        };
         // Un pigment éclairci de `part` : sa teinte gardée, sa saturation baissée et sa valeur montée de la même part.
         public static Color Eclaircir(Color pigment, float part)
         {
