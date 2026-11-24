@@ -36,6 +36,32 @@ namespace Forge.Interface.Tests
             Assert.That(boheme.Maison?.Texte, Is.EqualTo(Terres.MaisonDuPays(boheme.Pays).Nom)); Assert.That(boheme.Maison.Corps, Is.LessThan(boheme.Corps));
         }
 
+        // Un vassal servi qui tient une terre écrit sous son nom « vassal de » son suzerain, tel que le monde le nomme ; un pays sans suzerain n'écrit rien.
+        // De loin la ligne est trop petite pour se lire ; de près, là où le nom du pays se lit encore, elle se lit.
+        [Test] public void Un_vassal_ecrit_sous_son_nom_de_qui_il_releve_et_seulement_de_pres()
+        {
+            var tenants = new HashSet<string>(Terres.Terres.Select(t => t.Pays).Where(p => p != null));
+            var ecrits = europe.Guerre.NomsDesPays.ToDictionary(n => n.Pays);
+            var vassaux = Terres.Pays.Where(p => p.Suzerain != null && tenants.Contains(p.Id) && ecrits.ContainsKey(p.Id)).ToList();
+            Assert.That(vassaux.Count, Is.GreaterThan(0), "échantillon vide : aucun vassal servi ne tient une terre et n'a de nom dessiné");
+            foreach (var p in vassaux)
+            {
+                string attendu = NomsCourbes.Vassalite(Terres.NomDuPays(p.Suzerain));
+                Assert.That(ecrits[p.Id].Vassalite?.Texte, Is.EqualTo(attendu), p.Id + " n'écrit pas de quel pays il relève");
+            }
+            Assert.That(ecrits.Values.Where(n => Terres.SuzerainDe(n.Pays) == null && n.Vassalite != null).Select(n => n.Texte), Is.Empty, "un pays sans suzerain écrit une vassalité");
+            Assert.That(europe.Guerre.NomsDesPays.Count(n => n.Vassalite != null), Is.EqualTo(vassaux.Count(p => NomsCourbes.Vassalite(Terres.NomDuPays(p.Suzerain)) != null)), "échantillon vide ou trop plein : le compte des vassalités écrites n'est pas celui des vassaux au suzerain nommé");
+            NomCourbe guyenne = ecrits["puissance-42"], bourgogne = ecrits["puissance-40"], france = ecrits["puissance-3"];
+            Assert.That((guyenne.Vassalite?.Texte, bourgogne.Vassalite?.Texte, france.Vassalite?.Texte), Is.EqualTo(("vassal d'Angleterre", "vassal de France", (string)null)));
+            // De loin, la ligne est trop petite pour se lire ; de près, la Guyenne se lit encore et sa vassalité avec elle.
+            europe.Voir(Vector2.zero, 1500f); Assert.That(guyenne.Vassalite.Opacite, Is.Zero, "la vassalité de la Guyenne se lit sur toute l'Europe"); Assert.That(guyenne.Vassalite.Rendu.enabled, Is.False);
+            const float DEMI = 100f;
+            europe.Voir(guyenne.Trace.Centre, DEMI);
+            Assert.That(guyenne.Opacite, Is.GreaterThan(0f), "échantillon vide : le nom de la Guyenne ne se lit pas à " + DEMI + " km (" + guyenne.CorpsPx + " px)");
+            Assert.That(guyenne.Vassalite.Opacite, Is.GreaterThan(0f), "la vassalité de la Guyenne ne se lit pas à " + DEMI + " km : " + guyenne.Vassalite.CorpsPx + " px, le nom " + guyenne.CorpsPx + " px, la maison " + guyenne.Maison?.CorpsPx + " px");
+            Assert.That(guyenne.Vassalite.Rendu.enabled, Is.True);
+        }
+
         // À toute distance, aucun nom de ville montré ne s'écrit sur une lettre d'un nom de pays ou de l'atlas lisible.
         [Test] public void Aucun_nom_de_ville_ne_s_ecrit_sur_un_nom_de_pays_lisible()
         {

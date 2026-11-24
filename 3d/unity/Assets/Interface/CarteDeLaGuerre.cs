@@ -186,7 +186,7 @@ namespace Forge.Interface
             CotesDeFrontiere = n;
         }
 
-        // Un nom par pays, et sa maison en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
+        // Un nom par pays, et sa maison puis son suzerain en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
         // pays servi de chaque terre, et se refait donc quand une terre change de pays.
         void NommerLesPays()
         {
@@ -198,7 +198,8 @@ namespace Forge.Interface
             Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
             // Le nom servi du pays, jamais un nom de remplacement : un pays que le monde ne nomme pas n'a pas de nom sur la carte.
             // En petit dessous, celui de sa maison quand il diffère.
-            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom, p.Maison?.Nom, traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
+            // Un vassal porte aussi, plus petit, « vassal de » son suzerain, tel que le monde le nomme.
+            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom, p.Maison?.Nom, Terres.NomDuPays(p.Suzerain), traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
             SuivreLaVue();
         }
 

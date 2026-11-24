@@ -26,14 +26,16 @@ namespace Forge.Interface
         public MeshRenderer Rendu { get; } public Mesh Maillage { get; }
         // La maison du pays, écrite en petit sous son nom ; nulle quand le pays n'en a pas d'autre nom que le sien.
         public NomCourbe Maison { get; internal set; }
-        // Pour la ligne d'une maison, le nom du pays qu'elle accompagne ; nul pour un nom de pays.
+        // Pour la ligne d'une maison ou d'une vassalité, le nom du pays qu'elle accompagne ; nul pour un nom de pays.
         public NomCourbe NomDuPays { get; internal set; }
+        // La ligne de vassalité du pays, écrite en petit sous sa maison (ou sous son nom) ; nulle pour un pays sans suzerain.
+        public NomCourbe Vassalite { get; internal set; }
         internal bool AMailler;
         internal NomCourbe(string pays, string texte, string ecrit, StyleDeNom style, TraceDeNom trace, NomCompose compose, MeshRenderer rendu, Mesh maillage)
         { Pays = pays; Texte = texte; Ecrit = ecrit; Style = style; Trace = trace; Compose = compose; Rendu = rendu; Maillage = maillage; }
     }
 
-    // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire. Une lettre est un carré de
+    // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire, avec sa maison et, pour un vassal, « vassal de … » en petit dessous. Une lettre est un carré de
     // l'atlas de la police, posé à sa place sur le tracé et tourné dans le sens de l'écriture, puis drapé sur le
     // sol : une grande lettre se découpe en carreaux qui suivent le relief. Un nom est un seul maillage, dessiné
     // deux fois : le halo clair qui le détache du relief, puis l'encre. À chaque image, un nom se
@@ -59,6 +61,8 @@ namespace Forge.Interface
         public const float OPACITE_QUI_RESERVE = 0.5f;
         // La maison sous le nom : son corps au plus, en part de celui du nom, et l'écart des deux lignes, en corps du nom.
         public const float PART_DE_LA_MAISON = 0.45f, ECART_DE_LA_MAISON = 0.8f;
+        // La vassalité sous la maison (ou sous le nom) : son corps au plus, en part de celui du nom, et le blanc laissé entre les deux lignes, en corps de la vassalité.
+        public const float PART_DE_LA_VASSALITE = 0.32f, ECART_DE_LA_VASSALITE = 0.5f;
         // L'italique : la pente des lettres (le décalage vers l'est par corps de hauteur), et l'espace ajouté après chaque lettre, en corps.
         public const float PENTE_DE_L_ITALIQUE = 0.22f, ESPACEMENT_DE_L_ITALIQUE = 0.12f;
         // Les tailles tirées de la police, en pixels ; la mise en page se fait à la taille de référence.
@@ -152,21 +156,41 @@ namespace Forge.Interface
 
         // Avec sa maison : quand elle porte un autre nom que le pays, elle s'écrit en petit sous lui, sur le même arc descendu
         // d'environ un corps. Un pays qui est sa propre maison (un seigneur libre) n'a qu'une ligne.
-        public void Ecrire(IEnumerable<(string pays, string nom, string maison, TraceDeNom trace)> pays)
+        public void Ecrire(IEnumerable<(string pays, string nom, string maison, TraceDeNom trace)> pays) => Ecrire(pays.Select(p => (p.pays, p.nom, p.maison, (string)null, p.trace)));
+
+        // Avec son suzerain, nom servi ou nul : un vassal écrit une ligne de plus, en petit italique, sous sa maison ou, sans maison, sous son nom.
+        public void Ecrire(IEnumerable<(string pays, string nom, string maison, string suzerain, TraceDeNom trace)> pays)
         {
             Vider(); for (int t = 0; t < TAILLES.Length; t++) { demandes[t] = null; signatures[t] = 0; }
-            foreach (var (id, texte, maison, trace) in pays)
+            foreach (var (id, texte, maison, suzerain, trace) in pays)
             {
                 NomCourbe nom = Poser("Pays " + id, id, texte, StyleDeNom.Capitales, trace);
                 if (nom == null) continue;
                 noms.Add(nom); lignes.Add(nom);
-                if (string.IsNullOrWhiteSpace(maison) || string.Equals(maison.Trim(), texte.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
-                float corps = nom.Corps * PART_DE_LA_MAISON;
-                NomCourbe sous = Poser("Maison du pays " + id, id, maison, StyleDeNom.Capitales, trace.Dessous(nom.Corps * ECART_DE_LA_MAISON, corps / TraceDeNom.PART_DE_LA_LARGEUR));
-                if (sous == null) continue;
-                sous.NomDuPays = nom; nom.Maison = sous; lignes.Add(sous);
+                NomCourbe dessus = nom; float ecart = nom.Corps * ECART_DE_LA_MAISON;
+                if (!string.IsNullOrWhiteSpace(maison) && !string.Equals(maison.Trim(), texte.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    float corps = nom.Corps * PART_DE_LA_MAISON;
+                    NomCourbe sous = Poser("Maison du pays " + id, id, maison, StyleDeNom.Capitales, trace.Dessous(ecart, corps / TraceDeNom.PART_DE_LA_LARGEUR));
+                    if (sous != null) { sous.NomDuPays = nom; nom.Maison = sous; lignes.Add(sous); dessus = sous; }
+                }
+                string vassal = Vassalite(suzerain); if (vassal == null) continue;
+                // Sous la ligne du dessus : la moitié de son corps, la moitié du corps de la vassalité et le blanc entre les deux.
+                float petit = nom.Corps * PART_DE_LA_VASSALITE, descente = (dessus == nom ? 0f : ecart) + dessus.Corps / 2f + petit * (0.5f + ECART_DE_LA_VASSALITE);
+                NomCourbe sujet = Poser("Vassalité du pays " + id, id, vassal, StyleDeNom.Italique, trace.Dessous(descente, petit / TraceDeNom.PART_DE_LA_LARGEUR));
+                if (sujet != null) { sujet.NomDuPays = nom; nom.Vassalite = sujet; lignes.Add(sujet); }
             }
         }
+
+        // « vassal de France », « vassal d'Angleterre » : le texte de la ligne d'un vassal, élidé devant une voyelle (accentuée ou non) et jamais
+        // devant un h, aspiré dans Hongrie, Hainaut ou Hesse ; nul sans nom de suzerain.
+        public static string Vassalite(string suzerain)
+        {
+            if (string.IsNullOrWhiteSpace(suzerain)) return null;
+            string nom = suzerain.Trim(); char initiale = char.ToLowerInvariant(nom.Normalize(NormalizationForm.FormD)[0]);
+            return (VOYELLES.IndexOf(initiale) >= 0 ? "vassal d'" : "vassal de ") + nom;
+        }
+        const string VOYELLES = "aeiouy";
 
         // Écrit des noms à plat, chacun droit sur son axe, centré sur son point, à un corps donné en km, dans son style : les
         // noms d'un atlas. Un nom de corps nul ou sans texte n'est pas écrit.
@@ -210,7 +234,7 @@ namespace Forge.Interface
 
         // Règle chaque nom sur la vue : son opacité, son halo, la taille de ses lettres, et son maillage quand il le
         // faut ou que l'atlas a été refait. La maison suit la règle du nom à son propre corps, et jamais plus que lui :
-        // elle se cache plus tôt de loin, et s'efface avec lui de près.
+        // elle se cache plus tôt de loin, et s'efface avec lui de près. La vassalité fait de même, et jamais plus que la maison.
         public void Suivre(Camera camera)
         {
             if (camera == null || noms.Count == 0) return;
@@ -218,7 +242,11 @@ namespace Forge.Interface
             foreach (NomCourbe nom in lignes)
             {
                 float px = CorpsALEcran(camera, nom), opacite = Opacite(px, ecran), force = ForceDuHalo(px); nom.CorpsPx = px;
-                if (nom.NomDuPays != null) opacite = Mathf.Min(opacite, nom.NomDuPays.Opacite);
+                if (nom.NomDuPays != null)
+                {
+                    opacite = Mathf.Min(opacite, nom.NomDuPays.Opacite);
+                    if (nom.NomDuPays.Vassalite == nom && nom.NomDuPays.Maison != null) opacite = Mathf.Min(opacite, nom.NomDuPays.Maison.Opacite);
+                }
                 if (nom.Masque) opacite = 0f;
                 if (opacite > 0f) { int taille = TaillePour(px); if (taille != nom.Taille) { nom.Taille = taille; nom.AMailler = true; } }
                 if (Mathf.Abs(opacite - nom.Opacite) > 1f / 512f || (opacite == 0f) != (nom.Opacite == 0f) || Mathf.Abs(force - nom.Halo) > 1f / 128f)
