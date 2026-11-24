@@ -185,6 +185,51 @@ namespace Forge.Interface.Tests
             Assert.That(SocleInterface.Commande(domaine, "Avec phrase", 24, 600, null, true, "Fait ceci.").GetComponent<Infobulle>().Phrase, Is.EqualTo("Fait ceci."));
         }
 
+        [Test] public void ChaqueModeDeCarteALeMotifDeSonBouton()
+        {
+            var noms = Enum.GetNames(typeof(ModeDeCarte));
+            Assert.That(noms, Is.Not.Empty);
+            foreach (var nom in noms) Assert.That(EmblemeCommande.Motif(nom), Is.Not.Null, "mode sans motif : " + nom);
+            var motifs = noms.Select(EmblemeCommande.Motif).ToList();
+            Assert.That(motifs.Distinct().Count(), Is.EqualTo(noms.Length), "deux modes partagent un motif : " + string.Join(", ", motifs));
+            foreach (var ancien in new[] { "Puissances", "Habitants", "Flux", "Mode inconnu" })
+                Assert.That(EmblemeCommande.Motif(ancien), Is.Null, "un nom sans bouton garde un motif : " + ancien);
+        }
+
+        [Test] public void ChaqueMotifNeufDessineDansSonCarre()
+        {
+            var poses = new List<GameObject>();
+            try
+            {
+                var peindre = typeof(EmblemeCommande).GetMethod("OnPopulateMesh", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new[] { typeof(VertexHelper) }, null);
+                Assert.That(peindre, Is.Not.Null, "OnPopulateMesh introuvable");
+                foreach (var nom in new[] { "Relief", "Vivres", "Guerres" })
+                {
+                    var bouton = SocleInterface.Commande(Toile.transform, nom, 0, 0, null, phrase: "Bouton témoin « " + nom + " ».");
+                    poses.Add(bouton.gameObject);
+                    var repere = bouton.transform.Find("Repère " + EmblemeCommande.Motif(nom));
+                    Assert.That(repere, Is.Not.Null, "repère absent sur " + nom);
+                    var signe = repere.GetComponent<EmblemeCommande>();
+                    Assert.That(signe, Is.Not.Null, "signe absent sur " + nom);
+                    var dessin = new VertexHelper();
+                    try
+                    {
+                        peindre.Invoke(signe, new object[] { dessin });
+                        Assert.That(dessin.currentVertCount, Is.GreaterThan(0), "maillage vide : " + nom);
+                        var sommet = new UIVertex();
+                        for (int i = 0; i < dessin.currentVertCount; i++)
+                        {
+                            dessin.PopulateUIVertex(ref sommet, i);
+                            Assert.That(sommet.position.x, Is.InRange(-9f, 9f), nom + " : sommet " + i + " hors du carré en x");
+                            Assert.That(sommet.position.y, Is.InRange(-9f, 9f), nom + " : sommet " + i + " hors du carré en y");
+                        }
+                    }
+                    finally { dessin.Dispose(); }
+                }
+            }
+            finally { foreach (var objet in poses) UnityEngine.Object.DestroyImmediate(objet); }
+        }
+
         [Test] public void LaGalerieMontreLInfobulleSurSesCommandes()
         {
             Canvas toile = Toile; Canvas.ForceUpdateCanvases();
