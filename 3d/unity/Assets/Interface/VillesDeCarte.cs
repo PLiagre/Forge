@@ -5,6 +5,7 @@ using System.Text;
 using Forge.Pont;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace Forge.Interface
 {
@@ -19,7 +20,8 @@ namespace Forge.Interface
     // La capitale de chaque pays qui tient une terre porte un socle à l'or vieilli, et ne descend jamais sous `MIN_PX_D_UNE_CAPITALE`. Elle se lit dans les réponses du monde :
     // la maison du pays (`/terres`) a son siège servi (`/jouables`, un nom et une cellule), qui est la ville de ce nom dans
     // cette cellule, ou la seule ville de ce nom sur la carte, sinon le siège de cette maison dans `/atlas`, où une figurine nommée est posée. Les capitales passent
-    // avant les autres villes : une ville ne cache jamais une capitale. Un siège introuvable ne se devine pas : il se déclare.
+    // avant les autres villes : une ville ne cache jamais une capitale ; et devant les noms des pays, qui s'écartent de leur emprise
+    // (`EmprisesDesCapitales`). Un siège introuvable ne se devine pas : il se déclare.
     public sealed class VillesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Figurines des villes", NOMS = "Villes de la carte", CAPITALES = "Capitales de l'atlas";
@@ -52,6 +54,11 @@ namespace Forge.Interface
         // Les pays tenants dont le siège ne se place pas, avec la raison.
         public IReadOnlyList<(string pays, string nom, string raison)> Introuvables => introuvables;
         public bool EstCapitale(TextMesh texte) => texte != null && posees.Any(p => p.Capitale && p.Nom == texte.transform);
+        // Les places à l'écran, en pixels, des capitales montrées à la dernière image : leur figurine, et l'étiquette de leur nom au
+        // sud d'elle, à la place et à la taille où les calques la posent (`CalquesCarte.EtiquetteDe`), montrée ou non. Un nom de pays
+        // ne s'écrit pas dessus : la capitale passe devant lui.
+        public IReadOnlyList<Rect> EmprisesDesCapitales => emprises;
+        readonly List<Rect> emprises = new List<Rect>(); readonly Dictionary<Text, (string texte, int points, float largeur)> largeurs = new Dictionary<Text, (string, int, float)>(); CalquesCarte calques;
         // La phrase de la légende sur les sièges introuvables ; nulle quand toutes les capitales sont posées.
         public string TexteLegende => introuvables.Count == 0 ? null
             : "Capitales non placées, faute de siège servi sur la carte : " + introuvables.Count + " pays ("  + string.Join(", ", introuvables.Select(i => i.nom).Take(6)) + (introuvables.Count > 6 ? "…" : "") + ").";
@@ -98,6 +105,23 @@ namespace Forge.Interface
                 p.Montree = libre; if (libre) Montrees++;
                 if (p.Figurine.gameObject.activeSelf != libre) p.Figurine.gameObject.SetActive(libre);
                 if (p.Nom != null && p.Nom.gameObject.activeSelf != libre) p.Nom.gameObject.SetActive(libre);
+            }
+            Emprises(camera);
+        }
+
+        // La figurine de chaque capitale montrée, et l'étiquette de son nom comme les calques la mesurent : sa largeur dite par la
+        // police au corps posé, sa hauteur de 1,3 corps, et la même marge. Une étiquette pas encore posée n'a que sa figurine.
+        void Emprises(Camera camera)
+        {
+            emprises.Clear(); if (calques == null) calques = GetComponent<CalquesCarte>();
+            foreach (Posee p in posees)
+            {
+                if (!p.Capitale || !p.Montree || p.Figurine == null) continue;
+                emprises.Add(new Rect(p.Ecran.x - p.RayonPx, p.Ecran.y - p.RayonPx, 2f * p.RayonPx, 2f * p.RayonPx));
+                Text etiquette = p.Nom != null && calques != null ? calques.EtiquetteDe(p.Nom.GetComponent<TextMesh>()) : null; if (etiquette == null) continue;
+                if (!largeurs.TryGetValue(etiquette, out var connue) || connue.texte != etiquette.text || connue.points != etiquette.fontSize) largeurs[etiquette] = connue = (etiquette.text, etiquette.fontSize, etiquette.preferredWidth);
+                Vector3 ici = camera.WorldToScreenPoint(p.Nom.position); float hauteur = 1.3f * etiquette.fontSize;
+                emprises.Add(new Rect(ici.x - connue.largeur / 2f - 3f, ici.y - hauteur / 2f - 2f, connue.largeur + 6f, hauteur + 4f));
             }
         }
 

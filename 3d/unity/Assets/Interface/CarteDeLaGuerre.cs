@@ -44,7 +44,7 @@ namespace Forge.Interface
         public NomsCourbes Ecriture => ecriture;
         public IReadOnlyList<TextMesh> NombresDesArmees => nombres;
 
-        CarteDessinee carte; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
+        CarteDessinee carte; VillesDeCarte villes; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
         Task<(VoisinageDeCarte voisinage, List<(long, long, long, long)> lieux)> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
         string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin; Mesh enMarche, auSiege;
@@ -68,10 +68,13 @@ namespace Forge.Interface
                 places.Add(new Vector3(ecran.x, ecran.y, FormesDeCarte.RAYON_DE_L_ARMEE_KM * FormesDeCarte.EchellePourLEcran(camera, armee.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, MIN_PX) / kmParPixel));
             }
         }
-        // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image.
+        // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image. Ils évitent d'abord les capitales
+        // montrées à l'image d'avant (`VillesDeCarte.EmprisesDesCapitales`) : une capitale passe devant le nom d'un pays.
         public void SuivreLaVue()
         {
             if (carte == null) return;
+            if (villes == null) villes = GetComponent<VillesDeCarte>();
+            if (NomsMontres) ecriture?.Eviter(carte.camera, villes != null ? villes.EmprisesDesCapitales : null);
             ecriture?.Suivre(carte.camera);
             if (racineDesArmees == null || carte.camera == null) return;
             foreach (Transform armee in racineDesArmees)

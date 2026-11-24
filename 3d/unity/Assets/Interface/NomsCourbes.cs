@@ -17,7 +17,8 @@ namespace Forge.Interface
         public string Pays { get; } public string Texte { get; } public string Ecrit { get; } public StyleDeNom Style { get; }
         // Masqué par celui qui l'écrit (un nom plus important est déjà là) : il se cache comme un nom illisible.
         public bool Masque { get; internal set; }
-        public TraceDeNom Trace { get; } public NomCompose Compose { get; }
+        // Le tracé et la composition montrés : ceux d'origine, ou la variante qui laisse lire une capitale (`NomsCourbes.Eviter`).
+        public TraceDeNom Trace { get; internal set; } public NomCompose Compose { get; internal set; }
         // Le corps des lettres en km de la carte : il suit l'étendue du territoire.
         public float Corps => Compose != null ? Compose.Corps : 0f;
         // De 0 (caché) à 1, selon la taille du nom à l'écran ; la force de son halo ; son corps à l'écran, en
@@ -44,6 +45,8 @@ namespace Forge.Interface
     // plus proche de celle de l'écran, pour rester nettes de loin comme de près.
     // La police est dynamique : son atlas peut être refait à tout moment, et les lettres y changent alors de place.
     // Les noms redemandent donc leurs lettres à chaque image et se remaillent dès que l'atlas est refait.
+    // Une capitale passe devant le nom d'un pays : un nom dont une lettre tomberait sur une capitale montrée se pose à côté
+    // d'elle, décalé au-dessus ou au-dessous de son tracé, ou se réduit (`Eviter`), avec sa maison et sa vassalité.
     public sealed class NomsCourbes : IDisposable
     {
         public const string RACINE = "Noms des pays", SHADER = "Forge/NomDeCarte";
@@ -65,6 +68,9 @@ namespace Forge.Interface
         public const float PART_DE_LA_VASSALITE = 0.32f, ECART_DE_LA_VASSALITE = 0.5f;
         // L'italique : la pente des lettres (le décalage vers l'est par corps de hauteur), et l'espace ajouté après chaque lettre, en corps.
         public const float PENTE_DE_L_ITALIQUE = 0.22f, ESPACEMENT_DE_L_ITALIQUE = 0.12f;
+        // Les variantes d'un nom qui couvre une capitale : décalé en travers de son tracé par pas de `PAS_DU_DECALAGE` corps, au-dessus
+        // puis au-dessous, jusqu'à `DECALAGES` pas ; puis réduit de `REDUCTION` autour du milieu de son tracé, en place et décalé de même.
+        public const float PAS_DU_DECALAGE = 0.5f, REDUCTION = 0.6f; public const int DECALAGES = 8;
         // Les tailles tirées de la police, en pixels ; la mise en page se fait à la taille de référence.
         static readonly int[] TAILLES = { 12, 16, 24, 32, 48, 64, 96, 128 }; const int REFERENCE = 64;
         const string CAPITALE = "H"; const float HAUTEUR_DE_CAPITALE = 0.7f, AVANCE_INCONNUE = 0.5f; const int ESSAIS = 4;
@@ -72,6 +78,17 @@ namespace Forge.Interface
         readonly Transform racine; readonly Font police; readonly Material encre, halo; readonly Material[] matieres; readonly bool matieresCreees;
         // `noms` : les noms des pays ; `lignes` : tout ce qui s'écrit, chaque nom suivi de sa maison.
         readonly List<NomCourbe> noms = new List<NomCourbe>(), lignes = new List<NomCourbe>(); bool refait; readonly Color32 deSecours; readonly Func<Vector2, Vector3> sol;
+        readonly List<Groupe> groupes = new List<Groupe>();
+        // Les lignes d'un pays (son nom, sa maison, sa vassalité) et ce que leurs lettres avancent ; leur disposition sur le tracé
+        // d'origine et sur le tracé réduit (nulle s'il ne s'y compose pas), avec le milieu et le rayon de leurs lettres, en km ; puis la
+        // variante montrée : son échelle (0 d'origine, 1 réduite) et son décalage en travers, en km vers le haut des lettres.
+        sealed class Groupe
+        {
+            public float[][] Avances; public bool AMaison, AVassal; public NomCourbe[] Lignes; public TraceDeNom Trace;
+            public readonly (TraceDeNom trace, NomCompose compose)[][] Dispositions = new (TraceDeNom, NomCompose)[2][];
+            public readonly Vector2[] Milieux = new Vector2[2]; public readonly float[] Rayons = new float[2];
+            public int Echelle; public float Decalage;
+        }
         // Les lettres à demander à la police pour chaque taille, et ce dont elles ont été tirées : refaites seulement quand les noms montrés à cette taille changent.
         readonly string[] demandes = new string[TAILLES.Length]; readonly long[] signatures = new long[TAILLES.Length];
 
@@ -164,22 +181,115 @@ namespace Forge.Interface
             Vider(); for (int t = 0; t < TAILLES.Length; t++) { demandes[t] = null; signatures[t] = 0; }
             foreach (var (id, texte, maison, suzerain, trace) in pays)
             {
-                NomCourbe nom = Poser("Pays " + id, id, texte, StyleDeNom.Capitales, trace);
-                if (nom == null) continue;
-                noms.Add(nom); lignes.Add(nom);
-                NomCourbe dessus = nom; float ecart = nom.Corps * ECART_DE_LA_MAISON;
-                if (!string.IsNullOrWhiteSpace(maison) && !string.Equals(maison.Trim(), texte.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    float corps = nom.Corps * PART_DE_LA_MAISON;
-                    NomCourbe sous = Poser("Maison du pays " + id, id, maison, StyleDeNom.Capitales, trace.Dessous(ecart, corps / TraceDeNom.PART_DE_LA_LARGEUR));
-                    if (sous != null) { sous.NomDuPays = nom; nom.Maison = sous; lignes.Add(sous); dessus = sous; }
-                }
-                string vassal = Vassalite(suzerain); if (vassal == null) continue;
-                // Sous la ligne du dessus : la moitié de son corps, la moitié du corps de la vassalité et le blanc entre les deux.
-                float petit = nom.Corps * PART_DE_LA_VASSALITE, descente = (dessus == nom ? 0f : ecart) + dessus.Corps / 2f + petit * (0.5f + ECART_DE_LA_VASSALITE);
-                NomCourbe sujet = Poser("Vassalité du pays " + id, id, vassal, StyleDeNom.Italique, trace.Dessous(descente, petit / TraceDeNom.PART_DE_LA_LARGEUR));
-                if (sujet != null) { sujet.NomDuPays = nom; nom.Vassalite = sujet; lignes.Add(sujet); }
+                if (trace == null || string.IsNullOrEmpty(texte)) continue;
+                var textes = new List<(string objet, string texte, StyleDeNom style)> { ("Pays " + id, texte, StyleDeNom.Capitales) };
+                bool aMaison = !string.IsNullOrWhiteSpace(maison) && !string.Equals(maison.Trim(), texte.Trim(), StringComparison.OrdinalIgnoreCase);
+                if (aMaison) textes.Add(("Maison du pays " + id, maison, StyleDeNom.Capitales));
+                string vassal = Vassalite(suzerain); if (vassal != null) textes.Add(("Vassalité du pays " + id, vassal, StyleDeNom.Italique));
+                var g = new Groupe { Avances = textes.Select(t => Avances(Ecrit(t.texte, t.style), t.style)).ToArray(), AMaison = aMaison, AVassal = vassal != null, Trace = trace };
+                var disposition = Disposer(trace, g); if (disposition == null) continue;
+                g.Lignes = textes.Select((t, k) => Poser(t.objet, id, t.texte, t.style, disposition[k].trace, disposition[k].compose)).ToArray();
+                NomCourbe nom = g.Lignes[0]; noms.Add(nom); lignes.AddRange(g.Lignes);
+                for (int k = 1; k < g.Lignes.Length; k++) g.Lignes[k].NomDuPays = nom;
+                if (aMaison) nom.Maison = g.Lignes[1]; if (vassal != null) nom.Vassalite = g.Lignes[g.Lignes.Length - 1];
+                g.Dispositions[0] = disposition; g.Dispositions[1] = Disposer(Reduire(trace), g);
+                for (int e = 0; e < 2; e++) if (g.Dispositions[e] != null) (g.Milieux[e], g.Rayons[e]) = Etendue(g.Dispositions[e]);
+                groupes.Add(g);
             }
+        }
+
+        // Les lignes d'un pays sur un tracé : son nom ; sa maison en petit sous lui, sur le même arc descendu d'environ un corps ; sa
+        // vassalité sous la ligne du dessus, d'une demi-ligne de chacune et d'un blanc. Null si une ligne ne s'y compose pas.
+        static (TraceDeNom trace, NomCompose compose)[] Disposer(TraceDeNom trace, Groupe g)
+        {
+            var lignes = new (TraceDeNom, NomCompose)[g.Avances.Length]; NomCompose nom = trace.Composer(g.Avances[0]); if (nom == null) return null;
+            lignes[0] = (trace, nom); NomCompose dessus = nom; float ecart = nom.Corps * ECART_DE_LA_MAISON; int k = 1;
+            if (g.AMaison)
+            {
+                TraceDeNom sous = trace.Dessous(ecart, nom.Corps * PART_DE_LA_MAISON / TraceDeNom.PART_DE_LA_LARGEUR); NomCompose maison = sous.Composer(g.Avances[k]); if (maison == null) return null;
+                lignes[k++] = (sous, maison); dessus = maison;
+            }
+            if (g.AVassal)
+            {
+                float petit = nom.Corps * PART_DE_LA_VASSALITE, descente = (dessus == nom ? 0f : ecart) + dessus.Corps / 2f + petit * (0.5f + ECART_DE_LA_VASSALITE);
+                TraceDeNom sous = trace.Dessous(descente, petit / TraceDeNom.PART_DE_LA_LARGEUR); NomCompose vassalite = sous.Composer(g.Avances[k]); if (vassalite == null) return null;
+                lignes[k] = (sous, vassalite);
+            }
+            return lignes;
+        }
+        // Le même arc, raccourci et rétréci de `REDUCTION` autour de son milieu : un nom plus petit au même endroit.
+        static TraceDeNom Reduire(TraceDeNom t)
+        {
+            const float S = 100f; float a = Vector2.Dot(t.Point(0f) - t.Centre, t.Travers), b = (Vector2.Dot(t.Point(S) - t.Centre - t.Axe * S, t.Travers) - a - t.Courbure * S * S) / S;
+            float milieu = (t.Debut + t.Fin) / 2f, demi = (t.Fin - t.Debut) / 2f * REDUCTION;
+            return new TraceDeNom(t.Centre, t.Axe, milieu - demi, milieu + demi, a, b, t.Courbure, t.Largeur * REDUCTION, t.Echantillons);
+        }
+        // Le milieu des lettres d'une disposition et le rayon qui les contient toutes, lettres comprises, en km.
+        static (Vector2, float) Etendue((TraceDeNom trace, NomCompose compose)[] disposition)
+        {
+            var points = disposition.SelectMany(l => l.compose.Lettres.Select(p => p.Point)).ToList(); Vector2 milieu = Vector2.zero; foreach (Vector2 p in points) milieu += p; milieu /= points.Count;
+            return (milieu, points.Max(p => (p - milieu).magnitude) + disposition[0].compose.Corps);
+        }
+
+        // Pose chaque nom de pays sur la première de ses variantes dont aucune lettre qui se montrerait ne tombe sur une des `places`
+        // (en pixels de l'écran : les capitales montrées) : le tracé d'origine d'abord, puis décalé au plus près, au-dessus puis au-dessous,
+        // puis réduit, s'il se lit encore. Le tracé d'origine quand aucune ne les évite, ou quand le nom ne se montre pas. Les variantes
+        // se jugent au corps des lettres de la dernière image ; seul un nom qui change de variante se recompose et se remaille.
+        public void Eviter(Camera camera, IReadOnlyList<Rect> places)
+        {
+            if (camera == null) return;
+            foreach (Groupe g in groupes)
+            {
+                var (echelle, decalage) = Choisir(camera, g, places);
+                if (echelle == g.Echelle && decalage == g.Decalage) continue;
+                g.Echelle = echelle; g.Decalage = decalage;
+                for (int k = 0; k < g.Lignes.Length; k++)
+                {
+                    var (trace, compose) = g.Dispositions[echelle][k];
+                    if (decalage != 0f) { TraceDeNom decale = trace.Dessous(-decalage, trace.Largeur); NomCompose recompose = decale.Composer(g.Avances[k]); if (recompose != null) (trace, compose) = (decale, recompose); }
+                    NomCourbe ligne = g.Lignes[k]; ligne.Trace = trace; ligne.Compose = compose; ligne.AMailler = true;
+                }
+            }
+        }
+        (int, float) Choisir(Camera camera, Groupe g, IReadOnlyList<Rect> places)
+        {
+            if (places == null || places.Count == 0 || g.Lignes[0].Opacite <= 0f || Libre(camera, g, 0, 0f, places)) return (0, 0f);
+            for (int e = 0; e < 2; e++)
+            {
+                if (g.Dispositions[e] == null || (e > 0 && Px(g, e, 0) < LISIBLE_PX)) continue;
+                float pas = PAS_DU_DECALAGE * g.Dispositions[e][0].compose.Corps;
+                for (int k = e == 0 ? 1 : 0; k <= DECALAGES; k++)
+                {
+                    if (Libre(camera, g, e, k * pas, places)) return (e, k * pas);
+                    if (k > 0 && Libre(camera, g, e, -k * pas, places)) return (e, -k * pas);
+                }
+            }
+            return (0, 0f);
+        }
+        // Le corps à l'écran qu'aurait cette ligne dans cette échelle, d'après celui de la dernière image.
+        static float Px(Groupe g, int echelle, int ligne) { NomCourbe l = g.Lignes[ligne]; return l.Corps > 0f ? l.CorpsPx * g.Dispositions[echelle][ligne].compose.Corps / l.Corps : 0f; }
+        // Aucune lettre de cette variante qui se montrerait ne tombe sur une des places. Loin de toutes, le groupe ne se lit pas lettre à lettre.
+        bool Libre(Camera camera, Groupe g, int echelle, float decalage, IReadOnlyList<Rect> places)
+        {
+            var disposition = g.Dispositions[echelle]; Vector2 enTravers = g.Trace.Travers * decalage; float ecran = camera.pixelHeight;
+            NomCourbe nom = g.Lignes[0]; float parKm = nom.Corps > 0f ? nom.CorpsPx / nom.Corps : 0f;
+            Vector3 milieu = camera.WorldToScreenPoint(racine.TransformPoint(Poser(g.Milieux[echelle] + enTravers))); float rayon = g.Rayons[echelle] * parKm + nom.CorpsPx;
+            var boite = new Rect(milieu.x - rayon, milieu.y - rayon, 2f * rayon, 2f * rayon); bool proche = false;
+            foreach (Rect place in places) if (place.Overlaps(boite)) { proche = true; break; }
+            if (!proche) return true;
+            for (int k = 0; k < disposition.Length; k++)
+            {
+                float px = Px(g, echelle, k); if (Opacite(px, ecran) <= 0f) continue;
+                float demi = px * 0.45f; string ecrit = g.Lignes[k].Ecrit; var lettres = disposition[k].compose.Lettres;
+                for (int i = 0; i < ecrit.Length; i++)
+                {
+                    if (char.IsWhiteSpace(ecrit[i])) continue;
+                    Vector3 p = camera.WorldToScreenPoint(racine.TransformPoint(Poser(lettres[i].Point + enTravers))); if (p.z <= 0f) continue;
+                    var lettre = new Rect(p.x - demi, p.y - demi, 2f * demi, 2f * demi);
+                    foreach (Rect place in places) if (place.Overlaps(lettre)) return false;
+                }
+            }
+            return true;
         }
 
         // « vassal de France », « vassal d'Angleterre » : le texte de la ligne d'un vassal, élidé devant une voyelle (accentuée ou non) et jamais
@@ -223,9 +333,12 @@ namespace Forge.Interface
         NomCourbe Poser(string objetNomme, string id, string texte, StyleDeNom style, TraceDeNom trace)
         {
             if (trace == null || string.IsNullOrEmpty(texte)) return null;
+            NomCompose compose = trace.Composer(Avances(Ecrit(texte, style), style));
+            return compose == null ? null : Poser(objetNomme, id, texte, style, trace, compose);
+        }
+        NomCourbe Poser(string objetNomme, string id, string texte, StyleDeNom style, TraceDeNom trace, NomCompose compose)
+        {
             string ecrit = Ecrit(texte, style);
-            NomCompose compose = trace.Composer(Avances(ecrit, style));
-            if (compose == null) return null;
             var objet = new GameObject(objetNomme, typeof(MeshFilter), typeof(MeshRenderer)); objet.transform.SetParent(racine, false);
             var maillage = new Mesh { name = "Nom de " + id }; maillage.MarkDynamic(); objet.GetComponent<MeshFilter>().sharedMesh = maillage;
             var rendu = objet.GetComponent<MeshRenderer>(); rendu.sharedMaterials = matieres; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false; rendu.enabled = false;
@@ -340,7 +453,7 @@ namespace Forge.Interface
         void Vider()
         {
             foreach (NomCourbe nom in lignes) { Detruire(nom.Maillage); if (nom.Rendu != null) Detruire(nom.Rendu.gameObject); }
-            noms.Clear(); lignes.Clear();
+            noms.Clear(); lignes.Clear(); groupes.Clear();
         }
         static void Detruire(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) UnityEngine.Object.Destroy(o); else UnityEngine.Object.DestroyImmediate(o); }
     }
