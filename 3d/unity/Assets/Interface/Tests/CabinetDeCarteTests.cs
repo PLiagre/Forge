@@ -191,7 +191,7 @@ namespace Forge.Interface.Tests
         {
             Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); var calques = racine.GetComponent<CalquesCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0)); Servir(cell => Reponse(cell, 4, false)); Assert.That(Flottante(), Is.Null); Assert.That(lieux.Peint, Is.True);
             var politique = new LectureDuMode(ModeDeCarte.Politique, null, null, null, null, lieux.EnAlerte);
-            string legende = politique.Legende, detail = CalquesCarte.DetailDuMode(politique, lieux, fleches, null); Assert.That(legende, Is.EqualTo("puissance du départ · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE));
+            string legende = politique.Legende, detail = CalquesCarte.DetailDuMode(politique, lieux, fleches, null); Assert.That(legende, Is.EqualTo("puissance · " + CalquesCarte.ALERTE + " · " + CalquesCarte.TERRE_OUVERTE));
             Assert.That(detail, Is.EqualTo(CalquesCarte.DetailDuMode(ModeDeCarte.Politique) + lieux.TexteLegende.Substring(LieuxDeCarte.ENTETE.Length)).And.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400"));
             Assert.DoesNotThrow(() => calques.Legender(politique.Echelle, detail)); string bulle = racine.transform.Find("Cabinet/" + CalquesCarte.LEGENDE).GetComponent<Infobulle>().Phrase;
             Assert.That(bulle, Is.EqualTo(legende + "\n" + detail)); Assert.That(TexteDuMonde.Interdit(bulle, JOUEUR, B, C) ?? TexteDuMonde.SansUnite(bulle), Is.Null, bulle);

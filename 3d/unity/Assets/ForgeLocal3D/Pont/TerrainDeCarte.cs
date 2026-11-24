@@ -59,6 +59,8 @@ namespace Forge.Pont {
         // Une coupe de la carte : une arête de l'enveloppe d'au moins ARETE_MIN_KM, couverte à COUVERTURE_MIN par des côtés
         // à moins de ECART_DE_COUPE_KM d'elle.
         public const double ARETE_MIN_KM = 30, COUVERTURE_MIN = 0.5, ECART_DE_COUPE_KM = 1;
+        // Les arêtes non couvertes, entre deux coupes, sur moins de COMBLE_MAX_KM : au-delà de la carte comme elles.
+        public const double COMBLE_MAX_KM = 800;
         public const byte AU_LOIN = 255; // l'octet d'une distance au moins égale à la portée
         private const int BANDE = 64; // les lignes de texels qu'une même tâche mesure
 
@@ -382,6 +384,18 @@ namespace Forge.Pont {
                 env.Coupee[k] = couvert >= COUVERTURE_MIN;
             }
             var lesCoupes = new List<Vector4>(); foreach (var (arete, cote) in poses) if (env.Coupee[arete]) lesCoupes.Add(cote);
+            // Une suite d'arêtes qu'aucun côté ne couvre, entre deux coupes, plus courte que `COMBLE_MAX_KM`, est au-delà de la carte
+            // elle aussi : une terre qui lui manque (le Levant, entre le Sinaï et l'Anatolie), ou un creux de la coupe que
+            // l'enveloppe enjambe. Sans cela, la mer y rayerait le papier. Une côte, qui court sur des milliers de km, n'en est pas une.
+            var coupees = (bool[])env.Coupee.Clone();
+            for (int k = 0; k < n; k++)
+            {
+                if (!coupees[k] || coupees[(k + 1) % n]) continue;
+                double suite = 0; int j = (k + 1) % n;
+                while (!coupees[j] && j != k) { suite += longueurs[j]; j = (j + 1) % n; }
+                if (j == k || suite > COMBLE_MAX_KM) continue;
+                for (int m = (k + 1) % n; m != j; m = (m + 1) % n) env.Coupee[m] = true;
+            }
             coupes = lesCoupes.ToArray(); return env;
         }
 

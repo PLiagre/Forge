@@ -69,6 +69,11 @@ namespace ForgeLocal3D.Captures
                 () => "fiche de la France : « " + cabinet.Accueil.TexteDuNom + " »"); a.MoveNext();) yield return null;
             string maison = cabinet.Accueil.Montree.Id;
             Cliquer(carte, cabinet.Accueil.Commencer);
+            // Le choix reçu attend que le temps reprenne pour s'appliquer : « Reprendre », puis le temps s'arrête de nouveau plus bas.
+            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Partie.Recu?.Acceptee == true, () => "le choix n'est pas reçu : « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " »"); a.MoveNext();) yield return null;
+            var reprendre = carte.GetComponent<HorlogeDeCarte>() ?? throw Faux("pas d'horloge sur la carte");
+            for (var a = AttentesDeCapture.Jusqua(() => reprendre.Lue != null, () => "l'horloge n'est pas servie : " + reprendre.Absence); a.MoveNext();) yield return null;
+            if (reprendre.EnPause) cabinet.GetComponentsInChildren<Button>(true).Single(b => b.name == "Pause / Reprendre").onClick.Invoke();
             for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) == maison && cabinet.Partie.Maison?.Presente == true && Capitale(cabinet).gameObject.activeInHierarchy,
                 () => "après « Commencer » : maison « " + ScenarioAccueil.Servie(cabinet) + " »"); a.MoveNext();) yield return null;
             // Le temps arrêté : la date servie ne bouge plus pendant les photos.
@@ -266,13 +271,18 @@ namespace ForgeLocal3D.Captures
             PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (!Mathf.Approximately(carte.Vue.Echelle, 1f)) throw Faux("la molette n'a pas mené la vue au plus loin : échelle " + carte.Vue.Echelle.ToString("0.###", CultureInfo.InvariantCulture));
-            int l = carte.camera.pixelWidth - 1, h = carte.camera.pixelHeight - 1; Rect cadre = carte.Cadre; const float EPSILON_KM = 1e-3f;
+            // Au niveau de la mer, le rectangle visé tient dans les bornes de la carte ; le rayon d'un coin, qui descend jusqu'au fond de
+            // la mer, touche un sol du terrain dessiné, bordé de mer bien au-delà des bornes.
+            int l = carte.camera.pixelWidth - 1, h = carte.camera.pixelHeight - 1; Rect cadre = carte.Cadre; const float EPSILON_KM = 1e-2f;
+            var terrain = carte.Terrain; Rect dessine = new Rect(terrain.Coin, new Vector2(terrain.Largeur, terrain.Hauteur) * terrain.Pas);
             foreach (var coin in new[] { new Vector2(0, 0), new Vector2(l, 0), new Vector2(0, h), new Vector2(l, h) })
             {
+                Vector2 vise = carte.Vue.PointSous(new Vector2(coin.x / l, coin.y / h));
+                if (vise.x < cadre.xMin - EPSILON_KM || vise.x > cadre.xMax + EPSILON_KM || vise.y < cadre.yMin - EPSILON_KM || vise.y > cadre.yMax + EPSILON_KM)
+                    throw Faux("au plus loin, le coin " + coin + " de l'écran vise " + vise + " km au niveau de la mer, hors des bornes " + cadre);
                 if (!(carte.SolSous(coin) is Vector3 sol)) throw Faux("au plus loin, le coin " + coin + " de l'écran ne tombe sur aucun sol");
                 Vector3 local = carte.transform.InverseTransformPoint(sol);
-                if (local.x < cadre.xMin - EPSILON_KM || local.x > cadre.xMax + EPSILON_KM || local.z < cadre.yMin - EPSILON_KM || local.z > cadre.yMax + EPSILON_KM)
-                    throw Faux("au plus loin, le coin " + coin + " de l'écran tombe en (" + local.x + ", " + local.z + ") km, hors du cadre " + cadre);
+                if (!dessine.Contains(new Vector2(local.x, local.z))) throw Faux("au plus loin, le coin " + coin + " de l'écran tombe en (" + local.x + ", " + local.z + ") km, hors du terrain dessiné " + dessine);
             }
             SansFigurines(carte);
             Debug.Log("CAPTURE modes de carte : au plus loin, les quatre coins de l'écran tombent dans le cadre " + cadre);
@@ -327,8 +337,10 @@ namespace ForgeLocal3D.Captures
             if (carte.camera.transform.position != place || carte.camera.transform.rotation != regard || carte.Vue.Centre != centre || carte.Vue.Demi != demi)
                 throw Faux("choisir « " + mode + " » a bougé la caméra : centre " + centre + " → " + carte.Vue.Centre + ", demi " + demi + " → " + carte.Vue.Demi);
             string Texte() => calques.Legende.GetComponentInParent<Infobulle>().Phrase; // la légende, puis la date et la règle du mode
-            for (var a = AttentesDeCapture.Jusqua(() => Texte().Contains(attendu()), () => "légende du mode " + mode + " : « " + Texte() + " », attendu « " + attendu() + " »"); a.MoveNext();) yield return null;
-            if (Texte().StartsWith("Mode ", StringComparison.Ordinal) || Texte().StartsWith("Pays indisponibles", StringComparison.Ordinal) || Texte() == CalquesCarte.COUPEE) throw Faux("mode " + mode + " indisponible : « " + Texte() + " »");
+            // Pendant la lecture des lieux, Population et Vivres disent « lieux en lecture » sur la carte politique, dont l'infobulle porte aussi la
+            // date : le mode s'attend disponible, pas seulement daté.
+            bool Indisponible() => Texte().StartsWith("Mode ", StringComparison.Ordinal) || Texte().StartsWith("Pays indisponibles", StringComparison.Ordinal) || Texte().StartsWith(CalquesCarte.COUPEE, StringComparison.Ordinal);
+            for (var a = AttentesDeCapture.Jusqua(() => !Indisponible() && Texte().Contains(attendu()), () => "légende du mode " + mode + " : « " + Texte() + " », attendu « " + attendu() + " »"); a.MoveNext();) yield return null;
             var s = Stable(carte); while (s.MoveNext()) yield return null;
             Debug.Log("CAPTURE modes de carte : " + mode + " au tick " + Monde(cabinet).Tick + " ; « " + Texte().Replace("\n", " | ") + " »");
         }

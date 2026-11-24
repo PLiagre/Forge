@@ -32,8 +32,8 @@ namespace Forge.Interface
     public sealed class RepartitionHabitants
     {
         public const double CENTILE_BAS = .05, CENTILE_HAUT = .95;
-        // Les deux bouts de l'échelle : le papier, et l'accent tiré vers l'encre.
-        public static readonly Color CLAIRE = SocleInterface.Couleur("papier"), FONCEE = Color.Lerp(SocleInterface.Couleur("accent"), SocleInterface.Couleur("encre"), .3f);
+        // Les deux bouts de l'échelle : le papier, et le brun du socle tiré vers l'encre.
+        public static readonly Color CLAIRE = SocleInterface.Couleur("papier"), FONCEE = Color.Lerp(SocleInterface.Couleur("secondaire"), SocleInterface.Couleur("encre"), .3f); // un brun d'encre : ni le bleu de la mer, ni le rouge de l'alerte
         static readonly System.Globalization.CultureInfo Fr = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
         readonly Dictionary<(long, long), double> densites = new Dictionary<(long, long), double>();
         public DateDuMonde Date { get; }
@@ -227,7 +227,7 @@ namespace Forge.Interface
             : EnAlerte(cellId, rang) ? SocleInterface.Couleur("alerte") : pigment;
         // L'échelle de la légende ; nulle quand il n'y a rien à échelonner (aucune armée en campagne).
         public EchelleDuMode Echelle => Mode == ModeDeCarte.Politique ? new EchelleDuMode(false, new[] { CalquesCarte.PIGMENT_TEMOIN, SocleInterface.Couleur("alerte"), SocleInterface.Couleur("encre") },
-                Terres != null ? "pays" : "puissance du départ", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE)
+                Terres != null ? "pays" : "puissance", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE)
             : Relief?.Echelle ?? Population?.Echelle ?? Vivres?.Echelle ?? Guerres.Echelle;
         // La légende telle qu'elle se lit : les étiquettes de l'échelle, ou ce qui en tient lieu.
         public string Legende => Echelle?.Texte ?? BelligerantsDesPays.AUCUNE_ARMEE;
@@ -242,7 +242,7 @@ namespace Forge.Interface
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Mode indisponible : détail dans l'infobulle.";
         // Les étiquettes de l'échelle politique : le rouge n'y dit que l'alerte, et la terre ouverte est cernée d'un trait d'encre.
         // `PAYS_NON_LUS` ouvre le détail quand les pays ne sont pas encore lus.
-        public const string ALERTE = "rouge : plus de départs", TERRE_OUVERTE = "trait : terre ouverte", PAYS_NON_LUS = "Pays non lus";
+        public const string ALERTE = "rouge : départs", TERRE_OUVERTE = "trait : terre ouverte", PAYS_NON_LUS = "Pays non lus";
         // La pastille d'un pays dans une échelle : un pigment d'atlas, qu'aucun mode ne prend pour l'une de ses teintes.
         public static readonly Color PIGMENT_TEMOIN = SocleInterface.Pigment(new Color(.45f, .6f, .85f));
         // La légende tient entre le guide des premiers gestes (jusqu'à x 764) et la fiche de la terre (dès x 1312) : une échelle haute
@@ -263,6 +263,7 @@ namespace Forge.Interface
         // Les lieux servis, la lecture en vol, et la prochaine ; nulles tant qu'aucune n'a rendu.
         public Func<Lecture<LieuxLus>> LecteurDesLieux; public bool LieuxEnVol => volDesLieux != null && !volDesLieux.IsCompleted; public Lecture<LieuxLus> LieuxLus { get; private set; }
         System.Threading.Tasks.Task<Lecture<LieuxLus>> volDesLieux; double prochaineDesLieux; Lecture<LieuxLus> lieuxPeints; int alertesPeintes = -1;
+        TerresDeLaCarte terresEcrites; // les terres dont la légende écrite tient sa date
         TextMesh[] noms;
         // L'étiquette d'écran de chaque texte posé sur la carte, et la toile qui les porte, sur la caméra de la carte.
         readonly Dictionary<TextMesh, Text> ecrites = new Dictionary<TextMesh, Text>(); readonly Dictionary<Text, (string texte, int points, float largeur)> largeurs = new Dictionary<Text, (string, int, float)>();
@@ -398,11 +399,23 @@ namespace Forge.Interface
             if (lignes > LIGNES_MAX) throw new ArgumentException("légende de " + lignes + " lignes : trois au plus");
             Ecrire(texte, texte + "\n" + detail, null);
         }
-        // Une échelle et ses trois étiquettes, chacune sur une ligne.
+        // Une échelle et ses trois étiquettes, chacune sur une ligne, sans qu'aucune empiète sur sa voisine : sous des pastilles, chacune
+        // tient dans son tiers ; sous un dégradé, celles des bouts et la moitié de celle du milieu tiennent chacune dans une moitié.
+        public const float ECART_DES_ETIQUETTES = 8f;
         public void Legender(EchelleDuMode echelleDuMode, string detail)
         {
             foreach (string etiquette in echelleDuMode.Etiquettes) if (Math.Max(Lignes(legende, etiquette, 1f), Lignes(legende, etiquette, 2f / 3f)) > 1) throw new ArgumentException("étiquette de plus d'une ligne : " + etiquette);
+            float pleine = LARGEUR - 16; var larges = echelleDuMode.Etiquettes.Select(e => Largeur(etiquettesDeLEchelle[0], e)).ToArray();
+            bool tient = echelleDuMode.Degrade ? larges[0] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f && larges[2] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f
+                : larges.All(l => l + ECART_DES_ETIQUETTES <= pleine / 3f);
+            if (!tient) throw new ArgumentException("étiquettes qui empiètent l'une sur l'autre : " + echelleDuMode.Texte);
             Ecrire(echelleDuMode.Texte, echelleDuMode.Texte + "\n" + detail, echelleDuMode);
+        }
+        // La largeur que prendrait `contenu` écrit dans `texte`, sur une ligne.
+        static float Largeur(Text texte, string contenu)
+        {
+            var reglages = texte.GetGenerationSettings(new Vector2(0, 0)); reglages.horizontalOverflow = HorizontalWrapMode.Overflow; reglages.scaleFactor = 1f;
+            var generateur = new TextGenerator(); return generateur.GetPreferredWidth(contenu, reglages);
         }
         void Ecrire(string texte, string infobulle, EchelleDuMode echelleDuMode)
         {
@@ -460,8 +473,13 @@ namespace Forge.Interface
             // repeignent à chaque lecture des lieux, la carte politique quand les alertes changent.
             int version = guerre != null ? guerre.Version : -1, coloriage = guerre != null ? guerre.Coloriage : -1; GuerresLues guerres = Mode == ModeDeCarte.Guerres ? guerre?.Guerres : null;
             var lieuxLus = Mode == ModeDeCarte.Population || Mode == ModeDeCarte.Vivres ? LieuxLus : null; int alertes = Mode == ModeDeCarte.Politique && lieux != null ? lieux.VersionDesAlertes : -1;
-            if (!changement && ReferenceEquals(lieuxLus, lieuxPeints) && alertes == alertesPeintes && version == versionDesPays && coloriage == coloriageDesPays && ReferenceEquals(guerres, guerresPeintes)) { if (ecrite != null) try { Recrire(peinte); } catch (ArgumentException) { changement = true; } return; }
-            changement = false; lieuxPeints = lieuxLus; alertesPeintes = alertes; versionDesPays = version; coloriageDesPays = coloriage; guerresPeintes = guerres; ecrite = null; peinte = null;
+            // Des terres relues aux mêmes pays ne repeignent rien, mais leur date passe dans la légende : la lecture se refait pour le texte seul.
+            if (!changement && ReferenceEquals(lieuxLus, lieuxPeints) && alertes == alertesPeintes && version == versionDesPays && coloriage == coloriageDesPays && ReferenceEquals(guerres, guerresPeintes))
+            {
+                if (ecrite != null) try { if (!ReferenceEquals(guerre?.Terres, terresEcrites)) { peinte = LectureDuMode.Lire(Mode, lieuxLus, carte.Lue, guerre, lieux?.EnAlerte); terresEcrites = guerre?.Terres; } Recrire(peinte); } catch (ArgumentException) { changement = true; }
+                return;
+            }
+            changement = false; lieuxPeints = lieuxLus; alertesPeintes = alertes; versionDesPays = version; coloriageDesPays = coloriage; guerresPeintes = guerres; terresEcrites = guerre?.Terres; ecrite = null; peinte = null;
             try
             {
                 if (maisons == null)

@@ -584,6 +584,10 @@ namespace Forge.Pont.Tests {
                 jugees++;
             }
             Assert.Greater(jugees, 0, "échantillon vide : aucune coupe de l'est de l'Anatolie jugée");
+            // Le Levant manque à la carte entre le Sinaï et l'Anatolie : au-delà de l'enveloppe qui l'enjambe, du papier, pas de la mer.
+            Vector2 levant = new Vector2((float)((6800000 - t.Origine.X) / 1000), (float)((1650000 - t.Origine.Y) / 1000));
+            Assert.AreEqual(0, t.CelluleEn(levant.x, levant.y), "échantillon faussé : le Levant est à terre");
+            Assert.IsTrue(t.HorsCarteEn(levant.x, levant.y), "le Levant, qui manque à la carte entre deux coupes, est peint en mer");
             // Contre-épreuve : au large de Lisbonne, la mer est la mer, et la terre au bord du rivage est au ras de l'eau.
             PointCarte o = t.Origine; Vector2 large = new Vector2((float)((2600000 - o.X) / 1000), (float)((1940000 - o.Y) / 1000));
             Assert.AreEqual(0, t.CelluleEn(large.x, large.y), "échantillon faussé : le large de Lisbonne est à terre");

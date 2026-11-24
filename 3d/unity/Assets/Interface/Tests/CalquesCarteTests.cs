@@ -223,7 +223,7 @@ namespace Forge.Interface.Tests
             Assert.Throws<ArgumentException>(() => Mode(ModeDeCarte.Population).Valider(40, 0)); Assert.Throws<ArgumentException>(() => Mode(ModeDeCarte.Vivres).Valider(10, 1));
             // Contre-épreuve : la carte politique se lit toujours, pays lus ou non, et le dit dans l'infobulle quand ils ne le sont pas.
             var sansPays = new LectureDuMode(ModeDeCarte.Politique, null, null, null, null); Assert.That(sansPays.Detail, Does.StartWith(CalquesCarte.PAYS_NON_LUS));
-            Assert.That(sansPays.Echelle.Etiquettes[0], Is.EqualTo("puissance du départ"));
+            Assert.That(sansPays.Echelle.Etiquettes[0], Is.EqualTo("puissance"));
         }
 
         // Une légende de quatre lignes est refusée ; une étiquette d'échelle de deux lignes aussi.
@@ -236,6 +236,10 @@ namespace Forge.Interface.Tests
                 const string QUATRE = "Première ligne\nDeuxième ligne\nTroisième ligne\nQuatrième ligne";
                 Assert.Throws<ArgumentException>(() => calques.Legender(QUATRE, CalquesCarte.DetailDuMode(ModeDeCarte.Politique)));
                 Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(true, new[] { Color.white, Color.black }, "a", "Une étiquette beaucoup trop longue pour tenir sur une seule ligne de la légende", "c"), "détail"));
+                // Deux étiquettes qui tiennent chacune sur une ligne mais empiètent sur leur voisine : sous des pastilles, chacune dans son tiers.
+                var pastilles = new[] { Color.white, Color.red, Color.black };
+                Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(false, pastilles, "pays", "rouge : plus de départs", "trait : terre ouverte"), "détail"), "deux étiquettes qui se chevauchent");
+                Assert.DoesNotThrow(() => calques.Legender(new EchelleDuMode(false, pastilles, "pays", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE), "détail"), "contre-épreuve : l'échelle politique tient");
                 Assert.DoesNotThrow(() => calques.Legender("Aucune armée en campagne", "détail")); Assert.That(calques.Legende.enabled && !calques.Echelle.gameObject.activeSelf, Is.True, "un message sans échelle ne se montre pas en texte");
                 foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte))) { string phrase = CalquesCarte.PhraseDuMode(mode); Assert.That(phrase.StartsWith(mode + " : ") && phrase.Length > mode.ToString().Length + 20, Is.True, phrase); }
             }

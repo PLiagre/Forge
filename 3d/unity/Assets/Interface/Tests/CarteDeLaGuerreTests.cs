@@ -104,6 +104,8 @@ namespace Forge.Interface.Tests
             Assert.That(Bulle(), Does.StartWith(calques.Legende.text + "\nPays au jour 7 de 1400."));
             // Contre-épreuve : les mêmes pays relus ne recolorent rien.
             Servir(Terres(A, A, A, 8)); Assert.That(guerre.Version, Is.EqualTo(version + 1), "mêmes pays : pas de nouvelle version");
+            // Mais leur date passe dans l'infobulle de la légende, sans repeindre.
+            Peindre(); Assert.That(Bulle(), Does.Contain("\nPays au jour 8 de 1400."), "les terres relues aux mêmes pays laissent la légende au jour d'avant");
         }
 
         // Un lieu qui change seul de pays change la clé des terres : la version monte, et le terrain se retrace.
