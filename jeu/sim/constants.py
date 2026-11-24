@@ -708,10 +708,6 @@ FRACTION_MIGRANTE_PAR_TICK = 0.01
 # --- Départs vers un lieu mieux nourri ---
 # Niveau 2 : écart strict de réserve et tranche du taux, en jours.
 ECART_DE_DEPART_JOURS = 30
-# Niveau 2 : part quotidienne des habitants qui part par tranche entière.
-TAUX_DE_DEPART = 0.002
-# Niveau 2 : part maximale des habitants qui peut partir chaque jour.
-PLAFOND_DE_DEPART = 0.01
 
 # Les taux annuels du mieux-vivre vivent dans `jeu/data/departs.toml` (niveau 2).
 _CHEMIN_DEPARTS = Path(__file__).parents[1] / "data" / "departs.toml"

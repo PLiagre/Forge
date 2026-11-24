@@ -247,7 +247,7 @@ def _controle_bourg(monde):
 
 
 def _controle_champs_etat_de_lieu(classe):
-    assert {champ.name for champ in dataclasses.fields(classe)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "maitre"}
+    assert {champ.name for champ in dataclasses.fields(classe)} == {"rang", "population", "stocks", "dette_alimentaire_kg", "duree_faim_ticks", "mortality_remainder", "natalite_remainder", "depart_remainder", "maitre"}
 
 
 def test_amorcage_conserve_habitants_et_panier(monkeypatch):

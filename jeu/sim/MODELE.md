@@ -1025,8 +1025,10 @@ Les deux se lisent par `departs.reserve_en_jours` et `departs.ration_journaliere
 la même lecture que sert `GET /lieux` : un stock négatif ou absent compte pour rien,
 et une dette plus lourde que le stock rend une réserve négative.
 L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
-Par tranche entière de 30 jours, `TAUX_DE_DEPART = 0.002` donne la part quotidienne,
-plafonnée par `PLAFOND_DE_DEPART = 0.01` ; les foyers entiers s'arrondissent vers le bas.
+Par tranche entière de 30 jours, `taux_annuel_par_tranche = 0.005` donne la part annuelle,
+plafonnée par `plafond_annuel = 0.03` (les deux dans `jeu/data/departs.toml`) ; la part du jour
+vaut cette part divisée par les ticks d'une année (`CALENDAR_DAYS_PER_YEAR`). Les foyers entiers
+partent ; la fraction attend au report du lieu (`depart_remainder`).
 Destination : meilleur autre lieu habité de la cellule, sinon meilleur bourg habité
 voisin ; égalités par `(cell_id, rang)`. Les soldes s'appliquent simultanément,
 avec métiers au prorata entre cellules. Un lieu peut envoyer et recevoir sur sa photo :
