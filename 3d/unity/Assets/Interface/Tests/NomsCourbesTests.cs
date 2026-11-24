@@ -64,6 +64,31 @@ namespace Forge.Interface.Tests
             Assert.That(plat.Maillage.vertices.All(p => p.y == NomsCourbes.HAUTEUR), Is.True, "sans sol donné, le nom n'est pas à plat à sa hauteur");
         }
 
+        // Un nom de l'atlas s'écrit tel que servi, espacé, ses lettres penchées vers l'est ; un nom de pays, en capitales droites.
+        // Le tracé est la droite d'ouest en est : le haut des lettres est au nord, et le pied d'une lettre est à l'ouest de son haut.
+        [Test] public void Un_nom_de_l_atlas_s_ecrit_en_italique_espace_et_un_pays_en_capitales_droites()
+        {
+            noms = new NomsCourbes(racine.transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), null);
+            noms.Ecrire(new[] { ("mer témoin", "Mer du Nord", Vector2.zero, Vector2.right, 3f, StyleDeNom.Italique), ("pays témoin", "Mer du Nord", new Vector2(0f, 50f), Vector2.right, 3f, StyleDeNom.Capitales) });
+            NomCourbe mer = noms.Noms[0], pays = noms.Noms[1];
+            Assert.That((mer.Ecrit, mer.Style, pays.Ecrit, pays.Style), Is.EqualTo(("Mer du Nord", StyleDeNom.Italique, "MER DU NORD", StyleDeNom.Capitales)), "les styles ne gardent pas le nom servi");
+            Assert.That((mer.Corps, pays.Corps), Is.EqualTo((3f, 3f)).Using<(float, float)>((a, b) => Mathf.Abs(a.Item1 - b.Item1) < 1e-2f && Mathf.Abs(a.Item2 - b.Item2) < 1e-2f ? 0 : 1), "le corps donné n'est pas tenu");
+            Assert.That(mer.Trace.Centre, Is.EqualTo(Vector2.zero));
+            // L'italique s'espace : d'une lettre à la suivante, il avance plus que la police seule.
+            Font police = noms.Police; police.RequestCharactersInTexture("Me", 64);
+            bool lues = police.GetCharacterInfo('M', out CharacterInfo em, 64); lues &= police.GetCharacterInfo('e', out CharacterInfo e, 64); Assert.That(lues, Is.True);
+            float naturelle = (em.advance + e.advance) / 2f / 64f, avancee = (mer.Compose.Lettres[1].Point.x - mer.Compose.Lettres[0].Point.x) / mer.Corps;
+            Assert.That(avancee, Is.EqualTo(naturelle + NomsCourbes.ESPACEMENT_DE_L_ITALIQUE).Within(1e-3f), "l'italique ne s'espace pas");
+            Voir(3f * ECRAN_PX / (2f * 30f)); Assert.That((mer.Opacite, pays.Opacite), Is.EqualTo((1f, 1f)));
+            // La première lettre, un seul carré : ses deux coins de gauche, du pied au haut, dérivent vers l'est de la pente de l'italique.
+            Vector3[] m = mer.Maillage.vertices, p = pays.Maillage.vertices;
+            Assert.That((m[2].x - m[0].x) / (m[2].z - m[0].z), Is.EqualTo(NomsCourbes.PENTE_DE_L_ITALIQUE).Within(1e-3f), "les lettres de l'italique ne penchent pas");
+            Assert.That(p[2].x - p[0].x, Is.EqualTo(0f).Within(1e-4f), "les capitales penchent"); Assert.That(m[2].z - m[0].z, Is.GreaterThan(0f));
+            // Un nom sans corps ou sans texte n'est pas écrit.
+            noms.Ecrire(new[] { ("vide", "", Vector2.zero, Vector2.right, 3f, StyleDeNom.Italique), ("nul", "Rhin", Vector2.zero, Vector2.right, 0f, StyleDeNom.Italique) });
+            Assert.That(noms.Noms, Is.Empty);
+        }
+
         // La maison du pays s'écrit en petit sous son nom, sur le même arc descendu d'environ un corps ; un pays qui porte
         // le nom de sa maison n'a qu'une ligne. Le tracé témoin est la droite d'ouest en est : le haut des lettres est au nord.
         [Test] public void La_maison_s_ecrit_en_petit_au_sud_du_nom_et_suit_son_opacite()

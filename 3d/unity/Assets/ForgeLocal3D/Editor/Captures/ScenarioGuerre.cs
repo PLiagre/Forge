@@ -57,6 +57,7 @@ namespace ForgeLocal3D.Captures
             for (var e = AttentesDeCapture.Jusqua(() => (carte = Object.FindFirstObjectByType<CarteDessinee>()) != null && carte.Vue != null && carte.camera != null
                 && (guerre = Object.FindFirstObjectByType<CarteDeLaGuerre>()) != null && guerre.Terres != null && guerre.CotesDeFrontiere > 0 && guerre.NomsDesPays.Count > 0,
                 () => "carte de la guerre non dessinée (" + (guerre == null ? "pas de vue de la guerre" : "frontières " + guerre.CotesDeFrontiere + ", " + (guerre.AbsenceDesTerres ?? "terres lues")) + ")"); e.MoveNext();) yield return null;
+            ScenarioAccueil.VerifierLesNoms(guerre); // aucun pays ne porte le nom d'une dynastie servie
             if (capitale is PointCarte siege) Cadrer(carte, carte.PositionSurLaCarte(siege, 0f).Value, DEMI_KM);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             yield return carte.camera;

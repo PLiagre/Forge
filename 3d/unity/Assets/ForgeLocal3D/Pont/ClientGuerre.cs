@@ -11,11 +11,12 @@ namespace Forge.Pont
         public string Id { get; } public string Nom { get; }
         public IdentiteDeMaison(string id, string nom) { Id = id; Nom = nom; }
     }
-    // Un pays de la carte : son identifiant, son nom (nul quand le monde n'en dit pas) et sa maison (nulle : le monde n'en nomme pas).
+    // Un pays de la carte : son identifiant, son nom (nul quand le monde n'en dit pas), sa maison (nulle : le monde n'en nomme pas),
+    // son suzerain (l'identifiant d'un autre pays de la liste ; nul : aucun) et son ensemble (un texte, comme « Saint-Empire » ; nul : il n'en porte pas).
     public sealed class PaysDeLaCarte
     {
-        public string Id { get; } public string Nom { get; } public IdentiteDeMaison Maison { get; }
-        public PaysDeLaCarte(string id, string nom, IdentiteDeMaison maison = null) { Id = id; Nom = nom; Maison = maison; }
+        public string Id { get; } public string Nom { get; } public IdentiteDeMaison Maison { get; } public string Suzerain { get; } public string Ensemble { get; }
+        public PaysDeLaCarte(string id, string nom, IdentiteDeMaison maison = null, string suzerain = null, string ensemble = null) { Id = id; Nom = nom; Maison = maison; Suzerain = suzerain; Ensemble = ensemble; }
     }
     // Un lieu d'une terre qui n'est pas du pays de la terre : son rang (jamais 0, le bourg porte le pays de la terre),
     // son maître et son pays, nuls quand le monde ne les dit pas.
@@ -69,6 +70,10 @@ namespace Forge.Pont
         public string NomDuPays(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Nom : null;
         // La maison du pays, ou null : maison non nommée, ou pays que `/terres` ne sert pas.
         public IdentiteDeMaison MaisonDuPays(string pays) => pays != null && parPays.TryGetValue(pays, out PaysDeLaCarte p) ? p.Maison : null;
+        // Le suzerain du pays (l'identifiant d'un autre pays de la liste), ou null : sans suzerain, ou pays que `/terres` ne sert pas.
+        public string SuzerainDe(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Suzerain : null;
+        // L'ensemble du pays, ou null : sans ensemble, ou pays que `/terres` ne sert pas.
+        public string EnsembleDe(string id) => id != null && parPays.TryGetValue(id, out PaysDeLaCarte p) ? p.Ensemble : null;
     }
     // Une guerre déclarée : qui attaque, qui défend, et le tick de la déclaration.
     public sealed class GuerreLue
@@ -209,7 +214,15 @@ namespace Forge.Pont
             {
                 string id = Texte(p, chemin + ".id");
                 if (!ids.Add(id)) throw new ServiceLocal.Refusee("clé " + chemin + ".id : \"" + id + "\" servi deux fois");
-                pays.Add(new PaysDeLaCarte(id, TexteOuNul(p, chemin + ".nom"), MaisonDuPays(p, chemin + ".maison")));
+                pays.Add(new PaysDeLaCarte(id, TexteOuNul(p, chemin + ".nom"), MaisonDuPays(p, chemin + ".maison"), TexteOuNul(p, chemin + ".suzerain"), TexteOuNul(p, chemin + ".ensemble")));
+            }
+            // Un suzerain peut être servi après son vassal : l'appartenance se juge une fois tous les identifiants lus.
+            for (int i = 0; i < pays.Count; i++)
+            {
+                string suzerain = pays[i].Suzerain; if (suzerain == null) continue;
+                string chemin = "pays[" + i.ToString(CultureInfo.InvariantCulture) + "].suzerain";
+                if (suzerain == pays[i].Id) throw new ServiceLocal.Refusee("clé " + chemin + " : \"" + suzerain + "\" est le pays lui-même");
+                if (!ids.Contains(suzerain)) throw new ServiceLocal.Refusee("clé " + chemin + " : \"" + suzerain + "\" absent de la liste pays");
             }
             var terres = new List<TerreLue>(); var vues = new HashSet<long>();
             foreach (var (chemin, t) in Objets(racine, "terres"))
