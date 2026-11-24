@@ -59,7 +59,14 @@ namespace Forge.Interface
         // dans la légende. Un ensemble que la table ne connaît pas prend le jeton commun.
         static readonly Dictionary<string, (string jeton, string mot)> LiseresDesEnsembles = new Dictionary<string, (string, string)> { { "Saint-Empire", ("or-vieilli", "d'or") } };
         const string JETON_D_UN_ENSEMBLE = "cuivre", MOT_D_UN_ENSEMBLE = "de cuivre";
-        public static Color LisereDeLEnsemble(string ensemble) => Couleur(LiseresDesEnsembles.TryGetValue(ensemble, out var l) ? l.jeton : JETON_D_UN_ENSEMBLE);
+        // Le jeton avivé : sa teinte gardée, sa saturation et sa valeur montées, pour qu'un liseré se lise sur des pigments sourds,
+        // le relief l'assombrissant encore.
+        public static Color LisereDeLEnsemble(string ensemble)
+        {
+            Color.RGBToHSV(Couleur(LiseresDesEnsembles.TryGetValue(ensemble, out var l) ? l.jeton : JETON_D_UN_ENSEMBLE), out float teinte, out float saturation, out float valeur);
+            return Color.HSVToRGB(teinte, Mathf.Min(1f, saturation * AVIVAGE_DU_LISERE), Mathf.Max(valeur, VALEUR_DU_LISERE));
+        }
+        const float AVIVAGE_DU_LISERE = 1.6f, VALEUR_DU_LISERE = 0.9f;
         public static string MotDuLisere(string ensemble) => LiseresDesEnsembles.TryGetValue(ensemble, out var l) ? l.mot : MOT_D_UN_ENSEMBLE;
 
         // Le contraste WCAG 2.1 des jetons, jugé contre la matière que chaque texte ou trait borde.

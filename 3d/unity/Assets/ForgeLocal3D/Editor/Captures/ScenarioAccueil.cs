@@ -43,8 +43,9 @@ namespace ForgeLocal3D.Captures
             // La Bohême cliquée sur la carte : sa fiche dit sa maison servie (Luxembourg, qui règne aussi sur le Saint-Empire).
             string boheme = guerre.Terres.Pays.Single(p => p.Nom == "Bohême").Id, maisonDeLaBoheme = guerre.Terres.MaisonDuPays(boheme)?.Nom ?? throw Faux("la Bohême n'a pas de maison servie");
             cabinet.Accueil.Designer(guerre.Terres.Terres.First(t => t.Pays == boheme).CellId);
-            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.Contains("Habitants : ") && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture"),
-                () => "fiche de la Bohême : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " »"); a.MoveNext();) yield return null;
+            // « Commencer » s'active une image après la fiche : il s'attend avec elle.
+            for (var a = AttentesDeCapture.Jusqua(() => cabinet.Accueil.TexteDuNom == "Bohême" && cabinet.Accueil.TexteDeLaFiche.Contains("Habitants : ") && !cabinet.Accueil.TexteDeLaFiche.Contains("en lecture") && cabinet.Accueil.Commencer.interactable,
+                () => "fiche de la Bohême : « " + cabinet.Accueil.TexteDuNom + " » « " + cabinet.Accueil.TexteDeLaFiche + " », « Commencer » " + (cabinet.Accueil.Commencer.interactable ? "actif" : "inactif")); a.MoveNext();) yield return null;
             if (!cabinet.Accueil.TexteDeLaFiche.StartsWith("Maison : " + maisonDeLaBoheme, StringComparison.Ordinal)) throw Faux("la fiche de la Bohême ne dit pas sa maison : « " + cabinet.Accueil.TexteDeLaFiche + " »");
             if (cabinet.Accueil.Commencer.interactable != true) throw Faux("« Commencer » est inactif pour la Bohême");
             // Cadrée sur les quatre pays : tous lisibles à la fois, chacun avec sa maison dessous quand elle porte un autre nom.
