@@ -48,8 +48,8 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 81 <= puissances_lues == len(brut["puissances"]) <= 82
-    assert 115 <= ancres_lues == len(brut["ancres"]) <= 120
+    assert 91 <= puissances_lues == len(brut["puissances"]) <= 92
+    assert 125 <= ancres_lues == len(brut["ancres"]) <= 130
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
 def _alterer(document, cas, id_navarre):
@@ -267,8 +267,8 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 81 <= len(table.puissances) == len(document["puissances"]) <= 82
-        assert 115 <= len(table.ancres) == len(document["ancres"]) <= 120
+        assert 91 <= len(table.puissances) == len(document["puissances"]) <= 92
+        assert 125 <= len(table.ancres) == len(document["ancres"]) <= 130
 
     table = charger_table()
     verifier_bornes(table, _document())
@@ -357,9 +357,9 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
     non_couvertes = len(cellules_non_couvertes(vue))
     print(f"cellules_distinctes={len(set(cellules.values()))}, couvertes={couvertes}, non_couvertes={non_couvertes}")
     assert len(set(cellules.values())) == len(points) > 0
-    # Le point de Venise tombe dans la cellule partagée du Véronais, dont le bourg est milanais : Venise
-    # n'y tient que des lieux (Trévise).
-    assert noms == {nom: ("Milan" if nom == "Venise" else nom) for nom in points}
+    # Le point de Venise tombe dans la cellule partagée du Véronais, dont le bourg est celui de Padoue, siège
+    # des Carrara : Venise n'y tient que des lieux (Trévise).
+    assert noms == {nom: ("Padoue" if nom == "Venise" else nom) for nom in points}
     lieux = puissances_des_lieux(monde)
     ids = {p.nom: p.id for p in table.puissances}
     venise, milan = ids["Venise"], ids["Milan"]
@@ -389,10 +389,11 @@ def test_geographie_et_compte_des_douze_nouvelles_puissances():
 
 def test_ancrage_sans_piege():
     table = charger_table()
+    # Les villes dont le point ne doit porter l'ancre d'aucune puissance : Bologne et Padoue ont quitté la
+    # liste, devenues pays de la table avec leur propre ancre.
     pieges = {
         "Vérone": (45.44, 10.99), "Pise": (43.72, 10.40),
         "Sienne": (43.32, 11.33), "Pérouse": (43.11, 12.39),
-        "Bologne": (44.49, 11.34), "Padoue": (45.41, 11.88),
         "Turin": (45.07, 7.69), "Visby": (57.64, 18.29),
         "Candie": (35.34, 25.14), "Corfou": (39.62, 19.92),
     }
@@ -579,7 +580,7 @@ def test_les_ancres_sont_des_points_et_ne_decident_aucune_cellule():
     # partages dont le bourg est d'une ville sans pays.
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (527, 69)
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (553, 43)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)

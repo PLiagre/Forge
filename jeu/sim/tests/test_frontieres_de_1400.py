@@ -51,15 +51,15 @@ from sim.world import World
 TEMOINS_NOMMES = {
     "ouest": ("Paris", "Rouen", "Toulouse", "Bordeaux", "Nantes", "Dijon", "Bruges", "Londres", "Édimbourg",
               "Dublin", "Lisbonne", "Séville", "Pampelune", "Barcelone", "Grenade", "Milan", "Venise", "Gênes",
-              "Florence", "Rome", "Naples", "Palerme"),
+              "Florence", "Rome", "Naples", "Palerme", "Bologne", "Padoue", "Oristano", "Rimini"),
     "empire": ("Vienne", "Munich", "Heidelberg", "Cologne", "Mayence", "Trèves", "Prague", "Bruxelles",
                "Lübeck", "Luxembourg", "Innsbruck", "Linz"),
     "nord": ("Roskilde", "Stockholm", "Bergen", "Kalmar"),
     "est": ("Cracovie", "Vilnius", "Buda", "Novgorod", "Pskov", "Marienbourg"),
     "balkans": ("Constantinople", "Edirne", "Mistra", "Kruševac", "Bobovac", "Târgoviște", "Suceava",
-                "Thessalonique", "Sofia", "Brousse", "Konya"),
-    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer"),
-    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine"),
+                "Thessalonique", "Sofia", "Brousse", "Konya", "Raguse", "Antivari", "Ioannina", "Argostoli"),
+    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer", "Naxos"),
+    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine", "Tripoli"),
 }
 REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
