@@ -1,0 +1,27 @@
+{
+  "assets": [
+    {
+      "demande_par": 1170,
+      "dimensions": "128x128",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/ModesDeCarte/politique.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/ModesDeCarte/relief.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/ModesDeCarte/population.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/ModesDeCarte/vivres.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/ModesDeCarte/guerres.png"
+      ],
+      "id": "icones-modes-de-carte",
+      "lot": 1187,
+      "raccordable": false,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/ATLAS.md",
+        "docs/interface/references/09_armees.jpg",
+        "docs/interface/references/12_drapeaux.jpg"
+      ],
+      "transparent": true,
+      "type": "planche_icones"
+    }
+  ],
+  "version": 1
+}
