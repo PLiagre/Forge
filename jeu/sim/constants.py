@@ -713,6 +713,57 @@ TAUX_DE_DEPART = 0.002
 # Niveau 2 : part maximale des habitants qui peut partir chaque jour.
 PLAFOND_DE_DEPART = 0.01
 
+# Les taux annuels du mieux-vivre vivent dans `jeu/data/departs.toml` (niveau 2).
+_CHEMIN_DEPARTS = Path(__file__).parents[1] / "data" / "departs.toml"
+_CLE_TAUX_ANNUEL_DE_DEPART = "taux_annuel_par_tranche"
+_CLE_PLAFOND_ANNUEL_DE_DEPART = "plafond_annuel"
+
+
+def _lire_cle_departs(cle, chemin):
+    """La valeur brute de `cle` dans `departs.toml`, ou une `ValueError` qui nomme la clé et le fichier."""
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
+    ou = f"{cle} ({chemin.name})"
+    try:
+        with open(chemin, "rb") as fichier:
+            donnees = tomllib.load(fichier)
+    except FileNotFoundError as erreur:
+        raise ValueError(f"{ou} : fichier {chemin} absent") from erreur
+    if cle not in donnees:
+        raise ValueError(f"{ou} : clé absente de {chemin}")
+    return donnees[cle], ou
+
+
+def _part_de_departs(cle, chemin):
+    """La part de `cle` dans `departs.toml` ; refuse un booléen, une chaîne et un nombre hors de [0, 1]."""
+    valeur, ou = _lire_cle_departs(cle, chemin)
+    if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
+        raise ValueError(f"{ou} : un nombre attendu, pas {valeur!r}")
+    if not 0 <= valeur <= 1:
+        raise ValueError(f"{ou} : un nombre dans [0, 1] attendu, pas {valeur}")
+    return valeur
+
+
+def taux_annuel_de_depart(chemin=None):
+    """
+    Part des habitants d'un lieu qui part en un an, par tranche entière d'écart de réserve.
+
+    Relit `jeu/data/departs.toml` à chaque appel. Refuse, en nommant la clé et
+    le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
+    nombre hors de [0, 1]. 0 coupe le mieux-vivre.
+    """
+    return _part_de_departs(_CLE_TAUX_ANNUEL_DE_DEPART, chemin)
+
+
+def plafond_annuel_de_depart(chemin=None):
+    """
+    Part maximale des habitants d'un lieu qui peut partir en un an, quel que soit l'écart.
+
+    Relit `jeu/data/departs.toml` à chaque appel. Refuse, en nommant la clé et
+    le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
+    nombre hors de [0, 1].
+    """
+    return _part_de_departs(_CLE_PLAFOND_ANNUEL_DE_DEPART, chemin)
+
 # --- Entrée en ligne de commande (python -m sim) ---
 # Un an calendaire de ticks, dérivé de la base de temps unique : jamais un
 # second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.

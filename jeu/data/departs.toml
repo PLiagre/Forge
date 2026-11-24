@@ -1,0 +1,18 @@
+# Les réglages des départs vers un lieu mieux nourri (`jeu/sim/departs.py`,
+# MODELE.md « Les départs → Le mieux-vivre »).
+#
+# Ce fichier se modifie sans toucher au code. Toutes les valeurs sont de
+# niveau 2 : plausibles, jamais sourcées.
+
+# Part des habitants d'un lieu qui part en un an vers un lieu mieux nourri, par
+# tranche entière de `ECART_DE_DEPART_JOURS` (30 jours) d'écart de réserve.
+# Niveau 2 : plausible, jamais sourcé, mais recalé sur un ordre de grandeur de
+# niveau 1 : en temps normal, une population ne bouge que de quelques pour mille
+# par an. Un nombre de 0 à 1 ; 0 coupe le mieux-vivre.
+taux_annuel_par_tranche = 0.005
+
+# Part maximale des habitants d'un lieu qui peut partir en un an, quel que soit
+# l'écart de réserve.
+# Niveau 2 : hors famine, un lieu ne perd que quelques pour cent de ses gens en
+# un an. Un nombre de 0 à 1.
+plafond_annuel = 0.03

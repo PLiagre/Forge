@@ -3453,6 +3453,34 @@ def test_departs_tick_modele():
         with pytest.raises(AssertionError): controler(texte.replace(ancien, nouveau))
 
 
+@pytest.mark.parametrize('nom, cle, livree', [('taux_annuel_de_depart', 'taux_annuel_par_tranche', 0.005),
+        ('plafond_annuel_de_depart', 'plafond_annuel', 0.03)])
+def test_departs_taux_annuels_lus_dans_les_donnees(tmp_path, nom, cle, livree):
+    from pathlib import Path
+    from sim import constants as k
+    lecteur = getattr(k, nom)
+    assert lecteur() == livree
+    assert lecteur(k._CHEMIN_DEPARTS) == livree
+    assert k._CHEMIN_DEPARTS == Path(__file__).parents[2] / 'data' / 'departs.toml'
+    fichier = tmp_path / 'departs.toml'
+    fichier.write_text(f'{cle} = 0.01\n')
+    assert lecteur(fichier) == 0.01
+    fichier.write_text(f'{cle} = 0.02\n')
+    assert lecteur(fichier) == 0.02
+    for borne in (0, 1):
+        fichier.write_text(f'{cle} = {borne}\n')
+        assert lecteur(fichier) == borne
+    refus = [('autre = 0.01\n', 'clé absente'), (f'{cle} = true\n', 'un nombre attendu'),
+        (f'{cle} = "0.01"\n', 'un nombre attendu'), (f'{cle} = -0.01\n', 'dans [0, 1]'),
+        (f'{cle} = 1.5\n', 'dans [0, 1]')]
+    for texte, raison in refus:
+        fichier.write_text(texte)
+        with pytest.raises(ValueError) as erreur: lecteur(fichier)
+        assert cle in str(erreur.value) and 'departs.toml' in str(erreur.value) and raison in str(erreur.value)
+    with pytest.raises(ValueError) as erreur: lecteur(tmp_path / 'departs.toml.absent')
+    assert cle in str(erreur.value) and 'departs.toml.absent' in str(erreur.value) and 'absent' in str(erreur.value)
+
+
 def _monde_apres_chauffe():
     monde, rng = World.charger(0), random.Random(0)
     for numero in range(5):
