@@ -5,6 +5,7 @@ import dataclasses
 from fractions import Fraction
 import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -1625,3 +1626,116 @@ def test_raccourci_lecture_stock():
         assert model.lire_stock_marchandise(cellule, '_absente') == 0.0
     assert cas > 0
     print(f'lectures comparées={cas}, absence confondue avec zéro détectée')
+
+
+# `/lieux` : chaque lieu du monde servi en une lecture, ses habitants, sa surface et sa réserve en jours.
+JOURS_SERVIS = 3
+FIGE_DES_LIEUX = (Path(__file__).resolve().parents[3]
+                  / f"3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieux-graine0-tick{JOURS_SERVIS}.json")
+
+
+@pytest.fixture(scope="module")
+def lieux_servis():
+    """Le service de la graine 0 après trois jours : le monde vivant, `/monde` et `/lieux` du même tick."""
+    from sim import engine, service
+    with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as monte:
+        for numero in range(JOURS_SERVIS):
+            engine.tick(monte.world, monte.rng, numero_tick=numero)
+        etat = monte._construire_etat(0, -1)
+        yield monte.world, json.loads(etat.monde), json.loads(etat.lieux_du_monde.octets())
+
+
+def _controler_les_habitants_servis(monde_servi, lieux):
+    """Chaque cellule de `/monde` a ses lieux dans `/lieux`, et leurs habitants font les siens."""
+    assert lieux["cells"], "aucune cellule servie : l'échantillon ne prouverait rien"
+    population = {c["cell_id"]: c["population"] for c in monde_servi["cells"]}
+    assert [c["cell_id"] for c in lieux["cells"]] == sorted(population) and lieux["cell_count"] == len(population)
+    for cellule in lieux["cells"]:
+        assert cellule["lieux"], f"cell_id={cellule['cell_id']} : aucun lieu servi"
+        assert [l["rang"] for l in cellule["lieux"]] == list(range(len(cellule["lieux"])))
+        assert sum(l["population"] for l in cellule["lieux"]) == population[cellule["cell_id"]], cellule["cell_id"]
+
+
+def test_lieux_servis_leurs_habitants_font_ceux_de_chaque_cellule(lieux_servis):
+    _monde, monde_servi, lieux = lieux_servis
+    assert (lieux["tick"], lieux["date"]) == (monde_servi["tick"], monde_servi["date"])
+    _controler_les_habitants_servis(monde_servi, lieux)
+    # Contre-épreuves : un échantillon vide, un habitant passé d'une cellule à l'autre.
+    with pytest.raises(AssertionError, match="aucune cellule servie"):
+        _controler_les_habitants_servis(monde_servi, dict(lieux, cells=[]))
+    deplace = copy.deepcopy(lieux)
+    deplace["cells"][0]["lieux"][0]["population"] += 1
+    deplace["cells"][1]["lieux"][0]["population"] -= 1
+    with pytest.raises(AssertionError):
+        _controler_les_habitants_servis(monde_servi, deplace)
+
+
+def test_lieux_servis_un_monde_aux_lieux_vides_n_est_pas_servi():
+    from sim import service
+    from sim.snapshot_export import SnapshotExportError
+    with service.ServeurMonde(("127.0.0.1", 0), 0, 0) as monte:
+        cid = min(monte.world.cells)
+        monte.world.cells[cid].lieux.clear()
+        with pytest.raises(SnapshotExportError, match=f"cell_id={cid} : rang 0 absent"):
+            monte._construire_etat(0, -1)
+
+
+def test_lieux_servis_leurs_surfaces_sont_celles_du_decoupage(lieux_servis):
+    monde, _monde_servi, lieux = lieux_servis
+    for cellule in lieux["cells"]:
+        attendues = [l.surface_km2 for l in lieux_de_cellule(cellule["cell_id"], monde.cells[cellule["cell_id"]].area_km2)]
+        assert [l["surface_km2"] for l in cellule["lieux"]] == attendues, cellule["cell_id"]
+
+
+def test_lieux_servis_la_reserve_en_jours_compte_le_stock_et_la_dette():
+    from sim.departs import reserve_en_jours
+    assert reserve_en_jours(10, 50.0, 0.0, 0.5) == 10.0
+    assert reserve_en_jours(10, -1.0, 0.0, 0.5) == 0.0, "un stock absent (-1) compte pour rien"
+    assert reserve_en_jours(10, 50.0, 70.0, 0.5) == -4.0, "une dette plus lourde que le stock rend une réserve négative"
+
+
+def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis, monkeypatch):
+    from sim import departs
+    from sim.model import lire_stock_marchandise
+    monde, _monde_servi, lieux = lieux_servis
+    nourriture, ration = _constantes.MARCHANDISE_NOURRITURE, departs.ration_journaliere()
+    habites = vides = 0
+    for cellule in lieux["cells"]:
+        vivants = sorted(monde.cells[cellule["cell_id"]].lieux, key=lambda l: l.rang)
+        for servi, lieu in zip(cellule["lieux"], vivants, strict=True):
+            if lieu.population <= 0:
+                assert servi["reserve_jours"] is None, (cellule["cell_id"], lieu.rang)
+                vides += 1
+                continue
+            attendue = departs.reserve_en_jours(lieu.population, lire_stock_marchandise(lieu, nourriture),
+                                                lieu.dette_alimentaire_kg, ration)
+            assert servi["reserve_jours"] == attendue, (cellule["cell_id"], lieu.rang)
+            habites += 1
+    reserves = {l["reserve_jours"] for c in lieux["cells"] for l in c["lieux"] if l["reserve_jours"] is not None}
+    assert habites > 0 and len(reserves) > 1, "des réserves toutes égales ne prouveraient rien"
+    # Le mieux-vivre lit la même fonction : une par lieu habité.
+    lus = []
+    def compter(*arguments):
+        lus.append(arguments)
+        return reserve(*arguments)
+    reserve = departs.reserve_en_jours
+    monkeypatch.setattr(departs, "reserve_en_jours", compter)
+    departs.appliquer_departs(copy.deepcopy(monde))
+    assert len(lus) == habites
+    print(f"lieux habités={habites}, vides={vides}, réserves distinctes={len(reserves)}")
+
+
+def test_lieux_servis_fige_du_pont():
+    """Les octets figés du pont sont ceux du service, graine 0, après trois jours ; le jour suivant les change."""
+    from http import HTTPStatus
+    from sim.tests.test_monde import lancer_service, requete_service
+    fige = FIGE_DES_LIEUX.read_bytes()
+    document = json.loads(fige)
+    assert document["cells"] and document["tick"] == JOURS_SERVIS
+    with lancer_service(0) as port:
+        assert requete_service(port, f"/tick?n={JOURS_SERVIS}", "POST")[0] == HTTPStatus.OK
+        statut, _, octets = requete_service(port, "/lieux")
+        assert statut == HTTPStatus.OK and octets == fige == requete_service(port, "/lieux")[2]
+        requete_service(port, "/tick?n=1", "POST")
+        suivants = requete_service(port, "/lieux")[1]["cells"]
+        assert any(a["lieux"] != b["lieux"] for a, b in zip(suivants, document["cells"]))

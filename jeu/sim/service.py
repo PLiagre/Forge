@@ -22,6 +22,7 @@ from sim import constants as _constantes
 from sim import engine
 from sim.constants import DEFAULT_CLI_SEED
 from sim.engine import tick
+from sim.departs import ration_journaliere, reserve_en_jours
 from sim.foyers import ranger_en_foyers
 from sim.logement import logement_de
 from sim.ia import jouer_ia, maisons_actives_30j
@@ -123,15 +124,17 @@ class DocumentDiffere:
     """Octets d'un seul document copié à la publication, sérialisés à la première lecture, puis gardés.
 
     Comme `OctetsDifferes`, ne garde ni serveur ni verrou : une lecture ne prend jamais `verrou_tick`, et
-    deux lecteurs en même temps le sérialisent deux fois, avec les mêmes octets."""
+    deux lecteurs en même temps le sérialisent deux fois, avec les mêmes octets. Avec `fabriquer`, une
+    fonction du module, le document lui-même ne naît qu'à la première lecture, de ce qui a été copié."""
 
-    def __init__(self, document: dict):
+    def __init__(self, document, fabriquer=None):
         self._document = document
+        self._fabriquer = fabriquer
         self._octets = None
 
     def octets(self) -> bytes:
         if self._octets is None:
-            self._octets = _serialiser(self._document)
+            self._octets = _serialiser(self._document if self._fabriquer is None else self._fabriquer(self._document))
         return self._octets
 
 
@@ -169,6 +172,7 @@ class LieuCopie(NamedTuple):
     population: int
     stocks: dict
     maitre: str | None
+    dette_alimentaire_kg: float
 
 
 class CelluleCopiee(NamedTuple):
@@ -183,7 +187,26 @@ def _cellule_a_photographier(cell_id, cellule, places) -> CelluleCopiee:
     une cellule incohérente arrête la publication, jamais une lecture."""
     surfaces_controlees(cell_id, cellule, places)
     return CelluleCopiee(cellule.area_km2, [
-        LieuCopie(lieu.rang, lieu.population, copier_panier(lieu), lieu.maitre) for lieu in cellule.lieux])
+        LieuCopie(lieu.rang, lieu.population, copier_panier(lieu), lieu.maitre, lieu.dette_alimentaire_kg)
+        for lieu in cellule.lieux])
+
+
+def _document_des_lieux(publies) -> dict:
+    """`/lieux` : les habitants, la surface et la réserve en jours de chaque lieu, sur les cellules
+    copiées à la publication, par la lecture même du mieux-vivre (`reserve_en_jours`), sans arrondi.
+    Un lieu sans habitants n'a pas de réserve : elle vaut `None`, comme le mieux-vivre ne le lit pas."""
+    copies, tick, date = publies
+    nourriture, ration = _constantes.MARCHANDISE_NOURRITURE, ration_journaliere()
+    cellules = []
+    for cell_id in sorted(copies):
+        copie = copies[cell_id]
+        surfaces = surfaces_des_lieux(cell_id, copie.area_km2)
+        cellules.append({"cell_id": cell_id, "lieux": [
+            {"rang": lieu.rang, "population": lieu.population, "surface_km2": surfaces[lieu.rang],
+             "reserve_jours": reserve_en_jours(lieu.population, lire_stock_marchandise(lieu, nourriture),
+                                               lieu.dette_alimentaire_kg, ration) if lieu.population > 0 else None}
+            for lieu in sorted(copie.lieux, key=lambda lieu: lieu.rang)]})
+    return {"tick": tick, "date": date, "cell_count": len(cellules), "cells": cellules}
 
 
 def _octets_du_lieu(document, flux, cell_id) -> bytes:
@@ -330,6 +353,8 @@ class EtatPublie:
     modificateurs: bytes = b""
     guerres: DocumentDiffere | None = None
     terres: TerresDifferees | None = None
+    # `/lieux` : chaque lieu du monde, fait des cellules copiées pour `/lieu`, à la première lecture.
+    lieux_du_monde: DocumentDiffere | None = None
     # `jouer_un_tick` en entier, publication comprise ; -1 tant qu'aucun jour n'a été joué.
     duree_dernier_jour_ms: float = -1
 
@@ -663,6 +688,9 @@ class ServeurMonde(ThreadingHTTPServer):
             # `document_servi_de_la_guerre` rend des copies : le monde vivant peut changer avant la lecture.
             guerres=DocumentDiffere(document_servi_de_la_guerre(self.world, places)),
             terres=self._terres_du_tick(matiere, noms),
+            lieux_du_monde=DocumentDiffere(
+                ({cid: document[1] for cid, document in documents_lieux.items()}, numero_tick, date),
+                _document_des_lieux),
         )
 
     def octets_des_ordres(self, maison_id, cell_id=None):
@@ -935,6 +963,10 @@ class RequetesMonde(BaseHTTPRequestHandler):
         if cible.path == "/terres":
             # Le maître du bourg de chaque terre et son pays, au tick publié ; leurs octets naissent à la première lecture.
             self._repondre_octets(HTTPStatus.OK, etat.terres.octets())
+            return
+        if cible.path == "/lieux":
+            # Les habitants, la surface et la réserve en jours de tous les lieux, au tick publié ; leurs octets naissent à la première lecture.
+            self._repondre_octets(HTTPStatus.OK, etat.lieux_du_monde.octets())
             return
         if cible.path == "/guerres/ordres":
             # Le devis des ordres de guerre de la maison : leur prix et leur refus d'avance, au tick du monde.
