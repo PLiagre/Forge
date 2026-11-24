@@ -11,17 +11,23 @@ using Object = UnityEngine.Object;
 
 namespace ForgeLocal3D.Captures
 {
-    // La carte politique de 1400, photographiée six fois contre le vrai service, à poser à côté d'un atlas de 1400 et de la carte
+    // La carte politique de 1400, photographiée neuf fois contre le vrai service, à poser à côté d'un atlas de 1400 et de la carte
     // politique d'Europa Universalis IV : l'Europe entière, la France et les Îles, l'Empire, l'Italie, les Balkans et l'Orient,
-    // le Maghreb avec le Zab. Chaque cadre se calcule sur les terres servies des pays qu'il montre, jamais sur des coordonnées
-    // écrites en dur. Chaque photo vérifie ce qu'elle montre et échoue sinon : les grands pays du cadre, ceux qui tiennent au
-    // moins `TERRES_D_UN_GRAND_PAYS` terres, ont leur nom lisible et leur capitale marquée quand le monde sert son siège ; un nom
-    // de l'atlas au moins s'y lit ; deux pays voisins dans le cadre n'ont pas la même couleur. Aucun nom de pays écrit n'est
-    // celui d'une dynastie servie. Le Zab montre Biskra marquée et nommée. La toile du cabinet n'est pas photographiée : la
-    // caméra de la carte, sur toute l'image, voit la carte et ses étiquettes, sur un écran de la taille de la photo.
+    // le Maghreb avec le Zab, la France et l'Angleterre avec la Guyenne et la Navarre, puis deux vues de près : la Navarre, dont
+    // le nom se lit à côté de sa capitale Pampelune, et la Guyenne, dont la ligne « vassal d'Angleterre » se lit sous son nom.
+    // Chaque cadre entier se calcule sur les terres servies des pays qu'il montre, jamais sur des coordonnées écrites en dur.
+    // Chaque photo vérifie ce qu'elle montre et échoue sinon : les grands pays du cadre, ceux qui tiennent au moins
+    // `TERRES_D_UN_GRAND_PAYS` terres, ont leur nom lisible et leur capitale marquée quand le monde sert son siège ; un nom de
+    // l'atlas au moins s'y lit (sauf dans une vue de près) ; deux pays voisins de blocs différents (un pays racine et ses vassaux)
+    // sont à `ECART_DE_TEINTE_MIN` degrés de teinte au moins ; une terre sans pays a le gris neutre et un nom de région de
+    // l'atlas à moins de `PORTEE_DE_REGION_KM` de son centre. Le journal dit, par cadre, les blocs montrés avec leur famille de
+    // teinte et les capitales nommées. Aucun nom de pays écrit n'est celui d'une dynastie servie. Le Zab montre Biskra marquée et
+    // nommée. La toile du cabinet n'est pas photographiée : la caméra de la carte, sur toute l'image, voit la carte et ses
+    // étiquettes, sur un écran de la taille de la photo.
     static class ScenarioCartePolitique
     {
         const int TERRES_D_UN_GRAND_PAYS = 5, PAYS_DE_L_EUROPE = 5, IMAGES_DE_POSE = 12;
+        const float PORTEE_DE_REGION_KM = 300f, PART_DU_NOM_A_L_ECRAN = 0.06f, NOM_DE_PRES = 6.25f, TEINTE_DU_VASSAL_MAX = 10f;
         const float MARGE_DU_CADRE = 1.06f, ASPECT = 1600f / 900f, ECART_AU_GROS = 1.6f;
 
         [ScenarioDeCapture("carte-politique", "1-europe")]
@@ -63,9 +69,57 @@ namespace ForgeLocal3D.Captures
             var p = Photographier("balkans-et-orient", TerresDuCadre(guerre, "balkans-et-orient")); while (p.MoveNext()) yield return p.Current;
         }
 
+        [ScenarioDeCapture("carte-politique", "7-france-guyenne-navarre")]
+        static IEnumerator FranceGuyenneNavarre(Camera camera)
+        {
+            var (_, guerre, _, _, _) = Lire();
+            string france = Pays(guerre, "France"), angleterre = Pays(guerre, "Angleterre"), guyenne = Pays(guerre, "Guyenne");
+            void Blocs()
+            {
+                float ecart = CouleursDesPays.EcartDeTeinte(guerre.CouleurDuPays(france), guerre.CouleurDuPays(angleterre));
+                if (guerre.Couleurs.Racine(france) == guerre.Couleurs.Racine(angleterre) || ecart < CouleursDesPays.ECART_DE_TEINTE_MIN) throw Faux("france-guyenne-navarre : la France et l'Angleterre ne sont pas deux blocs à " + CouleursDesPays.ECART_DE_TEINTE_MIN.ToString("0", CultureInfo.InvariantCulture) + "° de teinte (" + ecart.ToString("0", CultureInfo.InvariantCulture) + "°)");
+                if (guerre.Couleurs.Racine(guyenne) != angleterre) throw Faux("france-guyenne-navarre : la Guyenne n'a pas la racine de l'Angleterre (" + guerre.Terres.NomDuPays(guerre.Couleurs.Racine(guyenne)) + ")");
+                float ecartDuVassal = CouleursDesPays.EcartDeTeinte(guerre.CouleurDuPays(guyenne), guerre.CouleurDuPays(angleterre));
+                if (ecartDuVassal >= TEINTE_DU_VASSAL_MAX) throw Faux("france-guyenne-navarre : la Guyenne est à " + ecartDuVassal.ToString("0.#", CultureInfo.InvariantCulture) + "° de teinte de l'Angleterre");
+            }
+            var p = Photographier("france-guyenne-navarre", TerresDuCadre(guerre, "france-guyenne-navarre"), encore: Blocs); while (p.MoveNext()) yield return p.Current;
+        }
+
+        [ScenarioDeCapture("carte-politique", "8-navarre-de-pres")]
+        static IEnumerator NavarreDePres(Camera camera)
+        {
+            var (carte, guerre, villes, calques, _) = Lire();
+            string navarre = Pays(guerre, "Navarre"); var terres = Terres(guerre, new[] { navarre }).ToList();
+            NomCourbe nom = guerre.NomsDesPays.SingleOrDefault(n => n.Pays == navarre) ?? throw Faux("la Navarre n'a pas de nom sur la carte");
+            // Le nom s'efface quand il remplirait la vue : assez de recul pour qu'il reste sous `PART_DU_NOM_A_L_ECRAN` de la hauteur.
+            var (centre, demi) = Cadrer(carte, terres, ASPECT); demi = Mathf.Max(demi, guerre.Ecriture.CorpsDOrigine(nom) / (2f * PART_DU_NOM_A_L_ECRAN));
+            void Pampelune()
+            {
+                var capitale = villes.Capitales.SingleOrDefault(c => c.nom == "Pampelune");
+                if (capitale.texte == null || !capitale.figurine.gameObject.activeInHierarchy || calques.EtiquetteDe(capitale.texte)?.enabled != true) throw Faux("navarre-de-pres : Pampelune n'est pas une capitale montrée et nommée");
+                if (nom.Masque || nom.Opacite <= 0f) throw Faux("navarre-de-pres : le nom de la Navarre ne se lit pas (" + nom.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px, opacité " + nom.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (nom.Masque ? ", masqué" : "") + ")");
+            }
+            var p = Photographier("navarre-de-pres", terres, new[] { navarre }, (centre, demi), Pampelune); while (p.MoveNext()) yield return p.Current;
+        }
+
+        [ScenarioDeCapture("carte-politique", "9-guyenne-de-pres")]
+        static IEnumerator GuyenneDePres(Camera camera)
+        {
+            var (_, guerre, _, _, _) = Lire();
+            string guyenne = Pays(guerre, "Guyenne"); var terres = Terres(guerre, new[] { guyenne }).ToList();
+            NomCourbe nom = guerre.NomsDesPays.SingleOrDefault(n => n.Pays == guyenne) ?? throw Faux("la Guyenne n'a pas de nom sur la carte");
+            // Le nom fait environ 8 % de la hauteur de l'écran : la demi-hauteur est son corps fois 6,25.
+            void Vassalite()
+            {
+                NomCourbe ligne = nom.Vassalite; if (ligne == null || ligne.Texte != "vassal d'Angleterre") throw Faux("guyenne-de-pres : la ligne de vassalité de la Guyenne est « " + ligne?.Texte + " », pas « vassal d'Angleterre »");
+                if (ligne.Opacite <= 0f || !ligne.Rendu.enabled) throw Faux("guyenne-de-pres : « " + ligne.Texte + " » ne se lit pas (" + ligne.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px, opacité " + ligne.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (ligne.Rendu.enabled ? "" : ", éteint") + ")");
+            }
+            var p = Photographier("guyenne-de-pres", terres, new[] { guyenne }, (nom.Trace.Centre, guerre.Ecriture.CorpsDOrigine(nom) * NOM_DE_PRES), Vassalite); while (p.MoveNext()) yield return p.Current;
+        }
+
         // Les terres servies que montre chaque cadre de la carte politique, d'après les pays servis ; la planche de l'atlas
         // cadre les mêmes.
-        internal static readonly string[] CADRES = { "europe", "france-et-iles", "empire", "italie", "balkans-et-orient" };
+        internal static readonly string[] CADRES = { "europe", "france-et-iles", "empire", "italie", "balkans-et-orient", "france-guyenne-navarre" };
         internal static List<long> TerresDuCadre(CarteDeLaGuerre guerre, string cadre)
         {
             List<string> montres;
@@ -77,6 +131,11 @@ namespace ForgeLocal3D.Captures
                     string france = Pays(guerre, "France");
                     montres = guerre.Terres.Pays.Where(x => guerre.Couleurs.Racine(x.Id) == france).Select(x => x.Id).Concat(new[] { "Angleterre", "Écosse", "Irlande" }.Select(n => Pays(guerre, n))).ToList();
                     montres.AddRange(guerre.Terres.Pays.Where(x => montres.Contains(x.Suzerain)).Select(x => x.Id));
+                    break;
+                case "france-guyenne-navarre":
+                    // La France et tous ceux dont elle est la racine, l'Angleterre, la Guyenne et la Navarre.
+                    string racine = Pays(guerre, "France");
+                    montres = guerre.Terres.Pays.Where(x => guerre.Couleurs.Racine(x.Id) == racine).Select(x => x.Id).Concat(new[] { "Angleterre", "Guyenne", "Navarre" }.Select(n => Pays(guerre, n))).Distinct().ToList();
                     break;
                 case "empire":
                     montres = guerre.Terres.Pays.Where(x => x.Ensemble == "Saint-Empire").Select(x => x.Id).ToList();
@@ -150,11 +209,13 @@ namespace ForgeLocal3D.Captures
 
         // Cadre la vue sur les terres données, laisse la carte se régler, vérifie ce qu'elle montre, puis rend la caméra à photographier.
         // `grands` : les pays dont le nom doit se lire ; par défaut, ceux du cadre qui tiennent au moins `TERRES_D_UN_GRAND_PAYS` terres.
-        static IEnumerator Photographier(string cadre, IEnumerable<long> terres, IList<string> grands = null)
+        // `vue` : le centre et la demi-hauteur de la vue de près, au lieu du cadre des terres ; l'atlas n'y est pas exigé. `encore` : les
+        // contrôles propres au cadre, joués une fois la carte réglée.
+        static IEnumerator Photographier(string cadre, IEnumerable<long> terres, IList<string> grands = null, (Vector2 centre, float demi)? vue = null, Action encore = null)
         {
             var (carte, guerre, villes, calques, atlas) = Lire();
             var cadrees = new HashSet<long>(terres); if (cadrees.Count == 0) throw Faux(cadre + " : aucune terre à cadrer");
-            var (centre, demi) = Cadrer(carte, cadrees, ASPECT);
+            var (centre, demi) = vue ?? Cadrer(carte, cadrees, ASPECT);
             carte.camera.rect = new Rect(0, 0, 1, 1); carte.camera.aspect = ASPECT;
             carte.Vue.Changer(ASPECT); carte.Vue.Centrer(centre, demi); carte.Vue.Poser(carte.camera, carte.transform);
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
@@ -169,16 +230,36 @@ namespace ForgeLocal3D.Captures
             var capitales = villes.Capitales; var sansSiege = new HashSet<string>(villes.Introuvables.Select(i => i.pays));
             string sansMarque = string.Join(", ", grands.Where(g => !sansSiege.Contains(g) && !capitales.Any(c => c.pays.Contains(g) && c.figurine.GetComponent<MeshFilter>().sharedMesh.name.StartsWith("Capitale"))).Select(g => guerre.Terres.NomDuPays(g)));
             if (sansMarque.Length > 0) throw Faux(cadre + " : capitales non marquées : " + sansMarque);
-            int capitalesMontrees = capitales.Count(c => c.figurine.gameObject.activeInHierarchy && calques.EtiquetteDe(c.texte)?.enabled == true && cam.pixelRect.Contains((Vector2)cam.WorldToScreenPoint(carte.transform.TransformPoint(c.pied))));
+            var nommees = capitales.Where(c => c.figurine.gameObject.activeInHierarchy && calques.EtiquetteDe(c.texte)?.enabled == true && cam.pixelRect.Contains((Vector2)cam.WorldToScreenPoint(carte.transform.TransformPoint(c.pied)))).Select(c => c.nom).ToList(); int capitalesMontrees = nommees.Count;
             if (capitalesMontrees == 0) throw Faux(cadre + " : aucune capitale montrée et nommée dans le cadre");
-            // Un nom de l'atlas au moins se lit dans le cadre.
+            // Un nom de l'atlas au moins se lit dans un cadre entier.
             var lisibles = atlas.Noms.Where(n => n.Rendu.enabled && n.Opacite > 0f && cam.pixelRect.Contains((Vector2)cam.WorldToScreenPoint(carte.transform.TransformPoint(carte.SurLeSol(n.Trace.Centre.x, n.Trace.Centre.y, 0f))))).Select(n => n.Texte).ToList();
-            if (lisibles.Count == 0) throw Faux(cadre + " : aucun nom de l'atlas ne se lit : " + string.Join(", ", atlas.Noms.Where(n => atlas.SorteDe(n) == AtlasDeCarte.MER).Select(n => n.Texte + " " + n.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px op " + n.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (n.Masque ? " masqué" : "") + (n.Rendu.enabled ? "" : " éteint"))));
-            // Deux pays voisins dans le cadre n'ont pas la même couleur.
-            var presents = new HashSet<string>(guerre.Terres.Terres.Where(t => t.Pays != null && Dans(t.CellId)).Select(t => t.Pays)); int paires = 0;
-            foreach (string a in presents) if (guerre.Couleurs.Voisins.TryGetValue(a, out var voisins)) foreach (string b in voisins.Where(presents.Contains))
-                    { paires++; if (((Color32)guerre.CouleurDuPays(a)).Equals((Color32)guerre.CouleurDuPays(b))) throw Faux(cadre + " : " + guerre.Terres.NomDuPays(a) + " et " + guerre.Terres.NomDuPays(b) + ", voisins, ont la même couleur"); }
+            if (vue == null && lisibles.Count == 0) throw Faux(cadre + " : aucun nom de l'atlas ne se lit : " + string.Join(", ", atlas.Noms.Where(n => atlas.SorteDe(n) == AtlasDeCarte.MER).Select(n => n.Texte + " " + n.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px op " + n.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (n.Masque ? " masqué" : "") + (n.Rendu.enabled ? "" : " éteint"))));
+            // Deux pays voisins dans le cadre, de blocs différents, sont à `ECART_DE_TEINTE_MIN` de teinte au moins.
+            var vues = guerre.Terres.Terres.Where(t => t.Pays != null && Dans(t.CellId)).ToList(); var presents = new HashSet<string>(vues.Select(t => t.Pays)); int paires = 0;
+            string Bloc(string id) => guerre.Terres.NomDuPays(guerre.Couleurs.Racine(id));
+            string Famille(string id) => guerre.Couleurs.FamilleDe(id) is int f && f >= 0 ? SocleInterface.NomsDesFamilles[f] : "sans famille";
+            var confondus = new List<string>();
+            foreach (string a in presents.OrderBy(x => x, StringComparer.Ordinal)) if (guerre.Couleurs.Voisins.TryGetValue(a, out var voisins)) foreach (string b in voisins.Where(x => presents.Contains(x) && string.CompareOrdinal(a, x) < 0).OrderBy(x => x, StringComparer.Ordinal))
+                    {
+                        paires++; if (guerre.Couleurs.Racine(a) == guerre.Couleurs.Racine(b)) continue;
+                        float ecart = CouleursDesPays.EcartDeTeinte(guerre.CouleurDuPays(a), guerre.CouleurDuPays(b));
+                        if (ecart < CouleursDesPays.ECART_DE_TEINTE_MIN) confondus.Add(guerre.Terres.NomDuPays(a) + " (bloc " + Bloc(a) + ", " + Famille(a) + ") et " + guerre.Terres.NomDuPays(b) + " (bloc " + Bloc(b) + ", " + Famille(b) + ") à " + ecart.ToString("0.#", CultureInfo.InvariantCulture) + "°");
+                    }
+            if (confondus.Count > 0) throw Faux(cadre + " : " + confondus.Count + " paire(s) de voisins de blocs différents à moins de " + CouleursDesPays.ECART_DE_TEINTE_MIN.ToString("0", CultureInfo.InvariantCulture) + "° de teinte, " + guerre.Couleurs.Conflits + " conflit(s) de couleur au service : " + string.Join(" ; ", confondus.Take(8)));
             if (paires == 0) throw Faux(cadre + " : aucun voisinage dans le cadre");
+            // Une terre sans pays dans le cadre a le gris neutre, et un nom de région de l'atlas se lit à `PORTEE_DE_REGION_KM` de son centre.
+            var sansPays = guerre.Terres.Terres.Where(t => t.Pays == null && Dans(t.CellId)).ToList(); string sansPaysDit = "aucune terre sans pays";
+            if (sansPays.Count > 0)
+            {
+                if (!((Color32)guerre.CouleurDuPays(null)).Equals((Color32)CouleursDesPays.SansPays)) throw Faux(cadre + " : une terre sans pays n'a pas le gris neutre");
+                var regions = atlas.Noms.Where(n => atlas.SorteDe(n) == AtlasDeCarte.REGION && n.Rendu.enabled && n.Opacite > 0f).ToList();
+                Vector2 Centre(long cellId) { Vector3 v = carte.PositionSurLaCarte(carte.Lue.Cellules.First(x => x.CellId == cellId).Contour[0].Exterieur[0], 0f).Value; return new Vector2(v.x, v.z); }
+                var loin = sansPays.Where(t => !regions.Any(n => (n.Trace.Centre - Centre(t.CellId)).magnitude <= PORTEE_DE_REGION_KM)).Select(t => t.CellId).ToList();
+                if (loin.Count > 0) throw Faux(cadre + " : " + loin.Count + " terre(s) sans pays (" + string.Join(", ", loin.Take(5)) + ") sans nom de région lisible à moins de " + PORTEE_DE_REGION_KM.ToString("0", CultureInfo.InvariantCulture) + " km ; régions lisibles : " + regions.Count);
+                sansPaysDit = sansPays.Count + " terre(s) sans pays, grises, régions lisibles : " + string.Join(", ", regions.Select(n => n.Texte).Take(8));
+            }
+            encore?.Invoke();
             if (cadre == "maghreb-et-zab")
             {
                 var biskra = capitales.SingleOrDefault(c => c.nom == "Biskra");
@@ -189,7 +270,9 @@ namespace ForgeLocal3D.Captures
             var doubles = carte.GetComponentsInChildren<TextMesh>(false).Where(t => calques.EtiquetteDe(t)?.enabled == true).GroupBy(t => t.text).Where(g => g.Count() > 1).Select(g => g.Key + " ×" + g.Count() + " (" + string.Join(" ; ", g.Select(t => t.transform.parent.name)) + ")");
             Debug.Log("CAPTURE carte-politique " + cadre + " : demi " + demi.ToString("0", CultureInfo.InvariantCulture) + " km ; pays lisibles : "
                 + string.Join(", ", grands.Where(noms.ContainsKey).Select(g => guerre.Terres.NomDuPays(g) + " " + noms[g].CorpsPx.ToString("0", CultureInfo.InvariantCulture) + " px")) + " ; capitales montrées " + capitalesMontrees
-                + " ; atlas : " + string.Join(", ", lisibles.Take(12)) + " ; " + paires / 2 + " voisinages ; doubles : " + string.Join(", ", doubles));
+                + " ; capitales nommées : " + string.Join(", ", nommees)
+                + " ; blocs : " + string.Join(", ", vues.GroupBy(t => t.Pays).Where(g => g.Count() >= TERRES_D_UN_GRAND_PAYS || grands.Contains(g.Key)).Select(g => g.Key).GroupBy(guerre.Couleurs.Racine).Select(g => Bloc(g.Key) + " : " + Famille(g.Key)).OrderBy(x => x, StringComparer.Ordinal)) + " (et " + presents.Count(x => vues.Count(t => t.Pays == x) < TERRES_D_UN_GRAND_PAYS && !grands.Contains(x)) + " petits pays)"
+                + " ; " + sansPaysDit + " ; atlas : " + string.Join(", ", lisibles.Take(12)) + " ; " + paires + " voisinages ; doubles : " + string.Join(", ", doubles));
             yield return cam;
         }
 

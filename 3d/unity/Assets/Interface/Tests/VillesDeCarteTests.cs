@@ -172,7 +172,8 @@ namespace Forge.Interface.Tests
             Assert.That(europe.Calques.EtiquetteDe(c.texte)?.enabled, Is.True, "le nom de Biskra n'est pas montré");
         }
 
-        // Une capitale passe avant les villes, jamais avant un nom de pays lisible.
+        // Une capitale passe avant les villes et devant le nom d'un pays : le nom se pose à côté d'elle, et aucune capitale nommée
+        // n'est sous une lettre d'un nom de pays lisible.
         [Test] public void Une_capitale_montree_ne_recouvre_pas_un_nom_de_pays_lisible()
         {
             Vector2 Ici(string pays) { var c = CapitaleDe(pays); return new Vector2(c.pied.x, c.pied.z); }
@@ -187,6 +188,66 @@ namespace Forge.Interface.Tests
             Assert.That(montrees, Is.GreaterThan(0), "échantillon vide : aucune capitale montrée");
             // Paris, capitale de la France, se montre sur la vue de la France.
             europe.Voir(Ici("puissance-3"), 450f); Assert.That(europe.Calques.EtiquetteDe(CapitaleDe("puissance-3").texte)?.enabled, Is.True, "la capitale de la France n'est pas nommée sur sa vue");
+        }
+
+        // Le cadre d'un pays : ses terres, sans celles qui sont loin du gros (Caffa, que tient Gênes), et sa capitale, qui peut être hors
+        // d'elles (Barcelone, siège de la maison de la Sicile) ; avec assez de recul pour que son nom s'y lise, son corps au plus à
+        // `PART_DE_L_ECRAN` de la hauteur de l'écran.
+        const float PART_DE_L_ECRAN = 0.06f, ASPECT = 1600f / EuropeDeCarte.ECRAN_PX;
+        (Vector2 centre, float demi) Cadre(string pays, float corps, Vector2 capitale)
+        {
+            var cellules = europe.Carte.Lue.Cellules.Where(c => Terres.PaysDe(c.CellId) == pays).ToList(); Assert.That(cellules, Is.Not.Empty, pays + " ne tient aucune terre");
+            Vector2 Centre(CelluleDeCarte c) => europe.Ici(c.Contour[0].Exterieur[0]);
+            var xs = cellules.Select(c => Centre(c).x).OrderBy(x => x).ToList(); var zs = cellules.Select(c => Centre(c).y).OrderBy(z => z).ToList();
+            var median = new Vector2(xs[xs.Count / 2], zs[zs.Count / 2]); var distances = cellules.Select(c => (Centre(c) - median).magnitude).OrderBy(d => d).ToList();
+            float portee = 1.6f * distances[Mathf.Min(distances.Count - 1, (int)(0.8f * distances.Count))] + 1f;
+            var points = cellules.Where(c => (Centre(c) - median).magnitude <= portee).SelectMany(c => c.Contour.SelectMany(p => p.Exterieur)).Select(europe.Ici).ToList(); points.Add(capitale);
+            Vector2 min = new Vector2(points.Min(p => p.x), points.Min(p => p.y)), max = new Vector2(points.Max(p => p.x), points.Max(p => p.y));
+            float demi = Mathf.Max((max.y - min.y) / 2f, (max.x - min.x) / 2f / ASPECT) * 1.06f;
+            return ((min + max) / 2f, Mathf.Max(demi, corps / (2f * PART_DE_L_ECRAN)));
+        }
+        // La place qu'aurait l'étiquette d'une capitale à l'écran, comme les calques la posent : centrée sur son nom posé.
+        Rect PlaceDeLEtiquette(TextMesh texte, UnityEngine.UI.Text etiquette)
+        {
+            Vector3 ecran = europe.Carte.camera.WorldToScreenPoint(texte.transform.position); float largeur = etiquette.preferredWidth, hauteur = 1.3f * etiquette.fontSize;
+            return new Rect(ecran.x - largeur / 2f - 3f, ecran.y - hauteur / 2f - 2f, largeur + 6f, hauteur + 4f);
+        }
+
+        // Chaque pays vu à l'échelle où il remplit l'écran, ou d'assez loin pour que son nom se lise : sa capitale y est nommée, et son nom
+        // se lit encore. La capitale passe devant le nom d'un pays plus petit que lui, qui se pose à côté d'elle ou se réduit. Seule
+        // exception, comptée : une capitale qu'une autre capitale montrée recouvre. La Navarre, plus petite que son nom, en est la contre-épreuve.
+        const string NAVARRE = "puissance-7";
+        [Test] public void La_capitale_de_chaque_pays_se_lit_quand_le_pays_remplit_l_ecran()
+        {
+            var noms = europe.Guerre.NomsDesPays.ToDictionary(n => n.Pays); var tenants = new HashSet<string>(Terres.Terres.Select(t => t.Pays).Where(p => p != null));
+            var pays = Terres.Pays.Select(p => p.Id).Where(id => tenants.Contains(id) && noms.ContainsKey(id) && europe.Villes.Capitales.Any(c => c.pays.Contains(id))).OrderBy(id => id, System.StringComparer.Ordinal).ToList();
+            Assert.That(pays.Count, Is.GreaterThan(50), "échantillon vide : trop peu de pays nommés à la capitale placée"); Assert.That(pays, Does.Contain(NAVARRE), "échantillon vide : la Navarre n'a pas de capitale placée");
+            var fautes = new List<string>(); var couvertes = new List<string>(); int deplaces = 0;
+            foreach (string id in pays)
+            {
+                NomCourbe nom = noms[id]; var c = CapitaleDe(id); var (centre, demi) = Cadre(id, europe.Guerre.Ecriture.CorpsDOrigine(nom), new Vector2(c.pied.x, c.pied.z)); europe.Voir(centre, demi);
+                var etiquette = europe.Calques.EtiquetteDe(c.texte); bool nommee = etiquette != null && etiquette.enabled;
+                if (!nommee && etiquette != null && (!c.figurine.gameObject.activeInHierarchy || europe.Calques.PlacesDesCapitales.Any(r => r.Overlaps(PlaceDeLEtiquette(c.texte, etiquette)))))
+                { couvertes.Add(Terres.NomDuPays(id) + " (" + c.nom + ")"); continue; }
+                bool lisible = !nom.Masque && nom.Opacite > 0f;
+                // Un nom qui s'écarte de sa capitale reste sur la terre de son pays : il ne s'écrit jamais sur un voisin.
+                if (europe.Guerre.Ecriture.VarianteDe(nom) != (0, 0f))
+                {
+                    deplaces++; TerrainDeCarte terrain = europe.Carte.Terrain; int dehors = 0;
+                    for (int i = 0; i < nom.Ecrit.Length; i++)
+                    {
+                        if (char.IsWhiteSpace(nom.Ecrit[i])) continue; Vector2 p = nom.Compose.Lettres[i].Point; ushort n = terrain.LieuEn(p.x, p.y);
+                        if (n == 0 || Terres.PaysDe(europe.Carte.Lue.Cellules[terrain.CelluleDuLieu(n - 1)].CellId) != id) dehors++;
+                    }
+                    if (dehors > NomsCourbes.LETTRES_HORS_DE_SA_TERRE) fautes.Add(Terres.NomDuPays(id) + " : son nom écarté de " + c.nom + " a " + dehors + " lettres hors de sa terre");
+                }
+                if (!nommee || !lisible) fautes.Add(Terres.NomDuPays(id) + " à " + demi.ToString("0") + " km : " + (nommee ? "" : c.nom + " non nommée ; ") + (lisible ? "nom lisible" : "nom illisible") + " (" + nom.CorpsPx.ToString("0") + " px)");
+            }
+            Assert.That(deplaces, Is.GreaterThan(0), "échantillon vide : aucun nom ne s'est écarté de sa capitale");
+            TestContext.WriteLine(pays.Count + " pays vus, " + deplaces + " noms écartés de leur capitale, " + couvertes.Count + " capitales couvertes par une autre : " + string.Join(", ", couvertes));
+            Assert.That(fautes, Is.Empty, fautes.Count + " pays sur " + pays.Count + " : " + string.Join(" ; ", fautes));
+            Assert.That(couvertes.Count, Is.LessThan(pays.Count / 5), "trop de capitales couvertes par une autre : " + string.Join(", ", couvertes));
+            Assert.That(couvertes.Any(n => n.StartsWith(Terres.NomDuPays(NAVARRE))), Is.False, "Pampelune est couverte par une autre capitale : la contre-épreuve ne prouve rien");
         }
 
         // Sans siège servi pour sa maison, l'Angleterre n'a pas de capitale : Londres ne se devine pas, elle se déclare.

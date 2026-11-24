@@ -44,7 +44,7 @@ namespace Forge.Interface
         public NomsCourbes Ecriture => ecriture;
         public IReadOnlyList<TextMesh> NombresDesArmees => nombres;
 
-        CarteDessinee carte; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
+        CarteDessinee carte; VillesDeCarte villes; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
         Task<(VoisinageDeCarte voisinage, List<(long, long, long, long)> lieux)> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
         string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin; Mesh enMarche, auSiege;
@@ -68,10 +68,13 @@ namespace Forge.Interface
                 places.Add(new Vector3(ecran.x, ecran.y, FormesDeCarte.RAYON_DE_L_ARMEE_KM * FormesDeCarte.EchellePourLEcran(camera, armee.position, FormesDeCarte.RAYON_DE_L_ARMEE_KM, MIN_PX) / kmParPixel));
             }
         }
-        // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image.
+        // Les noms des pays se règlent sur la vue du moment : une fois la caméra posée pour l'image. Ils évitent d'abord les capitales
+        // montrées à l'image d'avant (`VillesDeCarte.EmprisesDesCapitales`) : une capitale passe devant le nom d'un pays.
         public void SuivreLaVue()
         {
             if (carte == null) return;
+            if (villes == null) villes = GetComponent<VillesDeCarte>();
+            if (NomsMontres) ecriture?.Eviter(carte.camera, villes != null ? villes.EmprisesDesCapitales : null);
             ecriture?.Suivre(carte.camera);
             if (racineDesArmees == null || carte.camera == null) return;
             foreach (Transform armee in racineDesArmees)
@@ -186,7 +189,7 @@ namespace Forge.Interface
             CotesDeFrontiere = n;
         }
 
-        // Un nom par pays, et sa maison en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
+        // Un nom par pays, et sa maison puis son suzerain en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
         // pays servi de chaque terre, et se refait donc quand une terre change de pays.
         void NommerLesPays()
         {
@@ -196,9 +199,13 @@ namespace Forge.Interface
             var pays = new int[carte.Lue.Cellules.Count];
             for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
             Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
+            // Un nom qui s'écarte d'une capitale reste sur la terre de son pays, lue comme son tracé : le pays de la cellule du lieu sous le point.
+            TerrainDeCarte terrain = carte.Terrain; var paysDesRangs = pays; var parRang = Terres.Pays.Select(p => p.Id).ToList();
+            ecriture.SurSaTerre = (id, p) => { ushort n = terrain.LieuEn(p.x, p.y); if (n == 0) return false; int k = paysDesRangs[terrain.CelluleDuLieu(n - 1)]; return k >= 0 && parRang[k] == id; };
             // Le nom servi du pays, jamais un nom de remplacement : un pays que le monde ne nomme pas n'a pas de nom sur la carte.
             // En petit dessous, celui de sa maison quand il diffère.
-            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom, p.Maison?.Nom, traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
+            // Un vassal porte aussi, plus petit, « vassal de » son suzerain, tel que le monde le nomme.
+            ecriture.Ecrire(Terres.Pays.Select((p, k) => (p.Id, p.Nom, p.Maison?.Nom, Terres.NomDuPays(p.Suzerain), traces.TryGetValue(k, out TraceDeNom trace) ? trace : null)));
             SuivreLaVue();
         }
 
