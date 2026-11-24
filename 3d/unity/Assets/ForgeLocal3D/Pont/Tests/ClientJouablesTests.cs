@@ -66,7 +66,7 @@ namespace Forge.Pont.Tests
             CollectionAssert.AreEqual(new[] { "GET /jouables []" }, Recues());
             Assert.IsTrue(lecture.Presente && lecture.Absence == null, lecture.Absence);
             Egales(lus, texte);
-            Assert.IsTrue(lus.Tick == 0 && lus.Date.Annee == 1400 && lus.Date.JourDeLAnnee == 1 && lus.Fiches.Count == 2253);
+            Assert.IsTrue(lus.Tick == 0 && lus.Date.Annee == 1400 && lus.Date.JourDeLAnnee == 1 && lus.Fiches.Count == 2240);
             CollectionAssert.AreEqual(new[] { "seigneurie-1", "seigneurie-2", "seigneurie-3", "seigneurie-4", "seigneurie-5", "seigneurie-6" }, lus.Fiches.Take(6).Select(f => f.Id).ToArray());
             FicheJouable bar = lus.Fiches[0];
             Assert.IsTrue(bar.Nom == "Bar" && bar.Sorte == "seigneurie" && bar.Lieux == 4 && bar.Pays.Id == "seigneurie-1" && bar.Pays.Nom == "Duché de Bar" && bar.Regne.Count == 1 && bar.Regne[0].Id == "seigneurie-1");

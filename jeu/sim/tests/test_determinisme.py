@@ -1010,18 +1010,24 @@ def test_noms_purete_et_tick(monkeypatch):
 # couches et elles seules : le registre (32 maisons plausibles neuves, 24 retirées, le suzerain de 242 maisons)
 # et le maître de 100 lieux de dix cellules partagées. Aucune cellule ne change hors du maître de ses lieux :
 # population, stocks, bassin, tirages et retours sont ceux d'avant.
+# Les dix pays attestés qui remplacent des terres sans pays changent encore, à chaque point et pour les deux
+# graines, ces deux couches et elles seules : le registre (huit grandes maisons et deux institutions neuves,
+# 22 maisons plausibles neuves, 43 retirées, le suzerain de 26) et le maître de 119 lieux de onze cellules
+# (Bologne, Padoue, Rimini, l'Arborée, Raguse, la Zeta, l'Épire, Vonitsa des Tocco, Céphalonie, Naxos, Tripoli).
+# Le siège des Tocco au château de Saint-Georges, capitale de Céphalonie (Agios Georgios, et non plus
+# Argostoli), ne change que le document public, par le siège de leur fiche du registre : l'état physique est le même.
 # Le mieux-vivre au rythme de l'année ajoute à chaque lieu son report de départ (seule différence au point 0),
 # puis ne déplace plus les foyers que l'ancien taux quotidien faisait partir dès le premier jour : au point 1,
 # la population de 218 lieux (214 pour la graine 42) et de deux cellules, leurs métiers et 117 (115) reports non
 # nuls ; au point 3, avec 655 (653) lieux, ce qui suit les bouches : stocks, dettes, commerce, bassin et retours.
 # Les tirages sont inchangés.
 _PART_BASE = {
-    (0, 0): ('f1ff2c0889387485c51245d6f7515ed5b149e5f07764b993f513c632f5ea6954', '7d193f29a3097ef5d0f205d04419906aec44cd1b9974882d8d41be98fe8957f7'),
-    (0, 1): ('ff3093a54ef36d449abee33843100583eef4573fa6b822d396113ddeeb610c18', 'c14478a306e3e7f1209e5368241c3ccb3a1853750584a0e5225aab865c903890'),
-    (0, 3): ('711de786f1d56c9ce49607eae5e36f3b613dd6b09b715a70f951d24b81dc304d', 'fde36df1a3aa9435913bfbbf7286ffaf90fe2254921fe1c69966bc09661700ec'),
-    (42, 0): ('3f9c67e8ecb9121f3de78a4c3552db1b9c3324207719cdc4c01686d10a868d6c', 'b1e8dfbe984d7c97ba0222c55f62154afc60355a6bc1c1143d225c120df9d1e9'),
-    (42, 1): ('c94b24b3d96935d62bbb5079d9bad326ee1e5adf04448dfba783b9b2674ff2e1', 'e63a9e0db8aa64a62a2a9dcf3044d8515ed30657f1f301635297de28abd26c28'),
-    (42, 3): ('e97d30bc36e9e46bedef68bb0587672a74f8b05e3a4e201d5bdfe45636fe16d1', '1862f2d6aaafa5e726d01a209c86daa3e7381de57384b1581bbf263af6abda5b'),
+    (0, 0): ('da0b04bbc16955819a85d8749fc52f42069d1b5e9504784bffbb821995374bf5', '550f9d0bca4a5eaf0e8dc5554c305feee9728a857018e2443ff3185a3033c320'),
+    (0, 1): ('3d85aebf6a686f9f722bb1066a6754c0e4b20a136ec4f18b124905e030bacf57', '2b13ed0c742e76bff9828aefba287d6b5293ff046dc2122c07a0379e0a322e62'),
+    (0, 3): ('8ca36f0de41ad1a100139607e1195c05dad058bd91bb4da88069fa18489b4dc9', '9a2ab56ef546dc96ea471c58b4866d14feb052a91a01cec7269230bc1da9a57e'),
+    (42, 0): ('e02ab87d40a9c137ff09b6a6ae3baf0f425b0b8bb7669dac6df8740a637bf513', 'd920cf811dc88e1098df1cc96f326377a0646cb90aa2ab68b611a1439b3ff281'),
+    (42, 1): ('6375dcf1ce25f91278fa0bd3604fea785b2a7bfbfd0640391668bfeb935cbff4', 'dcdcd42f567b66ea7364fec35ca5833a2e51a9d9070164536e1c2ba4cac81940'),
+    (42, 3): ('f16f3837fe0f72ba0b551c8ccac9932be61c9bd47994c951642e9fbc8a0bf3bd', 'a8b881905abf6bc08961059e652ca19dfd19c8d8ec38a07994e9d95826baf994'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1056,16 +1062,20 @@ def test_part_bit_pres(monkeypatch):
 # suzerains) et le maître de 100 lieux ; et, avec les maîtres, les greniers (32 neufs, 24 retirés, et aux points
 # 3 et 20 le contenu de 10 puis de 16 greniers) et les convois (le total de 9 groupes sur 12 au point 1, de 9
 # sur 14 ensuite). Les cellules, le bassin, les tirages et les retours sont inchangés.
+# Les dix pays attestés qui remplacent des terres sans pays changent, à chaque point, le registre (+32 et −43
+# maisons, 26 suzerains) et le maître de 119 lieux de onze cellules ; et, avec les maîtres, les greniers (32
+# neufs, 43 retirés) et les convois qui les remplissent. Les cellules, le bassin, les tirages et les retours
+# sont inchangés.
 # Le mieux-vivre au rythme de l'année change les mêmes couches que pour `_PART_BASE` aux points 1 et 3 ; au
 # point 20, la population de 3 133 lieux (3 128) et de 225 cellules (232), leurs métiers et ce qui en découle,
 # jusqu'à deux greniers, aux convois et aux cumuls mangé et perdu. Les tirages sont inchangés.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('fe54e7b999c71158534df18c010b34c71a4485408a4626ab62d95b49a8dfe6c8', '70a6e636a9cfdecdd5044b00b95f292b5781cb5b8bc975336d444f7801fb65c9'),
-    (0, 3): ('c8a50ae854511a2c01aed633c00a68fd978d437d19ff220065529e2e7f098cb8', '1cf623e01432b6751cdf9911fba48f02df90ed9a31f632544ed312347a716b05'),
-    (0, 20): ('fb0451964178ee4048f181376c405ebb6de1f38b83d08bc3dc75bb12ce6a97ac', 'de40e497c4a72c4cc8147d29792d4297fbe6ae2bbf2b27bca7569b6b493ae19d'),
-    (42, 1): ('73d1e83de670094265c3b9bdedbc2ac6632e2c1478a31a51d5f0a3568f7577d8', '4ae28f77b65162dac213a6dc7ed674a42ad47aacb18b82a165bd3e9044cda736'),
-    (42, 3): ('d33cde77b4c6905d6cf846e6eefb00d9fcf3640bc5fb8db2a99cccac7a1e443a', '42127b5d1ecffc7b914e2b51c45a0570e2dbe134be98cf9ec4b7686bcc316402'),
-    (42, 20): ('a73ba212686595dadb88426af72c14a303087918c303cd9256cac15f8720f176', 'e909fb82efdbe4d4ef5ce81b5d7600f0557d94a4c8c8ab341ac0dbbb234004ca'),
+    (0, 1): ('0738b6421a0ed2e4bef3f4c05e01bb636652179386588b79e4e942493a4bd189', 'c1f83c1a70d4b28a8d2dc91096764912a003c928d08fdbaf4eee9b38acdf2937'),
+    (0, 3): ('52a3a1568f45fc6ac7d6b8c71b9c7f003c4f59a850ec8c605b8f929c3b07e220', '26f753621ac5043db81d3036c573d201b0d4300ea3ef8f7dd63ca5b302dd1835'),
+    (0, 20): ('4bfce82ba46d9db355d8940484fc00e3994cb86388ba7edd45bbdf94262e95a0', '8901c4e8068ac9fa44bba08e5ade2aa7c506853b8b6e4ba52f1b070c29613bae'),
+    (42, 1): ('47c51803b18cda00ad98e81d1b86609152198cc64b5849a28452be23d2c385a9', '2622fc922136d0390266f2ed9c767c3d8969021d4d9b3a851d1e2682e63245f0'),
+    (42, 3): ('0ff4a5194f0761640c6a912afa51cdf0bff41198ef5b47bcc66448e2a83637cf', '0e7a9f066a6fb3a8ed0825e4473874f94fde6cfba128a47a1862081471181254'),
+    (42, 20): ('10dd6b25351c9940b0ca0acc7f2ac96487d774d59858c9e7279568a57adf0089', 'bf2b254a547965d39a67cff786b0b0446671b460cd2e8e208ae1ecbfffdf48a2'),
 }
 
 
@@ -1128,13 +1138,16 @@ def test_prelevement_bit_pres(monkeypatch):
 # l'Empire, au Nord et à l'Est. Ceux des Balkans, de l'Orient et du Maghreb changent, aux points 3 et 20,
 # le contenu de 187 puis de 201 greniers (32 neufs, 24 retirés) et les convois (76 groupes au lieu de 72 au
 # point 3, 99 au lieu de 111 au point 20, tous de total différent), avec le registre et le maître de 100 lieux ;
-# les cellules, le bassin, les tirages et les retours sont inchangés.
+# les cellules, le bassin, les tirages et les retours sont inchangés. Les dix pays attestés qui remplacent des
+# terres sans pays changent de même, aux points 3 et 20, le registre (+32 et −43 maisons, 26 suzerains), le
+# maître de 119 lieux de onze cellules, les dus de leurs vassaux, les greniers et les convois ; les cellules,
+# le bassin, les tirages et les retours sont inchangés.
 # Le mieux-vivre au rythme de l'année y change les mêmes couches qu'au monde avec prélèvement, aux mêmes points.
 _DU_BASE = {
-    (0, 3): ('97c0119795eb37d25e296f3d2a739ae8cbb22799f09b45d71aa123a4a43393da', '28a0b00a5097815aa4e5fb6f4c22e4265554a5e06fb453bc45f8f25e5d9de3f2'),
-    (0, 20): ('e583226c72da8e9921cfb96f3ede6281bc703e6f10558a7a04bbb0b0ac51e1bb', '634ee556426e54ec617e6235572d3788771df3c9145da2ceb04f2fb8f80f92c3'),
-    (42, 3): ('8776d73d3b0218e8797f0b4fa3cee6c78a345f235992781b31e28ec2f9b56f3b', 'e649d69c904fb407d209970e0c07e926d6065a520c68d23d73bab0f6908f71c1'),
-    (42, 20): ('0e3fce0c3d4cafec62f4503cd5ea913d518587ff9fd723b8953c93fa2591c08a', 'ebb088d13984af3ceac4caed31d475b38830a77d346123e017a7fd62596cccae'),
+    (0, 3): ('5ecea62be344db8da9bd0cdb1d60b0c382069de8f04a4c1d57c5e6eed3f71800', '7378f42290347f7ac56461f74012643cf666d017f22774585c87d470d5c6ebb8'),
+    (0, 20): ('55efe2888a65440f0d87ac2b09be08af509efc4de08817e447bcea567442beb2', '900eeef68ba34407bb38a38d226f2df08ef313f2efe4a480e837f2ae6d84b4fa'),
+    (42, 3): ('e5b19fa3a1a7a2b93095335041fdd0080b384a4c7e6d4e39244a8eff6c101554', '410093186fc4144a837a7b3e35c4158a723143502bb8991ef36a26f43f086b58'),
+    (42, 20): ('e6303495416922681b9d9660b7c82bdf681ec74b613a66e90face1eee91b8832', '25c73055af7d91751a8bb16b070922b1f95672bb83951ebd037a6dd2880d972a'),
 }
 
 

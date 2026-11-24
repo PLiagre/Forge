@@ -6,7 +6,9 @@ de la carte qu'elle ne décide pas est refusée. Une cellule que deux pays se pa
 ville par pays ; chaque lieu de la cellule va au pays de la ville la plus proche de sa place
 (`sim/places.py`), et la puissance de la cellule est celle de son bourg. Une ville de partage sans
 pays (`pays: null`, avec sa raison) laisse ses lieux sans pays. Une cellule en lacune n'a pas de
-pays. Rien ne se pose sur le monde, et le tick ne lit pas cette vue.
+pays. Chaque lacune et chaque ville sans pays nomment leur terre sans État, une région que la table
+déclare avec son nom et sa raison : un lieu sans pays est un lieu de sa terre sans État. Rien ne se
+pose sur le monde, et le tick ne lit pas cette vue.
 """
 import dataclasses
 import json
@@ -21,7 +23,8 @@ from sim.villes import point_dans_geometrie
 
 _CHEMIN = pathlib.Path(__file__).resolve().parents[1] / "data" / "frontieres-1400.json"
 _DATE = "1400-01-01"
-_CLES = frozenset({"date", "fidelite", "regions", "pays", "partages", "lacunes", "petits_pays", "temoins"})
+_CLES = frozenset({"date", "fidelite", "regions", "pays", "partages", "lacunes", "terres_sans_etat",
+                   "petits_pays", "temoins"})
 # Un partage met au moins deux pays dans la cellule, la ville sans pays comptant pour un.
 PAYS_MIN_D_UN_PARTAGE = 2
 
@@ -34,6 +37,16 @@ class VilleDePartage(_NoBadSpatialField):
     pays: int | None
     source: str
     raison: str | None
+    # La terre sans État d'une ville sans pays ; `None` pour une ville qui a son pays.
+    terre: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class TerreSansEtat(_NoBadSpatialField):
+    """Une région sans pays de la table, sous un seul nom : ses seigneurs restent maîtres de leurs lieux."""
+    id: str
+    nom: str
+    raison: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,6 +69,8 @@ class TableDesFrontieres(_NoBadSpatialField):
     lacunes: dict     # cell_id → raison
     petits_pays: tuple  # (nom, raison) des pays plus petits que deux lieux
     temoins: tuple
+    terres_sans_etat: dict = dataclasses.field(default_factory=dict)  # id → TerreSansEtat, triées
+    terres_des_lacunes: dict = dataclasses.field(default_factory=dict)  # cell_id → id de sa terre
 
     def declarees(self) -> frozenset:
         """Les cellules que la table décide : un pays, un partage ou une lacune."""
@@ -145,19 +160,25 @@ def charger_frontieres(path=None, table=None, carte=None, partielle=False) -> Ta
                 pays = _pays_connu(pays, "partage", cid, connus)
             raison = (_texte(ville.get("raison"), "partage", cid, f"villes.{nom}.raison")
                       if pays is None else None)
+            if pays is not None and "terre" in ville:
+                raise PuissanceInvalide(f"partage {cid}, champ villes.{nom}.terre : terre sur une ville qui a son pays")
+            terre = (_texte(ville.get("terre"), "partage", cid, f"villes.{nom}.terre")
+                     if pays is None else None)
             lieu = VilleDePartage(nom, _nombre(ville.get("lat"), cid, "lat", "partage"),
                                   _nombre(ville.get("lon"), cid, "lon", "partage"), pays,
-                                  _texte(ville.get("source"), "partage", cid, f"villes.{nom}.source"), raison)
+                                  _texte(ville.get("source"), "partage", cid, f"villes.{nom}.source"), raison, terre)
             villes.append(lieu)
         if len({v.pays for v in villes}) < PAYS_MIN_D_UN_PARTAGE:
             raise PuissanceInvalide(f"partage {cid}, champ villes : au moins deux pays attendus")
         partages[cid] = tuple(villes)
 
-    lacunes = {}
+    lacunes, terres_des_lacunes = {}, {}
     for brute in _liste(document, "lacunes"):
         brute = _ligne(brute, "lacune", None)
         cid = _cellule(brute.get("cell_id"), "lacune", vues)
         lacunes[cid] = _texte(brute.get("raison"), "lacune", cid, "raison")
+        terres_des_lacunes[cid] = _texte(brute.get("terre"), "lacune", cid, "terre")
+    terres = _terres_sans_etat(document, terres_des_lacunes, partages)
 
     petits, noms_vus = [], set()
     for brute in _liste(document, "petits_pays"):
@@ -185,9 +206,40 @@ def charger_frontieres(path=None, table=None, carte=None, partielle=False) -> Ta
         raise PuissanceInvalide("frontières, champ temoins : liste vide")
     if carte is not None:
         cellules, partages, lacunes = _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle)
+    terres_des_lacunes = {cid: terre for cid, terre in terres_des_lacunes.items() if cid in lacunes}
     return TableDesFrontieres(_DATE, lues, dict(sorted(cellules.items())), dict(sorted(sources.items())),
                               dict(sorted(partages.items())), dict(sorted(lacunes.items())),
-                              tuple(sorted(petits)), tuple(sorted(temoins, key=lambda t: t.nom)))
+                              tuple(sorted(petits)), tuple(sorted(temoins, key=lambda t: t.nom)),
+                              terres, dict(sorted(terres_des_lacunes.items())))
+
+
+def _terres_sans_etat(document, terres_des_lacunes, partages) -> dict:
+    """Lit les terres sans État ; refuse une terre en double, sans nom ni raison, une terre citée par
+    une lacune ou une ville mais non déclarée, et une terre déclarée que rien ne cite."""
+    terres = {}
+    for brute in _liste(document, "terres_sans_etat"):
+        brute = _ligne(brute, "terre sans État", None)
+        identifiant = _texte(brute.get("id"), "terre sans État", brute.get("id"), "id")
+        if identifiant in terres:
+            raise PuissanceInvalide(f"terre sans État {identifiant!r}, champ id : déclarée deux fois")
+        terres[identifiant] = TerreSansEtat(
+            identifiant, _texte(brute.get("nom"), "terre sans État", identifiant, "nom"),
+            _texte(brute.get("raison"), "terre sans État", identifiant, "raison"))
+    citees = set()
+    for cid, terre in sorted(terres_des_lacunes.items()):
+        if terre not in terres:
+            raise PuissanceInvalide(f"lacune {cid}, champ terre : terre sans État inconnue {terre!r}")
+        citees.add(terre)
+    for cid, villes in sorted(partages.items()):
+        for ville in villes:
+            if ville.terre is not None and ville.terre not in terres:
+                raise PuissanceInvalide(f"partage {cid}, champ villes.{ville.nom}.terre : "
+                                        f"terre sans État inconnue {ville.terre!r}")
+            citees.add(ville.terre)
+    for identifiant in sorted(terres):
+        if identifiant not in citees:
+            raise PuissanceInvalide(f"terre sans État {identifiant!r}, champ id : citée par aucune lacune ni ville")
+    return dict(sorted(terres.items()))
 
 
 def _juger_contre_la_carte(cellules, partages, lacunes, carte, partielle):
@@ -230,24 +282,30 @@ def maison_du_bourg(monde, cell_id):
 
 
 def pays_de_la_place(place, villes):
-    """Le pays de la ville de partage la plus proche de la place, dans le plan EPSG:3035 ;
-    à égalité exacte, la première déclarée. Une ville sans pays rend `None`."""
+    """Le pays de la ville de partage la plus proche de la place (`ville_de_la_place`). Une ville
+    sans pays rend `None`."""
+    return ville_de_la_place(place, villes).pays
+
+
+def ville_de_la_place(place, villes):
+    """La ville de partage la plus proche de la place, dans le plan EPSG:3035 ; à égalité exacte,
+    la première déclarée."""
     meilleure = None
     for indice, ville in enumerate(villes):
         x, y = projeter_epsg3035(ville.lat, ville.lon)
         ecart_x, ecart_y = place.x_m - x, place.y_m - y
         cle = (ecart_x * ecart_x + ecart_y * ecart_y, indice)
         if meilleure is None or cle < meilleure[0]:
-            meilleure = (cle, ville.pays)
+            meilleure = (cle, ville)
     return meilleure[1]
 
 
-def puissances_des_lieux(monde, table=None, frontieres=None) -> dict:
-    """(cell_id, rang) → pays de chaque lieu d'une cellule partagée, ou `None` sans pays.
+def villes_des_lieux(monde, table=None, frontieres=None) -> dict:
+    """(cell_id, rang) → ville de partage la plus proche de chaque lieu d'une cellule partagée.
 
     Les places sont celles du chargement : le bourg au siège de `maison_du_bourg`, sinon à la plus
-    grande ville placée, et les autres rangs par le tirage de `places_de_cellule`. Hors des cellules
-    partagées, un lieu a le pays de sa cellule : il n'est pas dans ce dictionnaire."""
+    grande ville placée, et les autres rangs par le tirage de `places_de_cellule`. Le pays et la terre
+    sans État des lieux partagés se lisent sur ce seul passage."""
     table = charger_table() if table is None else table
     frontieres = frontieres_du_monde(monde, table) if frontieres is None else frontieres
     partagees = [cid for cid in frontieres.partages if cid in monde.cells]
@@ -260,8 +318,32 @@ def puissances_des_lieux(monde, table=None, frontieres=None) -> dict:
         places = places_de_cellule(cid, monde.carte.get(cid), surfaces,
                                    sieges.get(maison_du_bourg(monde, cid)), villes.get(cid))
         for rang, place in enumerate(places):
-            resultat[cid, rang] = pays_de_la_place(place, frontieres.partages[cid])
+            resultat[cid, rang] = ville_de_la_place(place, frontieres.partages[cid])
     return resultat
+
+
+def puissances_des_lieux(monde, table=None, frontieres=None, villes=None) -> dict:
+    """(cell_id, rang) → pays de chaque lieu d'une cellule partagée, ou `None` sans pays : celui de sa
+    ville de partage la plus proche (`villes_des_lieux`, qui se repasse quand elle est déjà lue).
+    Hors des cellules partagées, un lieu a le pays de sa cellule : il n'est pas dans ce dictionnaire."""
+    villes = villes_des_lieux(monde, table, frontieres) if villes is None else villes
+    return {couple: ville.pays for couple, ville in villes.items()}
+
+
+def terres_des_lieux(monde, table=None, frontieres=None, villes=None) -> dict:
+    """(cell_id, rang) → terre sans État de chaque lieu du monde sans pays : tous les lieux d'une
+    lacune vont à sa terre, ceux d'une cellule partagée à la terre de leur ville sans pays. Un lieu
+    qui a un pays n'est pas dans ce dictionnaire."""
+    table = charger_table() if table is None else table
+    frontieres = frontieres_du_monde(monde, table) if frontieres is None else frontieres
+    villes = villes_des_lieux(monde, table, frontieres) if villes is None else villes
+    resultat = {}
+    for cid, terre in frontieres.terres_des_lacunes.items():
+        if cid in monde.cells:
+            for lieu in lieux_de_cellule(cid, monde.cells[cid].area_km2):
+                resultat[cid, lieu.rang] = terre
+    resultat.update({couple: ville.terre for couple, ville in villes.items() if ville.pays is None})
+    return dict(sorted(resultat.items()))
 
 
 def decisions_des_frontieres(monde, table=None, frontieres=None, lieux=None) -> dict:

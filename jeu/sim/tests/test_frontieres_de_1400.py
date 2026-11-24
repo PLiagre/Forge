@@ -27,13 +27,15 @@ import sim.constants as constantes
 import sim.frontieres as frontieres_module
 import sim.puissances as puissances_module
 from sim.carte_servie import habitants_des_pays, terres_et_pays, terres_pays_et_lieux
-from sim.frontieres import charger_frontieres, decisions_des_frontieres, maison_du_bourg, puissances_des_lieux
+from sim.frontieres import (
+    charger_frontieres, decisions_des_frontieres, maison_du_bourg, puissances_des_lieux, terres_des_lieux,
+)
 from sim.jouables import maisons_jouables
 from sim.maisons import charger_maisons, maisons_depuis_monde
 from sim.maitres import AttributionInvalide, attribuer_maitres, valider_attribution
 from sim.noms import noms_depuis_monde
 from sim.pays_servis import (
-    SourcesDesPays, fiches_des_pays, identifiant_de_puissance, pays_des_lieux, pays_des_terres,
+    SourcesDesPays, fiches_des_pays, identifiant_de_puissance, identifiant_de_terre, pays_des_lieux, pays_des_terres,
     puissance_du_lieu, tete_de_puissance,
 )
 from sim.places import places_du_monde
@@ -49,15 +51,15 @@ from sim.world import World
 TEMOINS_NOMMES = {
     "ouest": ("Paris", "Rouen", "Toulouse", "Bordeaux", "Nantes", "Dijon", "Bruges", "Londres", "Édimbourg",
               "Dublin", "Lisbonne", "Séville", "Pampelune", "Barcelone", "Grenade", "Milan", "Venise", "Gênes",
-              "Florence", "Rome", "Naples", "Palerme"),
+              "Florence", "Rome", "Naples", "Palerme", "Bologne", "Padoue", "Oristano", "Rimini"),
     "empire": ("Vienne", "Munich", "Heidelberg", "Cologne", "Mayence", "Trèves", "Prague", "Bruxelles",
                "Lübeck", "Luxembourg", "Innsbruck", "Linz"),
     "nord": ("Roskilde", "Stockholm", "Bergen", "Kalmar"),
     "est": ("Cracovie", "Vilnius", "Buda", "Novgorod", "Pskov", "Marienbourg"),
     "balkans": ("Constantinople", "Edirne", "Mistra", "Kruševac", "Bobovac", "Târgoviște", "Suceava",
-                "Thessalonique", "Sofia", "Brousse", "Konya"),
-    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer"),
-    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine"),
+                "Thessalonique", "Sofia", "Brousse", "Konya", "Raguse", "Antivari", "Ioannina", "Agios Georgios"),
+    "orient": ("Rhodes", "Nicosie", "Le Caire", "Alexandrie", "Candie", "Qırq Yer", "Naxos"),
+    "maghreb": ("Tunis", "Tlemcen", "Fès", "Marrakech", "Constantine", "Tripoli"),
 }
 REGIONS = tuple(TEMOINS_NOMMES)
 # Les régions que la table ne déclare pas encore. Leurs preuves échouent ; la marque est stricte : dès
@@ -99,7 +101,8 @@ def livre():
     maisons, seigneuries = charger_maisons(), charger_seigneuries(table=table)
     noms = noms_depuis_monde(monde, table=table, vue=vue)
     servie, des_lieux = terres_pays_et_lieux(monde, SimpleNamespace(noms=noms),
-                                             SourcesDesPays(table, maisons, seigneuries, vue, lieux))
+                                             SourcesDesPays(table, maisons, seigneuries, vue, lieux,
+                                                            terres_des_lieux(monde, table, frontieres)))
     return SimpleNamespace(monde=monde, table=table, maisons=maisons, seigneuries=seigneuries,
                            frontieres=frontieres, lieux=lieux, places=places_du_monde(monde), vue=vue,
                            servie=servie, des_lieux=des_lieux)
@@ -350,7 +353,7 @@ def test_toute_cellule_de_la_carte_a_son_pays_son_partage_ou_sa_lacune(livre):
 
 def _suzerain_attendu(s, identifiant):
     """Le suzerain que la table donne au pays servi : celui de la puissance, ou la puissance dont relève
-    une terre de départ ; aucun pour un seigneur libre."""
+    une terre de départ ; aucun pour une terre sans État."""
     puissances = {identifiant_de_puissance(p.id): p for p in s.table.puissances}
     departs = {identifiant_de_seigneurie(x.id): x for x in s.seigneuries}
     if identifiant in puissances:
@@ -603,6 +606,8 @@ def test_est_la_boheme_et_la_hongrie_ont_chacune_leur_chef(livre):
 # Les fichiers livrés, lus avant que la fixture ne déplace le chemin de la table des frontières.
 TABLE_DES_FRONTIERES_LIVREE = frontieres_module._CHEMIN
 TABLE_DES_PUISSANCES_LIVREE = puissances_module._CHEMIN_TABLE
+# La terre sans État des lignes sans pays de la table synthétique : la première de la table livrée.
+TERRE_D_EPREUVE = json.loads(TABLE_DES_FRONTIERES_LIVREE.read_text(encoding="utf-8"))["terres_sans_etat"][0]["id"]
 # Des points de la péninsule : Pampelune et Logroño tombent dans la même cellule de la carte
 # figée, Estella aussi ; Burgos et Soria sont chacune dans une autre ; Lisbonne est loin de toutes.
 PAMPELUNE = ("Pampelune", 42.82, -1.64)
@@ -626,6 +631,7 @@ def _ville(point, pays, raison=None):
     ville = {"nom": nom, "lat": lat, "lon": lon, "pays": pays, "source": SOURCE_SYNTHETIQUE}
     if pays is None:
         ville["raison"] = "ville sans pays d'épreuve" if raison is None else raison
+        ville["terre"] = TERRE_D_EPREUVE
     return ville
 
 
@@ -643,7 +649,7 @@ def _document_synthetique(c):
     document["partages"] = [{"cell_id": c.partagee,
                              "villes": [_ville(PAMPELUNE, c.navarre), _ville(LOGRONO, c.castille)]}] + [
         ligne for ligne in document["partages"] if ligne["cell_id"] not in changees]
-    document["lacunes"] = [{"cell_id": c.lacune, "raison": "cellule sans pays d'épreuve"}] + [
+    document["lacunes"] = [{"cell_id": c.lacune, "terre": TERRE_D_EPREUVE, "raison": "cellule sans pays d'épreuve"}] + [
         ligne for ligne in document["lacunes"] if ligne["cell_id"] not in changees]
     document["regions"]["peninsule"] = [c.navarre, c.castille, c.portugal]
     document["temoins"] = [{"nom": "Pampelune", "lat": PAMPELUNE[1], "lon": PAMPELUNE[2], "pays": c.navarre,
@@ -682,14 +688,15 @@ def partage(tmp_path_factory):
     base.maisons = charger_registre_maisons(monde.carte)
     vue = puissances_depuis_monde(monde, table=table, frontieres=frontieres)
     lieux = puissances_des_lieux(monde, table, frontieres)
+    terres = terres_des_lieux(monde, table, frontieres)
     maisons = charger_maisons()
     seigneuries = charger_seigneuries(table=table)
     return SimpleNamespace(
         monde=monde, base=base, table=table, maisons=maisons, seigneuries=seigneuries, cellules=c,
-        document=document, frontieres=frontieres, livree=livree, vue=vue, lieux=lieux,
+        document=document, frontieres=frontieres, livree=livree, vue=vue, lieux=lieux, terres=terres,
         vue_livree=puissances_depuis_monde(monde, table=table, frontieres=livree),
         places=places_du_monde(monde), noms=noms_depuis_monde(monde, table=table, vue=vue),
-        sources=SourcesDesPays(table, maisons, seigneuries, vue, lieux))
+        sources=SourcesDesPays(table, maisons, seigneuries, vue, lieux, terres))
 
 
 # --- Les refus de charger_frontieres -----------------------------------------------------------
@@ -807,6 +814,33 @@ REFUS_DE_LA_TABLE = [
     ("cellule de la carte sans pays, partage ni lacune",
      lambda d, c: d["lacunes"].pop(0),
      lambda c: f"cellule {c.lacune}, champ cell_id : cellule de la carte sans pays, partage ni lacune"),
+    ("lacune sans terre sans État",
+     lambda d, c: d["lacunes"][0].pop("terre"),
+     lambda c: f"lacune {c.lacune}, champ terre : texte absent ou vide"),
+    ("lacune d'une terre sans État inconnue",
+     lambda d, c: d["lacunes"][0].update(terre="inconnue"),
+     lambda c: f"lacune {c.lacune}, champ terre : terre sans État inconnue 'inconnue'"),
+    ("ville sans pays sans terre sans État",
+     lambda d, c: d["partages"][0]["villes"].append({k: v for k, v in _ville(ESTELLA, None).items() if k != "terre"}),
+     lambda c: f"partage {c.partagee}, champ villes.{ESTELLA[0]}.terre : texte absent ou vide"),
+    ("ville sans pays d'une terre sans État inconnue",
+     lambda d, c: d["partages"][0]["villes"].append({**_ville(ESTELLA, None), "terre": "inconnue"}),
+     lambda c: f"partage {c.partagee}, champ villes.{ESTELLA[0]}.terre : terre sans État inconnue 'inconnue'"),
+    ("terre sans État sur une ville qui a son pays",
+     lambda d, c: d["partages"][0]["villes"][0].update(terre=TERRE_D_EPREUVE),
+     lambda c: f"partage {c.partagee}, champ villes.{PAMPELUNE[0]}.terre : terre sur une ville qui a son pays"),
+    ("terre sans État déclarée deux fois",
+     lambda d, c: d["terres_sans_etat"].append(dict(d["terres_sans_etat"][0])),
+     lambda c: f"terre sans État {TERRE_D_EPREUVE!r}, champ id : déclarée deux fois"),
+    ("terre sans État que rien ne cite",
+     lambda d, c: d["terres_sans_etat"].append({"id": "orpheline", "nom": "Orpheline", "raison": "terre d'épreuve"}),
+     lambda c: "terre sans État 'orpheline', champ id : citée par aucune lacune ni ville"),
+    ("nom vide d'une terre sans État",
+     lambda d, c: d["terres_sans_etat"][0].update(nom=" "),
+     lambda c: f"terre sans État {TERRE_D_EPREUVE!r}, champ nom : texte absent ou vide"),
+    ("raison vide d'une terre sans État",
+     lambda d, c: d["terres_sans_etat"][0].update(raison=""),
+     lambda c: f"terre sans État {TERRE_D_EPREUVE!r}, champ raison : texte absent ou vide"),
 ]
 
 
@@ -815,6 +849,7 @@ def test_la_table_synthetique_valide_se_lit_et_garde_ses_lignes(partage, tmp_pat
     c = partage.cellules
     assert lue.cellules[c.declaree] == c.portugal
     assert lue.lacunes[c.lacune] == "cellule sans pays d'épreuve"
+    assert lue.terres_des_lacunes[c.lacune] == TERRE_D_EPREUVE and TERRE_D_EPREUVE in lue.terres_sans_etat
     assert [v.pays for v in lue.partages[c.partagee]] == [c.navarre, c.castille]
     assert lue.declarees() == set(partage.monde.carte)
     assert lue.temoins and lue.regions["peninsule"] == tuple(sorted((c.navarre, c.castille, c.portugal)))
@@ -826,6 +861,7 @@ def test_une_ville_sans_pays_dit_sa_raison_et_compte_pour_un_pays(partage, tmp_p
     lue = _lire(tmp_path, document, partage)
     sans_pays = [v for v in lue.partages[partage.cellules.partagee] if v.pays is None]
     assert [v.nom for v in sans_pays] == [ESTELLA[0]] and sans_pays[0].raison
+    assert sans_pays[0].terre == TERRE_D_EPREUVE
 
 
 @pytest.mark.parametrize("nom,retouche,message", REFUS_DE_LA_TABLE, ids=[cas[0] for cas in REFUS_DE_LA_TABLE])
@@ -1094,7 +1130,7 @@ def test_les_lieux_et_les_terres_servent_les_deux_pays_d_une_cellule_partagee(pa
     s, c = partage, partage.cellules
     cid = c.partagee
     lieux = s.monde.cells[cid].lieux
-    pays_de_lieux = pays_des_lieux(s.monde, s.vue, s.maisons, s.lieux)
+    pays_de_lieux = pays_des_lieux(s.monde, s.vue, s.maisons, s.lieux, s.terres)
     for lieu in lieux:
         assert pays_de_lieux[cid, lieu.rang] == identifiant_de_puissance(s.lieux[cid, lieu.rang]), lieu.rang
     assert {pays_de_lieux[cid, lieu.rang] for lieu in lieux} == {identifiant_de_puissance(c.navarre),
@@ -1110,12 +1146,15 @@ def test_les_lieux_et_les_terres_servent_les_deux_pays_d_une_cellule_partagee(pa
     assert fiches[identifiant_de_puissance(c.castille)]["nom"] == "Castille"
     assert fiches[identifiant_de_puissance(c.navarre)]["nom"] == "Navarre"
     # Hors des cellules partagées, une terre ne porte un lieu d'un autre pays que si son bourg est une
-    # terre de départ ou si sa cellule est sans pays (chaque seigneur libre y est son propre pays).
+    # terre de départ : les seigneurs d'une lacune ne sont pas des pays, tous ses lieux sont à sa terre
+    # sans État.
     par_id = {m.id: m for m in s.monde.maisons}
     autres = {t["cell_id"] for t in servie["terres"] if t["autres_pays"]}
-    explique = {t["cell_id"] for t in servie["terres"] if s.vue[t["cell_id"]] is None
-                or par_id[t["maitre"]].sorte == "seigneurie"}
+    explique = {t["cell_id"] for t in servie["terres"] if par_id[t["maitre"]].sorte == "seigneurie"}
     assert cid in autres and autres - set(s.frontieres.partages) <= explique and c.declaree not in autres
+    lacune = next(t for t in servie["terres"] if t["cell_id"] == c.lacune)
+    assert lacune["pays"] == identifiant_de_terre(TERRE_D_EPREUVE) and not lacune["autres_pays"]
+    assert {pays_de_lieux[c.lacune, l.rang] for l in s.monde.cells[c.lacune].lieux} == {lacune["pays"]}
     assert next(t for t in servie["terres"] if t["cell_id"] == c.declaree)["pays"] == identifiant_de_puissance(c.portugal)
 
 
@@ -1138,7 +1177,8 @@ def _avec_milan_sous_l_empire(partage, tmp_path):
     table = partage.table
     milan, empire = _puissance(table, "Milan"), _puissance(table, "Saint-Empire")
     lue = _puissances_retouchees(tmp_path, lambda p: _suzerain(p[milan], empire))
-    sources = SourcesDesPays(lue, partage.maisons, charger_seigneuries(table=lue), partage.vue, partage.lieux)
+    sources = SourcesDesPays(lue, partage.maisons, charger_seigneuries(table=lue), partage.vue, partage.lieux,
+                             partage.terres)
     return lue, sources, milan, empire
 
 

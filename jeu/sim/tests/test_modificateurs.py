@@ -43,10 +43,18 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # registre (32 maisons neuves, 24 retirées, le suzerain de 242), le maître de 100 lieux, 1 183 greniers (et 32
 # neufs, 24 retirés), les convois (140 groupes au lieu de 99) et les cumuls mangé et perdu ; la photographie, la
 # puissance de 80 cellules, la maison de 71, les noms de 49, le maître de 100 lieux et le nom de 187. Aucune
-# cellule ne change hors du maître de ses lieux, ni le bassin : la population reste 37 481 793.
+# cellule ne change hors du maître de ses lieux, ni le bassin : la population reste 37 481 793. Les dix pays
+# attestés qui remplacent des terres sans pays changent encore, au 365e tick, le registre (huit grandes maisons et
+# deux institutions neuves avec leurs chefs, 22 maisons plausibles neuves, 43 retirées, le suzerain de 26) et
+# les personnes, le maître de 119 lieux de onze cellules, les greniers (32 neufs, 43 retirés, 30 changés), les
+# convois et les cumuls mangé et perdu ; la photographie, la puissance, la maison, les noms et les lieux de 30
+# cellules. Aucune cellule ne change hors du maître de ses lieux : la population reste 37 481 793.
+# Le nom de chaque terre d'après sa vraie ville de 1400 et le siège des Tocco au château de Saint-Georges
+# (Agios Georgios, et non plus Argostoli) ne changent, au 365e tick, que le siège de leur fiche du registre,
+# et dans la photographie les noms des lieux et des terres, et le point du bourg de Céphalonie.
 EMPREINTES_365 = {
-    "linux": ("995e7f2c1c58be8a7d03c9ad36c02d52435cfeaac2ea343795df0bbcadb4b204",
-              "a8ee21c994b54ee37cdab932b9dd00b700ac77c41b777fa591a1ba96b9aa3ea9"),
+    "linux": ("bf240de5d4cd88d5e423b67d84d0013f0c2d369a589625fc6f8b0bdd8418616f",
+              "b0e349b5102e3d5fa84976739b41e1d7f55f9dc6f81e332fd11523d9e1f34be1"),
 }
 
 
