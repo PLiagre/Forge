@@ -211,19 +211,33 @@ namespace ForgeLocal3D
             }
         }
 
+        // Le service de la capture, amorcé comme ses drapeaux le disent.
+        static void LancerService(int graine, int ticks, string dossier, string travail) =>
+            LancerService(graine, ticks, dossier, travail, Drapeau(SERVICE_EPREUVE), Drapeau(SERVICE_IA), Drapeau(SERVICE_PROGRAMME), Drapeau(SERVICE_MODIFICATEURS));
+
+        // Le service du monde ordinaire, graine `graine` poussée de `ticks` jours, avec l'IA ou non, hors d'une capture (le build relit
+        // ainsi le monde d'une planche rangée). Vrai s'il répond ; il s'arrête par `ArreterLeService`. Rien ne se lance si le port est pris.
+        internal static bool LancerLeService(int graine, int ticks, bool ia, string dossier)
+        {
+            if (PortRepond()) return false;
+            LancerService(graine, ticks, dossier, null, false, ia, false, false);
+            return SessionState.GetInt(Pid, -1) >= 0 && PortRepond();
+        }
+        internal static bool PortDuServicePris => PortRepond();
+        internal static void ArreterLeService() => ArreterService();
+
         // Toute cause d'échec se dit, le service est tué s'il vit, et la capture continue :
         // le panneau dira lui-même « service absent ».
-        static void LancerService(int graine, int ticks, string dossier, string travail)
+        static void LancerService(int graine, int ticks, string dossier, string travail, bool avecEpreuve, bool ia, bool programme, bool modificateurs)
         {
             string attendue = "service prêt sur " + HOTE_SERVICE + ":" + PORT_SERVICE;
             var stderr = new ConcurrentQueue<string>();
             try
             {
                 string python = Interpreteur();
-                string epreuve = Environment.GetCommandLineArgs().Contains(SERVICE_EPREUVE) ? " --epreuve" : "";
+                string epreuve = avecEpreuve ? " --epreuve" : "";
                 if (travail != null) epreuve += " --travail-enceinte " + travail;
-                if (Environment.GetCommandLineArgs().Contains(SERVICE_IA)) epreuve += " --ia";
-                bool programme = Environment.GetCommandLineArgs().Contains(SERVICE_PROGRAMME), modificateurs = Environment.GetCommandLineArgs().Contains(SERVICE_MODIFICATEURS);
+                if (ia) epreuve += " --ia";
                 var info = new ProcessStartInfo(python, (programme ? AMORCAGE_PROGRAMME : modificateurs ? AMORCAGE_MODIFICATEURS : "-m sim.service") + " --seed " + graine + " --port " + PORT_SERVICE + " --jours-par-seconde 0" + epreuve)
                 {
                     WorkingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "jeu")),
