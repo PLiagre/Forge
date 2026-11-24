@@ -27,6 +27,9 @@ namespace Forge.Interface
         const string INVITATION = "Clic gauche sur une terre pour ouvrir son dossier.";
         public LecturePartie Partie { get; set; }
         public CelluleDeCarte Retenue => retenue;
+        public long RangRetenu => rangRetenu;
+        // Le nom de l'objet de la fiche de la terre gardée ; son titre écrit est celui de la province.
+        public const string TERRITOIRE = "Territoire conservé";
         public AccueilDuPays Accueil => accueil;
         public BoutonDeLaVille Ville => ville;
         public PremiersGestes Gestes => premiersGestes;
@@ -52,7 +55,8 @@ namespace Forge.Interface
         readonly HashSet<long> terresEclairees = new HashSet<long>(); // les terres de départ que la carte dessine
         string ensembleDesTerres;
         Button[] temps;
-        CelluleDeCarte retenue;
+        CelluleDeCarte retenue; long rangRetenu; // la terre gardée, et le rang du lieu cliqué dans cette terre
+        CarteDeLaGuerre laGuerre;
         double prochaineLecture;
         Vector2? depart; bool eloigne;
 
@@ -68,7 +72,7 @@ namespace Forge.Interface
             var souris = Mouse.current; Vector2 ici = souris?.position.ReadValue() ?? Vector2.zero;
             bool appui = souris?.leftButton.wasPressedThisFrame == true, relache = souris?.leftButton.wasReleasedThisFrame == true, hors = (appui || relache) && HorsCarte(ici);
             if (relache && !hors) fiche.Survoler(ici);
-            Noter(ici, appui, relache, hors, relache && !hors ? fiche.Survolee : null);
+            Noter(ici, appui, relache, hors, relache && !hors ? fiche.Survolee : null, relache && !hors ? RangSous(ici, fiche.Survolee) : 0);
             Afficher();
         }
 
@@ -119,11 +123,12 @@ namespace Forge.Interface
                 LectureDossier.Locale(carte.port), OrdreConfirme.Local(carte.port));
             // La fiche de la terre gardée, sous « Votre maison » ; elle laisse libre le coin d'en bas, où se tient « Ma capitale ».
             // Sa croix relâche la terre, comme Échap.
-            lieu = SocleInterface.Panneau(toile.transform, "Territoire conservé", 1312, 684, 584, 308);
+            // L'objet garde son nom ; son titre écrit prend celui de la province ouverte.
+            lieu = SocleInterface.Panneau(toile.transform, TERRITOIRE, 1312, 684, 584, 308);
             SocleInterface.Croix(lieu, () => { Relacher(); lieu.gameObject.SetActive(false); }, "Ferme la fiche de la terre et la relâche sur la carte.");
             territoire = SocleInterface.Texte(lieu, INVITATION, 24, 88, 536);
             territoire.rectTransform.sizeDelta = new Vector2(536, 196);
-            gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue);
+            gameObject.AddComponent<DossierTerritoire>().Initialiser(territoire, carte.port, () => retenue, () => rangRetenu, TerresLues, lieu.Find(TERRITOIRE).GetComponent<Text>());
             gameObject.AddComponent<DossierBourg>().Initialiser(toile.transform, lieu, carte.port, () => retenue);
             // L'état de la carte s'écrit au centre de l'écran, que la carte couvre tout (960, 540).
             etat = SocleInterface.Texte(toile.transform, "La carte se prépare…", 660, 492, 600); etat.name = ETAT;
@@ -150,7 +155,7 @@ namespace Forge.Interface
             var villes = gameObject.AddComponent<VillesDeCarte>(); villes.Installer();
             var lieux = gameObject.AddComponent<LieuxDeCarte>(); lieux.Installer();
             var fleches = gameObject.AddComponent<FlechesDeCarte>(); fleches.Installer(lieux);
-            var guerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var atlas = gameObject.AddComponent<AtlasDeCarte>(); atlas.Installer(guerre);
+            var guerre = laGuerre = gameObject.AddComponent<CarteDeLaGuerre>(); guerre.Installer(); var atlas = gameObject.AddComponent<AtlasDeCarte>(); atlas.Installer(guerre);
             var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas, villes); atlas.Eviter(calques);
             // Les capitales se lisent dans les pays jouables que la partie lit déjà.
             villes.Brancher(() => Partie?.Jouables != null && Partie.Jouables.Presente ? Partie.Jouables.Donnees : null, guerre, atlas); lieux.Eviter(guerre, calques);
@@ -166,11 +171,23 @@ namespace Forge.Interface
                 () => { if (!dossierDeLaGuerre.Feuillet.Ouvert) dossier.GetComponentsInChildren<Button>(true).First(b => b.name == DossierGuerre.COMMANDE).onClick.Invoke(); },
                 () => guerre.Guerres);
             foreach (var texte in premiersGestes.Panneau.GetComponentsInChildren<Text>(true)) texte.supportRichText = false;
-            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port)); // la seconde lecture, sur /modificateurs
+            gameObject.AddComponent<InfobulleDeTerre>().Initialiser(toile.GetComponent<Canvas>(), LectureDossier.Locale(carte.port), () => fiche.Survolee, LectureDossier.Locale(carte.port), // la seconde lecture, sur /modificateurs
+                () => Mouse.current == null ? 0 : RangSous(Mouse.current.position.ReadValue(), fiche.Survolee), TerresLues);
             Afficher();
         }
 
         void OnDestroy() => ViderTerres();
+
+        // Les terres de `/terres` que la carte de la guerre lit déjà ; nulles avant elle, ou tant qu'elles ne sont pas lues.
+        TerresDeLaCarte TerresLues() => laGuerre != null ? laGuerre.Terres : null;
+
+        // Le rang du lieu de `terre` sous ce point de l'écran, par le relief ; 0 (le bourg) hors de la terre, ou sur une carte sans lieux.
+        long RangSous(Vector2 ecran, CelluleDeCarte terre)
+        {
+            if (terre == null || !(carte.SolSous(ecran) is Vector3 sol)) return 0;
+            var lieu = carte.LieuSous(sol);
+            return lieu.HasValue && lieu.Value.cellule.CellId == terre.CellId ? lieu.Value.rang : 0;
+        }
 
         static Button Bouton(Transform parent, string nom, float x, float y, float largeur, UnityEngine.Events.UnityAction action, string phrase)
         {
@@ -191,13 +208,14 @@ namespace Forge.Interface
         }
 
         // Un clic gauche court garde la terre ; s'écarter de plus de SEUIL_CLIC_PX (celui du survol, pour que ce clic compte aussi au double-clic) en fait un glisser.
-        public bool Noter(Vector2 ici, bool appui, bool relache, bool horsCarte, CelluleDeCarte sous)
+        // `rang` : celui du lieu de `sous` sous le relâché.
+        public bool Noter(Vector2 ici, bool appui, bool relache, bool horsCarte, CelluleDeCarte sous, long rang = 0)
         {
             if (appui) { depart = horsCarte ? (Vector2?)null : ici; eloigne = false; }
             if (depart is Vector2 d && (ici - d).magnitude > SEUIL_CLIC_PX) eloigne = true;
             bool clic = relache && depart != null && !eloigne && !horsCarte && sous != null;
             if (relache) depart = null;
-            if (clic) Garder(sous);
+            if (clic) Garder(sous, rang);
             return clic;
         }
         public bool HorsCarte(Vector2 ecran) // hors de la vue de la carte, ou sur un graphique de l'interface, au point donné
@@ -213,10 +231,11 @@ namespace Forge.Interface
             carte.Demarquer(); retenue = null; return true;
         }
 
-        public void Garder(CelluleDeCarte cellule)
+        // Garde la terre et le lieu de ce rang : la fiche dit son pays et ses gens (0 : le bourg).
+        public void Garder(CelluleDeCarte cellule, long rang = 0)
         {
             if (cellule == null) return;
-            retenue = cellule;
+            retenue = cellule; rangRetenu = rang;
             // Une terre que la carte ne dessine pas se garde sans marque, et l'ancienne marque tombe.
             if (!carte.Marquer(cellule.CellId, SocleInterface.Couleur("alerte"))) carte.Demarquer();
             // Pendant l'accueil, la terre cliquée montre la fiche de son pays ; seul « Commencer » envoie le choix.
@@ -288,13 +307,7 @@ namespace Forge.Interface
             jauges.Afficher(Partie.Monde, Partie.Pays);
             etat.gameObject.SetActive(carte.CellulesServies < 0);
             if (carte.CellulesServies < 0) etat.text = carte.TexteAffiche ?? "La carte se prépare…";
-            if (retenue != null)
-            {
-                var monde = Partie.Monde;
-                territoire.text = FicheDeCellule.Decrire(retenue, monde == null ? null : monde.Presente
-                    ? Lecture<MondeLu>.De(monde.Donnees.Monde) : Lecture<MondeLu>.Absent(monde.Absence));
-            }
-            else territoire.text = INVITATION;
+            if (retenue == null) territoire.text = INVITATION; // une terre gardée, `DossierTerritoire` écrit sa fiche
             string geste = Guide(Partie.Monde, Partie.Jouables, Partie.Recu, horloge.Lue, Partie.Jouable?.Ville.Batie == true);
             guide.gameObject.SetActive(geste != null);
             if (geste != null) guide.text = geste;

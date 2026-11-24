@@ -130,7 +130,8 @@ namespace ForgeLocal3D.Captures
             // Le texte est lu au service : il quitte l'attente et l'échec, puis ne bouge plus.
             var dossier = carte.GetComponent<DossierTerritoire>() ?? throw Faux("pas de dossier du territoire");
             Text texte = panneau.Find(LECTURE)?.GetComponentInChildren<Text>(true) ?? throw Faux("« " + LECTURE + " » est absent de la fiche");
-            bool Lu() => dossier.Document != null && texte.text != DossierTerritoire.ATTENTE && !texte.text.StartsWith("Lecture indisponible", StringComparison.Ordinal);
+            bool Lu() => dossier.Document != null && !texte.text.Contains(DossierTerritoire.ATTENTE) && !texte.text.Contains(DossierTerritoire.PAYS_EN_LECTURE)
+                && !texte.text.Contains("Lecture indisponible");
             for (var a = AttentesDeCapture.Jusqua(Lu, () => "texte de la fiche : « " + texte.text + " », document lu " + (dossier.Document != null)); a.MoveNext();) yield return null;
             string avant = texte.text; double depuis = Time.realtimeSinceStartupAsDouble, fin = depuis + 20;
             while (Time.realtimeSinceStartupAsDouble - depuis < STABLE_S && Time.realtimeSinceStartupAsDouble < fin)

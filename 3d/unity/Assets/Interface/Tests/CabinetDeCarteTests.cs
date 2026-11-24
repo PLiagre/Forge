@@ -72,8 +72,9 @@ namespace Forge.Interface.Tests
             cabinet.Garder(new CelluleDeCarte(7, new PolygoneDeCarte[0], new IdentiteDeCarte(1, "Puissance test"),
                 null, new[] { new VilleDeCarte("Ville test", 12, new PointCarte(0, 0)) }));
             racine.GetComponent<FicheDeCellule>().Quitter();
-            cabinet.Afficher();
-            Assert.That(racine.GetComponentsInChildren<Text>().Any(t => t.text.Contains("Ville test") && t.text.Contains("en attente du monde")), Is.True);
+            cabinet.Afficher(); racine.GetComponent<DossierTerritoire>().Pas(0);
+            Assert.That(cabinet.Retenue?.CellId == 7 && racine.transform.Find("Cabinet/" + CabinetDeCarte.TERRITOIRE).gameObject.activeSelf, Is.True, "la terre gardée tombe avec le survol");
+            Assert.That(Territoire(), Does.StartWith(DossierTerritoire.PAYS_EN_LECTURE + "\n"), "la fiche de la terre gardée ne s'écrit plus");
         }
 
         const string JOUEUR = "maison-joueur", B = "maison-b", C = "maison-c";
@@ -321,7 +322,11 @@ namespace Forge.Interface.Tests
         [Test] public void UnClicSansMouvementGardeLaTerre()
         {
             Dessiner(7, 8); var sept = Terre(7, "Ville test"); Color teinte = carte.TeinteDe(7).Value; Assert.That(carte.Marquee, Is.Null);
-            Assert.That(Geste(sept, O, O), Is.True); Assert.That(cabinet.Retenue, Is.SameAs(sept)); cabinet.Afficher(); Assert.That(Territoire(), Does.Contain("Ville test"));
+            Assert.That(Geste(sept, O, O), Is.True); Assert.That(cabinet.Retenue, Is.SameAs(sept)); cabinet.Afficher(); racine.GetComponent<DossierTerritoire>().Pas(0);
+            Assert.That(Territoire(), Does.StartWith(DossierTerritoire.PAYS_EN_LECTURE).And.Not.Contain("Clic gauche sur une terre"), "la fiche de la terre gardée ne s'écrit pas");
+            Assert.That(racine.transform.Find("Cabinet/" + CabinetDeCarte.TERRITOIRE + "/" + CabinetDeCarte.TERRITOIRE).GetComponent<Text>().text, Is.EqualTo(DossierTerritoire.PROVINCE_EN_LECTURE), "le titre de la fiche ne nomme pas la province");
+            // Le rang du lieu cliqué suit la terre gardée.
+            cabinet.Relacher(); Assert.That(cabinet.Noter(O, true, true, false, sept, 3) && cabinet.Retenue == sept && cabinet.RangRetenu == 3, Is.True, "le lieu cliqué n'est pas gardé");
             Assert.That(carte.Marquee, Is.EqualTo(7), "la terre gardée n'est pas marquée");
             cabinet.Relacher(); Assert.That(carte.Marquee, Is.Null, "la terre relâchée reste marquée"); Assert.That(cabinet.Noter(O, true, true, false, sept) && cabinet.Retenue == sept, Is.True, "appui et relâché dans la même image");
             cabinet.Relacher(); Assert.That(Geste(sept, O, O + new Vector2(6, 0)) && cabinet.Retenue == sept, Is.True, "relâché à 6 px");
@@ -533,33 +538,53 @@ namespace Forge.Interface.Tests
             Button muet = actifs.Single(b => b.name == "Menu"); Object.DestroyImmediate(muet.GetComponent<Infobulle>());
             Survoler(muet, Centre(muet)); Assert.That(Feuillets(), Is.Empty, "un bouton sans Infobulle montre un feuillet");
         }
-        // L'infobulle d'une terre dit les trois premières lignes de sa fiche, et n'efface pas la phrase d'un bouton.
-        static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"Maison témoin\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"m-1\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
+        // L'infobulle d'un lieu dit d'abord son pays, puis le lieu, sa province et son seigneur, et n'efface pas la phrase d'un bouton.
+        static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"de Basse Haie\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"m-1\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
         static async System.Threading.Tasks.Task Fin(LectureDossier lecture) { for (int i = 0; i < 40 && lecture.EnCours; i++) await System.Threading.Tasks.Task.Yield(); Assert.That(lecture.EnCours, Is.False, lecture.Cle); }
         async System.Threading.Tasks.Task<(InfobulleDeTerre bulle, CelluleDeCarte terre)> Montrer20()
         {
-            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var terre = Terre(20, "Bourg témoin");
+            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var terre = Terre(20, "Bourg témoin"); bulle.Terres = DossierTerritoireTests.Terres;
             var porte = new System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>(); bulle.Lecture = new LectureDossier(_ => porte.Task);
             bulle.Pas(O, terre, 0); porte.SetResult(DocTerre(20, "Bourg témoin")); await Fin(bulle.Lecture); bulle.Pas(O, terre, 0.5);
-            Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); return (bulle, terre);
+            Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut\n")); return (bulle, terre);
         }
-        [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreDitLesLignesDeSaFiche()
+        [Test] public async System.Threading.Tasks.Task LInfobulleDUnLieuDitSonPaysPuisLeLieuSaProvinceEtSonSeigneur()
         {
             Assert.That(racine.GetComponents<InfobulleDeTerre>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<InfobulleDeTerre>(), Has.Length.EqualTo(1));
             var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var chemins = new System.Collections.Generic.List<string>(); var portes = new System.Collections.Generic.List<System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>>();
             bulle.Lecture = new LectureDossier(chemin => { chemins.Add(chemin); var porte = new System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>(); portes.Add(porte); return porte.Task; });
+            bulle.Terres = () => null; string attente = DossierTerritoire.PAYS_EN_LECTURE + "\n" + DossierTerritoire.ATTENTE;
             var t10 = Terre(10, "Bourg dix"); var t20 = Terre(20, "Bourg témoin"); bulle.Pas(O, t10, 0);
-            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE));
-            bulle.Pas(O, t20, 0.1); Assert.That(chemins, Has.Count.EqualTo(1)); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE));
+            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(attente));
+            bulle.Pas(O, t20, 0.1); Assert.That(chemins, Has.Count.EqualTo(1)); Assert.That(bulle.TexteAffiche, Is.EqualTo(attente));
             portes[0].SetResult(DocTerre(10, "Bourg dix")); await Fin(bulle.Lecture); bulle.Pas(O, t20, 0.2);
-            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(DossierTerritoire.ATTENTE)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("Bourg dix").And.Not.Contain("Dossier incomplet"));
+            Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20" })); Assert.That(bulle.TexteAffiche, Is.EqualTo(attente)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("Bourg dix").And.Not.Contain("Dossier incomplet"));
             var doc20 = DocTerre(20, "Bourg témoin"); portes[1].SetResult(doc20); await Fin(bulle.Lecture); bulle.Pas(O, t20, 0.5);
-            string attendu = "Bourg témoin · Maison : Maison témoin\njour 9 de 1400\n" + TexteDuMonde.Nombre(12345) + " habitants dans le territoire"; string dossier = DossierTerritoire.Texte(null, doc20, 20);
-            Assert.That(bulle.TexteAffiche, Is.EqualTo(attendu)); Assert.That(bulle.TexteAffiche.Split('\n'), Is.EqualTo(dossier.Split('\n').Take(InfobulleDeTerre.LIGNES).ToArray()));
+            Assert.That(bulle.TexteAffiche, Does.StartWith(DossierTerritoire.PAYS_EN_LECTURE + "\nBourg témoin : "), "le lieu attend les terres");
+            // Les terres lues : le pays du lieu passe devant, le seigneur local vient en dernier.
+            bulle.Terres = DossierTerritoireTests.Terres; bulle.Pas(O, t20, 0.6);
+            string attendu = "Hainaut\nEnsemble : Saint-Empire\nHainaut : " + TexteDuMonde.Nombre(250000) + " habitants\nBourg témoin : " + TexteDuMonde.Nombre(12000)
+                + " habitants dans ce lieu\nProvince de Bourg témoin : " + TexteDuMonde.Nombre(12345) + " habitants\nSeigneur : Maison de Basse Haie";
+            Assert.That(bulle.TexteAffiche, Is.EqualTo(attendu)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("jour 9").And.Not.Contain("Maison :").And.Not.Contain("dans le territoire"));
             var toile = racine.transform.Find("Cabinet"); var feuillets = toile.GetComponentsInChildren<RectTransform>().Where(t => t.name == "Infobulle").ToArray();
             Assert.That(feuillets.Length, Is.EqualTo(1)); Assert.That(feuillets[0].GetComponentInChildren<Text>().text, Is.EqualTo(attendu));
             int n = chemins.Count; bulle.Pas(O, t20, 1); Assert.That(chemins, Has.Count.EqualTo(n)); bulle.Pas(O, t20, 2.3); Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20", "/lieu?cell=20" }));
-            string ligne = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin", 9, 10), 20).Split('\n')[1]; Assert.That(ligne, Is.EqualTo("jour 10 de 1400")); Assert.That(ligne, Is.Not.EqualTo(dossier.Split('\n')[1]));
+        }
+        // Le lieu survolé, pas sa terre : dans la terre partagée de Pampelune, le lieu castillan dit la Castille ; une terre sans pays dit qu'on ne la joue pas.
+        [Test] public void LInfobulleParleAuGrainDuLieu()
+        {
+            var terres = DossierTerritoireTests.Terres(); var pampelune = DossierTerritoireTests.Lieu(DossierTerritoireTests.PAMPELUNE, "Pampelune");
+            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 2), Does.StartWith("Castille\nCastille : ").And.Contain("\nHameau témoin : ").And.EndWith("Seigneur : Maison de Lerín"));
+            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 0), Does.StartWith("Navarre\nNavarre : ").And.EndWith("Seigneur : Maison de Basse Haie"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.BORDEAUX, "Bordeaux"), terres, DossierTerritoireTests.BORDEAUX, 0), Does.StartWith("Guyenne\nSuzerain : Angleterre\n"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.AVIGNON, "Avignon"), terres, DossierTerritoireTests.AVIGNON, 0), Does.StartWith("États de l'Église\n").And.Not.Contain("Suzerain"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.SANS_PAYS, "Bourg libre"), terres, DossierTerritoireTests.SANS_PAYS, 0), Does.StartWith(DossierTerritoire.SANS_ETAT + "\n"));
+            // Le rang survolé passe à l'infobulle, qui se récrit quand il change sans changer de terre.
+            var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; bulle.Terres = () => terres;
+            bulle.Lecture = new LectureDossier(_ => System.Threading.Tasks.Task.FromResult(pampelune)); var terre = Terre(DossierTerritoireTests.PAMPELUNE, "Pampelune");
+            var ici = new Vector2(620, 300); // à droite de l'écran de test : le feuillet du lieu, plus large, se pose à sa gauche
+            bulle.Pas(ici, terre, 0, 2); for (int i = 0; i < 40 && bulle.Lecture.EnCours; i++) System.Threading.Thread.Sleep(5); bulle.Pas(ici, terre, 0.1, 2);
+            Assert.That(bulle.TexteAffiche, Does.StartWith("Castille\n")); bulle.Pas(ici, terre, 0.2, 0); Assert.That(bulle.TexteAffiche, Does.StartWith("Navarre\n"));
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleDeLaTerreLaisseLaPhraseDUnBouton()
         {
@@ -571,7 +596,7 @@ namespace Forge.Interface.Tests
             Assert.That(feuillet.gameObject.activeInHierarchy && feuillet.GetComponentInChildren<Text>().text == phrase && bulle.TexteAffiche == null, Is.True, feuillet.GetComponentInChildren<Text>().text);
             UnityEngine.EventSystems.ExecuteEvents.Execute(bouton.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = centre }, UnityEngine.EventSystems.ExecuteEvents.pointerExitHandler);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False);
-            bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Bourg témoin · ")); bulle.Pas(O, null, 1);
+            bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut\n")); bulle.Pas(O, null, 1);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False); Assert.That(racine.GetComponentsInChildren<Canvas>().Length, Is.EqualTo(1));
         }
         // L'infobulle d'une terre ajoute, au même tick, les lignes de `/modificateurs` pour son bourg ; elle les lit, elle ne les calcule pas.
@@ -596,15 +621,15 @@ namespace Forge.Interface.Tests
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreSansPoseResteCelleDAvant()
         {
-            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), null, 20, 0);
             var (bulle, _, _, registres) = await MontrerAvecRegistre(DocModificateurs(8, Lieu(30, 0, Grandeur("departs", "Départs", 0.1, POSE_MOULIN)), Lieu(20, 1, Grandeur("commerce", "Commerce", 0.1, POSE_MOULIN))));
-            Assert.That(registres, Is.Not.Empty); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant)); Assert.That(bulle.TexteAffiche.Split('\n'), Has.Length.EqualTo(InfobulleDeTerre.LIGNES));
+            Assert.That(registres, Is.Not.Empty); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant)); Assert.That(bulle.TexteAffiche.Split('\n'), Has.Length.EqualTo(avant.Split('\n').Length));
             (bulle, _, _, _) = await MontrerAvecRegistre(DocModificateurs(8)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleDUneTerreDitLesPosesDeSonBourgPuisLeTotalDeChaqueGrandeur()
         {
             var (bulle, terre, lieux, registres) = await MontrerAvecRegistre(TroisPoses());
-            string trois = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            string trois = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), null, 20, 0);
             Assert.That(bulle.TexteAffiche, Is.EqualTo(trois + "\n" + string.Join("\n", LIGNES_ATTENDUES)));
             Assert.That(InfobulleDeTerre.DecrireModificateurs(TroisPoses(), 20), Is.EqualTo(LIGNES_ATTENDUES)); Assert.That(InfobulleDeTerre.DecrireModificateurs(TroisPoses(), 7), Is.Empty);
             Assert.That(lieux, Is.EqualTo(new[] { "/lieu?cell=20" })); Assert.That(registres, Is.EqualTo(new[] { "/modificateurs" }));
@@ -615,7 +640,7 @@ namespace Forge.Interface.Tests
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleNeMontreRienDePlusSiLesModificateursSontAUnAutreTickOuEnEchec()
         {
-            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), 20);
+            string avant = InfobulleDeTerre.Decrire(null, DocTerre(20, "Bourg témoin"), null, 20, 0);
             var (bulle, _, _, _) = await MontrerAvecRegistre(TroisPoses(9)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
             (bulle, _, _, _) = await MontrerAvecRegistre(TroisPoses(7)); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
             var refusee = await MontrerAvecRegistre(null, true); bulle = refusee.bulle; Assert.That(refusee.registres, Is.Not.Empty); Assert.That(bulle.LectureModificateurs.Erreur, Is.EqualTo("refus témoin")); Assert.That(bulle.TexteAffiche, Is.EqualTo(avant));
