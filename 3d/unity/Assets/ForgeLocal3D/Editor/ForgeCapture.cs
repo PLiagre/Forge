@@ -355,7 +355,7 @@ namespace ForgeLocal3D
         static void AvancerScenario()
         {
             var m = scenarios[scenario];
-            string nom = m.GetCustomAttribute<ScenarioDeCaptureAttribute>().Nom;
+            var attribut = m.GetCustomAttribute<ScenarioDeCaptureAttribute>(); string nom = attribut.Nom;
             try
             {
                 if (enCours == null)
@@ -373,7 +373,7 @@ namespace ForgeLocal3D
                     return;
                 }
                 string chemin = Path.Combine(dossierScenarios, nomScene + "--" + nom + ".png");
-                var pixels = CitadelPlayCheck.Capture(cameraScene, chemin, 1600, 900);
+                var pixels = CitadelPlayCheck.Capture(cameraScene, chemin, attribut.Largeur, attribut.Hauteur);
                 // Deux photos de suite ne sont jamais identiques à l'octet (ombres, rendu) : la chaîne lit la
                 // part des pixels qui ont vraiment changé depuis le plan fixe.
                 double ecart = Ecart(pixelsDuPlan, pixels);

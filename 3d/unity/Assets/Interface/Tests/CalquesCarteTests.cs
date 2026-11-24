@@ -43,8 +43,24 @@ namespace Forge.Interface.Tests
             Assert.AreEqual(0, repartition.Position(10)); Assert.AreEqual(1, repartition.Position(20));
             StringAssert.Contains("jour 9 de 1400", repartition.Legende);
             StringAssert.Contains("90 habitants (foncé)", repartition.Legende);
-            StringAssert.Contains("échelle logarithmique", repartition.Legende);
+            StringAssert.Contains("échelle est logarithmique", CalquesCarte.DetailDuMode(ModeDeCarte.Population));
             Assert.Throws<ArgumentException>(() => repartition.Position(30));
+        }
+        // Vingt et une terres de 100 à 2 100 habitants, plus une vide et une immense : l'échelle se borne aux centiles, la légende le dit,
+        // et les terres hors des bornes prennent la teinte de la borne au lieu de tasser toutes les autres.
+        [Test] public void L_echelle_des_habitants_se_borne_aux_centiles_et_le_dit()
+        {
+            var cellules = Enumerable.Range(1, 21).Select(k => new CelluleDuMonde(k, 100 * k, 0, 0)).Concat(new[] { new CelluleDuMonde(100, 0, 0, 0), new CelluleDuMonde(200, 9000000, 0, 0) }).ToArray();
+            var r = new RepartitionHabitants(Monde(cellules));
+            Assert.That((r.Minimum, r.Maximum, r.Bas, r.Mediane, r.Haut), Is.EqualTo((0L, 9000000L, 100L, 1100L, 2100L)));
+            Assert.That(r.Legende, Is.EqualTo("Habitants : jusqu'à 100 habitants (clair) → 1 100 habitants (mi-teinte) → dès 2 100 habitants (foncé) · jour 9 de 1400"));
+            Assert.That((r.Position(100), r.Position(1), r.Position(11), r.Position(21), r.Position(200)), Is.EqualTo((0f, 0f, .5f, 1f, 1f)));
+            Assert.That(r.Position(6), Is.EqualTo(.5f * (float)(Math.Log(601d / 101d) / Math.Log(1101d / 101d))).Within(1e-5f), "la moitié claire de l'échelle n'est pas au logarithme");
+            Assert.That(r.Position(16), Is.EqualTo(.5f + .5f * (float)(Math.Log(1601d / 1101d) / Math.Log(2101d / 1101d))).Within(1e-5f), "la moitié foncée de l'échelle n'est pas au logarithme");
+            // Contre-épreuve : sans terre hors des bornes, la légende dit le minimum et le maximum sans « jusqu'à » ni « dès ».
+            Assert.That(new RepartitionHabitants(Monde(cellules.Take(3).ToArray())).Legende, Does.StartWith("Habitants : 100 habitants (clair) → 200 habitants (mi-teinte) → 300 habitants (foncé)"));
+            // Au plus long, avec les nombres de l'Europe servie : trois lignes.
+            Tenir(new LectureDuMode(ModeDeCarte.Population, Monde(Enumerable.Range(1, 40).Select(k => new CelluleDuMonde(k, k == 1 ? 5 : k == 40 ? 362628 : k * 4871, 0, 0)).ToArray()), null, null, null).Legende(false));
         }
         [Test] public void Une_cellule_manquante_dupliquee_ou_negative_refuse_le_calque()
         {
@@ -59,7 +75,7 @@ namespace Forge.Interface.Tests
         {
             string legende = new RepartitionHabitants(Monde(new CelluleDuMonde(10, 1, -1, -1), new CelluleDuMonde(20, 5631, -1, -1))).Legende;
             Assert.AreEqual("5 631", TexteDuMonde.Nombre(5631));
-            Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · échelle logarithmique · jour 9 de 1400", legende);
+            Assert.AreEqual("Habitants : 1 habitant (clair) → 5 631 habitants (foncé) · jour 9 de 1400", legende);
             Assert.IsNull(TexteDuMonde.Interdit(legende), legende); Assert.IsNull(TexteDuMonde.SansUnite(legende), legende);
             Assert.Catch<ArgumentException>(() => new RepartitionHabitants(new MondeLu(8, new DateDuMonde(1400, 0), 1, new[] { new CelluleDuMonde(10, 1, -1, -1) })));
             LogAssert.Expect(LogType.Log, "TexteDuMonde : absence déclarée par le monde : Population absente du territoire 30");

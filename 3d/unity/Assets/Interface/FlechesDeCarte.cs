@@ -12,11 +12,13 @@ namespace Forge.Interface
     // Ce que chaque lieu tenu a envoyé à son siège, et le dû du siège au suzerain, sur trente jours. Lecture seule : aucun kilo calculé.
     public sealed class FlechesDeCarte : MonoBehaviour
     {
-        public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, plafond 8 km.";
-        public const float KG_PAR_KM = 50000f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du sol, sous le bord des disques (0,63)
+        public const string RACINE = "Flèches de la carte", DU = "Flèche du dû", ENTETE = "Orange : du lieu vers votre siège, ce qui en a été prélevé. Violet : de votre siège vers celui du suzerain, le dû envoyé. Sur trente jours ; 1 km de large pour 50 000 kg, au moins 4 km et au plus 8 km.";
+        public const float KG_PAR_KM = 50000f, EPAISSEUR_MIN_KM = 4f, EPAISSEUR_MAX_KM = 8f, PERIODE_S = 2f, HAUTEUR = 0.56f; // au-dessus du sol, sous le bord des disques (0,63)
         public static readonly Color ORANGE = Color.HSVToRGB(0.08f, 0.9f, 0.95f), VIOLET = Color.HSVToRGB(0.8f, 0.9f, 0.7f);
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-        public static float Epaisseur(double kg) => (float)Math.Min(EPAISSEUR_MAX_KM, kg / KG_PAR_KM);
+        // La largeur d'une flèche : ce qui est envoyé, à l'échelle de la légende ; jamais sous `EPAISSEUR_MIN_KM`, qu'on ne verrait
+        // pas de la vue sur la capitale ; rien d'envoyé, pas de flèche.
+        public static float Epaisseur(double kg) => kg > 0 ? (float)Math.Min(EPAISSEUR_MAX_KM, Math.Max(EPAISSEUR_MIN_KM, kg / KG_PAR_KM)) : 0f;
         public Func<string, Lecture<ComptesDeMaison>> Lecteur;
         public string TexteLegende => ENTETE + lignesLieux + ligneDu; // lu par l'infobulle de la légende du mode Vivres, plus écrit sur la toile
         public bool Visibles => calques != null && calques.Mode == ModeDeCarte.Vivres; // calculées dans tous les modes, montrées en Vivres seulement

@@ -7,11 +7,19 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
+    // Les habitants de chaque terre (`/monde`), sur une échelle logarithmique bornée aux terres du 5e et du 95e centile, la terre
+    // du milieu à mi-teinte : les quelques terres vides ou immenses ne tassent pas toutes les autres dans la même teinte. La
+    // légende dit les bornes et la terre du milieu, et « jusqu'à » ou « dès » quand des terres dépassent une borne.
     public sealed class RepartitionHabitants
     {
+        public const double CENTILE_BAS = .05, CENTILE_HAUT = .95;
+        // Les deux bouts de l'échelle : le papier, et l'accent tiré vers l'encre.
+        public static readonly Color CLAIRE = SocleInterface.Couleur("papier"), FONCEE = Color.Lerp(SocleInterface.Couleur("accent"), SocleInterface.Couleur("encre"), .3f);
         readonly Dictionary<long, long> populations = new Dictionary<long, long>();
         public long Minimum { get; }
         public long Maximum { get; }
+        public long Bas { get; }
+        public long Haut { get; }
         public string Legende { get; }
         public RepartitionHabitants(MondeLu monde)
         {
@@ -24,14 +32,25 @@ namespace Forge.Interface
                     throw new ArgumentException("Population négative ou territoire dupliqué");
                 populations.Add(cellule.CellId, cellule.Population);
             }
-            Minimum = populations.Values.Min(); Maximum = populations.Values.Max();
+            var triees = populations.Values.OrderBy(n => n).ToList(); int dernier = triees.Count - 1;
+            Minimum = triees[0]; Maximum = triees[dernier];
+            Bas = triees[(int)Math.Floor(CENTILE_BAS * dernier)]; Haut = triees[(int)Math.Ceiling(CENTILE_HAUT * dernier)]; Mediane = triees[dernier / 2];
             string H(long n) => TexteDuMonde.Nombre(n) + (n < 2 ? " habitant" : " habitants");
-            Legende = "Habitants : " + H(Minimum) + " (clair) → " + H(Maximum) + " (foncé) · échelle logarithmique · " + TexteDuMonde.Date(monde.Date);
+            Legende = "Habitants : " + (Bas > Minimum ? "jusqu'à " : "") + H(Bas) + " (clair) → " + (AvecMediane ? H(Mediane) + " (mi-teinte) → " : "")
+                + (Haut < Maximum ? "dès " : "") + H(Haut) + " (foncé) · " + TexteDuMonde.Date(monde.Date);
         }
+        // La terre du milieu : la moitié des terres en compte moins, l'autre moitié plus. Elle prend la mi-teinte quand elle est entre les bornes.
+        public long Mediane { get; }
+        bool AvecMediane => Mediane > Bas && Mediane < Haut;
+        // De 0 (clair) à 1 (foncé), au logarithme : de la borne claire à la terre du milieu, puis de la terre du milieu à la borne foncée,
+        // chacune sur une moitié de l'échelle ; au-delà d'une borne, la teinte de la borne.
         public float Position(long cellId)
         {
             if (!populations.TryGetValue(cellId, out long nombre)) throw new ArgumentException("Population absente du territoire " + cellId);
-            return Minimum == Maximum ? .5f : (float)(Math.Log(1d + nombre - Minimum) / Math.Log(1d + Maximum - Minimum));
+            if (Bas == Haut) return .5f;
+            long n = Math.Min(Math.Max(nombre, Bas), Haut);
+            float Entre(long a, long b) => (float)((Math.Log(1d + n) - Math.Log(1d + a)) / (Math.Log(1d + b) - Math.Log(1d + a)));
+            return !AvecMediane ? Entre(Bas, Haut) : n <= Mediane ? .5f * Entre(Bas, Mediane) : .5f + .5f * Entre(Mediane, Haut);
         }
     }
 
@@ -72,8 +91,8 @@ namespace Forge.Interface
     // plus longue du jour lu : aucun seuil n'est posé ici. Un monde dont aucune faim n'est calculée ne montre pas de vivres.
     public sealed class VivresDesTerres
     {
-        public static readonly Color GRAIN = Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("or-vieilli"), .5f),
-            PREMIERE_FAIM = Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("cuivre"), .55f),
+        public static readonly Color GRAIN = Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("or-vieilli"), .8f),
+            PREMIERE_FAIM = Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("cuivre"), .75f),
             PLUS_LONGUE_FAIM = Color.Lerp(SocleInterface.Couleur("cuivre"), SocleInterface.Couleur("encre"), .6f);
         readonly Dictionary<long, long> jours = new Dictionary<long, long>();
         public DateDuMonde Date { get; }
@@ -175,7 +194,7 @@ namespace Forge.Interface
         // La teinte d'une terre, ou d'un lieu d'une terre, qu'un pays tient et dont le pigment est donné ; la terre gardée en rouge.
         public Color Teinte(long cellId, string pays, Color pigment, bool retenue) => retenue ? SocleInterface.Couleur("alerte")
             : Mode == ModeDeCarte.Relief ? Relief.Teinte(cellId)
-            : Mode == ModeDeCarte.Population ? Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("accent"), .65f * Population.Position(cellId))
+            : Mode == ModeDeCarte.Population ? Color.Lerp(RepartitionHabitants.CLAIRE, RepartitionHabitants.FONCEE, Population.Position(cellId))
             : Mode == ModeDeCarte.Vivres ? Vivres.Teinte(cellId)
             : Mode == ModeDeCarte.Guerres ? Guerres.Teinte(cellId, pays, pigment) : pigment;
         // La légende sur la carte : ce que dit chaque teinte, son unité et sa date, en trois lignes au plus.
@@ -241,10 +260,10 @@ namespace Forge.Interface
         // Les cinq modes côte à côte, chacun réduit à son icône, la bande centrée sous la légende. L'icône est l'image de la
         // planche quand elle est livrée (`Resources/` + `ICONES` + motif), le signe gravé du socle sinon.
         public const float LARGEUR_D_UN_MODE = 56, ECART_DES_MODES = 8, TRAIT_ENFONCE = 4, COTE_DE_L_ICONE = 32;
-        public const string ICONES = "Forge/Icones/ModesDeCarte/", ICONE = "Icône ";
+        public const string ICONES = "Forge/Icones/ModesDeCarte/", ICONE = "Icône ", TRAIT = "Trait du mode en cours";
         static readonly int MODES = Enum.GetValues(typeof(ModeDeCarte)).Length;
         public static readonly float LARGEUR_DE_LA_BANDE = MODES * LARGEUR_D_UN_MODE + (MODES - 1) * ECART_DES_MODES;
-        readonly Dictionary<ModeDeCarte, (Button bouton, Outline trait)> modes = new Dictionary<ModeDeCarte, (Button, Outline)>();
+        readonly Dictionary<ModeDeCarte, (Button bouton, GameObject trait)> modes = new Dictionary<ModeDeCarte, (Button, GameObject)>();
         void Bouton(Transform bande, ModeDeCarte mode)
         {
             var b = SocleInterface.Commande(bande, mode.ToString(), (int)mode * (LARGEUR_D_UN_MODE + ECART_DES_MODES), 0, () => { Mode = mode; changement = true; Enfoncer(); }, phrase: PhraseDuMode(mode)); // un clic ne lit rien
@@ -257,27 +276,36 @@ namespace Forge.Interface
                 cadre.anchorMin = cadre.anchorMax = cadre.pivot = new Vector2(.5f, .5f); cadre.anchoredPosition = Vector2.zero; cadre.sizeDelta = new Vector2(COTE_DE_L_ICONE, COTE_DE_L_ICONE);
                 var image = icone.GetComponent<RawImage>(); image.texture = planche; image.raycastTarget = false;
             }
-            // L'état « sélection » du socle : un trait plein d'or vieilli de quatre pixels, sur la matière pressée.
-            var trait = b.gameObject.AddComponent<Outline>(); trait.effectColor = SocleInterface.Couleur("or-vieilli"); trait.effectDistance = new Vector2(TRAIT_ENFONCE, -TRAIT_ENFONCE); trait.enabled = false;
-            modes[mode] = (b, trait);
+            // L'état « sélection » du socle : un trait plein d'or vieilli de quatre pixels, sur la matière pressée. Le trait est un cadre
+            // de quatre filets, enfants du bouton : la teinte du bouton, qui presse sa matière, ne l'assombrit pas.
+            var trait = new GameObject(TRAIT, typeof(RectTransform)); var cadreDuTrait = (RectTransform)trait.transform; cadreDuTrait.SetParent(b.transform, false);
+            cadreDuTrait.anchorMin = Vector2.zero; cadreDuTrait.anchorMax = Vector2.one; cadreDuTrait.offsetMin = cadreDuTrait.offsetMax = Vector2.zero;
+            foreach (var (min, max) in new[] { (new Vector2(0, 0), new Vector2(1, 0)), (new Vector2(0, 1), new Vector2(1, 1)), (new Vector2(0, 0), new Vector2(0, 1)), (new Vector2(1, 0), new Vector2(1, 1)) })
+            {
+                var filet = new GameObject("Filet", typeof(RectTransform), typeof(Image)); var f = (RectTransform)filet.transform; f.SetParent(cadreDuTrait, false);
+                f.anchorMin = min; f.anchorMax = max; f.pivot = new Vector2(min.x == max.x ? min.x : .5f, min.y == max.y ? min.y : .5f);
+                f.sizeDelta = new Vector2(min.x == max.x ? TRAIT_ENFONCE : 0, min.y == max.y ? TRAIT_ENFONCE : 0); f.anchoredPosition = Vector2.zero;
+                var image = filet.GetComponent<Image>(); image.color = SocleInterface.Couleur("or-vieilli"); image.raycastTarget = false;
+            }
+            trait.SetActive(false); modes[mode] = (b, trait);
         }
         // Le bouton du mode en cours est enfoncé, et lui seul.
         void Enfoncer()
         {
             foreach (var paire in modes)
             {
-                bool enfonce = paire.Key == Mode; paire.Value.trait.enabled = enfonce;
+                bool enfonce = paire.Key == Mode; paire.Value.trait.SetActive(enfonce);
                 var couleurs = paire.Value.bouton.colors; couleurs.normalColor = couleurs.selectedColor = SocleInterface.Couleur(enfonce ? "fond" : "secondaire"); if (!enfonce) couleurs.selectedColor = SocleInterface.Couleur("accent");
                 paire.Value.bouton.colors = couleurs;
             }
         }
         public Button BoutonDu(ModeDeCarte mode) => modes[mode].bouton;
-        public bool Enfonce(ModeDeCarte mode) => modes[mode].trait.enabled;
+        public bool Enfonce(ModeDeCarte mode) => modes[mode].trait.activeSelf;
         // Le liseré d'un pays le long de sa frontière : son pigment, tiré vers l'encre pour se lire sur sa propre teinte comme sur le papier.
         public static Color Lisere(Color pays) => LisereDuPigment(SocleInterface.Pigment(pays));
         public static Color LisereDuPigment(Color pigment) => Color.Lerp(pigment, SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
         // La règle de chaque mode, dite dans l'infobulle de sa légende avant ce que ses données disent.
-        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus une terre est foncée, plus elle compte d'habitants. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes."
+        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus une terre est foncée, plus elle compte d'habitants. La mi-teinte est la terre du milieu : la moitié des terres en compte moins, l'autre moitié plus. L'échelle est logarithmique : chaque pas de teinte multiplie les habitants au lieu de les additionner, pour que les petites terres restent lisibles à côté des grandes. Les terres les moins et les plus peuplées, un vingtième de chaque côté, prennent la teinte de la borne."
             : mode == ModeDeCarte.Relief ? "Le terrain nu : chaque terre porte la teinte de sa classe de relief servie, sans couleur ni frontière de pays, et les noms des pays se taisent."
             : mode == ModeDeCarte.Vivres ? "Une terre en or a eu son grain au dernier jour servi ; une terre qui a faim tire du cuivre au brun avec ses jours de faim d'affilée, jusqu'à la plus affamée. En gris, une terre dont le monde n'a pas encore calculé la faim. Les flèches partent de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaississent avec ce qui est envoyé."
             : mode == ModeDeCarte.Guerres ? "Seuls les pays qu'une guerre servie nomme gardent leur couleur ; les autres passent au papier. Une terre qu'une armée assiège est en brun sombre."

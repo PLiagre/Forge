@@ -53,8 +53,8 @@ namespace Forge.Interface
         // le papier, mate, avec le nom de sa classe et le mot qui dit sa couleur dans la légende.
         public static IReadOnlyList<(string classe, string nom, string mot, Color teinte)> TeintesDuRelief { get; } = new (string, string, string, Color)[]
         {
-            ("marais", "marais", "vert-de-gris", Color.Lerp(Couleur("papier"), Couleur("vert-de-gris"), .55f)),
-            ("plaine", "plaine", "vert pâle", Color.Lerp(Couleur("papier"), Couleur("accord"), .25f)),
+            ("marais", "marais", "vert-de-gris", Color.Lerp(Couleur("papier"), Couleur("vert-de-gris"), .7f)),
+            ("plaine", "plaine", "vert pâle", Color.Lerp(Couleur("papier"), Couleur("accord"), .4f)),
             ("colline", "colline", "ocre", Color.Lerp(Couleur("papier"), Couleur("or-vieilli"), .6f)),
             ("montagne", "montagne", "cuivre", Color.Lerp(Couleur("papier"), Couleur("cuivre"), .75f)),
             ("haute_montagne", "haute montagne", "brun de roche", Color.Lerp(Couleur("papier"), Couleur("secondaire"), .9f))

@@ -121,7 +121,7 @@ namespace Forge.Interface.Tests
         // Flèches du prélèvement et du dû.
         FlechesDeCarte fleches; const float R = ReperesDeDepart.DIAMETRE_BORD_KM / 2f;
         [Test] public void LeCabinetConstruitUneSeuleVueDesFleches() { Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); cabinet.Construire(); Assert.That(racine.GetComponents<FlechesDeCarte>(), Has.Length.EqualTo(1)); }
-        [TestCase(0d, 0f)] [TestCase(50000d, 1f)] [TestCase(218086d, 4.36172f)] [TestCase(400000d, 8f)] [TestCase(10000000d, 8f)] public void LEpaisseurEstAbsolueEtPlafonnee(double kg, float km) => Assert.That(FlechesDeCarte.Epaisseur(kg), Is.EqualTo(km).Within(1e-4f));
+        [TestCase(0d, 0f)] [TestCase(1000d, 4f)] [TestCase(200000d, 4f)] [TestCase(218086d, 4.36172f)] [TestCase(300000d, 6f)] [TestCase(400000d, 8f)] [TestCase(10000000d, 8f)] public void LEpaisseurEstAbsolueEtPlafonnee(double kg, float km) => Assert.That(FlechesDeCarte.Epaisseur(kg), Is.EqualTo(km).Within(1e-4f));
         [Test] public void UneFlecheParLieuTenuVersLeSiege()
         {
             Preparer(); fleches = racine.GetComponent<FlechesDeCarte>(); Publier(JOUEUR, new LieuTenu(10, 0), new LieuTenu(10, 1), new LieuTenu(20, 0));
@@ -705,7 +705,9 @@ namespace Forge.Interface.Tests
             {
                 var bouton = calques.BoutonDu(mode); bouton.onClick.Invoke(); Peindre(calques); cabinet.Afficher();
                 Assert.That(calques.Mode, Is.EqualTo(mode)); Assert.That(Enfonces(), Is.EqualTo(new[] { mode }), "un seul bouton enfoncé, celui du mode cliqué");
-                Assert.That(bouton.GetComponents<Outline>().Count(o => o.enabled && o.effectColor == SocleInterface.Couleur("or-vieilli") && o.effectDistance.x == CalquesCarte.TRAIT_ENFONCE), Is.EqualTo(1), mode + " : sans trait d'or vieilli");
+                var filets = bouton.transform.Find(CalquesCarte.TRAIT)?.GetComponentsInChildren<Image>(false) ?? new Image[0];
+                Assert.That(filets.Length == 4 && filets.All(f => f.color == SocleInterface.Couleur("or-vieilli") && !f.raycastTarget && Mathf.Min(f.rectTransform.rect.width, f.rectTransform.rect.height) == CalquesCarte.TRAIT_ENFONCE), Is.True, mode + " : sans cadre d'or vieilli de quatre pixels");
+                foreach (var autre in cinq.Where(m => m != mode)) Assert.That(calques.BoutonDu(autre).transform.Find(CalquesCarte.TRAIT).gameObject.activeSelf, Is.False, autre + " garde son cadre");
                 Assert.That(bouton.colors.normalColor, Is.EqualTo(SocleInterface.Couleur("fond")), mode + " : sa matière n'est pas pressée");
                 foreach (var autre in cinq.Where(m => m != mode)) Assert.That(calques.BoutonDu(autre).colors.normalColor, Is.EqualTo(SocleInterface.Couleur("secondaire")), autre + " reste pressé");
                 Assert.That((carte.Vue.Centre, carte.Vue.Demi, camera.transform.position, cabinet.Retenue), Is.EqualTo((centre, demi, place, sept)), mode + " a bougé la vue ou lâché la terre gardée");
