@@ -55,6 +55,8 @@ namespace Forge.Interface
             .Select(t => Color.Lerp(Color.HSVToRGB(t.teinte / 360f, t.saturation, t.valeur), Couleur("papier"), .16f)).ToList();
         // La famille de teinte d'un pigment des pays : deux pigments d'une même famille n'en diffèrent que par la clarté.
         public static int FamilleDuPigment(int pigment) => pigment / CLARTES_D_UNE_FAMILLE;
+        // Les noms des sept familles, dans l'ordre des pigments : l'indice rendu par `FamilleDuPigment` y donne le nom de la teinte.
+        public static readonly IReadOnlyList<string> NomsDesFamilles = new[] { "brique", "ocre", "vert", "sarcelle", "bleu", "violet", "lie-de-vin" };
         // Les teintes du relief servi, du marais à la haute montagne, comme sur un atlas physique : chacune tirée d'un jeton vers
         // le papier, mate, avec le nom de sa classe et le mot qui dit sa couleur dans la légende.
         public static IReadOnlyList<(string classe, string nom, string mot, Color teinte)> TeintesDuRelief { get; } = new (string, string, string, Color)[]

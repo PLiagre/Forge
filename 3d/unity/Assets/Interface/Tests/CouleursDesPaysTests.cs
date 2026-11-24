@@ -103,6 +103,28 @@ namespace Forge.Interface.Tests
             Assert.That((Color32)c.Lisere(FRANCE), Is.EqualTo((Color32)CalquesCarte.LisereDuPigment(c.Couleur(FRANCE))), "la France n'a pas le liseré tiré de son pigment");
         }
 
+        // Quand les lieux qui se touchent sont connus, un lieu d'un autre pays ne se lie qu'aux pays des lieux qu'il touche : jamais, par
+        // défaut, à tous ceux des terres d'à côté, ce qui ferait de huit petits pays d'une terre des voisins de tout l'entourage, plus
+        // qu'aucun coloriage ne sépare. Sans les lieux, la règle grossière reste.
+        [Test] public void Avec_les_lieux_un_lieu_d_un_autre_pays_ne_se_lie_qu_a_ceux_qu_il_touche()
+        {
+            var cote = Cotes.First(k => Terres.PaysDe(k.Dedans) != null && Terres.PaysDe(k.Dehors) != null && Terres.PaysDe(k.Dedans) != Terres.PaysDe(k.Dehors));
+            long ici = cote.Dedans; string tenant = Terres.PaysDe(ici), voisin = Terres.PaysDe(cote.Dehors);
+            // Huit petits pays, chacun un lieu de la terre, en file : chacun touche le précédent, le premier touche le lieu 0 du tenant.
+            var petits = Enumerable.Range(1, 8).Select(k => "petit-" + k).ToList();
+            var pays = Terres.Pays.Concat(petits.Select(p => new PaysDeLaCarte(p, p))).ToList();
+            var terres = new TerresDeLaCarte(Terres.Tick, Terres.Date, pays, Terres.Terres.Select(t => t.CellId != ici ? t : new TerreLue(t.CellId, t.Maitre, t.Pays, t.Maison, petits.Select((p, k) => new LieuDAutrePays(k + 1, p, p)))));
+            var lieux = Enumerable.Range(0, 8).Select(k => (ici, (long)k, ici, (long)k + 1)).ToList();
+            var fins = CouleursDesPays.VoisinsDesPays(terres, Cotes, lieux);
+            Assert.That(fins["petit-1"], Is.EquivalentTo(new[] { tenant, "petit-2" }), "le premier petit pays se lie à d'autres que ceux qu'il touche");
+            Assert.That(fins["petit-5"], Is.EquivalentTo(new[] { "petit-4", "petit-6" }), "un petit pays au milieu de la terre se lie à ceux des terres d'à côté");
+            Assert.That(fins[voisin].Overlaps(petits), Is.False, "un petit pays qui ne touche pas la terre d'à côté en est voisin");
+            // Contre-épreuve : sans les lieux, chaque petit pays reste lié à sa terre et à celles d'à côté.
+            var grossiers = CouleursDesPays.VoisinsDesPays(terres, Cotes);
+            Assert.That(grossiers["petit-5"], Does.Contain(tenant).And.Contain(voisin), "sans les lieux, la règle grossière ne lie plus un lieu d'un autre pays à son entourage");
+            Assert.That(CouleursDesPays.Colorier(terres, fins).Conflits, Is.Zero, "des voisins n'ont pas pu être séparés");
+        }
+
         [Test] public void Un_vassal_porte_la_teinte_de_son_suzerain_plus_claire()
         {
             var c = Colorier(Terres);

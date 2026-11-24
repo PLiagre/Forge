@@ -42,6 +42,8 @@ namespace Forge.Interface
         public Color Lisere(string id) => id != null && liseres.TryGetValue(id, out Color c) ? c : CalquesCarte.LisereDuPigment(Couleur(id));
         // La racine du bloc du pays, et l'indice de son éclaircissement (0 : la racine elle-même).
         public string Racine(string id) => id != null && racines.TryGetValue(id, out string r) ? r : id;
+        // La famille de teinte du bloc du pays (`SocleInterface.FamilleDuPigment`) ; -1 quand son bloc n'est pas colorié.
+        public int FamilleDe(string id) => pigments.TryGetValue(Racine(id) ?? "", out int k) ? SocleInterface.FamilleDuPigment(k) : -1;
         public int Part(string id) => id != null && parts.TryGetValue(id, out int p) ? p : 0;
         public static Color SansPays => SocleInterface.Pigment(MaillageDeCarte.CouleurSansPuissance);
         public static Color Repli(string id) => SocleInterface.PigmentsDesPays[Prefere(id)];
@@ -80,9 +82,11 @@ namespace Forge.Interface
             return new Vector3(116f * y - 16f, 500f * (x - y), 200f * (y - z));
         }
 
-        // Les voisinages entre pays. Deux terres qui se touchent lient leurs pays ; un lieu d'un autre pays lie le sien à celui
-        // de sa terre et à ceux des terres d'à côté. `lieux` : les lieux qui se touchent sur le terrain (`LieuxQuiSeTouchent`),
-        // qui lient aussi deux lieux d'une même terre ; sans eux, deux lieux d'autres pays d'une même terre ne se lient pas.
+        // Les voisinages entre pays. Deux terres qui se touchent lient leurs pays. `lieux` : les lieux qui se touchent sur le terrain
+        // (`LieuxQuiSeTouchent`) ; donnés, ils lient seuls le pays d'un lieu à ceux des lieux qu'il touche, d'une même terre ou d'à
+        // côté. Sans eux, un lieu d'un autre pays lie le sien à celui de sa terre et à ceux des terres d'à côté, et deux lieux d'autres
+        // pays d'une même terre ne se lient pas : une règle grossière qui, sur un terrain découpé en lieux, ferait de chaque petit pays
+        // d'une terre le voisin de tout son entourage.
         public static Dictionary<string, HashSet<string>> VoisinsDesPays(TerresDeLaCarte terres, IEnumerable<CoteDeCarte> cotes, IEnumerable<(long terre, long rang, long autreTerre, long autreRang)> lieux = null)
         {
             var voisins = new Dictionary<string, HashSet<string>>();
@@ -99,13 +103,14 @@ namespace Forge.Interface
                     Lier(terres.PaysDe(cote.Dedans), terres.PaysDe(cote.Dehors));
                     if (!autour.TryGetValue(cote.Dedans, out var liste)) autour[cote.Dedans] = liste = new List<long>(); liste.Add(cote.Dehors);
                 }
-            foreach (var terre in terres.Terres)
-                foreach (var lieu in terre.AutresPays)
-                {
-                    Lier(lieu.Pays, terre.Pays);
-                    if (autour.TryGetValue(terre.CellId, out var proches)) foreach (long proche in proches) Lier(lieu.Pays, terres.PaysDe(proche));
-                }
             if (lieux != null) foreach (var (t, r, u, s) in lieux) Lier(terres.PaysDuLieu(t, r), terres.PaysDuLieu(u, s));
+            else
+                foreach (var terre in terres.Terres)
+                    foreach (var lieu in terre.AutresPays)
+                    {
+                        Lier(lieu.Pays, terre.Pays);
+                        if (autour.TryGetValue(terre.CellId, out var proches)) foreach (long proche in proches) Lier(lieu.Pays, terres.PaysDe(proche));
+                    }
             return voisins;
         }
 
@@ -260,7 +265,7 @@ namespace Forge.Interface
                 var restes = Placer(zone, bloc); conflits.Remove(bloc); conflits.AddRange(restes.Where(b => !conflits.Contains(b)));
             }
             // Si un conflit reste, toute la carte se replace, chaque bloc essayant d'abord le pigment qu'il avait.
-            if (conflits.Count > 0) { pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); }
+            if (conflits.Count > 0) { pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); foreach (string bloc in conflits.ToList()) if (Deloger(bloc)) conflits.Remove(bloc); }
             Conflits = conflits.Count;
         }
     }
