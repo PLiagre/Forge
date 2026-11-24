@@ -1632,7 +1632,7 @@ lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 
 La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
 l'Italie, l'Empire, le Nord, l'Est et l'Orient : Byzance, les Ottomans, les
-Mamelouks, le Maghreb et la Russie de Novgorod. Ses 81 puissances et 115 ancres,
+Mamelouks, le Maghreb et la Russie de Novgorod. Ses 91 puissances et 125 ancres,
 vérifiées contre des sources publiques, sont de **niveau 1** : elles doivent être
 justes dans les grandes lignes au 1er janvier 1400. La nature `principauté`
 désigne une puissance tenue par un duc, un comte ou un prince, comme Milan, la
@@ -1641,7 +1641,12 @@ Bourbonnais, Foix, l'Armagnac, la seigneurie d'Irlande, les princes d'Empire
 (Autriche, Bavière, Palatinat, Saxe, Misnie, Thuringe, Brandebourg, duché de
 Luxembourg, Brabant, Hollande, Hainaut, Lorraine, Gueldre, Clèves, Hesse,
 Brunswick, Mecklembourg, Poméranie, Holstein, burgraviat de Nuremberg), la
-Lituanie et la Mazovie ; `Église` désigne les États de l'Église, les archevêchés
+Lituanie et la Mazovie, et les maîtres que la table des frontières laissait en lacune
+jusqu'à ce qu'ils y entrent : Padoue des Carrara, Rimini des Malatesta, la Zeta des Balšić,
+l'Épire d'Ésaü Buondelmonti, Céphalonie et Zante des Tocco, le duché de l'Archipel des
+Crispo et la Tripolitaine des Banou Thabit ; `royaume` désigne aussi l'Arborée, le
+judicat sarde de Marien V ; `république`, avec Venise, Florence et Gênes, la commune de
+Bologne et Raguse ; `Église` désigne les États de l'Église, les archevêchés
 de Trèves, Cologne, Mayence, Brême, Magdebourg et Salzbourg, les évêchés d'Utrecht,
 de Münster et d'Osnabrück, la principauté de Liège et le patriarcat d'Aquilée ;
 `empire` désigne Byzance, `sultanat` les Ottomans, les Mamelouks et les trois
@@ -1707,38 +1712,62 @@ de Fès, de Ceuta et Tanger, de Taza, de Meknès, du Tadla, de l'Atlas et de Mar
 Pantelleria sicilienne). La
 Venise d'outre-mer (la Crète, Corfou, Cythère, Négrepont, Tinos et Mykonos, Karpathos et
 Kasos, Coron, Argos et Nauplie, Athènes, Durazzo et Scutari), la Chios et la Samos
-génoises et la Smyrne des Hospitaliers y sont déclarées avec elles. L'Épire, l'Achaïe,
-Patras, Thèbes, la Zeta, les seigneurs albanais, Raguse, les îles des Tocco, du duché de
-l'Archipel et des Querini, Lesbos des Gattilusi, la Cyrénaïque et la Marmarique
-bédouines, la Tripolitaine des Banou Thabit, le Hodna, et les oasis et steppes du désert
-(l'Oued Righ, le Souf, le Zab occidental, le Mzab, les steppes de Laghouat et de
-Djelfa, le Djebel Amour, les monts des Ksour, la haute Moulouya, Figuig, le Tafilalt, le
-Drâa, le Sous) sont des lacunes ou des villes sans pays, chacune avec sa raison : dans
-le désert, des tribus et des oasis dont l'histoire ne nomme pas les maîtres, tenues par
-des seigneurs plausibles de **niveau 2** sans pays de la table. Aucune cellule de la
-carte ne doit son pays à l'ancre la plus proche. La table porte 435 cellules entières,
-rangées par pays avec une source publique par pays ; 96 cellules partagées ; 65 lacunes
-avec leur raison (Bologne, Ferrare et Ravenne ; Elbe ; Lastovo et Mljet ; deux îlots du
-Sulcis ; deux îles frisonnes ; les îles d'Ösel-Wiek ; les Champs sauvages à l'est du
-Dniepr ; l'Épire ; les îles des Tocco, du duché de l'Archipel et Astypalée ; Égine,
-Salamine et Hydra ; Lesbos, Ténédos, Psara, Icarie et Ágios Efstrátios ; la Cyrénaïque
-et la Marmarique ; la Tripolitaine, le Hodna et le désert) ; 24 pays plus petits que deux lieux, déclarés avec leur raison
-(Calais, Andorre, Saint-Marin, Piombino, Tournai, Péra, Théodoro et les villes libres
-d'Empire, dont Lübeck, Cologne, Francfort, Nuremberg et Metz, chacune avec le pays qui
-reçoit son lieu) ; et 134 villes témoins, chacune avec son pays de 1400 et sa source,
-que les preuves lisent, d'une région au moins. Une cellule
-partagée nomme une ville sourcée par pays, 350 en tout, jamais une ville libre ; une
-ville sans pays (`pays: null`) dit sa raison, 28 en tout : Padoue aux Carrara, Mantoue
-aux Gonzague, Lucques, Rimini et Urbino, l'Arborée ; Namur, Berg, Bade, Bamberg,
-Wurtzbourg, Verdun, Toul, Stuttgart (le Wurtemberg, terre de départ, dont les terres
-hors du siège ne sont pas simulées) ; la Frise libre ; Riga, Dorpat et Ösel-Wiek en
-Livonie ; Thèbes des Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin,
-Vonitsa des Tocco, Krujë des Thopia, Valona, Antivari de la Zeta et Raguse.
+génoises et la Smyrne des Hospitaliers y sont déclarées avec elles, comme les dix pays
+que l'histoire attestait sans qu'ils soient dans la table : dans l'Ouest, Bologne,
+Padoue, l'Arborée et Rimini ; dans les Balkans, Raguse avec Lastovo et Mljet, la Zeta
+d'Antivari, l'Épire de Ioannina, Céphalonie et Zante des Tocco avec Leucade, Ithaque et
+Vonitsa ; dans l'Orient, les treize îles du duché de l'Archipel, de Naxos à Siphnos,
+vassales comprises ; dans le Maghreb, la Tripolitaine, de Tripoli, de la Djeffara et de
+Misrata. Chacun a sa source publique, sa capitale et son chef au 1er janvier 1400, ou la
+lacune déclarée de son chef (la commune de Bologne et le recteur de Raguse, qui changent
+de mois en mois ; le titulaire des Banou Thabit, que la source ne nomme pas). Ils sont de
+**niveau 1**. Le reste de ce que l'histoire ne range pas dans un pays de la table est
+une lacune ou une ville sans pays, chacune avec sa raison : l'Achaïe, Patras et Thèbes,
+les seigneurs de Krujë et de Valona, Ferrare, Ravenne, Mantoue, Lucques et Urbino, Elbe,
+Égine, Salamine et Hydra, Lesbos, Ténédos, Psara, Icarie, Ágios Efstrátios et Astypalée,
+la Cyrénaïque et la Marmarique bédouines, le Hodna, les Champs sauvages, la Frise libre,
+les évêchés de Livonie, les seigneurs d'Empire que la table ne porte pas, et les oasis et
+steppes du désert (l'Oued Righ, le Souf, le Zab occidental, le Mzab, les steppes de
+Laghouat et de Djelfa, le Djebel Amour, les monts des Ksour, la haute Moulouya, Figuig,
+le Tafilalt, le Drâa, le Sous), des tribus et des oasis dont l'histoire ne nomme pas les
+maîtres. Aucune cellule de la carte ne doit son pays à l'ancre la plus proche. La table
+porte 458 cellules entières, rangées par pays avec une source publique par pays ; 97
+cellules partagées ; 41 lacunes avec leur raison ; 25 pays plus petits que deux lieux,
+déclarés avec leur raison (Calais, Andorre, Saint-Marin, Piombino, Tournai, Péra,
+Théodoro, Lesbos des Gattilusi, une île d'un seul lieu, et les villes libres d'Empire,
+dont Lübeck, Cologne, Francfort, Nuremberg et Metz, chacune avec le pays ou la terre sans
+État qui reçoit son lieu) ; et 144 villes témoins, chacune avec son pays de 1400 et sa
+source, que les preuves lisent, d'une région au moins. Une cellule partagée nomme une
+ville sourcée par pays, 353 en tout, jamais une ville libre ; une ville sans pays
+(`pays: null`) dit sa raison, 24 en tout : Ferrare, Ravenne, Mantoue, Lucques et
+Urbino ; Namur, Berg, Bade, Bamberg, Wurtzbourg, Verdun, Toul, Stuttgart (le Wurtemberg,
+terre de départ, dont les terres hors du siège ne sont pas simulées) ; Groningue et
+Emden de la Frise libre ; Riga, Kokenhusen, Dorpat et Hapsal en Livonie ; Thèbes des
+Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin, Krujë des Thopia et Valona.
 
-Par région, les cellules entières et partagées de ses pays : `ouest` 166 et 38,
-`empire` 25 et 39, `nord` 91 et 1, `est` 65 et 25, `balkans` 48 et 13, `orient` 25
-et 8, `maghreb` 25 et aucune. Une cellule de Venise compte dans l'Ouest et dans
-l'Orient ; une cellule partagée compte dans chaque région de ses pays. Avec les 65
+**Les terres sans État.** Chaque lacune et chaque ville sans pays nomment leur terre
+sans État (`terre`) dans `terres_sans_etat`, une liste de `{id, nom, raison}` : une
+région nommée, de **niveau 2** déclaré, dont les seigneurs plausibles restent maîtres de
+leurs lieux sans être servis comme des pays. La table en déclare douze : les Tribus du
+désert (18 lacunes, 407 lieux), les Tribus du Sous, les Bédouins de Cyrénaïque, les
+Champs sauvages, les Seigneuries d'Italie (Ferrare, Ravenne, Mantoue, Lucques, Urbino,
+Elbe), les Îles du Sulcis, les Seigneuries d'Albanie (Krujë, Valona), les Seigneuries de
+Grèce (Thèbes, Clarentza, Patras et les îles Saroniques), les Îles de l'Égée, les
+Évêchés de Livonie, la Frise libre et les Seigneuries d'Empire. Le découpage suit la
+carte : les bourgs de terre ferme d'une même terre sans État sont d'un seul tenant par
+les arêtes `land-land`, et deux terres sans État ne se touchent pas (le Sous, qui ne
+touche pas le désert par la terre, a la sienne). `frontieres.terres_des_lieux` rend la
+terre de chacun des lieux sans pays, ceux d'une lacune et ceux d'une ville sans pays ;
+elle se lit sur le même passage que la puissance des lieux partagés
+(`frontieres.villes_des_lieux`). Le chargement refuse, en nommant la ligne et le champ,
+une lacune ou une ville sans pays sans `terre`, une terre inconnue, une `terre` sur une
+ville qui a son pays, une terre déclarée deux fois, sans nom ni raison, ou que rien ne
+cite.
+
+Par région, les cellules entières et partagées de ses pays : `ouest` 166 et 39,
+`empire` 25 et 39, `nord` 91 et 1, `est` 65 et 25, `balkans` 55 et 14, `orient` 38
+et 8, `maghreb` 28 et aucune. Une cellule de Venise compte dans l'Ouest et dans
+l'Orient ; une cellule partagée compte dans chaque région de ses pays. Avec les 41
 lacunes, la table décide les 596 cellules de la carte figée, et le chargement refuse,
 en la nommant, une cellule de la carte qu'elle ne décide pas ; un monde d'épreuve qui
 ne porte qu'une part de la carte refuse de même une de ses cellules non décidée.
@@ -1748,7 +1777,10 @@ sa capitale ou de son siège, et chaque maison posée tient ce bourg : deux siè
 partagent jamais une cellule. Une principauté dont le siège partagerait la cellule
 d'une autre capitale n'est pas une puissance de la table ; sa ville est sans pays,
 avec cette raison (Bade à Heidelberg, Bamberg à Cadolzbourg, Wurtzbourg à
-Aschaffenbourg). Utrecht a pour premier siège Coevorden, la ville d'Utrecht
+Aschaffenbourg), et elle entre dans la terre sans État de sa région. C'est le cas de
+Ferrare des Este, dans la cellule de Bologne, plus peuplée (45 000 habitants contre
+40 000), et de Mantoue des Gonzague, dans celle du Véronais, dont le bourg est au siège
+des Carrara à Padoue : toutes deux restent des villes sans pays des Seigneuries d'Italie. Utrecht a pour premier siège Coevorden, la ville d'Utrecht
 partageant la cellule de La Haye : ce choix est de **niveau 2**. Chaque prince d'Empire nommé
 par la fiche du lot est le pays d'au moins une terre, dont il tient le bourg : il a
 sa place sur la carte, et pas seulement des lieux dans la cellule d'un autre. Le
@@ -1760,7 +1792,7 @@ prendra (`frontieres.maison_du_bourg`, dans l'ordre même de l'attribution des
 maîtres), sinon à la plus grande ville placée : la place du bourg se connaît avant
 ses maîtres, et c'est celle du chargement. La puissance de la cellule, pour tout ce
 qui la lit déjà, est celle de son bourg ; `frontieres.puissances_des_lieux` rend
-celle de chacun des 1 643 lieux partagés (107 sans pays). C'est ainsi que la Navarre
+celle de chacun des 1 655 lieux partagés (87 sans pays). C'est ainsi que la Navarre
 tient 13 lieux, moins que les 20 de la cellule de Pampelune, et Venise les 2 lieux
 du Trévisan, sans aucune cellule entière en Italie ; une ancre de Trévise porte sa capitale,
 son siège institutionnel étant hors carte. Le chargement refuse une cellule
@@ -1770,10 +1802,10 @@ monde d'épreuve qui ne porte qu'une part de la carte ignore les cellules décla
 qu'il n'a pas (`frontieres_du_monde`). Le pays d'une cellule déclarée, et celui de
 chaque ville témoin, sont de **niveau 1**, d'après des sources publiques citées
 pays par pays ; le tracé à l'intérieur d'une cellule partagée est de **niveau 2**.
-Sur la carte figée, 527 cellules ont une puissance et 69 n'en ont pas : les
-lacunes de la table et les cellules partagées dont le bourg est sans pays (la
-Sardaigne d'Arborée ; Rimini et Urbino ; la Frise ; Stuttgart). Chacune dit sa raison
-dans la table : sa lacune, ou la ville sans pays de son bourg.
+Sur la carte figée, 553 cellules ont une puissance et 43 n'en ont pas : les 41
+lacunes de la table et les deux cellules partagées dont le bourg est sans pays (celle de
+l'Achaïe et de Patras ; Stuttgart). Chacune dit sa raison et sa terre sans État dans la
+table : sa lacune, ou la ville sans pays de son bourg.
 
 La table des puissances ne déclare ni portée ni point de lacune : une cellule sans
 pays a sa lacune, ou la ville sans pays du bourg de son partage, dans la table des
@@ -1785,7 +1817,7 @@ côte carienne, que l'ancre de Rhodes leur donnait, mais Rhodes et le Dodécanè
 Byzance ne tient plus l'Attique, les îles Ioniennes et l'ouest de la Crète, que l'ancre
 de Mistra lui donnait, mais Constantinople, la Morée et les îles du nord de l'Égée ;
 la Crète est vénitienne, Athènes aussi, de 1395 à 1402. Autour du Zab, les voisins de
-Biskra sont les Hafsides, ses suzerains, et des terres du désert sans pays (voir « Les
+Biskra sont les Hafsides, ses suzerains, et les Tribus du désert, terre sans État (voir « Les
 seigneuries de départ »). Moscou, Tver, la Horde à Sarai, Kaffa, Sinop, Trébizonde et
 Damas sont hors de la carte, sans ancre. Les beyliks libres, les suzerainetés non
 déclarées et l'hommage, les tributs, le siège de Constantinople et l'Église de Bosnie
@@ -1800,7 +1832,7 @@ ne la lit pas**, ni la table des frontières.
 
 ## Les maisons de 1400, vue dérivée
 
-La même table `data/puissances-1400.json` déclare 56 maisons, chacune avec
+La même table `data/puissances-1400.json` déclare 64 maisons, chacune avec
 un `id`, un `nom` et une `source` publique qui atteste sa tenure au
 1er janvier 1400 : Lancastre, Stuart, Valois, Aviz, Trastamare, Barcelone,
 Évreux, Nasrides, Luxembourg, Visconti, Anjou-Durazzo, Savoie, Poméranie,
@@ -1811,7 +1843,10 @@ d'Aquitaine, fils d'Henri IV), Valois-Orléans, Valois-Anjou, Valois-Berry, Bour
 Foix-Grailly, Armagnac, Wittelsbach-Bavière, Ascanie, Wettin, Wettin-Thuringe,
 Luxembourg-Moravie, Louvain, Wittelsbach-Straubing, Lorraine, Juliers, La Marck,
 Hesse, Welf, Mecklembourg, Poméranie-Stettin, Schauenbourg, Hohenzollern,
-Gediminides, Piast de Mazovie et Luxembourg-Hongrie. Lancastre-Aquitaine et les six
+Gediminides, Piast de Mazovie, Luxembourg-Hongrie, Carrara, Doria-Bas (les juges
+d'Arborée), Malatesta, Balšić, Buondelmonti, Tocco, Crispo et Banou Thabit. Les huit
+dernières règnent chacune sur un pays neuf : Padoue, l'Arborée, Rimini, la Zeta,
+l'Épire, Céphalonie et Zante, le duché de l'Archipel et la Tripolitaine. Lancastre-Aquitaine et les six
 suivantes règnent sur les pays neufs de l'Ouest (Guyenne, Orléans, Anjou, Berry,
 Bourbonnais, Foix, Armagnac) ; Valois-Bourgogne et Montfort sur la Bourgogne et la
 Bretagne, Lancastre aussi sur l'Irlande. Dans l'Empire, Habsbourg règne sur
@@ -1822,10 +1857,11 @@ Hainaut ; chacune des autres maisons neuves règne sur un pays. Luxembourg-Hongr
 (Sigismond) règne sur la Hongrie, Gediminides (Vytautas) sur la Lituanie, Jagellon
 sur la Pologne.
 
-Chacune des 61 puissances de nature `royaume`, `principauté`, `empire`,
-`sultanat` ou `khanat` désigne une maison connue. Les vingt autres se
+Chacune des 69 puissances de nature `royaume`, `principauté`, `empire`,
+`sultanat` ou `khanat` désigne une maison connue. Les vingt-deux autres se
 **déclarent sans maison**, par leur nature `république`, `Église` ou `ordre` :
-Confédération des cantons suisses, Venise, Florence, Gênes, Novgorod et Pskov ;
+Confédération des cantons suisses, Venise, Florence, Gênes, Bologne, Raguse, Novgorod
+et Pskov ;
 les États de l'Église et les onze Églises d'Empire (Trèves, Cologne, Mayence,
 Brême, Magdebourg, Salzbourg, Utrecht, Liège, Münster, Osnabrück, Aquilée) ; l'Ordre
 teutonique et les Hospitaliers. Leur ligne
@@ -1843,10 +1879,10 @@ table des frontières décide ; une république, une Église, un ordre ou une la
 n'en ont pas. `maisons_depuis_monde` ne lit aucune ancre : échanger ou déplacer une
 ancre ne change la maison d'aucune cellule. La cellule du point de Constantinople,
 10374, est à Paléologue, la Bithynie (10032) à Osman.
-Sur les 596 cellules figées, **457** sont tenues par une maison, **70** sont
-sans maison par déclaration de nature, et **69** sont sans pays (lacunes, et partages
-dont le bourg est d'une ville sans pays).
-Chacune des 56 maisons tient au moins une cellule.
+Sur les 596 cellules figées, **480** sont tenues par une maison, **73** sont
+sans maison par déclaration de nature, et **43** sont sans pays (lacunes, et partages
+dont le bourg est d'une ville sans pays), chacune d'une terre sans État.
+Chacune des 64 maisons tient au moins une cellule.
 
 Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
 sources publiques. Leur étendue suit, sur toute la carte, la table des frontières,
@@ -1863,7 +1899,7 @@ Le registre ajoute seulement les liens de départ décrits ci-dessous. Restent d
 les personnes et la succession des dynasties, Naples disputée, Édigu derrière le
 khan, Marguerite derrière Éric, l'élection du roi des Romains, la diète et le lien
 d'Empire, les villes libres et les seigneuries de moins de deux lieux, et les
-familles des vingt-six chefs neufs (grandes maisons 31 à 56).
+familles des trente-quatre chefs neufs (grandes maisons 31 à 64).
 
 La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
 Elle lit la vue des puissances, refuse comme elle une cellule que la table des
@@ -1924,7 +1960,7 @@ lève `SeigneurieInconnue`, sous-classe de `LookupError`, avant tout calcul.
   `monde.adjacency`, sans doublon et triées par `cell_id`, chacune avec sa
   puissance (ou `None`) et ses habitants actuels. Le Zab, à Biskra, a pour voisins
   les Hafsides de Bougie, de Constantine, du Djérid et de Tébessa, ses suzerains, et
-  les terres sans pays du Souf, du Zab occidental et du Hodna. La place d'un autre
+  les terres sans pays du Souf, du Zab occidental et du Hodna, des Tribus du désert. La place d'un autre
   maître la plus proche, par le chemin terrestre que suit le geste `marcher`, est le
   bourg du Souf (cellule 10107), d'un seigneur plausible du désert, à 25 jours de
   marche ; la plus proche place d'un pays de la table est Alger, zayyanide, à 50 jours.
@@ -1955,13 +1991,17 @@ une capitale par grande maison de la table des puissances, sans modifier
 celle-ci : `maison` (id), `nom`, `lat`, `lon` en EPSG:4326 et `source`
 publique du siège et de la tenure dynastique. Seul un point hors de tous
 les polygones porte `hors_carte`, sa raison textuelle. Sur la carte figée,
-**56** capitales sont déclarées : **55** placées, chacune dans une cellule
+**64** capitales sont déclarées : **63** placées, chacune dans une cellule
 que `maisons_depuis_monde` donne à sa propre maison, et **1** hors carte,
 Saraï des Djötchides sur la basse Volga, avec `cell_id = None` et sa raison.
 Deux capitales ne partagent jamais une cellule, chacune y prenant le bourg : Josse
 a la sienne à Landsberg, ville principale de la Nouvelle-Marche, dans ses pays et non à Brno : la cellule de Berlin a pour bourg Wittenberg, capitale de la Saxe, et le Brandebourg prend ainsi la cellule de la Nouvelle-Marche ; Juliers représente la
 Gueldre, Nimègue partageant la cellule de Clèves ; Celle, le Brunswick de Bernard
-Ier, Wolfenbüttel partageant celle de Magdebourg.
+Ier, Wolfenbüttel partageant celle de Magdebourg. Les capitales des pays neufs sont Padoue,
+Oristano, Rimini, Antivari, Ioannina, Agios Georgios (le château de Saint-Georges,
+capitale de Céphalonie), Naxos et Tripoli ; le point de Naxos est pris dans le polygone de
+l'île, à moins d'un kilomètre de la ville, la côte de la carte étant plus grossière
+(**niveau 2**).
 
 `cellule_de_capitale` projette le point par `projeter_epsg3035`, puis lit
 `point_dans_geometrie` en parcourant les polygones par `cell_id` croissant ;
@@ -1990,9 +2030,11 @@ appliqué au tick ; le dépôt en attente n'y change rien (`ia.decider_intention
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
-Sans choix, **62** maisons ; après un choix appliqué au tick, **61**. Les maisons
-neuves de l'Ouest, de l'Empire et de l'Est jouent par l'IA comme les autres, sans
-bonus ; l'IA de ces 62 maisons coûte 5,7 ms par jour sur le VPS, contre 4,8 pour 43.
+Sans choix, **70** maisons ; après un choix appliqué au tick, **69**. Les maisons
+neuves de l'Ouest, de l'Empire, de l'Est et des pays attestés qui remplacent des terres
+sans pays jouent par l'IA comme les autres, sans bonus ; l'IA de ces 70 maisons coûte
+4,9 ms par jour sur le VPS (médiane de `jouer_ia` sur trente jours), contre 3,5 pour 62
+mesurées en même temps.
 La branche Paléologue de Morée est distincte de celle de Constantinople :
 sans choix, toutes deux sont à l'IA ; choisir la Morée laisse la grande
 maison Paléologue à l'IA. La vue ne conserve rien entre deux appels,
@@ -2021,7 +2063,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
-`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée. Les vingt-neuf chefs des maisons et Églises de l'Empire, du Nord et de l'Est (grandes maisons 38 à 56, institutions 70 à 78 et 81) portent leur identité et leur fonction au départ, avec leur page ; leur naissance, que la page n'a pas été relue pour donner, est une lacune déclarée.
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée. Les vingt-neuf chefs des maisons et Églises de l'Empire, du Nord et de l'Est (grandes maisons 38 à 56, institutions 70 à 78 et 81) portent leur identité et leur fonction au départ, avec leur page ; leur naissance, que la page n'a pas été relue pour donner, est une lacune déclarée. Les chefs des huit grandes maisons des pays attestés qui remplacent des terres sans pays (grandes maisons 57 à 64) sont posés de même : François II de Carrare (Francesco Novello) à Padoue, Marien V d'Arborée sous la régence de son père Brancaleone Doria, Charles Ier Malatesta à Rimini, Đurađ II Balšić en Zeta, Ésaü Buondelmonti en Épire, Charles Ier Tocco à Céphalonie et Zante, Jacques Ier Crispo dans l'Archipel ; celui des Banou Thabit à Tripoli, que la page ne nomme pas au 1er janvier 1400, est une lacune d'identité déclarée. Bologne (institution 84), commune sans seigneur avant Giovanni Ier Bentivoglio en 1401, et Raguse (institution 88), dont le recteur change chaque mois, ont une direction collective déclarée en lacune.
 Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
 Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges ; la Bohême (Venceslas) et la Hongrie (Sigismond), la Pologne (Ladislas II) et la Lituanie (Vytautas) ont chacune leur chef.
 `sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
@@ -2052,9 +2094,10 @@ Dans une cellule qui a un pays, son suzerain est la racine de la puissance de la
 cellule (`grande-<par_puissance[p]>` ou `institution-<p>`), même si une autre
 maison y tient des terres ; dans une lacune, son suzerain est `None` : c'est ainsi que
 les maîtres des terres du désert que l'histoire ne nomme pas, autour du Zab, sont des
-seigneurs libres. Le pays de chaque cellule venant de la table des frontières sur
-toute la carte, les seigneurs plausibles, et leurs personnes, suivent ses frontières :
-le monde compte 2 372 personnes.
+seigneurs sans suzerain, maîtres de leurs lieux dans la terre sans État de leur région,
+que la carte sert comme leur pays (voir « La carte et les terres servies »). Le pays de
+chaque cellule venant de la table des frontières sur toute la carte, les seigneurs
+plausibles, et leurs personnes, suivent ses frontières : le monde compte 2 358 personnes.
 Dans une cellule partagée par la table des frontières, le pays de chaque lieu est
 le sien (`frontieres.puissances_des_lieux`) : une grande maison ou une institution
 n'y prend que les lieux libres du pays sur lequel elle règne, et les rangs libres
@@ -2716,10 +2759,10 @@ calcul supplémentaire à chaque tick. Une erreur de construction rend
 du bourg : `{rang, maitre, pays}` (`pays_servis.pays_des_lieux`), vide quand tous
 en sont. Le pays d'un lieu suit la même règle que celui d'une terre, sur le maître
 du lieu et la puissance du lieu (`pays_servis.puissance_du_lieu`). Sur la graine 0,
-au départ, 49 terres en portent, pour 465 lieux : les cellules partagées (les lieux
-castillans de la cellule de Pampelune, les lieux de Trévise à Venise), les terres de
-départ, dont les autres lieux sont des seigneurs du pays suzerain, et les cellules
-sans pays, où chaque seigneur libre est son propre pays.
+au départ, 100 terres en portent, pour 747 lieux : les cellules partagées (les lieux
+castillans de la cellule de Pampelune, les lieux de Trévise à Venise) et les terres de
+départ, dont les autres lieux sont des seigneurs du pays suzerain. Une terre sans État
+n'en porte aucun : tous ses lieux sont à elle.
 `pays` est le pays de 1400 de la terre (`sim/pays_servis.py`, `pays_des_terres`),
 qui ne se confond plus avec la maison : une maison peut régner sur plusieurs pays.
 
@@ -2731,35 +2774,41 @@ Le pays d'une terre suit quatre cas, dans cet ordre :
 3. sinon `puissance-<id>`, la puissance de la cellule, quand la racine en est la
    tête : sa grande maison, ou son institution pour une république, une Église
    ou un ordre ;
-4. sinon le pays d'origine de la racine (`pays_d_origine`) : la puissance de la
-   cellule de son siège, sinon celle sur laquelle elle règne (un siège hors
-   carte : Saraï, Venise), sinon elle-même (un seigneur libre, qui est son propre
-   pays).
+4. sinon le pays d'origine de la racine (`pays_d_origine`) : la puissance du lieu
+   de son siège, sinon celle sur laquelle elle règne (un siège hors carte : Saraï,
+   Venise), sinon `sans-etat-<id>`, la terre sans État du lieu de son siège
+   (`frontieres.terres_des_lieux`). Aucun seigneur n'est servi comme son propre
+   pays : une maison qui n'a ni puissance ni terre sans État est refusée en la
+   nommant (`PaysIntrouvable`).
 
 Une place prise par une maison d'un autre pays passe donc au pays du preneur.
 Une place prise par une terre de départ (Bar) entre dans le duché de Bar. Prise
 par la maison qui règne sur le pays, elle change de maître, pas de pays. Sur la
 graine 0, au départ, Luxembourg règne sur deux pays, le Saint-Empire, sans aucune
-terre, et la Bohême (5 terres) ; Sigismond sur la Hongrie (22) ; la Navarre a pour
+terre, et la Bohême (5 terres) ; Sigismond sur la Hongrie (27) ; la Navarre a pour
 maison Évreux ; la France compte 28 terres, la Bourgogne 7 et la Bretagne 6,
-l'Autriche 8, la Pologne 6 et la Lituanie 23 ; les six départs sont leurs propres
-pays ; les 24 terres hors de toute puissance ont pour pays leur seigneur libre (celle de
-Stuttgart, sans puissance, est au Wurtemberg),
-nommé par les noms plausibles.
+l'Autriche 8, la Pologne 5 et la Lituanie 23 ; le duché de l'Archipel 13, Céphalonie et
+Zante 4, Raguse et la Tripolitaine 3, Bologne, Padoue, l'Arborée, Rimini, la Zeta et
+l'Épire 1 ; les six départs sont leurs propres pays ; les 42 terres hors de toute
+puissance ont pour pays leur terre sans État (18 aux Tribus du désert), et celle de
+Stuttgart, sans puissance, est au Wurtemberg. Aucun pays servi n'est un seigneur
+plausible.
 
 `pays` liste `{id, nom, maison: {id, nom}, suzerain, ensemble}` de chaque pays présent et
 de chaque suzerain cité, triés par identifiant (`fiches_des_pays`). Le nom d'une
 puissance vient de la table, celui d'une terre de départ de
-`seigneuries-1400.json`, celui d'un seigneur libre des noms servis (`null` s'il
-est absent). Une terre de départ a pour suzerain `puissance-<suzerain>`, la
+`seigneuries-1400.json`, celui d'une terre sans État de la table des frontières.
+La fiche d'une terre sans État est `{id: "sans-etat-<id>", nom, maison: null,
+suzerain: null, ensemble: null}` : elle n'a ni maison ni suzerain, et ses clés sont celles
+de toute fiche. Un nom absent vaut `null`. Une terre de départ a pour suzerain `puissance-<suzerain>`, la
 puissance dont elle relève ; une puissance a celui que la table déclare (la
 Bourgogne, la Bretagne et les grands fiefs relèvent de la France, la Guyenne de
 l'Angleterre, Naples de l'Église, la Lituanie et la Mazovie de la Pologne, Gênes de la
 France), sans entrer dans le registre. La fiche du suzerain est servie avec celle
 du vassal. Une puissance qui déclare un `ensemble` (avec sa `source_ensemble`)
 le porte dans sa fiche : un prince d'Empire dit « Saint-Empire » sans relever
-d'aucun suzerain ; sans déclaration, et pour une terre de départ ou un seigneur
-libre, `ensemble` vaut `null`. L'ensemble n'a aucun effet dans le moteur : ni
+d'aucun suzerain ; sans déclaration, et pour une terre de départ ou une terre
+sans État, `ensemble` vaut `null`. L'ensemble n'a aucun effet dans le moteur : ni
 maître, ni pays, ni suzerain n'en dépendent (le lien d'Empire est de **niveau 3**).
 Une république, une Église ou un ordre a pour maison son institution.
 
@@ -2773,8 +2822,9 @@ ses vassaux. Les lieux castillans de la terre de Pampelune comptent pour la
 Castille. La somme est exacte (**niveau 1**) et ne change aucune règle.
 
 Les tables des puissances et des maisons, les seigneuries, la vue des
-puissances et la puissance des lieux partagés sont lues une fois par monde servi
-(`SourcesDesPays`), sans jamais lire un maître. La publication copie le document des terres et des pays et ne le
+puissances, la puissance des lieux partagés et la terre sans État de chaque lieu sans
+pays, avec les noms des terres, sont lues une fois par monde servi (`SourcesDesPays`),
+sans jamais lire un maître. La publication copie le document des terres et des pays et ne le
 refait que si le maître d'un bourg, un suzerain ou les noms changent, avec la
 date et le tick du jour : une prise ne refait que les pays, sous la même clé de
 recalcul qu'avant. La table du pays de chaque lieu se garde avec ce document,
@@ -2787,8 +2837,10 @@ sont ceux du document entier aux clés triées. Le tick ne lit pas cette vue.
 maisons et villes avec leurs sources, pays de chaque cellule de la carte, que la
 table des frontières décide, et suzerains déclarés. **Niveau 2, plausible :**
 simplification à 1 km, approximation de dessin, tracé à l'intérieur d'une cellule
-partagée, et le seigneur libre d'une cellule sans pays, dont les maîtres du désert
-que l'histoire ne nomme pas. **Niveau 3, pas simulé :** l'hommage et ses effets, et
+partagée, et la terre sans État d'une cellule ou d'un lieu sans pays, une région
+nommée par sa raison, où les maîtres que l'histoire ne nomme pas (ceux du désert, des
+Champs sauvages, des îles de l'Égée) restent des seigneurs plausibles sans être servis
+comme des pays. **Niveau 3, pas simulé :** l'hommage et ses effets, et
 les seigneurs plus petits que deux lieux, que la vue ne découpe pas, comme dans la
 photographie.
 Le dessin plus fin des cellules et de leurs lieux est servi à part : voir « La forme
@@ -2954,10 +3006,11 @@ maisons et les petits seigneurs ; ni institution, ni maison sans lieu.
 Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
 
 - `pays` `{id, nom}` : le pays de la maison, par la règle des terres, sur la chaîne
-  de la maison et la puissance de la cellule de son siège (`pays_des_maisons`) ;
+  de la maison et la puissance du lieu de son siège (`pays_des_maisons`) ; un seigneur
+  plausible d'une terre sans État a pour pays cette terre, jamais lui-même ;
 - `regne` : les pays où elle est la maison régnante (Luxembourg : Saint-Empire et
   Bohême ; Wittelsbach-Straubing : Hollande et Hainaut ; une terre de départ :
-  elle-même ; Valois-Bourgogne : aucun) ;
+  elle-même ; Valois-Bourgogne et un seigneur d'une terre sans État : aucun) ;
 - `siege` `{nom, lieu, cell_id}` : `nom` est celui du registre, sourcé (Pampelune,
   Dijon), `lieu` le nom servi du lieu ; un petit seigneur n'a que le nom servi ;
 - `suzerain` `{id, nom, pays}`, ou `null` : `pays` est celui au titre duquel le
