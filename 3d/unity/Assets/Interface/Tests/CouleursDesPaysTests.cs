@@ -42,6 +42,67 @@ namespace Forge.Interface.Tests
             foreach (var (a, b) in paires) Assert.That((Color32)c.Couleur(a), Is.Not.EqualTo((Color32)c.Couleur(b)), a + " et " + b + " ont la même couleur");
         }
 
+        // Deux blocs voisins ont deux familles de teinte : sur le cercle des teintes perçues, deux de leurs pays qui se touchent sont
+        // à `ECART_DE_TEINTE_MIN` au moins l'un de l'autre et à `ECART_MIN` au moins, quel que soit leur éclaircissement, et leurs
+        // racines aussi. La France et l'Angleterre se touchent par la Guyenne : la Guyenne a la teinte de l'Angleterre, pas celle de la France.
+        const string ANGLETERRE = "puissance-1", FRANCE = "puissance-3", GUYENNE = "puissance-42";
+        [Test] public void Deux_blocs_voisins_n_ont_jamais_la_meme_famille_de_teinte()
+        {
+            var c = Colorier(Terres); Assert.That(c.Conflits, Is.Zero, "des voisins n'ont pas pu être séparés");
+            var autres = Paires(c).Where(p => c.Racine(p.a) != c.Racine(p.b)).ToList(); Assert.That(autres, Is.Not.Empty, "échantillon vide : aucun voisin d'un autre bloc");
+            Assert.That((Terres.SuzerainDe(GUYENNE), c.Racine(GUYENNE), Terres.NomDuPays(FRANCE), Terres.NomDuPays(ANGLETERRE)), Is.EqualTo((ANGLETERRE, ANGLETERRE, "France", "Angleterre")), "échantillon vide : la Guyenne ne relève pas de l'Angleterre");
+            Assert.That(autres.Any(p => new HashSet<string> { c.Racine(p.a), c.Racine(p.b) }.SetEquals(new[] { FRANCE, ANGLETERRE })), Is.True, "échantillon vide : les blocs de la France et de l'Angleterre ne se touchent pas");
+            string Nom(string id) => Terres.NomDuPays(id) ?? id;
+            var fautes = new List<string>();
+            foreach (var (a, b) in autres)
+            {
+                Color ca = c.Couleur(a), cb = c.Couleur(b), ra = c.Couleur(c.Racine(a)), rb = c.Couleur(c.Racine(b));
+                float teinte = CouleursDesPays.EcartDeTeinte(ca, cb), ecart = CouleursDesPays.Ecart(ca, cb), racines = CouleursDesPays.EcartDeTeinte(ra, rb);
+                if (teinte < CouleursDesPays.ECART_DE_TEINTE_MIN || racines < CouleursDesPays.ECART_DE_TEINTE_MIN || ecart < CouleursDesPays.ECART_MIN)
+                    fautes.Add(Nom(a) + " (bloc " + Nom(c.Racine(a)) + ") et " + Nom(b) + " (bloc " + Nom(c.Racine(b)) + ") : " + teinte.ToString("0") + "° de teinte, racines à " + racines.ToString("0") + "°, ΔE " + ecart.ToString("0.0"));
+            }
+            Assert.That(fautes, Is.Empty, fautes.Count + " paires de voisins de deux blocs se confondent sur " + autres.Count + " : " + string.Join(" ; ", fautes.Take(12)));
+            Assert.That(CouleursDesPays.EcartDeTeinte(c.Couleur(GUYENNE), c.Couleur(ANGLETERRE)), Is.LessThan(CouleursDesPays.ECART_DE_TEINTE_MIN / 4f), "la Guyenne n'a pas la teinte de l'Angleterre");
+            Assert.That(CouleursDesPays.EcartDeTeinte(c.Couleur(GUYENNE), c.Couleur(FRANCE)), Is.GreaterThanOrEqualTo(CouleursDesPays.ECART_DE_TEINTE_MIN), "la Guyenne a la teinte de la France");
+        }
+
+        // Deux pigments de deux familles se séparent à toute clarté : à `ECART_DE_TEINTE_MIN` et à `ECART_MIN` au moins, chacun
+        // éclairci de n'importe quelle part. Le gris des terres sans pays reste loin de tout pigment, à toute part.
+        [Test] public void Deux_familles_se_separent_a_toute_clarte_et_le_gris_reste_neutre()
+        {
+            int n = SocleInterface.PigmentsDesPays.Count, familles = Enumerable.Range(0, n).Select(SocleInterface.FamilleDuPigment).Distinct().Count();
+            Assert.That(familles, Is.GreaterThanOrEqualTo(5), "trop peu de familles pour colorier une carte");
+            Assert.That(familles, Is.LessThan(n), "échantillon vide : aucune famille n'a deux clartés");
+            var fautes = new List<string>();
+            for (int i = 0; i < n; i++)
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (SocleInterface.FamilleDuPigment(i) == SocleInterface.FamilleDuPigment(j)) continue;
+                    for (int pi = 0; pi <= CouleursDesPays.PARTS.Count; pi++)
+                        for (int pj = 0; pj <= CouleursDesPays.PARTS.Count; pj++)
+                        {
+                            Color a = CouleursDesPays.Peindre(i, pi), b = CouleursDesPays.Peindre(j, pj);
+                            float teinte = CouleursDesPays.EcartDeTeinte(a, b), ecart = CouleursDesPays.Ecart(a, b);
+                            if (teinte < CouleursDesPays.ECART_DE_TEINTE_MIN || ecart < CouleursDesPays.ECART_MIN) fautes.Add(i + "/" + pi + " et " + j + "/" + pj + " : " + teinte.ToString("0") + "°, ΔE " + ecart.ToString("0.0"));
+                        }
+                }
+            Assert.That(fautes, Is.Empty, fautes.Count + " paires de pigments de deux familles se confondent : " + string.Join(" ; ", fautes.Take(12)));
+            for (int k = 0; k < n; k++)
+                for (int p = 0; p <= CouleursDesPays.PARTS.Count; p++)
+                    Assert.That(CouleursDesPays.Ecart(CouleursDesPays.SansPays, CouleursDesPays.Peindre(k, p)), Is.GreaterThanOrEqualTo(CouleursDesPays.ECART_MIN), "le gris des terres sans pays se confond avec le pigment " + k + "/" + p);
+        }
+
+        // Hors de tout ensemble, un vassal porte le liseré de son bloc, tiré du pigment de sa racine : la frontière du bloc se lit d'un même trait.
+        [Test] public void Un_vassal_hors_ensemble_porte_le_lisere_de_son_bloc()
+        {
+            var c = Colorier(Terres); var tenants = Tenants(Terres);
+            var vassaux = Terres.Pays.Where(p => p.Suzerain != null && p.Ensemble == null && tenants.Contains(p.Id)).ToList();
+            Assert.That(vassaux.Select(v => v.Id), Does.Contain(GUYENNE), "échantillon vide : la Guyenne n'est pas un vassal hors ensemble qui tient une terre");
+            foreach (var v in vassaux)
+                Assert.That((Color32)c.Lisere(v.Id), Is.EqualTo((Color32)CalquesCarte.LisereDuPigment(c.Couleur(c.Racine(v.Id)))), v.Nom + " n'a pas le liseré de " + (Terres.NomDuPays(c.Racine(v.Id)) ?? c.Racine(v.Id)));
+            Assert.That((Color32)c.Lisere(FRANCE), Is.EqualTo((Color32)CalquesCarte.LisereDuPigment(c.Couleur(FRANCE))), "la France n'a pas le liseré tiré de son pigment");
+        }
+
         [Test] public void Un_vassal_porte_la_teinte_de_son_suzerain_plus_claire()
         {
             var c = Colorier(Terres);
