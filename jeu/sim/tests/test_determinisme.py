@@ -1010,13 +1010,18 @@ def test_noms_purete_et_tick(monkeypatch):
 # couches et elles seules : le registre (32 maisons plausibles neuves, 24 retirées, le suzerain de 242 maisons)
 # et le maître de 100 lieux de dix cellules partagées. Aucune cellule ne change hors du maître de ses lieux :
 # population, stocks, bassin, tirages et retours sont ceux d'avant.
+# Le mieux-vivre au rythme de l'année ajoute à chaque lieu son report de départ (seule différence au point 0),
+# puis ne déplace plus les foyers que l'ancien taux quotidien faisait partir dès le premier jour : au point 1,
+# la population de 218 lieux (214 pour la graine 42) et de deux cellules, leurs métiers et 117 (115) reports non
+# nuls ; au point 3, avec 655 (653) lieux, ce qui suit les bouches : stocks, dettes, commerce, bassin et retours.
+# Les tirages sont inchangés.
 _PART_BASE = {
-    (0, 0): ('520e381562388c68d13a060ab066385b441c8a6ecb2b9a1efe37ed4a79ec9eb5', '6c0244443ec6da9960b18dcc504b279f8b04332dae67ed8e3f0d924ac929813a'),
-    (0, 1): ('2b222b9f98aa168652c80aaf4725127840f6bbe43f8a0724cf951d5b2f6cf7d2', 'af425c8c2ec11da47b592d463277a474086f1cd6ee67a2ab88a538351dc63728'),
-    (0, 3): ('190e65609f482c2e565db53a9d91afeb23d4a709c6da8ac6be63535223520f1e', '768322240e00650a6df6b03d4fc53a5531d7a47ff82f799081db27c62f8f5a76'),
-    (42, 0): ('4501053bdc48cbd981701a9fcb8ae529cad1b482c29e7c5b7f7b9367afa1ffe7', '458375114cb8426e6242a291b7c4f6d502e31263246bde5a44084d1b9c46b7d9'),
-    (42, 1): ('78177a9ab4a33768a2327b414b63929ee5da1585981efa234ee9423821a93d87', '64a19b56cb22a570c5acca6679fa15a60100ae0e12be9093cab49f6472192064'),
-    (42, 3): ('9117454503baaff92023926e99e0f04773bda0e034c374b870dcf7d84d6786a1', '7e2b5cd12c291a83a7b531b904ac28c572955a17c646eefca3b8a5310b0f5f0c'),
+    (0, 0): ('f1ff2c0889387485c51245d6f7515ed5b149e5f07764b993f513c632f5ea6954', '7d193f29a3097ef5d0f205d04419906aec44cd1b9974882d8d41be98fe8957f7'),
+    (0, 1): ('ff3093a54ef36d449abee33843100583eef4573fa6b822d396113ddeeb610c18', 'c14478a306e3e7f1209e5368241c3ccb3a1853750584a0e5225aab865c903890'),
+    (0, 3): ('711de786f1d56c9ce49607eae5e36f3b613dd6b09b715a70f951d24b81dc304d', 'fde36df1a3aa9435913bfbbf7286ffaf90fe2254921fe1c69966bc09661700ec'),
+    (42, 0): ('3f9c67e8ecb9121f3de78a4c3552db1b9c3324207719cdc4c01686d10a868d6c', 'b1e8dfbe984d7c97ba0222c55f62154afc60355a6bc1c1143d225c120df9d1e9'),
+    (42, 1): ('c94b24b3d96935d62bbb5079d9bad326ee1e5adf04448dfba783b9b2674ff2e1', 'e63a9e0db8aa64a62a2a9dcf3044d8515ed30657f1f301635297de28abd26c28'),
+    (42, 3): ('e97d30bc36e9e46bedef68bb0587672a74f8b05e3a4e201d5bdfe45636fe16d1', '1862f2d6aaafa5e726d01a209c86daa3e7381de57384b1581bbf263af6abda5b'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1051,13 +1056,16 @@ def test_part_bit_pres(monkeypatch):
 # suzerains) et le maître de 100 lieux ; et, avec les maîtres, les greniers (32 neufs, 24 retirés, et aux points
 # 3 et 20 le contenu de 10 puis de 16 greniers) et les convois (le total de 9 groupes sur 12 au point 1, de 9
 # sur 14 ensuite). Les cellules, le bassin, les tirages et les retours sont inchangés.
+# Le mieux-vivre au rythme de l'année change les mêmes couches que pour `_PART_BASE` aux points 1 et 3 ; au
+# point 20, la population de 3 133 lieux (3 128) et de 225 cellules (232), leurs métiers et ce qui en découle,
+# jusqu'à deux greniers, aux convois et aux cumuls mangé et perdu. Les tirages sont inchangés.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('8d1b03710083bfc9023b9d3a4f917230a72d4b66305df9b236259867603df3a4', 'f94bf4efbab28e24555433d8ea06a877fd2260c83eb539bfe388177f3b79c50b'),
-    (0, 3): ('8f2fc4b97e230bb339270f23db34e0f319c516bc4d7fc6d70d685db16bc18d28', 'eff94257f4aaaff8bc31c97d7d72f5c0d0e51f1488da54594983e018172e4c25'),
-    (0, 20): ('d889d646c9bcf6bbab46b22723b841ec4f08810f2376bb062136345159a923f8', '4a72a050b13d3efc6270330aa25b99332572c4788c082f48bd586380715760af'),
-    (42, 1): ('269eb608b61a0576ce643eb9e4a9dd9c9dda8d243bc545a958d35e5ad3df926d', '49988141276f8b98e0f5882111cdd20f04fdf68a2ca5c97a73606265d644fdcd'),
-    (42, 3): ('5b913e97e0b5b756c78f0541e53c1a1f218333db8ae00dc588b2c3be946d14f0', 'a3ded5cf8715553a2fe8c033fd1142b391b94231c169fe451886c452cbca6a99'),
-    (42, 20): ('205dff708fe66c7e96ea4842e53d3117a1804b1f1b1d7c4d41ec247302231720', '1387b7f517d1b7cd1ca90147c12bc1fe679b0a4253f0dd31299095b5ac93fae4'),
+    (0, 1): ('fe54e7b999c71158534df18c010b34c71a4485408a4626ab62d95b49a8dfe6c8', '70a6e636a9cfdecdd5044b00b95f292b5781cb5b8bc975336d444f7801fb65c9'),
+    (0, 3): ('c8a50ae854511a2c01aed633c00a68fd978d437d19ff220065529e2e7f098cb8', '1cf623e01432b6751cdf9911fba48f02df90ed9a31f632544ed312347a716b05'),
+    (0, 20): ('fb0451964178ee4048f181376c405ebb6de1f38b83d08bc3dc75bb12ce6a97ac', 'de40e497c4a72c4cc8147d29792d4297fbe6ae2bbf2b27bca7569b6b493ae19d'),
+    (42, 1): ('73d1e83de670094265c3b9bdedbc2ac6632e2c1478a31a51d5f0a3568f7577d8', '4ae28f77b65162dac213a6dc7ed674a42ad47aacb18b82a165bd3e9044cda736'),
+    (42, 3): ('d33cde77b4c6905d6cf846e6eefb00d9fcf3640bc5fb8db2a99cccac7a1e443a', '42127b5d1ecffc7b914e2b51c45a0570e2dbe134be98cf9ec4b7686bcc316402'),
+    (42, 20): ('a73ba212686595dadb88426af72c14a303087918c303cd9256cac15f8720f176', 'e909fb82efdbe4d4ef5ce81b5d7600f0557d94a4c8c8ab341ac0dbbb234004ca'),
 }
 
 
@@ -1121,11 +1129,12 @@ def test_prelevement_bit_pres(monkeypatch):
 # le contenu de 187 puis de 201 greniers (32 neufs, 24 retirés) et les convois (76 groupes au lieu de 72 au
 # point 3, 99 au lieu de 111 au point 20, tous de total différent), avec le registre et le maître de 100 lieux ;
 # les cellules, le bassin, les tirages et les retours sont inchangés.
+# Le mieux-vivre au rythme de l'année y change les mêmes couches qu'au monde avec prélèvement, aux mêmes points.
 _DU_BASE = {
-    (0, 3): ('61d6b2e85f04d1034f805e3efb091cdcb57b7b904e2bdaf9cf544815a6a631f3', '6d82a63245d9c72f868600054cb80507296d01d32b424d6b0b6ba11be555e308'),
-    (0, 20): ('4778f0156825d7cc07008a51d4cd5cda301be8c565da3cd39e4457cb3b305870', '88c44a8ff665bed6239edcafb6ae7e80f79c059682b2f7b30e3817a9c15ff8dc'),
-    (42, 3): ('b670405a46532c2bf0cd6d802ac342cb271df090fc3c0667e4203396a47f87df', '4e304d77d23721972b7a4d10205823f48d9cf6e2c6ed276a7b7dd18d5d5897c6'),
-    (42, 20): ('48b634c72731a4da098e88c3559928aba93a61d1d1d7dd29b79f463626ea3d6c', '0ff37f8f6f3c6a120ee892b3be66d4bdf1ceb180bc9dd28b180d00bcde40adf2'),
+    (0, 3): ('97c0119795eb37d25e296f3d2a739ae8cbb22799f09b45d71aa123a4a43393da', '28a0b00a5097815aa4e5fb6f4c22e4265554a5e06fb453bc45f8f25e5d9de3f2'),
+    (0, 20): ('e583226c72da8e9921cfb96f3ede6281bc703e6f10558a7a04bbb0b0ac51e1bb', '634ee556426e54ec617e6235572d3788771df3c9145da2ceb04f2fb8f80f92c3'),
+    (42, 3): ('8776d73d3b0218e8797f0b4fa3cee6c78a345f235992781b31e28ec2f9b56f3b', 'e649d69c904fb407d209970e0c07e926d6065a520c68d23d73bab0f6908f71c1'),
+    (42, 20): ('0e3fce0c3d4cafec62f4503cd5ea913d518587ff9fd723b8953c93fa2591c08a', 'ebb088d13984af3ceac4caed31d475b38830a77d346123e017a7fd62596cccae'),
 }
 
 
