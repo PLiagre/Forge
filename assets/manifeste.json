@@ -24,6 +24,106 @@
     {
       "dimensions": "512x512",
       "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_21_balcon_escalier_bois.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_21_balcon_escalier_bois_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_22_plan_en_L_cour.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_22_plan_en_L_cour_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_23_taverne_balcon.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_23_taverne_balcon_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_24_angle_rue_oriel.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_24_angle_rue_oriel_rendu.png"
+      ],
+      "id": "3d-maisons-colombages-balcons",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_15_collees_balcon_escalier.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_15_collees_balcon_escalier_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_16_collees_escalier_pierre.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_16_collees_escalier_pierre_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_17_collees_galerie_couverte.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_17_collees_galerie_couverte_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_18_collees_echoppes.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_18_collees_echoppes_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_19_trio_mitoyennes.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_19_trio_mitoyennes_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_20_collees_passage_voute.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_20_collees_passage_voute_rendu.png"
+      ],
+      "id": "3d-maisons-colombages-collees",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_09_grange_chaume.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_09_grange_chaume_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_10_grange_tuiles_ocre.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_10_grange_tuiles_ocre_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_11_remise_bucher.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_11_remise_bucher_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_12_grange_brique.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_12_grange_brique_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_13_ecurie_adossee.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_13_ecurie_adossee_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_14_atelier_charron.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_14_atelier_charron_rendu.png"
+      ],
+      "id": "3d-maisons-colombages-granges",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_01_bourgeoise_tuiles.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_01_bourgeoise_tuiles_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_02_alsacienne_ocre.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_02_alsacienne_ocre_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_03_normande_chaume.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_03_normande_chaume_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_04_flamande_ardoise.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_04_flamande_ardoise_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_05_haute_trois_niveaux.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_05_haute_trois_niveaux_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_06_tisserand_galerie.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_06_tisserand_galerie_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_07_echoppe_auvent.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_07_echoppe_auvent_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/col_08_tour_escalier.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/MaisonsColombages/Rendus/col_08_tour_escalier_rendu.png"
+      ],
+      "id": "3d-maisons-colombages-individuelles",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
         "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_armee.fbx",
         "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_siege.fbx",
         "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_capitale.fbx",

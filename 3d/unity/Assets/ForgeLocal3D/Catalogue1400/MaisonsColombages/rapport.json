@@ -1,0 +1,437 @@
+{
+  "version": 1,
+  "modeles": [
+    {
+      "id": "col_01_bourgeoise_tuiles",
+      "fbx": "col_01_bourgeoise_tuiles.fbx",
+      "triangles": {
+        "LOD0": 9916,
+        "LOD1": 1816,
+        "LOD2": 660
+      },
+      "dimensions_m": [
+        7.64,
+        6.593,
+        8.834
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Bourgeoise classique · crème & tuiles",
+      "rendu": "col_01_bourgeoise_tuiles_rendu.png"
+    },
+    {
+      "id": "col_02_alsacienne_ocre",
+      "fbx": "col_02_alsacienne_ocre.fbx",
+      "triangles": {
+        "LOD0": 10500,
+        "LOD1": 1972,
+        "LOD2": 780
+      },
+      "dimensions_m": [
+        7.44,
+        6.881,
+        9.02
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Alsacienne ocre · bois rouge & oriel",
+      "rendu": "col_02_alsacienne_ocre_rendu.png"
+    },
+    {
+      "id": "col_03_normande_chaume",
+      "fbx": "col_03_normande_chaume.fbx",
+      "triangles": {
+        "LOD0": 9908,
+        "LOD1": 1872,
+        "LOD2": 696
+      },
+      "dimensions_m": [
+        8.82,
+        6.793,
+        9.58
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Normande large · gris & chaume",
+      "rendu": "col_03_normande_chaume_rendu.png"
+    },
+    {
+      "id": "col_04_flamande_ardoise",
+      "fbx": "col_04_flamande_ardoise.fbx",
+      "triangles": {
+        "LOD0": 9204,
+        "LOD1": 1744,
+        "LOD2": 680
+      },
+      "dimensions_m": [
+        6.84,
+        7.185,
+        9.806
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Flamande brique · ogives & ardoise",
+      "rendu": "col_04_flamande_ardoise_rendu.png"
+    },
+    {
+      "id": "col_05_haute_trois_niveaux",
+      "fbx": "col_05_haute_trois_niveaux.fbx",
+      "triangles": {
+        "LOD0": 13116,
+        "LOD1": 2656,
+        "LOD2": 984
+      },
+      "dimensions_m": [
+        7.32,
+        6.705,
+        11.329
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Urbaine 3 niveaux · rose & ardoise",
+      "rendu": "col_05_haute_trois_niveaux_rendu.png"
+    },
+    {
+      "id": "col_06_tisserand_galerie",
+      "fbx": "col_06_tisserand_galerie.fbx",
+      "triangles": {
+        "LOD0": 9448,
+        "LOD1": 1896,
+        "LOD2": 708
+      },
+      "dimensions_m": [
+        8.84,
+        6.194,
+        8.59
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Tisserand · bleu guède & galerie vitrée",
+      "rendu": "col_06_tisserand_galerie_rendu.png"
+    },
+    {
+      "id": "col_07_echoppe_auvent",
+      "fbx": "col_07_echoppe_auvent.fbx",
+      "triangles": {
+        "LOD0": 10184,
+        "LOD1": 1756,
+        "LOD2": 708
+      },
+      "dimensions_m": [
+        7.84,
+        7.197,
+        9.12
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Échoppe · sauge & comptoir auvent",
+      "rendu": "col_07_echoppe_auvent_rendu.png"
+    },
+    {
+      "id": "col_08_tour_escalier",
+      "fbx": "col_08_tour_escalier.fbx",
+      "triangles": {
+        "LOD0": 10028,
+        "LOD1": 1984,
+        "LOD2": 804
+      },
+      "dimensions_m": [
+        8.24,
+        7.903,
+        9.396
+      ],
+      "z_min": -0.0,
+      "famille": "Individuelle",
+      "titre": "Notable · tourelle d'escalier & ardoise",
+      "rendu": "col_08_tour_escalier_rendu.png"
+    },
+    {
+      "id": "col_09_grange_chaume",
+      "fbx": "col_09_grange_chaume.fbx",
+      "triangles": {
+        "LOD0": 7740,
+        "LOD1": 1384,
+        "LOD2": 672
+      },
+      "dimensions_m": [
+        11.49,
+        6.394,
+        8.834
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Logis crème + grande grange chaume",
+      "rendu": "col_09_grange_chaume_rendu.png"
+    },
+    {
+      "id": "col_10_grange_tuiles_ocre",
+      "fbx": "col_10_grange_tuiles_ocre.fbx",
+      "triangles": {
+        "LOD0": 7772,
+        "LOD1": 1384,
+        "LOD2": 684
+      },
+      "dimensions_m": [
+        11.95,
+        6.593,
+        9.53
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Bourguignonne ocre + grange bois",
+      "rendu": "col_10_grange_tuiles_ocre_rendu.png"
+    },
+    {
+      "id": "col_11_remise_bucher",
+      "fbx": "col_11_remise_bucher.fbx",
+      "triangles": {
+        "LOD0": 7676,
+        "LOD1": 1312,
+        "LOD2": 624
+      },
+      "dimensions_m": [
+        8.84,
+        6.386,
+        9.47
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Grise ardoise + bûcher ouvert",
+      "rendu": "col_11_remise_bucher_rendu.png"
+    },
+    {
+      "id": "col_12_grange_brique",
+      "fbx": "col_12_grange_brique.fbx",
+      "triangles": {
+        "LOD0": 7828,
+        "LOD1": 1372,
+        "LOD2": 672
+      },
+      "dimensions_m": [
+        11.39,
+        6.593,
+        9.02
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Brique brune + haute grange poulie",
+      "rendu": "col_12_grange_brique_rendu.png"
+    },
+    {
+      "id": "col_13_ecurie_adossee",
+      "fbx": "col_13_ecurie_adossee.fbx",
+      "triangles": {
+        "LOD0": 8668,
+        "LOD1": 1756,
+        "LOD2": 804
+      },
+      "dimensions_m": [
+        10.017,
+        6.881,
+        8.834
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Rose bois rouge + écurie adossée",
+      "rendu": "col_13_ecurie_adossee_rendu.png"
+    },
+    {
+      "id": "col_14_atelier_charron",
+      "fbx": "col_14_atelier_charron.fbx",
+      "triangles": {
+        "LOD0": 7748,
+        "LOD1": 1324,
+        "LOD2": 636
+      },
+      "dimensions_m": [
+        10.871,
+        6.394,
+        9.53
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Sauge + hangar ouvert de charron",
+      "rendu": "col_14_atelier_charron_rendu.png"
+    },
+    {
+      "id": "col_15_collees_balcon_escalier",
+      "fbx": "col_15_collees_balcon_escalier.fbx",
+      "triangles": {
+        "LOD0": 16996,
+        "LOD1": 3092,
+        "LOD2": 1416
+      },
+      "dimensions_m": [
+        11.28,
+        8.237,
+        9.19
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Collées crème/ocre · balcon & escalier bois",
+      "rendu": "col_15_collees_balcon_escalier_rendu.png"
+    },
+    {
+      "id": "col_16_collees_escalier_pierre",
+      "fbx": "col_16_collees_escalier_pierre.fbx",
+      "triangles": {
+        "LOD0": 15900,
+        "LOD1": 3132,
+        "LOD2": 1472
+      },
+      "dimensions_m": [
+        11.28,
+        8.357,
+        9.246
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Collées gris/brique · balcon couvert & escalier pierre",
+      "rendu": "col_16_collees_escalier_pierre_rendu.png"
+    },
+    {
+      "id": "col_17_collees_galerie_couverte",
+      "fbx": "col_17_collees_galerie_couverte.fbx",
+      "triangles": {
+        "LOD0": 16412,
+        "LOD1": 3204,
+        "LOD2": 1524
+      },
+      "dimensions_m": [
+        11.74,
+        8.107,
+        9.685
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Collées rose/crème · galerie couverte commune",
+      "rendu": "col_17_collees_galerie_couverte_rendu.png"
+    },
+    {
+      "id": "col_18_collees_echoppes",
+      "fbx": "col_18_collees_echoppes.fbx",
+      "triangles": {
+        "LOD0": 14916,
+        "LOD1": 2828,
+        "LOD2": 1368
+      },
+      "dimensions_m": [
+        11.68,
+        7.017,
+        9.375
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Collées marchandes · 2 échoppes & balcon",
+      "rendu": "col_18_collees_echoppes_rendu.png"
+    },
+    {
+      "id": "col_19_trio_mitoyennes",
+      "fbx": "col_19_trio_mitoyennes.fbx",
+      "triangles": {
+        "LOD0": 19204,
+        "LOD1": 3484,
+        "LOD2": 1664
+      },
+      "dimensions_m": [
+        13.08,
+        6.904,
+        11.111
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Trio de maisons collées · rue complète",
+      "rendu": "col_19_trio_mitoyennes_rendu.png"
+    },
+    {
+      "id": "col_20_collees_passage_voute",
+      "fbx": "col_20_collees_passage_voute.fbx",
+      "triangles": {
+        "LOD0": 15948,
+        "LOD1": 2980,
+        "LOD2": 1440
+      },
+      "dimensions_m": [
+        14.14,
+        6.394,
+        9.48
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Collées à passage voûté & pont colombage",
+      "rendu": "col_20_collees_passage_voute_rendu.png"
+    },
+    {
+      "id": "col_21_balcon_escalier_bois",
+      "fbx": "col_21_balcon_escalier_bois.fbx",
+      "triangles": {
+        "LOD0": 11244,
+        "LOD1": 2144,
+        "LOD2": 912
+      },
+      "dimensions_m": [
+        8.22,
+        8.237,
+        9.545
+      ],
+      "z_min": -0.0,
+      "famille": "BalconEtPlanL",
+      "titre": "Ocre · grand balcon & escalier bois",
+      "rendu": "col_21_balcon_escalier_bois_rendu.png"
+    },
+    {
+      "id": "col_22_plan_en_L_cour",
+      "fbx": "col_22_plan_en_L_cour.fbx",
+      "triangles": {
+        "LOD0": 19564,
+        "LOD1": 3788,
+        "LOD2": 1472
+      },
+      "dimensions_m": [
+        10.64,
+        9.374,
+        9.298
+      ],
+      "z_min": -0.0,
+      "famille": "BalconEtPlanL",
+      "titre": "Plan en L · cour, galerie & escalier",
+      "rendu": "col_22_plan_en_L_cour_rendu.png"
+    },
+    {
+      "id": "col_23_taverne_balcon",
+      "fbx": "col_23_taverne_balcon.fbx",
+      "triangles": {
+        "LOD0": 11980,
+        "LOD1": 2192,
+        "LOD2": 876
+      },
+      "dimensions_m": [
+        8.44,
+        8.652,
+        9.31
+      ],
+      "z_min": -0.0,
+      "famille": "BalconEtPlanL",
+      "titre": "Taverne · bois rouge, enseigne & escalier pierre",
+      "rendu": "col_23_taverne_balcon_rendu.png"
+    },
+    {
+      "id": "col_24_angle_rue_oriel",
+      "fbx": "col_24_angle_rue_oriel.fbx",
+      "triangles": {
+        "LOD0": 10620,
+        "LOD1": 2108,
+        "LOD2": 1020
+      },
+      "dimensions_m": [
+        9.046,
+        7.34,
+        11.001
+      ],
+      "z_min": -0.0,
+      "famille": "BalconEtPlanL",
+      "titre": "Angle 3 niveaux · bleu guède, oriel & bûcher",
+      "rendu": "col_24_angle_rue_oriel_rendu.png"
+    }
+  ]
+}
