@@ -11,6 +11,7 @@ durées dérivent de TICK_DURATION_DAYS : jamais un second littéral de temps.
 
 import math
 import tomllib
+from contextlib import contextmanager
 from pathlib import Path
 
 # Surface indicative d'un lieu autour de son bourg ; règle de découpage de niveau 2.
@@ -715,15 +716,39 @@ _CLE_TAUX_ANNUEL_DE_DEPART = "taux_annuel_par_tranche"
 _CLE_PLAFOND_ANNUEL_DE_DEPART = "plafond_annuel"
 
 
+# Le contenu de `departs.toml` lu dans `une_lecture_des_departs`, ou None hors de ce contexte.
+_departs_de_l_appel = None
+
+
+@contextmanager
+def une_lecture_des_departs():
+    """Le temps du bloc, les lecteurs du fichier par défaut l'ouvrent et l'analysent une seule fois.
+
+    Un chemin explicite relit toujours son fichier ; à la sortie, la lecture suivante rouvre le fichier.
+    """
+    global _departs_de_l_appel
+    _departs_de_l_appel = {}
+    try:
+        yield
+    finally:
+        _departs_de_l_appel = None
+
+
 def _lire_cle_departs(cle, chemin):
     """La valeur brute de `cle` dans `departs.toml`, ou une `ValueError` qui nomme la clé et le fichier."""
+    lecture = _departs_de_l_appel if chemin is None else None
     chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
     ou = f"{cle} ({chemin.name})"
-    try:
-        with open(chemin, "rb") as fichier:
-            donnees = tomllib.load(fichier)
-    except FileNotFoundError as erreur:
-        raise ValueError(f"{ou} : fichier {chemin} absent") from erreur
+    if lecture:
+        donnees = lecture["donnees"]
+    else:
+        try:
+            with open(chemin, "rb") as fichier:
+                donnees = tomllib.load(fichier)
+        except FileNotFoundError as erreur:
+            raise ValueError(f"{ou} : fichier {chemin} absent") from erreur
+        if lecture is not None:
+            lecture["donnees"] = donnees
     if cle not in donnees:
         raise ValueError(f"{ou} : clé absente de {chemin}")
     return donnees[cle], ou
@@ -743,7 +768,8 @@ def taux_annuel_de_depart(chemin=None):
     """
     Part des habitants d'un lieu qui part en un an, par tranche entière d'écart de réserve.
 
-    Relit `jeu/data/departs.toml` à chaque appel. Refuse, en nommant la clé et
+    Relit `jeu/data/departs.toml` à chaque appel, une seule fois dans
+    `une_lecture_des_departs`. Refuse, en nommant la clé et
     le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
     nombre hors de [0, 1]. 0 coupe le mieux-vivre.
     """
@@ -754,7 +780,8 @@ def plafond_annuel_de_depart(chemin=None):
     """
     Part maximale des habitants d'un lieu qui peut partir en un an, quel que soit l'écart.
 
-    Relit `jeu/data/departs.toml` à chaque appel. Refuse, en nommant la clé et
+    Relit `jeu/data/departs.toml` à chaque appel, une seule fois dans
+    `une_lecture_des_departs`. Refuse, en nommant la clé et
     le fichier, un fichier ou une clé absents, un booléen, une chaîne et un
     nombre hors de [0, 1].
     """

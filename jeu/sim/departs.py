@@ -7,7 +7,7 @@ from operator import itemgetter
 import sim.constants as _constantes
 from sim import engine as _engine
 from sim import flux as _flux
-from sim.model import ecrire_report_de_depart, lire_report_de_depart, lire_stock_marchandise
+from sim.model import ecrire_report_de_depart, lire_stock_marchandise
 
 # Une entrée de la photo : (rang, lieu, population, réserve en jours).
 _RANG = itemgetter(0)
@@ -40,38 +40,29 @@ def reserve_en_jours(population, nourriture_kg, dette_kg, ration_jour) -> float:
     return (nourriture_kg - dette_kg) / (population * ration_jour)
 
 
-def _oublier_le_report(lieu):
-    """Un lieu qui n'a plus de raison de partir ne garde aucun départ en attente."""
-    if lire_report_de_depart(lieu):
-        ecrire_report_de_depart(lieu, 0.0)
+def _photographier(world, ration):
+    """La photo des lieux habités : leurs entrées par cellule, le meilleur lieu et le bourg habité de chacune.
 
-
-def appliquer_departs(world) -> int:
-    """Déplace des foyers entiers ; ni nourriture, ni dette, ni faim ne suivent.
-
-    Le taux et le plafond sont annuels (`jeu/data/departs.toml`), lus une fois
-    par appel et ramenés à la durée du tick ; la fraction de foyer non partie
-    reste au report du lieu.
+    Chaque lieu habité fournit une seule lecture du panier ; sa réserve est celle de
+    `reserve_en_jours`, calculée sur place par les mêmes opérations. Un lieu vide n'y
+    entre pas et ne garde aucun départ en attente.
     """
     nourriture = _constantes.MARCHANDISE_NOURRITURE
-    ration = ration_journaliere()
-    taux_annuel = _constantes.taux_annuel_de_depart()
-    plafond_annuel = _constantes.plafond_annuel_de_depart()
-    annee_en_ticks = _constantes.CALENDAR_DAYS_PER_YEAR / _constantes.TICK_DURATION_DAYS
-    foyer = _constantes.TAILLE_FOYER
     lire = lire_stock_marchandise
     lieux_par_cellule, premiers, bourgs = {}, {}, {}
-    # Chaque lieu habité fournit une seule lecture du panier.
     for cid, cell in world.cells.items():
         entrees = []
         for lieu in cell.lieux:
             population = lieu.population
             if population <= 0:
-                _oublier_le_report(lieu)
+                if lieu.depart_remainder:
+                    ecrire_report_de_depart(lieu, 0.0)
                 continue
+            stock = lire(lieu, nourriture)
+            if stock < 0:
+                stock = 0
             entrees.append((lieu.rang, lieu, population,
-                            reserve_en_jours(population, lire(lieu, nourriture),
-                                             lieu.dette_alimentaire_kg, ration)))
+                            (stock - lieu.dette_alimentaire_kg) / (population * ration)))
         if entrees:
             lieux_par_cellule[cid] = entrees
             premiers[cid] = _le_meilleur(entrees)
@@ -79,6 +70,23 @@ def appliquer_departs(world) -> int:
                 (entree for entree in entrees if entree[0] == 0), None)
             if bourg is not None:
                 bourgs[cid] = bourg
+    return lieux_par_cellule, premiers, bourgs
+
+
+def appliquer_departs(world) -> int:
+    """Déplace des foyers entiers ; ni nourriture, ni dette, ni faim ne suivent.
+
+    Le taux et le plafond sont annuels (`jeu/data/departs.toml`), lus une fois
+    par appel et ramenés à la durée du tick ; la fraction de foyer non partie
+    reste au report du lieu, qui ne s'écrit que s'il change.
+    """
+    ration = ration_journaliere()
+    with _constantes.une_lecture_des_departs():
+        taux_annuel = _constantes.taux_annuel_de_depart()
+        plafond_annuel = _constantes.plafond_annuel_de_depart()
+    annee_en_ticks = _constantes.CALENDAR_DAYS_PER_YEAR / _constantes.TICK_DURATION_DAYS
+    foyer = _constantes.TAILLE_FOYER
+    lieux_par_cellule, premiers, bourgs = _photographier(world, ration)
 
     # Le bourg voisin le mieux nourri, puis le plus petit cell_id.
     voisins = {}
@@ -111,8 +119,11 @@ def appliquer_departs(world) -> int:
         # Si même la meilleure destination ne dépasse pas le lieu le moins
         # nourri, aucun habitant de cette cellule ne peut partir sur cette photo.
         if not meilleure > _RESERVE(min(entrees, key=_RESERVE)) + _constantes.ECART_DE_DEPART_JOURS:
+            # La raison de partir disparue, aucun départ n'attend.
             for entree in entrees:
-                _oublier_le_report(entree[1])
+                lieu = entree[1]
+                if lieu.depart_remainder:
+                    ecrire_report_de_depart(lieu, 0.0)
             continue
         second = premier
         # Les destinations et les effectifs restent ceux de la photo.
@@ -128,7 +139,8 @@ def appliquer_departs(world) -> int:
             if cible is None or not _RESERVE(cible) > seuil:
                 cible_id, cible = voisin, bourgs.get(voisin)
             if cible is None or not _RESERVE(cible) > seuil:
-                _oublier_le_report(lieu)
+                if lieu.depart_remainder:
+                    ecrire_report_de_depart(lieu, 0.0)
                 continue
             rang_arrivee, lieu_arrivee, population_arrivee, reserve_arrivee = cible
             ecart = reserve_arrivee - reserve
@@ -139,12 +151,15 @@ def appliquer_departs(world) -> int:
                 part = min(1.0, part * modifies.get(cle, 1.0))
             # Les foyers entiers partent ; la fraction attend au report, sans
             # jamais faire partir plus de foyers que le lieu n'en compte.
-            brut = lire_report_de_depart(lieu) + population * part
+            report = lieu.depart_remainder
+            brut = report + population * part
             partants = floor(brut / foyer) * foyer
             if partants > population:
                 partants = population // foyer * foyer
                 brut = float(partants)
-            ecrire_report_de_depart(lieu, brut - partants)
+            reste = brut - partants
+            if reste != report:
+                ecrire_report_de_depart(lieu, reste)
             if not partants:
                 continue
             destination = (cible_id, rang_arrivee)
