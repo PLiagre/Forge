@@ -1,6 +1,73 @@
 {
   "assets": [
     {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/BatimentsOccident/bat_maison_colombages.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/BatimentsOccident/bat_grenier_medieval.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/BatimentsOccident/bat_forge_medievale.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/BatimentsOccident/bat_porte_fortifiee.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/bat_maison_colombages_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/bat_grenier_medieval_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/bat_forge_medievale_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/bat_porte_fortifiee_rendu.png"
+      ],
+      "id": "3d-batiments-occident-1400",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_armee.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_siege.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_capitale.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PionsCarte/pion_bourg.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/pion_armee_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/pion_siege_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/pion_capitale_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/pion_bourg_rendu.png"
+      ],
+      "id": "3d-pions-carte-1400",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
+      "dimensions": "512x512",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_charrette.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_etal_marche.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_puits_pierre.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_sacs_grain.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_echafaudage.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/PropsVille/prop_tonneaux_caisses.fbx",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_charrette_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_etal_marche_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_puits_pierre_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_sacs_grain_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_echafaudage_rendu.png",
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/Rendus/prop_tonneaux_caisses_rendu.png"
+      ],
+      "id": "3d-props-ville-1400",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "3d/local3d/GUIDE_V2.md"
+      ],
+      "transparent": false,
+      "type": "prop_3d"
+    },
+    {
       "dimensions": "128x128",
       "fichiers": [
         "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/sceau_cire.png"
@@ -123,6 +190,42 @@
     {
       "dimensions": "1024x1024",
       "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ChaumeMedieval/chaume_medieval_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ChaumeMedieval/chaume_medieval_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ChaumeMedieval/chaume_medieval_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ChaumeMedieval/chaume_medieval_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ChaumeMedieval/chaume_medieval_ao.png"
+      ],
+      "id": "pbr-chaume-medieval",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ColombageTorchis/colombage_torchis_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ColombageTorchis/colombage_torchis_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ColombageTorchis/colombage_torchis_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ColombageTorchis/colombage_torchis_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/ColombageTorchis/colombage_torchis_ao.png"
+      ],
+      "id": "pbr-colombage-torchis",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
         "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_albedo.png",
         "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_height.png",
         "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_normal.png",
@@ -133,6 +236,24 @@
       "raccordable": true,
       "references_da": [
         "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PavesMedievaux/paves_medievaux_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PavesMedievaux/paves_medievaux_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PavesMedievaux/paves_medievaux_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PavesMedievaux/paves_medievaux_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PavesMedievaux/paves_medievaux_ao.png"
+      ],
+      "id": "pbr-paves-medievaux",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
         "docs/interface/MATIERES.md"
       ],
       "transparent": false,
@@ -155,6 +276,73 @@
       ],
       "transparent": false,
       "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PiseOcre/pise_ocre_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PiseOcre/pise_ocre_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PiseOcre/pise_ocre_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PiseOcre/pise_ocre_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PiseOcre/pise_ocre_ao.png"
+      ],
+      "id": "pbr-pise-ocre",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TerreBattue/terre_battue_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TerreBattue/terre_battue_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TerreBattue/terre_battue_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TerreBattue/terre_battue_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TerreBattue/terre_battue_ao.png"
+      ],
+      "id": "pbr-terre-battue",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TuilesMedievales/tuiles_medievales_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TuilesMedievales/tuiles_medievales_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TuilesMedievales/tuiles_medievales_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TuilesMedievales/tuiles_medievales_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/TuilesMedievales/tuiles_medievales_ao.png"
+      ],
+      "id": "pbr-tuiles-medievales",
+      "raccordable": true,
+      "references_da": [
+        "docs/direction-artistique/README.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/ForgeLocal3D/Catalogue1400/References/bat_maison_colombages_ref.png"
+      ],
+      "id": "ref3d-maison-colombages-1400",
+      "raccordable": false,
+      "references_da": [
+        "docs/direction-artistique/README.md"
+      ],
+      "transparent": false,
+      "type": "illustration"
     }
   ],
   "version": 1
