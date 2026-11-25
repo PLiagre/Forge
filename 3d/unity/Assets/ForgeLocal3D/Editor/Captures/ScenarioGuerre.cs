@@ -19,13 +19,14 @@ namespace ForgeLocal3D.Captures
     // 10461, sans réserve de grain, à 18 jours de marche de sa capitale, tombe 31 jours après le début du siège.
     static class ScenarioGuerre
     {
-        const int PORT = PanneauLieu.DEFAULT_SERVICE_PORT, SEIGNEURIE = 2, PAQUET = 4;
-        const long PLACE = 10461;
-        const int JOURS_MAX_CASERNE = 60, JOURS_MAX_MARCHE = 40, JOURS_MAX_SIEGE = 60, JOURS_DE_MARCHE_AVANT_PHOTO = 7, JOURS_DE_SIEGE_AVANT_PHOTO = 3;
+        // La partie mesurée, que `ScenarioDUnTrait` rejoue aussi pour montrer un lieu qui change de pays.
+        internal const int PORT = PanneauLieu.DEFAULT_SERVICE_PORT, SEIGNEURIE = 2, PAQUET = 4;
+        internal const long PLACE = 10461;
+        internal const int JOURS_MAX_CASERNE = 60, JOURS_MAX_MARCHE = 40, JOURS_MAX_SIEGE = 60; const int JOURS_DE_MARCHE_AVANT_PHOTO = 7, JOURS_DE_SIEGE_AVANT_PHOTO = 3;
         // Les vivres d'une levée : de quoi marcher et tenir un long siège, au plus une part du grain libre servi.
-        const double JOURS_DE_VIVRES = 140, PART_DU_GRAIN = 0.8;
+        internal const double JOURS_DE_VIVRES = 140, PART_DU_GRAIN = 0.8;
         const float DEMI_KM = 220f, DEMI_LOIN_KM = 700f; const int IMAGES_DE_POSE = 12;
-        static readonly TimeSpan DELAI = TimeSpan.FromSeconds(60);
+        internal static readonly TimeSpan DELAI = TimeSpan.FromSeconds(60);
         static string maison; static long armee = -1; static PointCarte? capitale;
 
         [ScenarioDeCapture("guerre", "01-caserne")]
@@ -169,9 +170,9 @@ namespace ForgeLocal3D.Captures
             carte.camera.rect = new Rect(0, 0, 1, 1);
             carte.Vue.Changer(carte.camera.aspect); carte.Vue.Centrer(new Vector2(ici.x, ici.z), demi); carte.Vue.Poser(carte.camera, carte.transform);
         }
-        static Task<Lecture<T>> Lire<T>(Func<Lecture<T>> lire) where T : class => Task.Run(lire);
+        internal static Task<Lecture<T>> Lire<T>(Func<Lecture<T>> lire) where T : class => Task.Run(lire);
         // `n` jours poussés au service, hors du fil de l'éditeur ; `tick` reçoit le tick que le service rend.
-        static IEnumerator Pousser(int n, Action<long> tick = null)
+        internal static IEnumerator Pousser(int n, Action<long> tick = null)
         {
             string url = "http://127.0.0.1:" + PORT + "/tick?n=" + n;
             var appel = Task.Run(() =>

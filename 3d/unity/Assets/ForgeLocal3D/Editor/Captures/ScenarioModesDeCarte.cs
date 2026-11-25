@@ -345,24 +345,7 @@ namespace ForgeLocal3D.Captures
             Debug.Log("CAPTURE modes de carte : " + mode + " au tick " + Monde(cabinet).Tick + " ; « " + Texte().Replace("\n", " | ") + " »");
         }
 
-        // Un clic de pointeur au centre du bouton, tel que l'écran le montre : ce qui est sous le pointeur reçoit le clic, et ce doit être le bouton.
-        static void Cliquer(CarteDessinee carte, Button bouton)
-        {
-            var systeme = EventSystem.current ?? Object.FindFirstObjectByType<EventSystem>() ?? throw Faux("aucun système d'événements dans la scène");
-            Canvas.ForceUpdateCanvases();
-            var coins = new Vector3[4]; ((RectTransform)bouton.transform).GetWorldCorners(coins);
-            Vector2 ici = RectTransformUtility.WorldToScreenPoint(carte.camera, (coins[0] + coins[2]) / 2f);
-            var pointeur = new PointerEventData(systeme) { position = ici, button = PointerEventData.InputButton.Left };
-            var touches = new List<RaycastResult>(); systeme.RaycastAll(pointeur, touches);
-            if (touches.Count == 0) throw Faux("rien sous le pointeur en " + ici + " pour « " + bouton.name + " »");
-            GameObject sous = ExecuteEvents.GetEventHandler<IPointerClickHandler>(touches[0].gameObject);
-            if (sous != bouton.gameObject) throw Faux("sous le pointeur en " + ici + " : « " + (sous != null ? sous.name : touches[0].gameObject.name) + " », et non « " + bouton.name + " »");
-            if (!bouton.interactable) throw Faux("« " + bouton.name + " » est inactif");
-            pointeur.pointerCurrentRaycast = pointeur.pointerPressRaycast = touches[0]; pointeur.pointerPress = sous; pointeur.rawPointerPress = touches[0].gameObject;
-            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerEnterHandler); ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerDownHandler);
-            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerUpHandler); ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerClickHandler);
-            ExecuteEvents.Execute(sous, pointeur, ExecuteEvents.pointerExitHandler);
-        }
+        static void Cliquer(CarteDessinee carte, Button bouton) => GestesDeCapture.CliquerAuPointeur(carte.camera, bouton);
 
         // Toute la carte, comme au premier jour : la vue reculée jusqu'à l'Europe entière.
         static IEnumerator ToutLEurope(CarteDessinee carte, CabinetDeCarte cabinet, CarteDeLaGuerre guerre)

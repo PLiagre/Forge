@@ -1,0 +1,70 @@
+{
+    "graine": 0,
+    "jours": 30,
+    "ia": true,
+    "date": "jour 31 de 1400",
+    "empreinte": "41e9f085edd80d723b21f1c4e00b0b8259a3973fd11cf95838aa600ba10aac24",
+    "cadres": [
+        {
+            "cadre": "balkans-et-orient",
+            "pays": [
+                "Ottomans",
+                "Byzance",
+                "Hongrie",
+                "Serbie",
+                "Bosnie",
+                "Valachie",
+                "Moldavie"
+            ]
+        },
+        {
+            "cadre": "empire",
+            "pays": [
+                "Bohême",
+                "Autriche",
+                "Bavière",
+                "Brandebourg",
+                "Saxe"
+            ]
+        },
+        {
+            "cadre": "europe",
+            "pays": [
+                "France",
+                "Angleterre",
+                "Castille",
+                "Aragon",
+                "Portugal",
+                "Pologne",
+                "Lituanie",
+                "Hongrie",
+                "Union de Kalmar",
+                "Ottomans"
+            ]
+        },
+        {
+            "cadre": "france-et-iles",
+            "pays": [
+                "France",
+                "Angleterre",
+                "Écosse",
+                "Irlande",
+                "Bretagne",
+                "Bourgogne",
+                "Navarre"
+            ]
+        },
+        {
+            "cadre": "italie",
+            "pays": [
+                "Milan",
+                "Venise",
+                "Gênes",
+                "États de l'Église",
+                "Naples",
+                "Sicile",
+                "Savoie"
+            ]
+        }
+    ]
+}

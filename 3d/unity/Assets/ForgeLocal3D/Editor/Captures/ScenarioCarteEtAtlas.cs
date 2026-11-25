@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Forge.Interface;
 using Forge.Pont;
 using UnityEngine;
@@ -21,17 +22,25 @@ namespace ForgeLocal3D.Captures
     // Europa n'entre jamais dans une image jointe : une capture locale (`<checkout>/references/eu4/<cadre>.png`, hors du dépôt)
     // donne une planche complète écrite à côté d'elle, et la planche publiée dit seulement si elle a été lue.
     // Chaque planche prend la carte dans l'état où elle la trouve et la rend tel quel : l'ordre des noms (« 10- » avant « 2- »)
-    // ne change rien aux autres photos du groupe. Elle échoue sans l'atlas, sur une zone hors de l'image, ou si aucun grand pays
-    // du cadre ne se lit sur la carte du jeu.
+    // ne change rien aux autres photos du groupe ; un autre groupe l'appelle par `Planche`. Elle échoue sans l'atlas, sur une zone
+    // hors de l'image, si la zone ne nomme aucun grand pays, ou si l'un des grands pays que `cadres.json` donne à la zone (tirés des
+    // repères de 1400) n'est pas servi sous ce nom ou ne se lit pas en entier sur la carte du cadre.
+    // Avec -forgeRangerLaPlanche, et sur le monde frais seulement, la planche publiée s'écrit aussi dans le dépôt
+    // (`atlas-1400/planche-du-jeu/<cadre>.png`), avec `planche.json` : le monde dont elle est la photo et son empreinte des terres.
     static class ScenarioCarteEtAtlas
     {
         const string GROUPE = "modes-de-carte", PLANCHE = "Planche de l'atlas";
-        const int LARGEUR = 1920, HAUTEUR = 1080, IMAGES_DE_POSE = 12, TERRES_D_UN_GRAND_PAYS = 5, CALQUE_DE_LA_PLANCHE = 5; // le calque « UI »
+        const int LARGEUR = 1920, HAUTEUR = 1080, IMAGES_DE_POSE = 12, CALQUE_DE_LA_PLANCHE = 5; // le calque « UI »
         // La planche en pixels de la photo : le titre, deux panneaux côte à côte, la source sous chacun, la note en pied.
         const float MARGE = 30, HAUT_DES_PANNEAUX = 92, LARGEUR_PANNEAU = 915, HAUTEUR_PANNEAU = 840;
 
-        [Serializable] sealed class Zone { public string cadre = null, titre = null; public int x = 0, y = 0, largeur = 0, hauteur = 0; }
+        [Serializable] sealed class Zone { public string cadre = null, titre = null; public int x = 0, y = 0, largeur = 0, hauteur = 0; public string[] pays = null; }
         [Serializable] sealed class Cadres { public string atlas = null, source = null, ecart = null; public int largeur = 0, hauteur = 0; public Zone[] zones = null; }
+        // La planche rangée dans le dépôt : le monde dont elle est la photo (de quoi relancer le même service et le reconnaître),
+        // et, par cadre, les grands pays qui s'y lisaient.
+        [Serializable] internal sealed class Rangee { public string cadre = null; public string[] pays = null; }
+        [Serializable] internal sealed class PlancheRangee { public int graine = 0, jours = 0; public bool ia = false; public string date = null, empreinte = null; public Rangee[] cadres = null; }
+        internal const string DOSSIER_RANGE = "planche-du-jeu", FICHE_RANGEE = "planche.json";
 
         [ScenarioDeCapture(GROUPE, "7-atlas-europe", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator Europe(Camera camera) => Planche("europe");
         [ScenarioDeCapture(GROUPE, "8-atlas-france", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator France(Camera camera) => Planche("france-et-iles");
@@ -40,7 +49,7 @@ namespace ForgeLocal3D.Captures
         [ScenarioDeCapture(GROUPE, "11-atlas-balkans", Largeur = LARGEUR, Hauteur = HAUTEUR)] static IEnumerator Balkans(Camera camera) => Planche("balkans-et-orient");
 
         // `docs/interface/references/atlas-1400`, depuis le projet Unity.
-        static string DossierDeLAtlas => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "docs", "interface", "references", "atlas-1400"));
+        internal static string DossierDeLAtlas => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "..", "docs", "interface", "references", "atlas-1400"));
         // `references/eu4` du checkout principal : celui du dépôt, ou celui dont ce worktree dépend (le `.git` d'un worktree est un
         // fichier qui nomme `<checkout>/.git/worktrees/<nom>`).
         static string DossierDEuropa
@@ -57,9 +66,19 @@ namespace ForgeLocal3D.Captures
             }
         }
 
-        static IEnumerator Planche(string cadre)
+        internal static IEnumerator Planche(string cadre)
         {
             var (carte, cabinet, guerre) = ScenarioAccueil.Lire();
+            // Rangée, la planche est la photo d'un monde que le build sait relancer : le service tel que la capture l'a lancé, au jour
+            // poussé, sans pays choisi. Un autre amorçage, un jour joué ou un choix fait la rendraient impossible à reconnaître.
+            bool ranger = Capture.Drapeau(Capture.RANGER_LA_PLANCHE);
+            if (ranger)
+            {
+                string amorce = new[] { Capture.SERVICE_EPREUVE, Capture.SERVICE_PROGRAMME, Capture.SERVICE_MODIFICATEURS, Capture.TRAVAIL_ENCEINTE }.FirstOrDefault(Capture.Drapeau);
+                if (amorce != null) throw Faux("la planche ne se range pas sur un service amorcé par " + amorce);
+                if (guerre.Terres.Tick != Capture.JoursPousses) throw Faux("la planche ne se range que sur le monde frais : terres du tick " + guerre.Terres.Tick + ", service poussé à " + Capture.JoursPousses);
+                if (ScenarioAccueil.Servie(cabinet) != null) throw Faux("la planche ne se range que sur le monde frais : « " + ScenarioAccueil.Servie(cabinet) + " » est déjà choisie");
+            }
             foreach (var ancienne in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Where(t => t.parent == null && t.name.StartsWith(PLANCHE, StringComparison.Ordinal)).ToArray()) Object.Destroy(ancienne.gameObject);
             // L'atlas et la zone qui répond au cadre ; une image qui n'a pas la taille attendue (un pointeur LFS, une autre carte) est refusée.
             string chemin = Path.Combine(DossierDeLAtlas, "cadres.json");
@@ -70,6 +89,11 @@ namespace ForgeLocal3D.Captures
             if (!atlas.LoadImage(File.ReadAllBytes(Path.Combine(DossierDeLAtlas, cadres.atlas)))) throw Faux("l'atlas " + cadres.atlas + " ne se lit pas comme une image");
             if (atlas.width != cadres.largeur || atlas.height != cadres.hauteur) throw Faux("l'atlas fait " + atlas.width + " × " + atlas.height + ", cadres.json attend " + cadres.largeur + " × " + cadres.hauteur);
             if (zone.largeur <= 0 || zone.hauteur <= 0 || zone.x < 0 || zone.y < 0 || zone.x + zone.largeur > atlas.width || zone.y + zone.hauteur > atlas.height) throw Faux("la zone de « " + cadre + " » sort de l'atlas");
+            // Les grands pays de la zone, tirés des repères de 1400 : chacun doit être servi sous ce nom.
+            if (zone.pays == null || zone.pays.Length == 0) throw Faux("cadres.json ne nomme aucun grand pays pour « " + cadre + " »");
+            string inconnus = string.Join(", ", zone.pays.Where(n => guerre.Terres.Pays.Count(p => p.Nom == n) != 1));
+            if (inconnus.Length > 0) throw Faux(cadre + " : grands pays de l'atlas que le service ne sert pas sous ce nom : " + inconnus);
+            var attendus = zone.pays.Select(n => guerre.Terres.Pays.Single(p => p.Nom == n).Id).ToList();
             var calques = carte.GetComponent<CalquesCarte>() ?? throw Faux("pas de calques sur la carte");
             if (calques.Mode != ModeDeCarte.Politique) throw Faux("la planche se pose sur la carte politique, pas sur le mode " + calques.Mode);
 
@@ -85,11 +109,15 @@ namespace ForgeLocal3D.Captures
                 var (centre, demi) = ScenarioCartePolitique.Cadrer(carte, terres, aspect);
                 carte.Vue.Changer(aspect); carte.Vue.Centrer(centre, demi); carte.Vue.Poser(carte.camera, carte.transform); guerre.SuivreLaVue();
                 for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
-                // Les grands pays du cadre, ceux qui y tiennent au moins `TERRES_D_UN_GRAND_PAYS` terres, et ceux dont le nom se lit.
-                var dans = new HashSet<long>(terres);
-                var grands = guerre.Terres.Terres.Where(t => t.Pays != null && dans.Contains(t.CellId)).GroupBy(t => t.Pays).Where(g => g.Count() >= TERRES_D_UN_GRAND_PAYS).Select(g => g.Key).ToList();
-                lisibles = guerre.NomsDesPays.Where(n => grands.Contains(n.Pays) && n.Opacite > 0f).Select(n => n.Texte).OrderBy(n => n, StringComparer.Ordinal).ToList();
-                if (lisibles.Count == 0) throw Faux(cadre + " : aucun grand pays du cadre ne se lit sur la carte du jeu");
+                // Un nom se lit quand il n'est ni masqué ni effacé, et que chacune de ses lettres tombe dans le panneau.
+                bool Lisible(NomCourbe n) => !n.Masque && n.Opacite > 0f && n.Compose != null && n.Compose.Lettres.All(l =>
+                    { Vector3 v = carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(new Vector3(l.Point.x, 0f, l.Point.y))); return v.z > 0f && v.x >= 0f && v.x <= 1f && v.y >= 0f && v.y <= 1f; });
+                var noms = guerre.NomsDesPays.GroupBy(n => n.Pays).ToDictionary(g => g.Key, g => g.First());
+                string illisibles = string.Join(", ", attendus.Where(p => !noms.TryGetValue(p, out NomCourbe n) || !Lisible(n)).Select(p => guerre.Terres.NomDuPays(p)
+                    + (noms.TryGetValue(p, out NomCourbe n) ? " (" + n.CorpsPx.ToString("0.#", CultureInfo.InvariantCulture) + " px, opacité " + n.Opacite.ToString("0.##", CultureInfo.InvariantCulture) + (n.Masque ? ", masqué" : "") + ")" : " (sans nom sur la carte)")));
+                // Tous les noms lisibles du panneau, pour régler la liste d'une zone sur ce que la carte montre.
+                lisibles = guerre.NomsDesPays.Where(Lisible).Select(n => n.Texte).OrderBy(n => n, StringComparer.Ordinal).ToList();
+                if (illisibles.Length > 0) throw Faux(cadre + " : grands pays de l'atlas illisibles sur la carte du jeu : " + illisibles + " ; lisibles : " + string.Join(", ", lisibles));
             }
             finally
             {
@@ -138,9 +166,38 @@ namespace ForgeLocal3D.Captures
                 droite.texture = atlasMontre; droite.uvRect = uvMontre; cadreDroit.anchoredPosition = place; cadreDroit.sizeDelta = taille; legendeDroite.text = cadres.source; Canvas.ForceUpdateCanvases();
             }
             for (int i = 0; i < 3; i++) yield return null;
-            Debug.Log("CAPTURE modes de carte : planche « " + cadre + " » au " + jour + ", " + terres.Count + " terres cadrées ; grands pays lisibles : " + string.Join(", ", lisibles)
-                + " ; atlas " + zone.x + "," + zone.y + " " + zone.largeur + " × " + zone.hauteur + " ; Europa " + (europa ? "lue, planche complète hors du dépôt" : "absente"));
+            if (ranger) Ranger(camera, cadre, zone.pays, guerre.Terres, jour);
+            Debug.Log("CAPTURE modes de carte : planche « " + cadre + " » au " + jour + ", " + terres.Count + " terres cadrées ; grands pays de l'atlas lus : " + string.Join(", ", zone.pays)
+                + " ; noms lisibles : " + string.Join(", ", lisibles) + " ; atlas " + zone.x + "," + zone.y + " " + zone.largeur + " × " + zone.hauteur + " ; Europa " + (europa ? "lue, planche complète hors du dépôt" : "absente")
+                + (ranger ? " ; rangée dans " + Path.Combine(DossierDeLAtlas, DOSSIER_RANGE) : ""));
             yield return camera;
+        }
+
+        // La planche publiée, écrite aussi dans `planche-du-jeu/<cadre>.png`, et sa ligne dans `planche.json`. Une fiche d'un autre monde
+        // (autre graine, autres jours, autre IA, autres terres) est remplacée, et les images qu'elle décrivait sont effacées : le dossier
+        // ne mêle jamais deux mondes.
+        static void Ranger(Camera camera, string cadre, string[] pays, TerresDeLaCarte terres, string jour)
+        {
+            string dossier = Path.Combine(DossierDeLAtlas, DOSSIER_RANGE), fiche = Path.Combine(dossier, FICHE_RANGEE);
+            Directory.CreateDirectory(dossier);
+            var monde = new PlancheRangee { graine = Capture.GraineDuService, jours = Capture.JoursPousses, ia = Capture.Drapeau(Capture.SERVICE_IA), date = jour, empreinte = Empreinte(terres), cadres = new Rangee[0] };
+            var lue = File.Exists(fiche) ? JsonUtility.FromJson<PlancheRangee>(File.ReadAllText(fiche)) : null;
+            if (lue != null && lue.graine == monde.graine && lue.jours == monde.jours && lue.ia == monde.ia && lue.empreinte == monde.empreinte && lue.cadres != null) monde.cadres = lue.cadres;
+            else foreach (string image in Directory.GetFiles(dossier, "*.png")) File.Delete(image);
+            monde.cadres = monde.cadres.Where(r => r.cadre != cadre).Concat(new[] { new Rangee { cadre = cadre, pays = pays } }).OrderBy(r => r.cadre, StringComparer.Ordinal).ToArray();
+            CitadelPlayCheck.Capture(camera, Path.Combine(dossier, cadre + ".png"), LARGEUR, HAUTEUR);
+            File.WriteAllText(fiche, JsonUtility.ToJson(monde, true) + "\n", new UTF8Encoding(false));
+        }
+
+        // L'empreinte des terres servies : SHA-256 des lignes « cellule=pays » de chaque terre, et « cellule/rang=pays » de chacun de ses
+        // lieux d'un autre pays, triées en ordinal et jointes par « \n ». Deux services qui la donnent égale dessinent la même carte politique.
+        internal static string Empreinte(TerresDeLaCarte terres)
+        {
+            var lignes = terres.Terres.SelectMany(t => new[] { t.CellId.ToString(CultureInfo.InvariantCulture) + "=" + (t.Pays ?? "") }
+                .Concat(t.AutresPays.Select(a => t.CellId.ToString(CultureInfo.InvariantCulture) + "/" + a.Rang.ToString(CultureInfo.InvariantCulture) + "=" + (a.Pays ?? ""))))
+                .OrderBy(l => l, StringComparer.Ordinal);
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return string.Concat(sha.ComputeHash(Encoding.UTF8.GetBytes(string.Join("\n", lignes))).Select(b => b.ToString("x2", CultureInfo.InvariantCulture)));
         }
 
         // Un panneau d'image, centré dans la hauteur des panneaux, `uv` la part de la texture montrée.
