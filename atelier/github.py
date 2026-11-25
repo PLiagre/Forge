@@ -238,12 +238,14 @@ class GitHub:
         """L'état de chaque travail de CI d'un commit (ou de la tête d'une
         branche) : vert, rouge ou attente. Un travail rejoué se lit à son
         passage le plus récent ; un travail annulé n'a rien dit, il n'est
-        pas rouge."""
+        pas rouge ; un travail qui porte sa conclusion a fini."""
         bruts = self.json("api", f"repos/{self.depot}/commits/{reference}/check-runs?per_page=100", "--jq",
                           "[.check_runs[] | {name, status, conclusion, started_at}]") or []
         vus: dict[str, tuple[str, str]] = {}
         for c in bruts:
-            if c.get("status") != "completed":
+            # La conclusion dit qu'un travail a fini, même quand GitHub
+            # laisse son statut « en cours ».
+            if not c.get("conclusion") and c.get("status") != "completed":
                 etat = "attente"
             elif c.get("conclusion") in ("failure", "timed_out"):
                 etat = "rouge"
@@ -276,7 +278,9 @@ def _controles(pr: dict) -> dict[str, dict[str, str]]:
         nom = c.get("name") or c.get("context") or ""
         if c.get("__typename") == "StatusContext":
             etat = {"SUCCESS": "vert", "PENDING": "attente", "EXPECTED": "attente"}.get(c.get("state", ""), "rouge")
-        elif c.get("status") != "COMPLETED":
+        # La conclusion dit qu'un contrôle a fini, même quand GitHub laisse son
+        # statut « en cours » : sans elle seulement, il se fait attendre.
+        elif not c.get("conclusion") and c.get("status") != "COMPLETED":
             etat = "attente"
         else:
             etat = "vert" if c.get("conclusion") in ("SUCCESS", "NEUTRAL", "SKIPPED") else "rouge"
