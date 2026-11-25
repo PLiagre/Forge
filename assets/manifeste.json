@@ -1,6 +1,86 @@
 {
   "assets": [
     {
+      "dimensions": "128x128",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/sceau_cire.png"
+      ],
+      "id": "icone-sceau-cire",
+      "raccordable": false,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": true,
+      "type": "icone"
+    },
+    {
+      "dimensions": "128x128",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/pause.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/vitesse.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/famine.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/siege.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/chantier.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/marche.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/paix.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/grenier.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/AlertesEtOrdres/alerte.png"
+      ],
+      "id": "icones-alertes-et-ordres",
+      "raccordable": false,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": true,
+      "type": "planche_icones"
+    },
+    {
+      "dimensions": "128x128",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/concorde.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/renom.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/droit.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/plume.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/sceau.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/epee.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/grain.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/hommes.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/BarreDuPays/tresor.png"
+      ],
+      "id": "icones-barre-du-pays",
+      "raccordable": false,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": true,
+      "type": "planche_icones"
+    },
+    {
+      "dimensions": "128x128",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/couronne.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/ecu.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/coffre.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/maisons.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/bourg.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/livre.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/croix.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/ville.png",
+        "3d/unity/Assets/Interface/Resources/Forge/Icones/Cabinet/diplomatie.png"
+      ],
+      "id": "icones-commandes-cabinet",
+      "raccordable": false,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": true,
+      "type": "planche_icones"
+    },
+    {
       "demande_par": 1170,
       "dimensions": "128x128",
       "fichiers": [
@@ -21,6 +101,60 @@
       ],
       "transparent": true,
       "type": "planche_icones"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/BoisBrule/bois_brule_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/BoisBrule/bois_brule_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/BoisBrule/bois_brule_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/BoisBrule/bois_brule_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/BoisBrule/bois_brule_ao.png"
+      ],
+      "id": "pbr-bois-brule",
+      "raccordable": true,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/MetalPatine/metal_patine_ao.png"
+      ],
+      "id": "pbr-metal-patine",
+      "raccordable": true,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
+    },
+    {
+      "dimensions": "1024x1024",
+      "fichiers": [
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PierreSombre/pierre_sombre_albedo.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PierreSombre/pierre_sombre_height.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PierreSombre/pierre_sombre_normal.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PierreSombre/pierre_sombre_roughness.png",
+        "3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/PierreSombre/pierre_sombre_ao.png"
+      ],
+      "id": "pbr-pierre-sombre",
+      "raccordable": true,
+      "references_da": [
+        "docs/interface/DA.md",
+        "docs/interface/MATIERES.md"
+      ],
+      "transparent": false,
+      "type": "texture_pbr"
     }
   ],
   "version": 1
