@@ -97,7 +97,8 @@ def attribution_livree(monde):
     if garde is None or garde[0] is not monde.carte or garde[1] is not monde.carte_meta:
         attribution = attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, villes)
         garde = _DERNIERE_ATTRIBUTION_LIVREE['carte'] = (monde.carte, monde.carte_meta, attribution)
-    return garde[2]
+    _, _, attribution = garde
+    return attribution
 def aire_de_cellule(cid, cellule, puissance, table, noms):
     """La première règle applicable lit la religion dans la table des puissances."""
     religion = None if puissance is None else next(p.religion for p in table.puissances if p.id == puissance); position = cellule['centroid']
