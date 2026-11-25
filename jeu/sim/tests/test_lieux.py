@@ -1726,7 +1726,7 @@ def test_lieux_servis_la_reserve_en_jours_compte_le_stock_et_la_dette():
     assert reserve_en_jours(10, 50.0, 70.0, 0.5) == -4.0, "une dette plus lourde que le stock rend une réserve négative"
 
 
-def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis, monkeypatch):
+def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis):
     from sim import departs
     from sim.model import lire_stock_marchandise
     monde, _monde_servi, lieux = lieux_servis
@@ -1745,15 +1745,25 @@ def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis, mo
             habites += 1
     reserves = {l["reserve_jours"] for c in lieux["cells"] for l in c["lieux"] if l["reserve_jours"] is not None}
     assert habites > 0 and len(reserves) > 1, "des réserves toutes égales ne prouveraient rien"
-    # Le mieux-vivre lit la même fonction : une par lieu habité.
-    lus = []
-    def compter(*arguments):
-        lus.append(arguments)
-        return reserve(*arguments)
-    reserve = departs.reserve_en_jours
-    monkeypatch.setattr(departs, "reserve_en_jours", compter)
-    departs.appliquer_departs(copy.deepcopy(monde))
-    assert len(lus) == habites
+    # Le mieux-vivre photographie les mêmes réserves : une entrée par lieu habité, aucune pour un lieu vide.
+    def controler(photo):
+        servis = {(c["cell_id"], l["rang"]) for c in lieux["cells"] for l in c["lieux"] if l["reserve_jours"] is not None}
+        for cellule in lieux["cells"]:
+            for servi in cellule["lieux"]:
+                if servi["reserve_jours"] is None:
+                    continue
+                entree = {e[0]: e for e in photo.get(cellule["cell_id"], [])}.get(servi["rang"])
+                assert entree is not None, (cellule["cell_id"], servi["rang"])
+                assert entree[3] == servi["reserve_jours"], (cellule["cell_id"], servi["rang"])
+        assert sum(len(entrees) for entrees in photo.values()) == habites
+        assert all(e[2] > 0 for entrees in photo.values() for e in entrees)
+        assert {(cid, e[0]) for cid, entrees in photo.items() for e in entrees} == servis
+    controler(departs._photographier(copy.deepcopy(monde), ration)[0])
+    # Contre-épreuve : une dette alourdie sur un lieu habité change sa réserve, et le contrôle le voit.
+    alourdi = copy.deepcopy(monde)
+    next(l for c in alourdi.cells.values() for l in c.lieux if l.population > 0).dette_alimentaire_kg += 1000.0
+    with pytest.raises(AssertionError):
+        controler(departs._photographier(alourdi, ration)[0])
     print(f"lieux habités={habites}, vides={vides}, réserves distinctes={len(reserves)}")
 
 

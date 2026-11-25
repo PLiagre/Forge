@@ -1022,12 +1022,16 @@ bagages et métiers propres aux lieux ne sont pas simulés (niveau 3).
 Après la famine, `departs.appliquer_departs` photographie les lieux habités.
 La réserve nette en jours vaut (nourriture moins dette) / ration des habitants ;
 la ration journalière dérive de la consommation et de `TICK_DURATION_DAYS`.
-Les deux se lisent par `departs.reserve_en_jours` et `departs.ration_journaliere`,
-la même lecture que sert `GET /lieux` : un stock négatif ou absent compte pour rien,
-et une dette plus lourde que le stock rend une réserve négative.
+La réserve est la formule de `departs.reserve_en_jours`, que sert `GET /lieux` : un stock
+négatif ou absent compte pour rien, et une dette plus lourde que le stock rend une réserve
+négative. La photo (`departs._photographier`) la calcule sur place, avec une seule lecture
+du panier par lieu habité, et la ration par `departs.ration_journaliere` ;
+`test_lieux.py::test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre` prouve,
+bit pour bit, que chaque lieu habité y porte la réserve servie.
 L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.
 Le taux et son plafond sont **annuels** et vivent dans `jeu/data/departs.toml`, relus
-une fois par appel. Par tranche entière de 30 jours d'écart, `taux_annuel_par_tranche = 0.005`
+une fois par appel : le fichier s'y ouvre une seule fois (`constants.une_lecture_des_departs`).
+Par tranche entière de 30 jours d'écart, `taux_annuel_par_tranche = 0.005`
 donne la part des habitants qui part en un an, plafonnée par `plafond_annuel = 0.03` :
 
 ```
