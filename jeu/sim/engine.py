@@ -45,12 +45,14 @@ from sim.model import (
     cellule_vers_dict,
     contenus_des_paniers,
     copier_panier,
+    ecrire_aux_paniers,
     ecrire_habitants_par_metier,
     ecrire_stock_marchandise,
     lire_habitants_par_metier,
+    lire_ouvriers_des_lieux,
     lire_ouvriers_du_jour,
     lire_stock_marchandise,
-    verser_au_stock,
+    verser_aux_paniers,
 )
 
 # Carte lue pendant un tick sur un monde chargé ; None hors tick ou sans carte.
@@ -212,6 +214,7 @@ def production_du_tick_kg(
     yield_factor: float,
     carte: dict,
     jour: int | None = None,
+    facteurs_carte: tuple[float, float, float] | None = None,
 ) -> float:
     """
     Production alimentaire d'une cellule pendant un tick, avec relief, eau,
@@ -219,16 +222,23 @@ def production_du_tick_kg(
 
     `jour` facultatif : sans jour, relief et part minière seulement (appels
     historiques à trois arguments). Avec un jour explicite, le facteur saisonnier
-    s'ajoute — premier jour de l'année via `jour_de_tick(None)`.
+    s'ajoute — premier jour de l'année via `jour_de_tick(None)`. `facteurs_carte` :
+    relief, part agricole et eau déjà lus pour ce tick (`_facteurs_de_la_carte`).
     """
     base = _production_base_kg(cell, yield_factor)
-    relief = _facteur_relief_pour_cellule(cell, carte)
-    agricole = _facteur_agricole(cell, carte)
-    eau = _facteur_eau_pour_cellule(cell, carte)
+    relief, agricole, eau = facteurs_carte or _facteurs_de_la_carte(cell, carte)
     produit = base * relief * agricole * eau
     if jour is None:
         return produit
     return produit * _facteur_saison_pour_cellule(cell, carte, jour)
+
+
+def _facteurs_de_la_carte(cell: Cell, carte: dict) -> tuple[float, float, float]:
+    """Relief, part agricole et eau de la cellule, lus et validés dans cet ordre."""
+    relief = _facteur_relief_pour_cellule(cell, carte)
+    agricole = _facteur_agricole(cell, carte)
+    eau = _facteur_eau_pour_cellule(cell, carte)
+    return relief, agricole, eau
 
 
 def _production_du_tick_kg_saison_moyenne(
@@ -432,7 +442,7 @@ def _metiers_bras_rendus(cell, metiers):
     """Métier où les ouvriers des chantiers du jour sont redevenus paysans."""
     if metiers == -1:
         return metiers
-    localises = sum(lire_ouvriers_du_jour(lieu) for lieu in cell.lieux)
+    localises = sum(lire_ouvriers_des_lieux(cell.lieux))
     if not localises:
         return metiers
     temoin = dict(metiers)
@@ -449,13 +459,17 @@ def _metiers_bras_rendus(cell, metiers):
     return temoin
 
 
-def _calculer_parts(cell, recolte, carte, saison, compter_ouvriers=True):
-    """Parts de récolte par lieu, sans écriture. Les bras rendus ne retirent rien."""
+def _calculer_parts(cell, recolte, carte, saison, compter_ouvriers=True, facteurs_carte=None):
+    """Parts de récolte par lieu, sans écriture. Les bras rendus ne retirent rien.
+
+    `facteurs_carte` : relief, part agricole et eau déjà lus pour ce tick (`_facteurs_de_la_carte`).
+    """
     km2_cultives = cell.area_km2
     if carte:
-        km2_cultives *= _facteur_relief_pour_cellule(cell, carte)
-        km2_cultives *= _facteur_eau_pour_cellule(cell, carte)
-        km2_cultives *= _facteur_agricole(cell, carte)
+        relief, agricole, eau = facteurs_carte or _facteurs_de_la_carte(cell, carte)
+        km2_cultives *= relief
+        km2_cultives *= eau
+        km2_cultives *= agricole
     km2_cultives *= saison
     metiers = lire_habitants_par_metier(cell)
     if not compter_ouvriers:
@@ -467,7 +481,7 @@ def _calculer_parts(cell, recolte, carte, saison, compter_ouvriers=True):
         cultives_par_km2 = km2_cultives / cell.area_km2
         besoin_par_km2 = foyers.besoin_bras(cultives_par_km2)
         # Les ouvriers du jour de chaque lieu, lus une fois pour les lieux et pour le bourg.
-        ouvriers = ([lire_ouvriers_du_jour(lieu) for lieu in cell.lieux] if compter_ouvriers
+        ouvriers = (lire_ouvriers_des_lieux(cell.lieux) if compter_ouvriers
                     else [0] * len(cell.lieux))
         for lieu, compte in zip(cell.lieux, ouvriers):
             if lieu.rang:
@@ -564,13 +578,14 @@ def _noter_recolte_perdue(monde, cell, recolte, carte, saison):
             pertes[cle] = pertes.get(cle, 0.0) + part
 
 
-def _verser_recolte(cell, recolte, carte, saison, recoltes, facteurs=None):
+def _verser_recolte(cell, recolte, carte, saison, recoltes, facteurs=None, facteurs_carte=None):
     """Besoin commun, manque local ; le partage historique survit à bras suffisants.
 
     `facteurs` : le facteur de récolte de chaque lieu (registre des modificateurs) ;
     le grain en plus se récolte au lieu, puis voyage, se stocke et se mange.
+    `facteurs_carte` : relief, part agricole et eau déjà lus pour ce tick.
     """
-    recolte, parts = _calculer_parts(cell, recolte, carte, saison)
+    recolte, parts = _calculer_parts(cell, recolte, carte, saison, facteurs_carte=facteurs_carte)
     if facteurs is not None:
         parts = _parts_modifiees(cell, recolte, parts, facteurs)
     nourriture = _constantes.MARCHANDISE_NOURRITURE
@@ -606,10 +621,10 @@ def _produire_sur_les_lieux(cell: Cell, recolte: float, recoltes=None) -> None:
         return
     surfaces = _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
     surface = cell.area_km2
-    for lieu in cell.lieux:
-        kg = recolte * surfaces[lieu.rang] / surface
-        verser_au_stock(lieu, nourriture, kg)
-        if quantites is not None:
+    kgs = [recolte * surfaces[lieu.rang] / surface for lieu in cell.lieux]
+    verser_aux_paniers(cell.lieux, nourriture, kgs)
+    if quantites is not None:
+        for lieu, kg in zip(cell.lieux, kgs):
             quantites[lieu.rang] = kg
 
 
@@ -629,11 +644,15 @@ def _apply_production(
     """
     yield_factor = rng.uniform(_constantes.RNG_YIELD_LOW, _constantes.RNG_YIELD_HIGH)
     saison = _facteur_saison_pour_cellule(cell, carte, jour) if carte and jour is not None else 1.0
+    facteurs_carte = None
     if carte:
-        food_produced = production_du_tick_kg(cell, yield_factor, carte) * saison
+        # Les facteurs de la carte se lisent une fois : la récolte et ses parts les partagent.
+        facteurs_carte = _facteurs_de_la_carte(cell, carte)
+        food_produced = production_du_tick_kg(cell, yield_factor, carte, facteurs_carte=facteurs_carte) * saison
     else:
         food_produced = production_kg(cell, yield_factor)
-    _verser_recolte(cell, food_produced, carte, saison, recoltes, _facteurs_de_recolte(monde, cell))
+    _verser_recolte(cell, food_produced, carte, saison, recoltes, _facteurs_de_recolte(monde, cell),
+                    facteurs_carte)
     _noter_recolte_perdue(monde, cell, food_produced, carte, saison)
 
 
@@ -1094,17 +1113,36 @@ def _sortir_par_bourg(cell: Cell, marchandise: str, quantite: float,
         return
     lieux = sorted(cell.lieux, key=_lieux.par_rang)
     bourg = lieux[0]
-    local = max(0.0, lire_stock_marchandise(bourg, marchandise))
-    manque = max(0.0, quantite - max(0.0, local - bourg.population * ration))
-    for lieu in lieux[1:]:
-        if manque <= 0 or cell.cell_id not in chemins:
-            break
-        stock = max(0.0, lire_stock_marchandise(lieu, marchandise))
-        apport = min(manque, max(0.0, stock - lieu.population * ration), chemins[cell.cell_id][lieu.rang])
-        ecrire_stock_marchandise(lieu, marchandise, stock - apport)
-        chemins[cell.cell_id][lieu.rang] -= apport
-        local += apport
-        manque -= apport
+    # `x if x > 0.0 else 0.0` rend `max(0.0, x)`, et la cascade de comparaisons `min(a, b, c)`,
+    # ex æquo et NaN compris, sans un appel par lieu.
+    local = lire_stock_marchandise(bourg, marchandise)
+    if not local > 0.0:
+        local = 0.0
+    garde = local - bourg.population * ration
+    manque = quantite - (garde if garde > 0.0 else 0.0)
+    if not manque > 0.0:
+        manque = 0.0
+    chemins_de_la_cellule = chemins.get(cell.cell_id)
+    if manque > 0 and chemins_de_la_cellule is not None:
+        for lieu in lieux[1:]:
+            if manque <= 0:
+                break
+            stock = lire_stock_marchandise(lieu, marchandise)
+            if not stock > 0.0:
+                stock = 0.0
+            apport = manque
+            disponible = stock - lieu.population * ration
+            if not disponible > 0.0:
+                disponible = 0.0
+            if disponible < apport:
+                apport = disponible
+            chemin = chemins_de_la_cellule[lieu.rang]
+            if chemin < apport:
+                apport = chemin
+            ecrire_stock_marchandise(lieu, marchandise, stock - apport)
+            chemins_de_la_cellule[lieu.rang] -= apport
+            local += apport
+            manque -= apport
     ecrire_stock_marchandise(bourg, marchandise, local - quantite)
     _lieux.corriger_residu_au_bourg(cell, marchandise, lieux)
 
@@ -1349,8 +1387,10 @@ def _apply_commerce(
             cell = world.cells[cid]
             if surplus > 0 and cell.lieux:
                 lieux = sorted(cell.lieux, key=_lieux.par_rang)
-                locaux = [max(0.0, stock - lieu.population * consommation_unitaire)
-                          for lieu, stock in zip(lieux, contenus_des_paniers(lieux, marchandise))]
+                # `reste if reste > 0.0 else 0.0` rend `max(0.0, reste)` sans un appel par lieu.
+                locaux = [reste if reste > 0.0 else 0.0
+                          for reste in [stock - lieu.population * consommation_unitaire
+                                        for lieu, stock in zip(lieux, contenus_des_paniers(lieux, marchandise))]]
                 if len(lieux) > 1 and locaux[0] < surplus:
                     if cid not in chemins:
                         carte = getattr(world, "carte", None)
@@ -1361,8 +1401,11 @@ def _apply_commerce(
                                 capacite, [lieu.rang for lieu in lieux[1:]], facteurs.get(cid))
                         else:
                             chemins[cid] = {lieu.rang: capacite for lieu in lieux[1:]}
+                    chemins_de_la_cellule = chemins[cid]
+                    # `chemin if chemin < stock else stock` rend `min(stock, chemin)`.
                     surplus = min(surplus, locaux[0] + sum([
-                        min(stock, chemins[cid][lieu.rang]) for lieu, stock in zip(lieux[1:], locaux[1:])]))
+                        chemin if (chemin := chemins_de_la_cellule[lieu.rang]) < stock else stock
+                        for lieu, stock in zip(lieux[1:], locaux[1:])]))
                 else:
                     surplus = min(surplus, locaux[0])
             offres[cid] = surplus
@@ -1599,8 +1642,9 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
     penurie = 0.0
     manques = None
     if min(restes) < 0:
-        manques = [max(0.0, -reste) for reste in restes]
-        restes = [max(0.0, reste) for reste in restes]
+        # Les comparaisons rendent `max(0.0, -reste)` et `max(0.0, reste)`, sans un appel par lieu.
+        manques = [-reste if reste < 0.0 else 0.0 for reste in restes]
+        restes = [reste if reste > 0.0 else 0.0 for reste in restes]
         capacite = _constantes.capacite_chemins_interieurs_kg(
             1, _facteur_transport_pour_cellule(cell.cell_id, carte))
         if facteurs:
@@ -1626,7 +1670,7 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
                 pot = max(0.0, pot - servi)
         else:
             # Sans route, garder les boucles communes de capacité, sans appel par rang.
-            demande = manques[0] + sum(min(manque, capacite) for manque in manques[1:])
+            demande = manques[0] + sum([capacite if capacite < manque else manque for manque in manques[1:]])
             pot, restes[0] = restes[0], 0.0
             for rang in range(1, len(lieux)):
                 if pot >= demande:
@@ -1656,8 +1700,7 @@ def _apply_consumption(cell: Cell, carte: dict | None = None, facteurs: dict | N
     if parts is None:
         poids = restes if any(restes) else _lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         parts = _lieux.partager(total, poids)
-    for lieu, part in zip(lieux, parts):
-        ecrire_stock_marchandise(lieu, _constantes.MARCHANDISE_NOURRITURE, part)
+    ecrire_aux_paniers(lieux, _constantes.MARCHANDISE_NOURRITURE, parts)
     _porter_dette_et_faim_sur_les_lieux(cell, lieux, dette_avant, dettes, penurie, manques)
     return penurie
 

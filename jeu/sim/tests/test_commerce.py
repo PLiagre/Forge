@@ -2730,11 +2730,11 @@ def test_sortir_par_bourg_sans_chemin_contre_epreuves(chemins, mutation, monkeyp
     from copy import deepcopy
     from sim import engine
     if mutation == 'lecture_non_gardee':
-        avant = 'if manque <= 0 or cell.cell_id not in chemins:'
-        apres = 'if manque <= 0:'
+        avant = 'chemins_de_la_cellule = chemins.get(cell.cell_id)'
+        apres = 'chemins_de_la_cellule = chemins[cell.cell_id]'
         erreur = KeyError
     else:
-        avant = '    for lieu in lieux[1:]:'
+        avant = '    chemins_de_la_cellule = chemins.get(cell.cell_id)'
         apres = ("    chemins.setdefault(cell.cell_id, {lieu.rang: float('inf') for lieu in lieux[1:]})\n"
                  + avant)
         erreur = AssertionError
@@ -3320,14 +3320,15 @@ def test_departs_une_lecture_par_lieu_et_cout_lineaire(monkeypatch):
     from sim import departs
     monde = _monde_departs_conservation()
     appels = Counter()
-    original = departs.lire_stock_marchandise
-    def compter(lieu, nom):
-        appels[id(lieu)] += 1
-        return original(lieu, nom)
-    monkeypatch.setattr(departs, 'lire_stock_marchandise', compter)
+    original = departs.lire_stocks_des_paniers
+    def compter(lieux, nom):
+        lieux = list(lieux)
+        appels.update(id(lieu) for lieu in lieux)
+        return original(lieux, nom)
+    monkeypatch.setattr(departs, 'lire_stocks_des_paniers', compter)
     departs.appliquer_departs(monde)
-    attendus = Counter({id(l): 1 for c in monde.cells.values() for l in c.lieux if l.population > 0})
-    assert appels == attendus
+    attendus = Counter({id(l): 1 for c in monde.cells.values() for l in c.lieux})
+    assert appels == attendus and any(l.population > 0 for c in monde.cells.values() for l in c.lieux)
     attendus[id(monde.cells[1].lieux[0])] += 1
     with pytest.raises(AssertionError): assert appels == attendus
     # Cent mille habitants par lieu : au plafond, 8,2 personnes par jour, donc un foyer dès le premier appel.

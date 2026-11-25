@@ -1025,7 +1025,7 @@ la ration journalière dérive de la consommation et de `TICK_DURATION_DAYS`.
 La réserve est la formule de `departs.reserve_en_jours`, que sert `GET /lieux` : un stock
 négatif ou absent compte pour rien, et une dette plus lourde que le stock rend une réserve
 négative. La photo (`departs._photographier`) la calcule sur place, avec une seule lecture
-du panier par lieu habité, et la ration par `departs.ration_journaliere` ;
+du panier par lieu, et la ration par `departs.ration_journaliere` ;
 `test_lieux.py::test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre` prouve,
 bit pour bit, que chaque lieu habité y porte la réserve servie.
 L'écart doit être strictement supérieur à `ECART_DE_DEPART_JOURS = 30`.

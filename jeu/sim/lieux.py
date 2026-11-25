@@ -2,7 +2,9 @@
 
 import dataclasses
 import math
-from operator import attrgetter
+import sys
+from itertools import repeat
+from operator import attrgetter, itemgetter
 
 import sim.constants as _constantes
 from sim.model import (
@@ -15,6 +17,11 @@ from sim.model import (
 
 # Clé de tri des lieux d'une cellule, sans appel Python par lieu.
 par_rang = attrgetter("rang")
+
+# Les lectures de `partager`, sans appel Python par poids.
+_QUOTIENT = itemgetter(0)
+_RESTE = itemgetter(1)
+_FLOTTANT_SEUL = frozenset({float})
 
 
 class LieuxInvalides(ValueError):
@@ -105,9 +112,67 @@ def lieux_depuis_monde(world) -> dict:
     })
 
 
-def partager(total, poids, *, raccourci=True) -> list:
-    """Plus fort reste ; les fractions de kilogramme restent au rang zéro."""
-    poids = list(poids)
+# L'exposant du plus grand multiplicateur flottant des poids : au-delà, ou si un produit déborde,
+# le calcul repasse par les rapports d'entiers.
+_EXPOSANT_D_ECHELLE_MAX = sys.float_info.max_exp - sys.float_info.mant_dig
+
+
+def _poids_exacts_flottants(poids):
+    """Les poids flottants en entiers sur un dénominateur commun ; None s'il déborde.
+
+    Un flottant non nul d'exposant e (`math.frexp`) est un multiple de 2^(e - mant_dig) : multiplié
+    par 2^(mant_dig - e_min), où e_min est l'exposant du plus petit poids non nul, chaque poids
+    devient un flottant exact et entier tant qu'il ne déborde pas. Ce dénominateur commun est un
+    multiple, puissance de deux, de celui des rapports d'entiers : tous les entiers en sont
+    multipliés par la même puissance de deux, ce qui laisse les parts et l'ordre des restes de
+    `partager` inchangés. Les boucles restent dans `map`, sans appel Python par poids.
+    """
+    plus_petit = min(filter(None, poids), default=0.0)
+    if not plus_petit:
+        return list(map(int, poids))
+    exposant = sys.float_info.mant_dig - math.frexp(plus_petit)[1]
+    if exposant > _EXPOSANT_D_ECHELLE_MAX:
+        return None
+    echelle = math.ldexp(1.0, exposant)
+    produits = list(map(echelle.__mul__, poids))
+    if not all(map(math.isfinite, produits)):
+        return None
+    return list(map(int, produits))
+
+
+def _parts_exactes(total, poids, raccourci, poids_exacts=None):
+    """Les parts entières du plus fort reste, par l'arithmétique exacte des rapports d'entiers.
+
+    `poids_exacts` : les poids déjà portés en entiers sur un dénominateur commun (`_poids_exacts_flottants`).
+    """
+    if poids_exacts is None:
+        # Les flottants sont des rapports d'entiers à dénominateur puissance
+        # de deux : un dénominateur commun rend les restes exacts, sans arrondi.
+        rapports = [poids.as_integer_ratio() for poids in poids]
+        dénominateur = max([rapport[1] for rapport in rapports], default=1)
+        poids_exacts = [numérateur * (dénominateur // diviseur) for numérateur, diviseur in rapports]
+    somme = sum(poids_exacts)
+    if somme <= 0:
+        raise LieuxInvalides("somme des poids nulle")
+    numérateur_total, diviseur_total = total.as_integer_ratio()
+    diviseur = diviseur_total * somme
+    divisions = list(map(divmod, map(numérateur_total.__mul__, poids_exacts), repeat(diviseur)))
+    parts = list(map(_QUOTIENT, divisions))
+    unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
+    if unités:
+        if raccourci:
+            # Le tri stable conserve le rang croissant en cas de reste égal.
+            restes = list(map(_RESTE, divisions))
+            ordre = sorted(range(len(parts)), key=restes.__getitem__, reverse=True)
+        else:
+            ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
+        for rang in ordre[:unités]:
+            parts[rang] += 1
+    return parts
+
+
+def _refuser_les_poids(total, poids):
+    """Refuse un total ou un poids absent, négatif, booléen ou non fini."""
     for valeur in [total, *poids]:
         if isinstance(valeur, float):
             invalide = not math.isfinite(valeur) or valeur < 0
@@ -115,27 +180,25 @@ def partager(total, poids, *, raccourci=True) -> list:
             invalide = isinstance(valeur, bool) or not isinstance(valeur, int) or valeur < 0
         if invalide:
             raise LieuxInvalides("total ou poids absent, négatif, booléen ou non fini")
-    # Les flottants sont des rapports d'entiers à dénominateur puissance
-    # de deux : un dénominateur commun rend les restes exacts, sans arrondi.
-    rapports = [poids.as_integer_ratio() for poids in poids]
-    dénominateur = max((rapport[1] for rapport in rapports), default=1)
-    poids_exacts = [numérateur * (dénominateur // diviseur) for numérateur, diviseur in rapports]
-    somme = sum(poids_exacts)
-    if somme <= 0:
-        raise LieuxInvalides("somme des poids nulle")
-    numérateur_total, diviseur_total = total.as_integer_ratio()
-    diviseur = diviseur_total * somme
-    divisions = [divmod(numérateur_total * poids, diviseur) for poids in poids_exacts]
-    parts = [part for part, reste in divisions]
-    unités = max(0, min(len(parts), math.floor(total) - sum(parts)))
-    if unités:
-        if raccourci:
-            # Le tri stable conserve le rang croissant en cas de reste égal.
-            ordre = sorted(range(len(parts)), key=lambda rang: divisions[rang][1], reverse=True)
-        else:
-            ordre = sorted(range(len(parts)), key=lambda rang: (-divisions[rang][1], rang))
-        for rang in ordre[:unités]:
-            parts[rang] += 1
+
+
+def partager(total, poids, *, raccourci=True) -> list:
+    """Plus fort reste ; les fractions de kilogramme restent au rang zéro.
+
+    Un total et des poids tous flottants (le type exact) se jugent et se portent sur un
+    dénominateur commun sans boucle Python (`_poids_exacts_flottants`) : les parts sont
+    celles du chemin général, au bit près.
+    """
+    poids = list(poids)
+    exacts = None
+    if type(total) is float and set(map(type, poids)) <= _FLOTTANT_SEUL:
+        if (not 0.0 <= total < math.inf or not all(map(math.isfinite, poids))
+                or (poids and min(poids) < 0.0)):
+            raise LieuxInvalides("total ou poids absent, négatif, booléen ou non fini")
+        exacts = _poids_exacts_flottants(poids)
+    else:
+        _refuser_les_poids(total, poids)
+    parts = _parts_exactes(total, poids, raccourci, exacts)
     parts[0] = total - sum(parts[1:])
     if parts[0] < 0:
         raise LieuxInvalides("reste négatif au rang zéro")

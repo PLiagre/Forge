@@ -9,7 +9,8 @@ from sim.flux import jour_courant
 from sim.foyers import ranger_en_foyers
 from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier,
                        ecrire_stock_marchandise, contenus_des_paniers,
-                       ecrire_ouvriers_du_jour, lire_ouvriers_du_jour)
+                       ecrire_ouvriers_du_jour, effacer_ouvriers_des_lieux,
+                       lire_ouvriers_du_jour)
 from sim.plan import Batiment, Plan, aire_du_contour
 
 
@@ -170,8 +171,7 @@ def avancer_chantiers(world):
     for cell_id in sorted(world.cells):
         cell, plan = world.cells[cell_id], world.plans[cell_id]
         # Le compte de la veille s'efface avant toute sortie, métiers calculés ou non.
-        for lieu in cell.lieux:
-            ecrire_ouvriers_du_jour(lieu, 0)
+        effacer_ouvriers_des_lieux(cell.lieux)
         avant = lire_habitants_par_metier(cell)
         paysans, ouvriers = _constantes.METIER_PAYSANS, _constantes.METIER_OUVRIERS
         actifs = _plan_actif(plan)

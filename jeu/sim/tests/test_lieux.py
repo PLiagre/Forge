@@ -1640,6 +1640,72 @@ def test_raccourci_partager():
     print(f'partages exacts comparés={cas}, regroupement arrondi détecté')
 
 
+def test_partager_flottants_rend_les_parts_du_chemin_general(monkeypatch):
+    import random
+    from sim import lieux
+    r = random.Random(0)
+
+    def poids_au_hasard():
+        n, famille = r.randint(1, 30), r.randrange(5)
+        if famille == 0:
+            return [r.uniform(0, 10.0 ** r.randint(0, 8)) for _ in range(n)]
+        if famille == 1:
+            valeur = r.uniform(0, 1000)
+            return [valeur if r.random() < 0.8 else 0.0 for _ in range(n)]
+        if famille == 2:
+            return [float(r.randint(0, 10 ** r.randint(1, 9))) for _ in range(n)]
+        if famille == 3:
+            reserve = [r.uniform(0, 100) for _ in range(r.randint(1, 4))]
+            return [r.choice(reserve) for _ in range(n)]
+        return [r.uniform(0, 1) * 10.0 ** r.randint(-320, 300) for _ in range(n)]
+
+    def total_au_hasard(poids):
+        famille = r.randrange(5)
+        if famille == 0:
+            return math.fsum(poids)
+        if famille == 1:
+            return float(r.randint(0, 10 ** 9))
+        if famille == 2:
+            return r.uniform(0, 1) * 10.0 ** r.randint(-320, 300)
+        if famille == 3:
+            return r.uniform(1, 1e9)
+        return len(poids) + 0.5
+
+    cas = []
+    for _ in range(3000):
+        poids = poids_au_hasard()
+        cas.append((total_au_hasard(poids), poids))
+
+    def issue(total, poids):
+        try:
+            return repr(lieux.partager(total, poids))
+        except lieux.LieuxInvalides as erreur:
+            return ('refus', str(erreur))
+
+    def issues():
+        return [issue(total, poids) for total, poids in cas]
+
+    flottantes = issues()
+    with monkeypatch.context() as m:
+        m.setattr(lieux, '_poids_exacts_flottants', lambda poids: None)
+        generales = issues()
+    assert flottantes == generales and flottantes
+
+    # Un échantillon qui ne prend jamais l'un des deux chemins ne prouverait rien.
+    candidats = [poids for _, poids in cas if poids and all(type(p) is float for p in poids)]
+    servis = sum(lieux._poids_exacts_flottants(poids) is not None for poids in candidats)
+    replis = len(candidats) - servis
+    assert servis >= len(cas) / 2 and replis >= 1
+
+    # Contre-épreuve : des poids tronqués, sans échelle, ne rendent plus les parts du chemin général.
+    with monkeypatch.context() as m:
+        m.setattr(lieux, '_poids_exacts_flottants', lambda poids: [int(p) for p in poids])
+        fausses = issues()
+    with pytest.raises(AssertionError):
+        assert fausses == generales
+    print(f'cas={len(cas)}, servis par le chemin flottant={servis}, replis={replis}')
+
+
 def test_raccourci_lecture_stock():
     import random
     from sim import engine, model

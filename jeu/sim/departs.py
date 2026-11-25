@@ -7,7 +7,7 @@ from operator import itemgetter
 import sim.constants as _constantes
 from sim import engine as _engine
 from sim import flux as _flux
-from sim.model import ecrire_report_de_depart, lire_stock_marchandise
+from sim.model import ecrire_report_de_depart, lire_stocks_des_paniers
 
 # Une entrée de la photo : (rang, lieu, population, réserve en jours).
 _RANG = itemgetter(0)
@@ -18,10 +18,12 @@ def _le_meilleur(entrees):
     """Plus forte réserve, puis plus petit rang ; None sans entrée."""
     if not entrees:
         return None
-    haut = max(entrees, key=_RESERVE)
-    reserve = _RESERVE(haut)
-    egales = [entree for entree in entrees if _RESERVE(entree) == reserve]
-    return haut if len(egales) == 1 else min(egales, key=_RANG)
+    # Les réserves se lisent sans boucle Python : la première plus forte est celle que rend `max`.
+    reserves = list(map(_RESERVE, entrees))
+    reserve = max(reserves)
+    if reserves.count(reserve) == 1:
+        return entrees[reserves.index(reserve)]
+    return min((entree for entree in entrees if _RESERVE(entree) == reserve), key=_RANG)
 
 
 def ration_journaliere() -> float:
@@ -43,22 +45,22 @@ def reserve_en_jours(population, nourriture_kg, dette_kg, ration_jour) -> float:
 def _photographier(world, ration):
     """La photo des lieux habités : leurs entrées par cellule, le meilleur lieu et le bourg habité de chacune.
 
-    Chaque lieu habité fournit une seule lecture du panier ; sa réserve est celle de
-    `reserve_en_jours`, calculée sur place par les mêmes opérations. Un lieu vide n'y
-    entre pas et ne garde aucun départ en attente.
+    Les paniers d'une cellule se lisent en un appel, une lecture par lieu ; la réserve d'un
+    lieu habité est celle de `reserve_en_jours`, calculée sur place par les mêmes opérations.
+    Un lieu vide n'y entre pas et ne garde aucun départ en attente.
     """
     nourriture = _constantes.MARCHANDISE_NOURRITURE
-    lire = lire_stock_marchandise
+    lire = lire_stocks_des_paniers
     lieux_par_cellule, premiers, bourgs = {}, {}, {}
     for cid, cell in world.cells.items():
         entrees = []
-        for lieu in cell.lieux:
+        lieux = cell.lieux
+        for lieu, stock in zip(lieux, lire(lieux, nourriture)):
             population = lieu.population
             if population <= 0:
                 if lieu.depart_remainder:
                     ecrire_report_de_depart(lieu, 0.0)
                 continue
-            stock = lire(lieu, nourriture)
             if stock < 0:
                 stock = 0
             entrees.append((lieu.rang, lieu, population,
