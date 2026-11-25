@@ -55,16 +55,35 @@ def ecrire_stock_marchandise(cell: "Cell", marchandise: str, quantite_kg: float)
     cell.stocks[marchandise] = quantite_kg
 
 
-def retirer_du_stock(entite: "Cell | EtatDeLieu", marchandise: str, quantite_kg: float) -> None:
-    """`ecrire(entite, m, lire(entite, m) - quantite_kg)` en une lecture et une écriture."""
-    stocks = entite.stocks
-    stocks[marchandise] = stocks.get(marchandise, -1.0) - quantite_kg
+def lire_stocks_des_paniers(entites, marchandise: str) -> list[float]:
+    """`lire_stock_marchandise` de chaque entité, dans leur ordre, en un appel : -1.0 pour une absence."""
+    return [entite.stocks.get(marchandise, -1.0) for entite in entites]
 
 
-def verser_au_stock(entite: "Cell | EtatDeLieu", marchandise: str, quantite_kg: float) -> None:
-    """Ajoute au stock, la sentinelle -1 (« non calculé ») comptant pour zéro."""
-    stocks = entite.stocks
-    stocks[marchandise] = max(0.0, stocks.get(marchandise, -1.0)) + quantite_kg
+def ecrire_aux_paniers(entites, marchandise: str, quantites) -> None:
+    """Écrit à chaque entité la quantité de même position, en un appel."""
+    for entite, quantite_kg in zip(entites, quantites):
+        entite.stocks[marchandise] = quantite_kg
+
+
+def retirer_des_paniers(entites, marchandise: str, quantites) -> None:
+    """Retire à chaque entité la quantité de même position, en un appel ; une quantité nulle ne touche rien.
+
+    Chaque retrait est `lire - quantite` en une lecture et une écriture, la sentinelle -1 comprise.
+    """
+    for entite, quantite_kg in zip(entites, quantites):
+        if quantite_kg:
+            stocks = entite.stocks
+            stocks[marchandise] = stocks.get(marchandise, -1.0) - quantite_kg
+
+
+def verser_aux_paniers(entites, marchandise: str, quantites) -> None:
+    """Ajoute à chaque entité la quantité de même position, en un appel ; la sentinelle -1 (« non calculé ») compte pour zéro."""
+    for entite, quantite_kg in zip(entites, quantites):
+        stocks = entite.stocks
+        avant = stocks.get(marchandise, -1.0)
+        # Comme `max(0.0, avant)`, sans l'appel : 0.0 pour tout ce qui n'est pas plus grand.
+        stocks[marchandise] = (avant if avant > 0.0 else 0.0) + quantite_kg
 
 
 def copier_panier(entite: "Cell | EtatDeLieu") -> dict[str, float]:
@@ -83,9 +102,9 @@ def lieux_deja_accordes(cell, lieux) -> bool:
         return False
     cles = cell.stocks.keys()
     paniers = [lieu.stocks for lieu in lieux]
-    for panier in paniers:
-        if panier.keys() != cles:
-            return False
+    # Les clés de chaque panier se comparent dans `map`, sans boucle Python par lieu.
+    if not all(map(cles.__eq__, map(dict.keys, paniers))):
+        return False
     # Les mêmes sommes, dans l'ordre des rangs, sans générateur par marchandise.
     for nom, total in cell.stocks.items():
         if sum([panier[nom] for panier in paniers]) != total:
@@ -197,6 +216,18 @@ def ecrire_ouvriers_du_jour(lieu, nombre: int) -> None:
         lieu.ouvriers_du_jour = nombre
     elif hasattr(lieu, "ouvriers_du_jour"):
         del lieu.ouvriers_du_jour
+
+
+def lire_ouvriers_des_lieux(lieux) -> list[int]:
+    """`lire_ouvriers_du_jour` de chaque lieu, dans leur ordre, en un appel."""
+    return [getattr(lieu, "ouvriers_du_jour", 0) for lieu in lieux]
+
+
+def effacer_ouvriers_des_lieux(lieux) -> None:
+    """`ecrire_ouvriers_du_jour(lieu, 0)` pour chaque lieu, en un appel."""
+    for lieu in lieux:
+        if hasattr(lieu, "ouvriers_du_jour"):
+            del lieu.ouvriers_du_jour
 
 
 def creer_etat_de_lieu(rang: int, population: int, stocks: dict[str, float], *,

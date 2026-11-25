@@ -4,7 +4,7 @@ from array import array
 
 import sim.constants as constantes
 from sim import flux
-from sim.model import ecrire_stock_marchandise, lire_stock_marchandise, retirer_du_stock
+from sim.model import ecrire_stock_marchandise, lire_stock_marchandise, retirer_des_paniers
 
 
 class GroupeArrivee:
@@ -61,7 +61,7 @@ def prelever(monde, recoltes) -> None:
     preleve = [0.0] * len(routes.noms)
     lire = lire_stock_marchandise
     ecrire = ecrire_stock_marchandise
-    retirer = retirer_du_stock
+    retirer = retirer_des_paniers
     nourriture = constantes.MARCHANDISE_NOURRITURE
     tick = monde.ticks_ecoules
     if monde.secours:
@@ -132,6 +132,8 @@ def prelever(monde, recoltes) -> None:
         cellule = monde.cells[cid]
         lieux = cellule.lieux
         retire = 0.0
+        # Les kilos retirés de chaque lieu, ôtés de leurs paniers en un appel après la boucle.
+        retraits = [0.0] * len(lieux)
         for rang, indice in enumerate(indices):
             if indice < 0:
                 continue
@@ -140,7 +142,7 @@ def prelever(monde, recoltes) -> None:
                 kg = min(recolte[rang], kg * modifies.get((cid, rang), 1.0))
             if not kg:
                 continue
-            retirer(lieux[rang], nourriture, kg)
+            retraits[rang] = kg
             retire += kg
             preleve[indice] += kg
             jours = durees[rang]
@@ -156,6 +158,7 @@ def prelever(monde, recoltes) -> None:
             ajouts[jours] += kg
             # Une arrivée reçoit des départs d'âges différents : défaire son facteur.
             charges[jours][indice] += kg / facteurs[jours]
+        retirer(lieux, nourriture, retraits)
         if retire:
             ecrire(cellule, nourriture, lire(cellule, nourriture) - retire)
     # Un seul ajout au total de chaque groupe, plutôt qu'une écriture par lieu.

@@ -1640,6 +1640,72 @@ def test_raccourci_partager():
     print(f'partages exacts comparés={cas}, regroupement arrondi détecté')
 
 
+def test_partager_flottants_rend_les_parts_du_chemin_general(monkeypatch):
+    import random
+    from sim import lieux
+    r = random.Random(0)
+
+    def poids_au_hasard():
+        n, famille = r.randint(1, 30), r.randrange(5)
+        if famille == 0:
+            return [r.uniform(0, 10.0 ** r.randint(0, 8)) for _ in range(n)]
+        if famille == 1:
+            valeur = r.uniform(0, 1000)
+            return [valeur if r.random() < 0.8 else 0.0 for _ in range(n)]
+        if famille == 2:
+            return [float(r.randint(0, 10 ** r.randint(1, 9))) for _ in range(n)]
+        if famille == 3:
+            reserve = [r.uniform(0, 100) for _ in range(r.randint(1, 4))]
+            return [r.choice(reserve) for _ in range(n)]
+        return [r.uniform(0, 1) * 10.0 ** r.randint(-320, 300) for _ in range(n)]
+
+    def total_au_hasard(poids):
+        famille = r.randrange(5)
+        if famille == 0:
+            return math.fsum(poids)
+        if famille == 1:
+            return float(r.randint(0, 10 ** 9))
+        if famille == 2:
+            return r.uniform(0, 1) * 10.0 ** r.randint(-320, 300)
+        if famille == 3:
+            return r.uniform(1, 1e9)
+        return len(poids) + 0.5
+
+    cas = []
+    for _ in range(3000):
+        poids = poids_au_hasard()
+        cas.append((total_au_hasard(poids), poids))
+
+    def issue(total, poids):
+        try:
+            return repr(lieux.partager(total, poids))
+        except lieux.LieuxInvalides as erreur:
+            return ('refus', str(erreur))
+
+    def issues():
+        return [issue(total, poids) for total, poids in cas]
+
+    flottantes = issues()
+    with monkeypatch.context() as m:
+        m.setattr(lieux, '_poids_exacts_flottants', lambda poids: None)
+        generales = issues()
+    assert flottantes == generales and flottantes
+
+    # Un échantillon qui ne prend jamais l'un des deux chemins ne prouverait rien.
+    candidats = [poids for _, poids in cas if poids and all(type(p) is float for p in poids)]
+    servis = sum(lieux._poids_exacts_flottants(poids) is not None for poids in candidats)
+    replis = len(candidats) - servis
+    assert servis >= len(cas) / 2 and replis >= 1
+
+    # Contre-épreuve : des poids tronqués, sans échelle, ne rendent plus les parts du chemin général.
+    with monkeypatch.context() as m:
+        m.setattr(lieux, '_poids_exacts_flottants', lambda poids: [int(p) for p in poids])
+        fausses = issues()
+    with pytest.raises(AssertionError):
+        assert fausses == generales
+    print(f'cas={len(cas)}, servis par le chemin flottant={servis}, replis={replis}')
+
+
 def test_raccourci_lecture_stock():
     import random
     from sim import engine, model
@@ -1726,7 +1792,7 @@ def test_lieux_servis_la_reserve_en_jours_compte_le_stock_et_la_dette():
     assert reserve_en_jours(10, 50.0, 70.0, 0.5) == -4.0, "une dette plus lourde que le stock rend une réserve négative"
 
 
-def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis, monkeypatch):
+def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis):
     from sim import departs
     from sim.model import lire_stock_marchandise
     monde, _monde_servi, lieux = lieux_servis
@@ -1745,15 +1811,25 @@ def test_lieux_servis_leurs_reserves_sont_celles_du_mieux_vivre(lieux_servis, mo
             habites += 1
     reserves = {l["reserve_jours"] for c in lieux["cells"] for l in c["lieux"] if l["reserve_jours"] is not None}
     assert habites > 0 and len(reserves) > 1, "des réserves toutes égales ne prouveraient rien"
-    # Le mieux-vivre lit la même fonction : une par lieu habité.
-    lus = []
-    def compter(*arguments):
-        lus.append(arguments)
-        return reserve(*arguments)
-    reserve = departs.reserve_en_jours
-    monkeypatch.setattr(departs, "reserve_en_jours", compter)
-    departs.appliquer_departs(copy.deepcopy(monde))
-    assert len(lus) == habites
+    # Le mieux-vivre photographie les mêmes réserves : une entrée par lieu habité, aucune pour un lieu vide.
+    def controler(photo):
+        servis = {(c["cell_id"], l["rang"]) for c in lieux["cells"] for l in c["lieux"] if l["reserve_jours"] is not None}
+        for cellule in lieux["cells"]:
+            for servi in cellule["lieux"]:
+                if servi["reserve_jours"] is None:
+                    continue
+                entree = {e[0]: e for e in photo.get(cellule["cell_id"], [])}.get(servi["rang"])
+                assert entree is not None, (cellule["cell_id"], servi["rang"])
+                assert entree[3] == servi["reserve_jours"], (cellule["cell_id"], servi["rang"])
+        assert sum(len(entrees) for entrees in photo.values()) == habites
+        assert all(e[2] > 0 for entrees in photo.values() for e in entrees)
+        assert {(cid, e[0]) for cid, entrees in photo.items() for e in entrees} == servis
+    controler(departs._photographier(copy.deepcopy(monde), ration)[0])
+    # Contre-épreuve : une dette alourdie sur un lieu habité change sa réserve, et le contrôle le voit.
+    alourdi = copy.deepcopy(monde)
+    next(l for c in alourdi.cells.values() for l in c.lieux if l.population > 0).dette_alimentaire_kg += 1000.0
+    with pytest.raises(AssertionError):
+        controler(departs._photographier(alourdi, ration)[0])
     print(f"lieux habités={habites}, vides={vides}, réserves distinctes={len(reserves)}")
 
 

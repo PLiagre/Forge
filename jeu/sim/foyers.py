@@ -32,7 +32,9 @@ def valider_metiers(habitants_par_metier):
     for metier, personnes in habitants_par_metier.items():
         if not isinstance(metier, str) or not metier.strip():
             raise FoyersInvalides("Le nom du métier manque ou est vide")
-        _entier(personnes, f"Compte du métier {metier!r}", minimum=1)
+        # Le message du refus ne se compose que pour un compte refusé.
+        if type(personnes) is not int or personnes < 1:
+            _entier(personnes, f"Compte du métier {metier!r}", minimum=1)
 
 
 def metiers_d_amorcage(population, gisements):

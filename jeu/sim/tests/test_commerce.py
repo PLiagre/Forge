@@ -2730,11 +2730,11 @@ def test_sortir_par_bourg_sans_chemin_contre_epreuves(chemins, mutation, monkeyp
     from copy import deepcopy
     from sim import engine
     if mutation == 'lecture_non_gardee':
-        avant = 'if manque <= 0 or cell.cell_id not in chemins:'
-        apres = 'if manque <= 0:'
+        avant = 'chemins_de_la_cellule = chemins.get(cell.cell_id)'
+        apres = 'chemins_de_la_cellule = chemins[cell.cell_id]'
         erreur = KeyError
     else:
-        avant = '    for lieu in lieux[1:]:'
+        avant = '    chemins_de_la_cellule = chemins.get(cell.cell_id)'
         apres = ("    chemins.setdefault(cell.cell_id, {lieu.rang: float('inf') for lieu in lieux[1:]})\n"
                  + avant)
         erreur = AssertionError
@@ -3320,14 +3320,15 @@ def test_departs_une_lecture_par_lieu_et_cout_lineaire(monkeypatch):
     from sim import departs
     monde = _monde_departs_conservation()
     appels = Counter()
-    original = departs.lire_stock_marchandise
-    def compter(lieu, nom):
-        appels[id(lieu)] += 1
-        return original(lieu, nom)
-    monkeypatch.setattr(departs, 'lire_stock_marchandise', compter)
+    original = departs.lire_stocks_des_paniers
+    def compter(lieux, nom):
+        lieux = list(lieux)
+        appels.update(id(lieu) for lieu in lieux)
+        return original(lieux, nom)
+    monkeypatch.setattr(departs, 'lire_stocks_des_paniers', compter)
     departs.appliquer_departs(monde)
-    attendus = Counter({id(l): 1 for c in monde.cells.values() for l in c.lieux if l.population > 0})
-    assert appels == attendus
+    attendus = Counter({id(l): 1 for c in monde.cells.values() for l in c.lieux})
+    assert appels == attendus and any(l.population > 0 for c in monde.cells.values() for l in c.lieux)
     attendus[id(monde.cells[1].lieux[0])] += 1
     with pytest.raises(AssertionError): assert appels == attendus
     # Cent mille habitants par lieu : au plafond, 8,2 personnes par jour, donc un foyer dès le premier appel.
@@ -3605,6 +3606,40 @@ def test_departs_taux_annuels_lus_dans_les_donnees(tmp_path, nom, cle, livree):
         assert cle in str(erreur.value) and 'departs.toml' in str(erreur.value) and raison in str(erreur.value)
     with pytest.raises(ValueError) as erreur: lecteur(tmp_path / 'departs.toml.absent')
     assert cle in str(erreur.value) and 'departs.toml.absent' in str(erreur.value) and 'absent' in str(erreur.value)
+
+
+def test_departs_toml_ouvert_une_fois_par_appel(tmp_path, monkeypatch):
+    from sim import constants as k, departs
+    fichier = tmp_path / 'departs.toml'
+    fichier.write_text('taux_annuel_par_tranche = 0.01\nplafond_annuel = 0.02\n')
+    monkeypatch.setattr(k, '_CHEMIN_DEPARTS', fichier)
+    ouvertures = []
+    charger = k.tomllib.load
+    def compter(flux):
+        ouvertures.append(flux.name)
+        return charger(flux)
+    monkeypatch.setattr(k.tomllib, 'load', compter)
+    with k.une_lecture_des_departs():
+        assert (k.taux_annuel_de_depart(), k.plafond_annuel_de_depart()) == (0.01, 0.02)
+        fichier.write_text('taux_annuel_par_tranche = 0.5\nplafond_annuel = 0.6\n')
+        assert k.taux_annuel_de_depart() == 0.01, 'dans le bloc, le fichier déjà lu sert'
+        autre = tmp_path / 'autre.toml'
+        autre.write_text('taux_annuel_par_tranche = 0.03\n')
+        assert k.taux_annuel_de_depart(autre) == 0.03, 'un chemin explicite relit son fichier'
+    assert len(ouvertures) == 2
+    assert (k.taux_annuel_de_depart(), k.plafond_annuel_de_depart()) == (0.5, 0.6), 'hors du bloc, chaque appel relit'
+    assert len(ouvertures) == 4
+    fichier.unlink()
+    with k.une_lecture_des_departs(), pytest.raises(ValueError, match='taux_annuel_par_tranche.*absent'):
+        k.taux_annuel_de_depart()
+    fichier.write_text('taux_annuel_par_tranche = 0.01\nplafond_annuel = 0.02\n')
+    def ouvertures_d_un_appel():
+        ouvertures.clear()
+        departs.appliquer_departs(_monde_departs_simple(60.5))
+        return len(ouvertures)
+    assert ouvertures_d_un_appel() == 1
+    monkeypatch.setattr(k, 'une_lecture_des_departs', __import__('contextlib').nullcontext)
+    with pytest.raises(AssertionError): assert ouvertures_d_un_appel() == 1
 
 
 def _monde_apres_chauffe():
