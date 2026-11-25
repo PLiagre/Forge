@@ -656,3 +656,49 @@ def test_un_tour_pour_un_seul_lot_ne_touche_a_aucun_autre(projet, gh, depot, tmp
     assert agents.modeles() == ["opus", "opus"], "ni le CTO pour le vieux lot, ni la réparation de master"
     touches = {g[1] for g in gh.gestes if g[0] in ("etiqueter", "commenter_issue")}
     assert touches == {20}, "la boucle, le lot bloqué et master rouge restent où ils sont"
+
+
+def _controle(statut, conclusion):
+    return {"__typename": "CheckRun", "name": "tests", "workflowName": "tests", "status": statut,
+            "conclusion": conclusion, "startedAt": "2026-11-16T09:00:00Z", "detailsUrl": "https://x/job/1"}
+
+
+@pytest.mark.parametrize("statut, conclusion, attendu", [
+    ("IN_PROGRESS", "SUCCESS", "vert"),
+    ("IN_PROGRESS", "FAILURE", "rouge"),
+    ("QUEUED", "SKIPPED", "vert"),
+    ("IN_PROGRESS", "", "attente"),
+    ("IN_PROGRESS", None, "attente"),
+    ("COMPLETED", "SUCCESS", "vert"),
+])
+def test_un_controle_qui_porte_sa_conclusion_est_fini_quoi_que_dise_son_statut(statut, conclusion, attendu):
+    from atelier.github import etat_des_controles
+
+    pr = {"statusCheckRollup": [_controle(statut, conclusion)]}
+    assert etat_des_controles(pr, exiges=["tests"])[0] == attendu
+
+
+def test_un_lot_n_attend_pas_un_controle_reussi_que_github_laisse_en_cours(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", ("lot", "pret", "monde"), corps=FICHE)
+    pilote = piloter(projet, gh, depot, Agents(PLAN, faite(), faite(), ACCEPTE), tmp_path)
+    for _ in range(3):
+        pilote.tour()
+    numero_pr = _pr_du_lot(gh, 10)
+    assert pilote.tour() == ["#10 attendre_ci — PR #%d" % numero_pr]
+
+    gh.ci(numero_pr, "vert")
+    for c in gh.prs_[numero_pr]["statusCheckRollup"]:
+        c["status"] = "IN_PROGRESS"
+    pilote.tour()
+    assert ("fusion_auto", numero_pr) in gh.gestes, "la conclusion est là : le lot ne reste pas en attente"
+
+
+def test_un_travail_du_commit_qui_porte_sa_conclusion_est_fini():
+    from atelier.github import GitHub
+
+    travaux = [{"name": "tests", "status": "in_progress", "conclusion": "success", "started_at": "2026-11-16T09:00:00Z"},
+               {"name": "sim", "status": "in_progress", "conclusion": "failure", "started_at": "2026-11-16T09:00:00Z"},
+               {"name": "vues", "status": "in_progress", "conclusion": None, "started_at": "2026-11-16T09:00:00Z"},
+               {"name": "forge", "status": "completed", "conclusion": "cancelled", "started_at": "2026-11-16T09:00:00Z"}]
+    vrai = GitHub("moi/essai", lambda argv, entree: (0, json.dumps(travaux), ""))
+    assert vrai.travaux_du_commit("a" * 40) == {"tests": "vert", "sim": "rouge", "vues": "attente"}
