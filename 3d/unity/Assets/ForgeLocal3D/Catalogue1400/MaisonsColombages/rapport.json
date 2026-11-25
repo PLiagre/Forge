@@ -1,437 +1,437 @@
 {
-  "version": 1,
+  "version": 2,
   "modeles": [
     {
-      "id": "col_01_bourgeoise_tuiles",
-      "fbx": "col_01_bourgeoise_tuiles.fbx",
+      "id": "ville_01_pignon_echoppe",
+      "fbx": "ville_01_pignon_echoppe.fbx",
       "triangles": {
-        "LOD0": 9916,
-        "LOD1": 1816,
-        "LOD2": 660
-      },
-      "dimensions_m": [
-        7.64,
-        6.593,
-        8.834
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Bourgeoise classique · crème & tuiles",
-      "rendu": "col_01_bourgeoise_tuiles_rendu.png"
-    },
-    {
-      "id": "col_02_alsacienne_ocre",
-      "fbx": "col_02_alsacienne_ocre.fbx",
-      "triangles": {
-        "LOD0": 10500,
-        "LOD1": 1972,
-        "LOD2": 780
-      },
-      "dimensions_m": [
-        7.44,
-        6.881,
-        9.02
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Alsacienne ocre · bois rouge & oriel",
-      "rendu": "col_02_alsacienne_ocre_rendu.png"
-    },
-    {
-      "id": "col_03_normande_chaume",
-      "fbx": "col_03_normande_chaume.fbx",
-      "triangles": {
-        "LOD0": 9908,
-        "LOD1": 1872,
-        "LOD2": 696
-      },
-      "dimensions_m": [
-        8.82,
-        6.793,
-        9.58
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Normande large · gris & chaume",
-      "rendu": "col_03_normande_chaume_rendu.png"
-    },
-    {
-      "id": "col_04_flamande_ardoise",
-      "fbx": "col_04_flamande_ardoise.fbx",
-      "triangles": {
-        "LOD0": 9204,
-        "LOD1": 1744,
-        "LOD2": 680
-      },
-      "dimensions_m": [
-        6.84,
-        7.185,
-        9.806
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Flamande brique · ogives & ardoise",
-      "rendu": "col_04_flamande_ardoise_rendu.png"
-    },
-    {
-      "id": "col_05_haute_trois_niveaux",
-      "fbx": "col_05_haute_trois_niveaux.fbx",
-      "triangles": {
-        "LOD0": 13116,
-        "LOD1": 2656,
-        "LOD2": 984
-      },
-      "dimensions_m": [
-        7.32,
-        6.705,
-        11.329
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Urbaine 3 niveaux · rose & ardoise",
-      "rendu": "col_05_haute_trois_niveaux_rendu.png"
-    },
-    {
-      "id": "col_06_tisserand_galerie",
-      "fbx": "col_06_tisserand_galerie.fbx",
-      "triangles": {
-        "LOD0": 9448,
-        "LOD1": 1896,
-        "LOD2": 708
-      },
-      "dimensions_m": [
-        8.84,
-        6.194,
-        8.59
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Tisserand · bleu guède & galerie vitrée",
-      "rendu": "col_06_tisserand_galerie_rendu.png"
-    },
-    {
-      "id": "col_07_echoppe_auvent",
-      "fbx": "col_07_echoppe_auvent.fbx",
-      "triangles": {
-        "LOD0": 10184,
-        "LOD1": 1756,
-        "LOD2": 708
-      },
-      "dimensions_m": [
-        7.84,
-        7.197,
-        9.12
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Échoppe · sauge & comptoir auvent",
-      "rendu": "col_07_echoppe_auvent_rendu.png"
-    },
-    {
-      "id": "col_08_tour_escalier",
-      "fbx": "col_08_tour_escalier.fbx",
-      "triangles": {
-        "LOD0": 10028,
-        "LOD1": 1984,
-        "LOD2": 804
-      },
-      "dimensions_m": [
-        8.24,
-        7.903,
-        9.396
-      ],
-      "z_min": -0.0,
-      "famille": "Individuelle",
-      "titre": "Notable · tourelle d'escalier & ardoise",
-      "rendu": "col_08_tour_escalier_rendu.png"
-    },
-    {
-      "id": "col_09_grange_chaume",
-      "fbx": "col_09_grange_chaume.fbx",
-      "triangles": {
-        "LOD0": 7740,
-        "LOD1": 1384,
-        "LOD2": 672
-      },
-      "dimensions_m": [
-        11.49,
-        6.394,
-        8.834
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Logis crème + grande grange chaume",
-      "rendu": "col_09_grange_chaume_rendu.png"
-    },
-    {
-      "id": "col_10_grange_tuiles_ocre",
-      "fbx": "col_10_grange_tuiles_ocre.fbx",
-      "triangles": {
-        "LOD0": 7772,
-        "LOD1": 1384,
-        "LOD2": 684
-      },
-      "dimensions_m": [
-        11.95,
-        6.593,
-        9.53
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Bourguignonne ocre + grange bois",
-      "rendu": "col_10_grange_tuiles_ocre_rendu.png"
-    },
-    {
-      "id": "col_11_remise_bucher",
-      "fbx": "col_11_remise_bucher.fbx",
-      "triangles": {
-        "LOD0": 7676,
-        "LOD1": 1312,
-        "LOD2": 624
-      },
-      "dimensions_m": [
-        8.84,
-        6.386,
-        9.47
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Grise ardoise + bûcher ouvert",
-      "rendu": "col_11_remise_bucher_rendu.png"
-    },
-    {
-      "id": "col_12_grange_brique",
-      "fbx": "col_12_grange_brique.fbx",
-      "triangles": {
-        "LOD0": 7828,
-        "LOD1": 1372,
-        "LOD2": 672
-      },
-      "dimensions_m": [
-        11.39,
-        6.593,
-        9.02
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Brique brune + haute grange poulie",
-      "rendu": "col_12_grange_brique_rendu.png"
-    },
-    {
-      "id": "col_13_ecurie_adossee",
-      "fbx": "col_13_ecurie_adossee.fbx",
-      "triangles": {
-        "LOD0": 8668,
-        "LOD1": 1756,
-        "LOD2": 804
-      },
-      "dimensions_m": [
-        10.017,
-        6.881,
-        8.834
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Rose bois rouge + écurie adossée",
-      "rendu": "col_13_ecurie_adossee_rendu.png"
-    },
-    {
-      "id": "col_14_atelier_charron",
-      "fbx": "col_14_atelier_charron.fbx",
-      "triangles": {
-        "LOD0": 7748,
-        "LOD1": 1324,
-        "LOD2": 636
-      },
-      "dimensions_m": [
-        10.871,
-        6.394,
-        9.53
-      ],
-      "z_min": -0.0,
-      "famille": "GrangeAdossee",
-      "titre": "Sauge + hangar ouvert de charron",
-      "rendu": "col_14_atelier_charron_rendu.png"
-    },
-    {
-      "id": "col_15_collees_balcon_escalier",
-      "fbx": "col_15_collees_balcon_escalier.fbx",
-      "triangles": {
-        "LOD0": 16996,
-        "LOD1": 3092,
-        "LOD2": 1416
-      },
-      "dimensions_m": [
-        11.28,
-        8.237,
-        9.19
-      ],
-      "z_min": -0.0,
-      "famille": "MaisonsCollees",
-      "titre": "Collées crème/ocre · balcon & escalier bois",
-      "rendu": "col_15_collees_balcon_escalier_rendu.png"
-    },
-    {
-      "id": "col_16_collees_escalier_pierre",
-      "fbx": "col_16_collees_escalier_pierre.fbx",
-      "triangles": {
-        "LOD0": 15900,
-        "LOD1": 3132,
-        "LOD2": 1472
-      },
-      "dimensions_m": [
-        11.28,
-        8.357,
-        9.246
-      ],
-      "z_min": -0.0,
-      "famille": "MaisonsCollees",
-      "titre": "Collées gris/brique · balcon couvert & escalier pierre",
-      "rendu": "col_16_collees_escalier_pierre_rendu.png"
-    },
-    {
-      "id": "col_17_collees_galerie_couverte",
-      "fbx": "col_17_collees_galerie_couverte.fbx",
-      "triangles": {
-        "LOD0": 16412,
-        "LOD1": 3204,
+        "LOD0": 16396,
+        "LOD1": 3068,
         "LOD2": 1524
       },
       "dimensions_m": [
-        11.74,
-        8.107,
-        9.685
+        5.539,
+        10.32,
+        11.495
       ],
       "z_min": -0.0,
-      "famille": "MaisonsCollees",
-      "titre": "Collées rose/crème · galerie couverte commune",
-      "rendu": "col_17_collees_galerie_couverte_rendu.png"
+      "famille": "PignonSurRue",
+      "titre": "Pignon sur rue · échoppe bois & colombage serré",
+      "rendu": "ville_01_pignon_echoppe_rendu.png"
     },
     {
-      "id": "col_18_collees_echoppes",
-      "fbx": "col_18_collees_echoppes.fbx",
+      "id": "ville_02_pignon_pierre_rdc",
+      "fbx": "ville_02_pignon_pierre_rdc.fbx",
       "triangles": {
-        "LOD0": 14916,
-        "LOD1": 2828,
+        "LOD0": 15876,
+        "LOD1": 2840,
         "LOD2": 1368
       },
       "dimensions_m": [
-        11.68,
-        7.017,
-        9.375
+        6.418,
+        10.12,
+        12.399
       ],
       "z_min": -0.0,
-      "famille": "MaisonsCollees",
-      "titre": "Collées marchandes · 2 échoppes & balcon",
-      "rendu": "col_18_collees_echoppes_rendu.png"
+      "famille": "PignonSurRue",
+      "titre": "Pignon bourgeois · RDC pierre, souche & tuiles brunes",
+      "rendu": "ville_02_pignon_pierre_rdc_rendu.png"
     },
     {
-      "id": "col_19_trio_mitoyennes",
-      "fbx": "col_19_trio_mitoyennes.fbx",
+      "id": "ville_03_pignon_haute_3etages",
+      "fbx": "ville_03_pignon_haute_3etages.fbx",
       "triangles": {
-        "LOD0": 19204,
-        "LOD1": 3484,
-        "LOD2": 1664
+        "LOD0": 15644,
+        "LOD1": 3152,
+        "LOD2": 1656
       },
       "dimensions_m": [
-        13.08,
-        6.904,
-        11.111
+        5.213,
+        10.52,
+        11.94
       ],
       "z_min": -0.0,
-      "famille": "MaisonsCollees",
-      "titre": "Trio de maisons collées · rue complète",
-      "rendu": "col_19_trio_mitoyennes_rendu.png"
+      "famille": "PignonSurRue",
+      "titre": "Haute maison urbaine · ocre, bandeau & ardoise",
+      "rendu": "ville_03_pignon_haute_3etages_rendu.png"
     },
     {
-      "id": "col_20_collees_passage_voute",
-      "fbx": "col_20_collees_passage_voute.fbx",
+      "id": "ville_04_pignon_oriel",
+      "fbx": "ville_04_pignon_oriel.fbx",
       "triangles": {
-        "LOD0": 15948,
-        "LOD1": 2980,
+        "LOD0": 14368,
+        "LOD1": 2900,
+        "LOD2": 1416
+      },
+      "dimensions_m": [
+        5.938,
+        10.12,
+        11.745
+      ],
+      "z_min": -0.0,
+      "famille": "PignonSurRue",
+      "titre": "Maison de drapier · terre rosée & oriel sculpté",
+      "rendu": "ville_04_pignon_oriel_rendu.png"
+    },
+    {
+      "id": "ville_05_pignon_brique_flandre",
+      "fbx": "ville_05_pignon_brique_flandre.fbx",
+      "triangles": {
+        "LOD0": 15568,
+        "LOD1": 3316,
+        "LOD2": 1700
+      },
+      "dimensions_m": [
+        5.611,
+        10.52,
+        11.925
+      ],
+      "z_min": -0.0,
+      "famille": "PignonSurRue",
+      "titre": "Marchande brique · Flandre & cheminée octogonale",
+      "rendu": "ville_05_pignon_brique_flandre_rendu.png"
+    },
+    {
+      "id": "ville_06_pignon_tisserand",
+      "fbx": "ville_06_pignon_tisserand.fbx",
+      "triangles": {
+        "LOD0": 11052,
+        "LOD1": 2104,
+        "LOD2": 1188
+      },
+      "dimensions_m": [
+        5.217,
+        9.2,
+        8.85
+      ],
+      "z_min": -0.0,
+      "famille": "PignonSurRue",
+      "titre": "Artisan tisserand · gris, bandeau & bardeaux",
+      "rendu": "ville_06_pignon_tisserand_rendu.png"
+    },
+    {
+      "id": "ville_07_pignon_taverne",
+      "fbx": "ville_07_pignon_taverne.fbx",
+      "triangles": {
+        "LOD0": 16084,
+        "LOD1": 2924,
         "LOD2": 1440
       },
       "dimensions_m": [
-        14.14,
-        6.394,
-        9.48
+        6.215,
+        10.72,
+        11.817
+      ],
+      "z_min": -0.0,
+      "famille": "PignonSurRue",
+      "titre": "Taverne urbaine · double arcade, bois sang & enseigne",
+      "rendu": "ville_07_pignon_taverne_rendu.png"
+    },
+    {
+      "id": "ville_08_pignon_tourelle",
+      "fbx": "ville_08_pignon_tourelle.fbx",
+      "triangles": {
+        "LOD0": 13468,
+        "LOD1": 2984,
+        "LOD2": 1500
+      },
+      "dimensions_m": [
+        6.794,
+        10.72,
+        11.879
+      ],
+      "z_min": -0.0,
+      "famille": "PignonSurRue",
+      "titre": "Notable · pignon ardoise & tourelle d'escalier",
+      "rendu": "ville_08_pignon_tourelle_rendu.png"
+    },
+    {
+      "id": "ville_09_collees_deux_pignons",
+      "fbx": "ville_09_collees_deux_pignons.fbx",
+      "triangles": {
+        "LOD0": 23060,
+        "LOD1": 4276,
+        "LOD2": 2148
+      },
+      "dimensions_m": [
+        9.78,
+        10.32,
+        11.574
       ],
       "z_min": -0.0,
       "famille": "MaisonsCollees",
-      "titre": "Collées à passage voûté & pont colombage",
-      "rendu": "col_20_collees_passage_voute_rendu.png"
+      "titre": "Deux pignons collés · hauteurs & teintes décalées",
+      "rendu": "ville_09_collees_deux_pignons_rendu.png"
     },
     {
-      "id": "col_21_balcon_escalier_bois",
-      "fbx": "col_21_balcon_escalier_bois.fbx",
+      "id": "ville_10_collees_trio_rue",
+      "fbx": "ville_10_collees_trio_rue.fbx",
       "triangles": {
-        "LOD0": 11244,
-        "LOD1": 2144,
-        "LOD2": 912
+        "LOD0": 31788,
+        "LOD1": 6328,
+        "LOD2": 3512
       },
       "dimensions_m": [
-        8.22,
-        8.237,
-        9.545
+        14.6,
+        10.52,
+        11.832
       ],
       "z_min": -0.0,
-      "famille": "BalconEtPlanL",
-      "titre": "Ocre · grand balcon & escalier bois",
-      "rendu": "col_21_balcon_escalier_bois_rendu.png"
+      "famille": "MaisonsCollees",
+      "titre": "Trio de pignons sur rue · vraie façade de ville",
+      "rendu": "ville_10_collees_trio_rue_rendu.png"
     },
     {
-      "id": "col_22_plan_en_L_cour",
-      "fbx": "col_22_plan_en_L_cour.fbx",
+      "id": "ville_11_collees_balcon_commun",
+      "fbx": "ville_11_collees_balcon_commun.fbx",
       "triangles": {
-        "LOD0": 19564,
-        "LOD1": 3788,
-        "LOD2": 1472
+        "LOD0": 15808,
+        "LOD1": 3372,
+        "LOD2": 1548
       },
       "dimensions_m": [
-        10.64,
-        9.374,
-        9.298
+        10.802,
+        7.756,
+        9.314
       ],
       "z_min": -0.0,
-      "famille": "BalconEtPlanL",
-      "titre": "Plan en L · cour, galerie & escalier",
-      "rendu": "col_22_plan_en_L_cour_rendu.png"
+      "famille": "MaisonsCollees",
+      "titre": "Collées · balcon commun sur 2 portes d'étage & escalier bois",
+      "rendu": "ville_11_collees_balcon_commun_rendu.png"
     },
     {
-      "id": "col_23_taverne_balcon",
-      "fbx": "col_23_taverne_balcon.fbx",
+      "id": "ville_12_collees_escalier_pierre",
+      "fbx": "ville_12_collees_escalier_pierre.fbx",
       "triangles": {
-        "LOD0": 11980,
-        "LOD1": 2192,
-        "LOD2": 876
+        "LOD0": 22380,
+        "LOD1": 4508,
+        "LOD2": 2220
       },
       "dimensions_m": [
-        8.44,
-        8.652,
-        9.31
+        11.64,
+        9.92,
+        11.445
       ],
       "z_min": -0.0,
-      "famille": "BalconEtPlanL",
-      "titre": "Taverne · bois rouge, enseigne & escalier pierre",
-      "rendu": "col_23_taverne_balcon_rendu.png"
+      "famille": "MaisonsCollees",
+      "titre": "Pignon + gouttereau · balcon couvert & escalier pierre",
+      "rendu": "ville_12_collees_escalier_pierre_rendu.png"
     },
     {
-      "id": "col_24_angle_rue_oriel",
-      "fbx": "col_24_angle_rue_oriel.fbx",
+      "id": "ville_13_collees_passage_voute",
+      "fbx": "ville_13_collees_passage_voute.fbx",
       "triangles": {
-        "LOD0": 10620,
-        "LOD1": 2108,
-        "LOD2": 1020
+        "LOD0": 30772,
+        "LOD1": 5896,
+        "LOD2": 3084
       },
       "dimensions_m": [
-        9.046,
-        7.34,
-        11.001
+        13.9,
+        10.12,
+        12.349
       ],
       "z_min": -0.0,
-      "famille": "BalconEtPlanL",
-      "titre": "Angle 3 niveaux · bleu guède, oriel & bûcher",
-      "rendu": "col_24_angle_rue_oriel_rendu.png"
+      "famille": "MaisonsCollees",
+      "titre": "Deux pignons collés · passage voûté pavé & pont colombage",
+      "rendu": "ville_13_collees_passage_voute_rendu.png"
+    },
+    {
+      "id": "ville_14_collees_angle_rue",
+      "fbx": "ville_14_collees_angle_rue.fbx",
+      "triangles": {
+        "LOD0": 23068,
+        "LOD1": 4736,
+        "LOD2": 2396
+      },
+      "dimensions_m": [
+        10.35,
+        10.547,
+        11.75
+      ],
+      "z_min": -0.0,
+      "famille": "MaisonsCollees",
+      "titre": "Angle de rue en L · cour pavée, galerie & escalier",
+      "rendu": "ville_14_collees_angle_rue_rendu.png"
+    },
+    {
+      "id": "ville_15_pignon_grange_bois",
+      "fbx": "ville_15_pignon_grange_bois.fbx",
+      "triangles": {
+        "LOD0": 16292,
+        "LOD1": 3104,
+        "LOD2": 1560
+      },
+      "dimensions_m": [
+        9.62,
+        10.12,
+        11.495
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Pignon urbain crème + grange bois bardé",
+      "rendu": "ville_15_pignon_grange_bois_rendu.png"
+    },
+    {
+      "id": "ville_16_gouttereau_grange_chaume",
+      "fbx": "ville_16_gouttereau_grange_chaume.fbx",
+      "triangles": {
+        "LOD0": 10640,
+        "LOD1": 2016,
+        "LOD2": 936
+      },
+      "dimensions_m": [
+        11.578,
+        6.667,
+        9.37
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Faubourg chaume + grande grange bois au chaume",
+      "rendu": "ville_16_gouttereau_grange_chaume_rendu.png"
+    },
+    {
+      "id": "ville_17_pignon_bucher_appentis",
+      "fbx": "ville_17_pignon_bucher_appentis.fbx",
+      "triangles": {
+        "LOD0": 14992,
+        "LOD1": 2756,
+        "LOD2": 1404
+      },
+      "dimensions_m": [
+        8.057,
+        9.92,
+        11.745
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Pignon brique/ocre + bûcher ouvert en appentis",
+      "rendu": "ville_17_pignon_bucher_appentis_rendu.png"
+    },
+    {
+      "id": "ville_18_echoppe_remise_bois",
+      "fbx": "ville_18_echoppe_remise_bois.fbx",
+      "triangles": {
+        "LOD0": 14832,
+        "LOD1": 2804,
+        "LOD2": 1476
+      },
+      "dimensions_m": [
+        8.741,
+        10.12,
+        11.495
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Échoppe bois sang-de-bœuf + remise latérale",
+      "rendu": "ville_18_echoppe_remise_bois_rendu.png"
+    },
+    {
+      "id": "ville_19_manoir_grange_pierre_bois",
+      "fbx": "ville_19_manoir_grange_pierre_bois.fbx",
+      "triangles": {
+        "LOD0": 12608,
+        "LOD1": 2472,
+        "LOD2": 1200
+      },
+      "dimensions_m": [
+        11.94,
+        6.867,
+        9.72
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Grande maison à 2 lucarnes + grange adossée",
+      "rendu": "ville_19_manoir_grange_pierre_bois_rendu.png"
+    },
+    {
+      "id": "ville_20_atelier_charron_hangar",
+      "fbx": "ville_20_atelier_charron_hangar.fbx",
+      "triangles": {
+        "LOD0": 10228,
+        "LOD1": 1792,
+        "LOD2": 936
+      },
+      "dimensions_m": [
+        9.129,
+        9.4,
+        9.072
+      ],
+      "z_min": -0.0,
+      "famille": "GrangeAdossee",
+      "titre": "Artisan terre rosée + hangar ouvert de charron",
+      "rendu": "ville_20_atelier_charron_hangar_rendu.png"
+    },
+    {
+      "id": "ville_21_gouttereau_lucarnes",
+      "fbx": "ville_21_gouttereau_lucarnes.fbx",
+      "triangles": {
+        "LOD0": 11772,
+        "LOD1": 2384,
+        "LOD2": 984
+      },
+      "dimensions_m": [
+        8.2,
+        6.726,
+        9.422
+      ],
+      "z_min": -0.0,
+      "famille": "GouttereauUrbain",
+      "titre": "Bourgeoise en gouttereau · 2 chiens-assis & ardoise",
+      "rendu": "ville_21_gouttereau_lucarnes_rendu.png"
+    },
+    {
+      "id": "ville_22_gouttereau_balcon_escalier",
+      "fbx": "ville_22_gouttereau_balcon_escalier.fbx",
+      "triangles": {
+        "LOD0": 9620,
+        "LOD1": 1980,
+        "LOD2": 936
+      },
+      "dimensions_m": [
+        8.21,
+        7.327,
+        9.584
+      ],
+      "z_min": -0.0,
+      "famille": "GouttereauUrbain",
+      "titre": "Gouttereau ocre · porte d'étage, balcon & escalier bois",
+      "rendu": "ville_22_gouttereau_balcon_escalier_rendu.png"
+    },
+    {
+      "id": "ville_23_gouttereau_escalier_pierre",
+      "fbx": "ville_23_gouttereau_escalier_pierre.fbx",
+      "triangles": {
+        "LOD0": 10084,
+        "LOD1": 2136,
+        "LOD2": 924
+      },
+      "dimensions_m": [
+        7.6,
+        7.739,
+        8.828
+      ],
+      "z_min": -0.0,
+      "famille": "GouttereauUrbain",
+      "titre": "Cave haute · perron-balcon couvert & escalier pierre",
+      "rendu": "ville_23_gouttereau_escalier_pierre_rendu.png"
+    },
+    {
+      "id": "ville_24_gouttereau_galerie_cour",
+      "fbx": "ville_24_gouttereau_galerie_cour.fbx",
+      "triangles": {
+        "LOD0": 13680,
+        "LOD1": 2672,
+        "LOD2": 1316
+      },
+      "dimensions_m": [
+        8.2,
+        8.041,
+        9.566
+      ],
+      "z_min": -0.0,
+      "famille": "GouttereauUrbain",
+      "titre": "Marchande · double arcade pierre & galerie couverte",
+      "rendu": "ville_24_gouttereau_galerie_cour_rendu.png"
     }
   ]
 }
