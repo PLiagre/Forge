@@ -417,3 +417,36 @@ def test_les_rangs_n_emploient_jamais_le_nom_du_bourg_a_la_casse_pres(livre):
     assert _parcours(lieux, cid)[1] == livre.bourgs[cid].upper()
     noms = [l["nom"] for l in noms_depuis_monde(monde, noms=listes)[cid]["lieux"]]
     assert noms[0] == livre.bourgs[cid] and all(n.casefold() != noms[0].casefold() for n in noms[1:])
+
+
+def test_un_monde_amorce_sans_villes_se_charge_et_garde_les_noms_du_fichier(monkeypatch):
+    """Un monde amorcé avec d'autres villes que celles du fichier (aucune, ou une ville d'épreuve) se charge,
+    et ses terres portent les noms des villes du fichier."""
+    from sim.frontieres import maison_du_bourg
+    from sim.noms import charger_chefs_lieux
+    from sim.villes import AttributionVilles, Ville, attribuer_villes, charger_villes
+    monkeypatch.setattr("sim.world.charger_villes", lambda: ())
+    monde = World.charger(0)
+    assert monde.attribution_villes.entrees == ()
+    chefs = charger_chefs_lieux()
+    livree = attribuer_villes({**monde.carte_meta, "cellules": list(monde.carte.values())}, charger_villes())
+    par_terre = collections.defaultdict(list)
+    for v in sorted(livree.entrees, key=lambda v: (-v.population, v.nom)):
+        if livree.placees.get(v.nom) is not None:
+            par_terre[livree.placees[v.nom]].append(v.nom)
+    sieges = {m.siege.casefold() for m in monde.maisons
+              if m.sorte != "plausible" and maison_du_bourg(monde, m.cell_id) == m.id}
+    # Seule une ville du fichier nomme ces terres : ni siège, ni ligne des chefs-lieux, ni terre déclarée sans ville.
+    attendues = {cid: noms[0] for cid, noms in par_terre.items()
+                 if cid in monde.cells and cid not in chefs.lignes and cid not in chefs.sans_ville
+                 and maison_du_bourg(monde, cid) is None and noms[0].casefold() not in sieges}
+    assert 9905 in attendues, f"échantillon vide ou sans la cellule 9905 : {sorted(attendues)[:10]}"
+    vue = noms_depuis_monde(monde)
+    assert {cid: vue[cid]["lieux"][0]["nom"] for cid in attendues} == attendues
+    # Sans recharger : une ville d'épreuve que le fichier ne connaît pas ne change pas le nom d'une ligne des chefs-lieux.
+    cid = next(iter(chefs.lignes))
+    centre = monde.carte[cid]["centroid"]
+    epreuve = Ville("Ville d'épreuve", centre["lat"], centre["lon"], centre["x_m"], centre["y_m"], 10_000, {})
+    essai = copy.copy(monde)
+    essai.attribution_villes = AttributionVilles({epreuve.nom: cid}, (), (epreuve,))
+    assert noms_depuis_monde(essai)[cid]["lieux"][0]["nom"] == chefs.lignes[cid].nom

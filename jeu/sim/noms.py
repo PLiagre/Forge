@@ -82,6 +82,23 @@ def _chefs_lieux(chemin):
 def charger_chefs_lieux(chemin=None):
     """Lit et valide le fichier une fois par chemin ; le résultat est immuable."""
     return _chefs_lieux(str(Path(chemin or CHEMIN_CHEFS_LIEUX).resolve()))
+@functools.lru_cache(maxsize=None)
+def _villes_livrees():
+    return charger_villes()
+_DERNIERE_ATTRIBUTION_LIVREE = {}
+def attribution_livree(monde):
+    """Les villes de `villes-1400.json` placées sur la carte du monde, quel que soit le jeu de villes qui a
+    amorcé ses populations. L'attribution du monde sert telle quelle quand elle porte exactement ces villes
+    (le monde livré) ; sinon, ou sans attribution, celle du fichier est refaite sur sa carte, gardée pour la
+    dernière carte, jugée par identité comme `_chefs_lieux_dans_leur_cellule`."""
+    villes, propre = _villes_livrees(), monde.attribution_villes
+    if propre is not None and (propre.entrees is villes or propre.entrees == villes): return propre
+    garde = _DERNIERE_ATTRIBUTION_LIVREE.get('carte')
+    if garde is None or garde[0] is not monde.carte or garde[1] is not monde.carte_meta:
+        attribution = attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, villes)
+        garde = _DERNIERE_ATTRIBUTION_LIVREE['carte'] = (monde.carte, monde.carte_meta, attribution)
+    _, _, attribution = garde
+    return attribution
 def aire_de_cellule(cid, cellule, puissance, table, noms):
     """La première règle applicable lit la religion dans la table des puissances."""
     religion = None if puissance is None else next(p.religion for p in table.puissances if p.id == puissance); position = cellule['centroid']
@@ -109,7 +126,8 @@ def bourgs_historiques(monde, attribution, chefs=None):
 
     Le siège de la maison qui prend le bourg (`maison_du_bourg`), sinon la ville placée de plus forte
     population historique (puis nom croissant) dont aucun siège ne nomme déjà une autre terre, sinon le
-    chef-lieu de la cellule. Refuse, en nommant la cellule, un chef-lieu hors du polygone de sa cellule,
+    chef-lieu de la cellule. `attribution` porte les villes de `villes-1400.json` (`attribution_livree`) :
+    le fichier des chefs-lieux se juge contre elles. Refuse, en nommant la cellule, un chef-lieu hors du polygone de sa cellule,
     une ligne pour une cellule déjà nommée et une cellule ni nommée ni déclarée ; les lignes des cellules
     hors du monde sont laissées de côté."""
     chefs = charger_chefs_lieux() if chefs is None else chefs
@@ -144,10 +162,11 @@ def sources_des_noms(monde):
     return charger_noms(), table, puissances_depuis_monde(monde, table=table)
 def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None):
     """Un bloc neuf par cellule ; le bourg porte le nom sourcé de sa terre, ou un nom plausible que nulle
-    autre terre ne porte ; les maisons suivent leur fiche et leur rang initial."""
+    autre terre ne porte ; les maisons suivent leur fiche et leur rang initial. Sans `attribution`, les
+    villes qui nomment les terres sont celles de `villes-1400.json` (`attribution_livree`)."""
     noms = charger_noms() if noms is None else noms
     table = charger_table() if table is None else table; vue = puissances_depuis_monde(monde, table=table) if vue is None else vue
-    attribution = (monde.attribution_villes if monde.attribution_villes is not None else attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, charger_villes())) if attribution is None else attribution
+    attribution = attribution_livree(monde) if attribution is None else attribution
     registre = {m.id: m for m in monde.maisons}; resultat = {}
     aires = {cid: aire_de_cellule(cid, monde.carte[cid], vue[cid], table, noms) for cid in sorted(monde.cells)}
     bourgs = bourgs_historiques(monde, attribution); portes = {nom.casefold() for nom in bourgs.values()}
