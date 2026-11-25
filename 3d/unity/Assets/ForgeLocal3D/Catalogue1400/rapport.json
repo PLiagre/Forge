@@ -1,18 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "modeles": [
     {
       "id": "pion_armee",
       "fbx": "pion_armee.fbx",
       "triangles": {
-        "LOD0": 572,
-        "LOD1": 264,
-        "LOD2": 104
+        "LOD0": 1776,
+        "LOD1": 852,
+        "LOD2": 356
       },
       "dimensions_m": [
-        1.44,
-        1.44,
-        2.73
+        1.56,
+        1.56,
+        2.97
       ],
       "z_min": -0.0,
       "categorie": "PionsCarte",
@@ -22,14 +22,14 @@
       "id": "pion_siege",
       "fbx": "pion_siege.fbx",
       "triangles": {
-        "LOD0": 636,
-        "LOD1": 392,
-        "LOD2": 140
+        "LOD0": 4848,
+        "LOD1": 2092,
+        "LOD2": 420
       },
       "dimensions_m": [
-        1.9,
-        1.9,
-        1.74
+        2.08,
+        2.08,
+        1.94
       ],
       "z_min": -0.0,
       "categorie": "PionsCarte",
@@ -39,14 +39,14 @@
       "id": "pion_capitale",
       "fbx": "pion_capitale.fbx",
       "triangles": {
-        "LOD0": 764,
-        "LOD1": 456,
-        "LOD2": 296
+        "LOD0": 5020,
+        "LOD1": 1292,
+        "LOD2": 780
       },
       "dimensions_m": [
-        2.48,
-        2.48,
-        3.15
+        2.92,
+        2.92,
+        3.61
       ],
       "z_min": -0.0,
       "categorie": "PionsCarte",
@@ -56,14 +56,14 @@
       "id": "pion_bourg",
       "fbx": "pion_bourg.fbx",
       "triangles": {
-        "LOD0": 480,
-        "LOD1": 400,
-        "LOD2": 300
+        "LOD0": 4328,
+        "LOD1": 748,
+        "LOD2": 412
       },
       "dimensions_m": [
-        2.047,
-        2.1,
-        1.91
+        2.36,
+        2.36,
+        2.45
       ],
       "z_min": -0.0,
       "categorie": "PionsCarte",
@@ -73,14 +73,14 @@
       "id": "prop_charrette",
       "fbx": "prop_charrette.fbx",
       "triangles": {
-        "LOD0": 1000,
-        "LOD1": 392,
-        "LOD2": 184
+        "LOD0": 2576,
+        "LOD1": 1024,
+        "LOD2": 144
       },
       "dimensions_m": [
-        2.766,
-        1.38,
-        1.14
+        2.843,
+        1.478,
+        1.166
       ],
       "z_min": -0.0,
       "categorie": "PropsVille",
@@ -90,14 +90,14 @@
       "id": "prop_etal_marche",
       "fbx": "prop_etal_marche.fbx",
       "triangles": {
-        "LOD0": 248,
-        "LOD1": 156,
+        "LOD0": 728,
+        "LOD1": 196,
         "LOD2": 84
       },
       "dimensions_m": [
-        2.82,
-        1.594,
-        2.537
+        2.86,
+        1.627,
+        2.562
       ],
       "z_min": -0.0,
       "categorie": "PropsVille",
@@ -107,14 +107,14 @@
       "id": "prop_puits_pierre",
       "fbx": "prop_puits_pierre.fbx",
       "triangles": {
-        "LOD0": 428,
-        "LOD1": 276,
-        "LOD2": 148
+        "LOD0": 1664,
+        "LOD1": 560,
+        "LOD2": 208
       },
       "dimensions_m": [
-        1.95,
-        1.64,
-        2.998
+        2.18,
+        1.702,
+        3.152
       ],
       "z_min": -0.0,
       "categorie": "PropsVille",
@@ -124,14 +124,14 @@
       "id": "prop_sacs_grain",
       "fbx": "prop_sacs_grain.fbx",
       "triangles": {
-        "LOD0": 1224,
-        "LOD1": 396,
-        "LOD2": 156
+        "LOD0": 1516,
+        "LOD1": 540,
+        "LOD2": 188
       },
       "dimensions_m": [
-        1.5,
-        1.2,
-        0.96
+        1.56,
+        1.24,
+        0.87
       ],
       "z_min": -0.0,
       "categorie": "PropsVille",
@@ -141,14 +141,14 @@
       "id": "prop_echafaudage",
       "fbx": "prop_echafaudage.fbx",
       "triangles": {
-        "LOD0": 396,
+        "LOD0": 620,
         "LOD1": 188,
         "LOD2": 136
       },
       "dimensions_m": [
-        3.15,
-        1.685,
-        4.407
+        3.18,
+        1.65,
+        4.4
       ],
       "z_min": -0.0,
       "categorie": "PropsVille",
@@ -158,13 +158,13 @@
       "id": "prop_tonneaux_caisses",
       "fbx": "prop_tonneaux_caisses.fbx",
       "triangles": {
-        "LOD0": 456,
-        "LOD1": 276,
-        "LOD2": 64
+        "LOD0": 1312,
+        "LOD1": 320,
+        "LOD2": 112
       },
       "dimensions_m": [
-        1.555,
-        1.51,
+        1.592,
+        1.448,
         1.16
       ],
       "z_min": -0.0,
@@ -175,14 +175,14 @@
       "id": "bat_maison_colombages",
       "fbx": "bat_maison_colombages.fbx",
       "triangles": {
-        "LOD0": 408,
-        "LOD1": 244,
-        "LOD2": 100
+        "LOD0": 11128,
+        "LOD1": 2028,
+        "LOD2": 696
       },
       "dimensions_m": [
-        7.47,
-        6.383,
-        8.98
+        7.8,
+        6.677,
+        9.31
       ],
       "z_min": -0.0,
       "categorie": "BatimentsOccident",
@@ -192,14 +192,14 @@
       "id": "bat_grenier_medieval",
       "fbx": "bat_grenier_medieval.fbx",
       "triangles": {
-        "LOD0": 524,
-        "LOD1": 436,
-        "LOD2": 172
+        "LOD0": 3920,
+        "LOD1": 444,
+        "LOD2": 228
       },
       "dimensions_m": [
-        9.45,
-        7.151,
-        7.37
+        10.04,
+        7.61,
+        7.771
       ],
       "z_min": -0.0,
       "categorie": "BatimentsOccident",
@@ -209,14 +209,14 @@
       "id": "bat_forge_medievale",
       "fbx": "bat_forge_medievale.fbx",
       "triangles": {
-        "LOD0": 328,
-        "LOD1": 168,
-        "LOD2": 156
+        "LOD0": 5612,
+        "LOD1": 984,
+        "LOD2": 500
       },
       "dimensions_m": [
-        8.39,
-        5.424,
-        6.66
+        8.884,
+        5.819,
+        6.87
       ],
       "z_min": -0.0,
       "categorie": "BatimentsOccident",
@@ -226,14 +226,14 @@
       "id": "bat_porte_fortifiee",
       "fbx": "bat_porte_fortifiee.fbx",
       "triangles": {
-        "LOD0": 952,
-        "LOD1": 412,
-        "LOD2": 244
+        "LOD0": 5860,
+        "LOD1": 1928,
+        "LOD2": 724
       },
       "dimensions_m": [
-        11.56,
-        4.76,
-        11.55
+        11.82,
+        4.92,
+        13.07
       ],
       "z_min": -0.0,
       "categorie": "BatimentsOccident",
