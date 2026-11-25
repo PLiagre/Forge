@@ -16,10 +16,12 @@
 *.unitypackage filter=lfs diff=lfs merge=lfs -text
 *.blend filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
-# Les icônes et textures PBR livrées par l'usine d'assets restent des images dans git, hors LFS : `atelier.fabrique controler` les lit
-# sur la CI, qui prend le dépôt sans LFS, et n'y verrait que des pointeurs. Les règles passent après `*.png`, qu'elles défont.
+# Les icônes, textures PBR et modèles du Catalogue 1400 livrés par l'usine d'assets restent dans git, hors LFS :
+# `atelier.fabrique controler` les lit sur la CI (sans LFS), et Unity les récupère directement sans pointeur LFS.
 3d/unity/Assets/Interface/Resources/Forge/Icones/**/*.png -filter binary
 3d/unity/Assets/Interface/Resources/Forge/MatieresPBR/**/*.png -filter binary
+3d/unity/Assets/ForgeLocal3D/Catalogue1400/**/*.fbx -filter binary
+3d/unity/Assets/ForgeLocal3D/Catalogue1400/**/*.png -filter binary
 
 # Les assets sérialisés par Unity ne sont pas du source écrit à la main : son
 # writer YAML émet « cle: » pour une valeur vide, et `git diff --check` en
