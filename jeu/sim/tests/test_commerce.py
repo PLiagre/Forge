@@ -13,6 +13,7 @@ tick_nourrit_une_fois.
 """
 
 
+import math
 import random
 import pytest
 from sim.engine import _apply_commerce, _apply_consumption, _apply_production, tick
@@ -676,9 +677,11 @@ def test_capacite_arete_partagee_entre_marchandises(monkeypatch):
     from sim.model import ecrire_stock_marchandise, lire_stock_marchandise
 
     _patch_consommation_essai(monkeypatch)
-    pop = 100
+    # Assez d'habitants pour que les deux besoins additionnés dépassent la capacité de l'arête.
+    pop = 200
     besoin_alim = pop * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
     besoin_essai = pop * _CONSOMMATION_ESSAI
+    assert besoin_alim + besoin_essai > TRADE_CAPACITY_KG_PER_EDGE_PER_TICK
 
     source = Cell(
         cell_id=301, area_km2=0.0, population=0,
@@ -833,8 +836,11 @@ def _build_micro_monde_relief_transport() -> tuple[World, int, dict[str, int]]:
 
     classes = _classes_relief_depuis_carte()
     source_id = 9000
-    pop = 100
+    # Chaque receveuse demande au moins la capacité de base de l'arête : le relief seul
+    # commande alors le transfert, et les cinq classes donnent cinq transferts distincts.
+    pop = math.ceil(TRADE_CAPACITY_KG_PER_EDGE_PER_TICK / FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK)
     besoin = pop * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    assert besoin >= TRADE_CAPACITY_KG_PER_EDGE_PER_TICK
     stock_source = besoin * len(classes) * 10
 
     carte: dict[int, dict] = {
@@ -1318,9 +1324,15 @@ def _build_monde_longueurs_distinctes(
     """Source unique, trois receveuses identiques, arêtes de longueurs distinctes."""
     from sim.model import ecrire_stock_marchandise
 
+    from sim import constants as k
+
     source_id = 9300
-    pop = 25000
+    # Chaque receveuse demande plus que la capacité de la plus longue arête : seule la
+    # longueur de frontière commande alors son transfert.
+    capacite_longue = k.DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK * (longueur_longue / k.metres_par_km())
+    pop = math.ceil(capacite_longue / FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK) + 1
     besoin = pop * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    assert besoin > capacite_longue
     stock_source = besoin * 20
 
     source = Cell(
@@ -2616,7 +2628,9 @@ def test_routes_commerciales_reference(variante, longueur, relief, monkeypatch):
         controler([(float.fromhex(reference[0]) + 1).hex(), *reference[1:]])
 
 
-@pytest.mark.parametrize("reserve", [0, 25000])
+# Une réserve qui couvre un peu plus de la moitié du besoin en grain des 20 000 habitants
+# (5/8 de 15 000 kg) : le reste du grain et la marchandise d'essai saturent encore l'arête.
+@pytest.mark.parametrize("reserve", [0, 9375])
 def test_routes_commerciales_flux(reserve, monkeypatch):
     import copy
     from sim import engine, plan
@@ -2824,20 +2838,24 @@ def test_commerce_par_bourg_plafond_cumule_et_flux_bloque(monkeypatch):
 @pytest.mark.parametrize('avec_lieu', [False, True])
 def test_commerce_par_bourg_lieu_unique_sans_chemin(avec_lieu, monkeypatch):
     from sim import constants as k
-    source = _cellule_bourg(1, [0], [100.])
+    # Le stock de la source égale le besoin de la cible : tout part, rien ne reste.
+    besoin = 50 * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    source = _cellule_bourg(1, [0], [besoin])
     cible = _cellule_bourg(2, [50], [0.])
     if not avec_lieu: source.lieux = cible.lieux = []
     monkeypatch.setattr(k, 'capacite_chemins_interieurs_kg', lambda *a: pytest.fail('chemin inutile'))
     total = [0.]
     _apply_commerce(World({1: source, 2: cible}, [{'a': 1, 'b': 2}]), total)
-    assert total == [100.] and source.food_stock_kg == 0. and cible.food_stock_kg == 100.
-    if avec_lieu: assert _paniers_bourg(cible) == [100.]
+    assert total == [besoin] and source.food_stock_kg == 0. and cible.food_stock_kg == besoin
+    if avec_lieu: assert _paniers_bourg(cible) == [besoin]
 
 
-@pytest.mark.parametrize('reserve', [0., 100.])
-def test_bourg_maritime_bassin_initial_et_quais(reserve, monkeypatch):
+@pytest.mark.parametrize('part_du_besoin', [0., 1.])
+def test_bourg_maritime_bassin_initial_et_quais(part_du_besoin, monkeypatch):
     from sim import constants as k
     monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', 0.)
+    # Le bassin initial couvre, au plus, le besoin en grain du bourg de la cible.
+    reserve = part_du_besoin * 50 * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
     source = _cellule_bourg(1, [0, 0], [30., 100.])
     cible = _cellule_bourg(2, [50, 0], [0., 0.])
     monde = World({1: source, 2: cible}, [
@@ -2930,10 +2948,13 @@ def test_bourg_maritime_demande_terre_et_mer_ecretee(monkeypatch):
     monde.stocks_mer = {'nourriture': 100.}
     total = [0.]
     _apply_commerce(monde, total)
-    assert total == [100.]
-    assert _paniers_bourg(source) == [50., 100.]
-    assert _paniers_bourg(cible) == [100., 0.]
-    assert monde.stocks_mer == {'nourriture': 50.}
+    # Le besoin de la cible se partage à parts égales entre la terre et la mer.
+    besoin = 50 * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    moitie = besoin / 2
+    assert total == [besoin]
+    assert _paniers_bourg(source) == [100. - moitie, 100.]
+    assert _paniers_bourg(cible) == [besoin, 0.]
+    assert monde.stocks_mer == {'nourriture': 100. - moitie}
     _conserver_bourg(monde)
 
 
@@ -3057,8 +3078,14 @@ def test_commerce_par_bourg_marchandise_absente_et_quota_arete(monkeypatch):
 _POPULATION_DEPARTS = 3_650_100
 
 
+def _kilos_de_reserve(jours, population):
+    """Les kilos de grain qui nourrissent `population` habitants pendant `jours` jours, à la ration en vigueur."""
+    from sim.departs import ration_journaliere
+    return jours * population * ration_journaliere()
+
+
 def _monde_departs_simple(reserve, population=_POPULATION_DEPARTS, dette_source=0., dette_cible=0.):
-    cellule = _cellule_bourg(1, [population, 1000], [0., reserve * 2000])
+    cellule = _cellule_bourg(1, [population, 1000], [0., _kilos_de_reserve(reserve, 1000)])
     cellule.lieux[0].dette_alimentaire_kg = dette_source
     cellule.lieux[1].dette_alimentaire_kg = dette_cible
     return World({1: cellule}, [])
@@ -3072,11 +3099,12 @@ def test_departs_seuil_strict(reserve, attendu):
     assert [l.population for l in monde.cells[1].lieux] == [_POPULATION_DEPARTS - attendu, 1000 + attendu]
 
 
-@pytest.mark.parametrize('reserve,jours_de_dette_source,dette_cible,attendu',
-                         [(50., 0, 40000., 0), (15., 20, 0., 50)])
-def test_departs_dette_des_deux_cotes(reserve, jours_de_dette_source, dette_cible, attendu):
-    from sim.departs import appliquer_departs, ration_journaliere
-    dette_source = jours_de_dette_source * ration_journaliere() * _POPULATION_DEPARTS
+@pytest.mark.parametrize('reserve,jours_de_dette_source,jours_de_dette_cible,attendu',
+                         [(50., 0, 20, 0), (15., 20, 0, 50)])
+def test_departs_dette_des_deux_cotes(reserve, jours_de_dette_source, jours_de_dette_cible, attendu):
+    from sim.departs import appliquer_departs
+    dette_source = _kilos_de_reserve(jours_de_dette_source, _POPULATION_DEPARTS)
+    dette_cible = _kilos_de_reserve(jours_de_dette_cible, 1000)
     monde = _monde_departs_simple(reserve, dette_source=dette_source, dette_cible=dette_cible)
     assert appliquer_departs(monde) == attendu
     assert [l.population for l in monde.cells[1].lieux] == [_POPULATION_DEPARTS - attendu, 1000 + attendu]
@@ -3126,10 +3154,10 @@ def test_departs_constantes_contre_epreuves(nom, valeur, controle, args, monkeyp
     (40., [_POPULATION_DEPARTS - 50, 150, 100]), (20., [_POPULATION_DEPARTS - 300, 100, 400])])
 def test_departs_cellule_avant_bourgs_voisins(reserve, attendues):
     from sim.departs import appliquer_departs
-    cellules = {1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100, 0], [0., reserve * 200, 100000.]),
-                2: _cellule_bourg(2, [100, 100], [40000., 100000.]),
-                3: _cellule_bourg(3, [100], [100000.]),
-                4: _cellule_bourg(4, [0], [100000.]),
+    cellules = {1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100, 0], [0., _kilos_de_reserve(reserve, 100), _kilos_de_reserve(500, 100)]),
+                2: _cellule_bourg(2, [100, 100], [_kilos_de_reserve(200, 100), _kilos_de_reserve(500, 100)]),
+                3: _cellule_bourg(3, [100], [_kilos_de_reserve(500, 100)]),
+                4: _cellule_bourg(4, [0], [_kilos_de_reserve(500, 100)]),
                 5: Cell(5, 1000., 5000, food_stock_kg=10000000.),
                 6: Cell(6, 1000., 5000, food_stock_kg=0.)}
     monde = World(cellules, [{'a': 2, 'b': 1}, {'a': 1, 'b': 4}, {'a': 1, 'b': 5},
@@ -3151,13 +3179,13 @@ def test_departs_cellule_avant_bourgs_voisins(reserve, attendues):
 def test_departs_egalites_cellule_et_rang(locale):
     from sim.departs import appliquer_departs
     if locale:
-        monde = World({1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100, 100], [0., 8000., 8000.])}, [])
+        monde = World({1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100, 100], [0., _kilos_de_reserve(40, 100), _kilos_de_reserve(40, 100)])}, [])
         monde.cells[1].lieux.reverse()
         cible = next(l for l in monde.cells[1].lieux if l.rang == 1)
     else:
-        monde = World({3: _cellule_bourg(3, [100], [8000.]),
+        monde = World({3: _cellule_bourg(3, [100], [_kilos_de_reserve(40, 100)]),
                        1: _cellule_bourg(1, [_POPULATION_DEPARTS], [0.]),
-                       2: _cellule_bourg(2, [100], [8000.])},
+                       2: _cellule_bourg(2, [100], [_kilos_de_reserve(40, 100)])},
                       [{'a': 1, 'b': 3}, {'a': 2, 'b': 1}])
         cible = monde.cells[2].lieux[0]
     assert appliquer_departs(monde) == 50
@@ -3175,8 +3203,8 @@ def test_departs_egalites_cellule_et_rang(locale):
 def test_departs_photo_arrivee_et_sortie(population_b, attendues, total):
     import copy
     from sim.departs import appliquer_departs
-    monde = World({1: _cellule_bourg(1, [population_b, _POPULATION_DEPARTS], [population_b * 70., 0.]),
-                   2: _cellule_bourg(2, [1000], [140000.])}, [{'a': 1, 'b': 2}])
+    monde = World({1: _cellule_bourg(1, [population_b, _POPULATION_DEPARTS], [_kilos_de_reserve(35, population_b), 0.]),
+                   2: _cellule_bourg(2, [1000], [_kilos_de_reserve(70, 1000)])}, [{'a': 1, 'b': 2}])
     inverse = copy.deepcopy(monde)
     inverse.cells = dict(reversed(list(inverse.cells.items())))
     inverse.adjacency = [{'a': 2, 'b': 1}]
@@ -3245,9 +3273,9 @@ def test_departs_maitre_ignore_et_source(monkeypatch):
 
 def _monde_departs_conservation():
     from sim.model import ecrire_habitants_par_metier, ecrire_stock_marchandise
-    cellules = {1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100], [0., 8000.]),
+    cellules = {1: _cellule_bourg(1, [_POPULATION_DEPARTS, 100], [0., _kilos_de_reserve(40, 100)]),
                 2: _cellule_bourg(2, [_POPULATION_DEPARTS, 1_825_100], [0., 0.]),
-                3: _cellule_bourg(3, [1000, _POPULATION_DEPARTS], [140000., 0.])}
+                3: _cellule_bourg(3, [1000, _POPULATION_DEPARTS], [_kilos_de_reserve(70, 1000), 0.])}
     ecrire_habitants_par_metier(cellules[2], {'paysans': 4_999_999, 'artisans': 475_201})
     for c in cellules.values():
         c.hunger_ticks, c.food_deficit_kg = 3, 7.25
@@ -3357,7 +3385,7 @@ def test_departs_sentinelle_ration_et_duree_du_tick(monkeypatch):
     assert appliquer_departs(monde) == 0  # -1 kg aurait fait franchir le seuil.
     monkeypatch.setattr(k, 'TICK_DURATION_DAYS', 2)
     monkeypatch.setattr(k, 'consommation_kg_par_habitant_par_tick', lambda nom: 3 * k.TICK_DURATION_DAYS)
-    monde = _monde_departs_simple(52.5)  # Ration 3 kg : réserve réelle de 35 jours.
+    monde = _monde_departs_simple(35.)  # Ration 3 kg : réserve réelle de 35 jours.
     assert appliquer_departs(monde) == 100  # Un tick de deux jours : la part du jour, doublée.
 
 
@@ -3523,13 +3551,14 @@ def test_departs_report_oublie_sans_destination():
     def reports(monde):
         return [lire_report_de_depart(l) for l in monde.cells[1].lieux]
     # Cellule où personne ne peut partir : écart de 10 jours, lieu vide compris.
-    monde = World({1: _cellule_bourg(1, [1000, 1000, 0], [0., 20000., 0.])}, [])
+    monde = World({1: _cellule_bourg(1, [1000, 1000, 0], [0., _kilos_de_reserve(10, 1000), 0.])}, [])
     for lieu, report in zip(monde.cells[1].lieux, (3.5, 2., 1.5)): ecrire_report_de_depart(lieu, report)
     assert reports(monde) == [3.5, 2., 1.5]
     assert appliquer_departs(monde) == 0
     assert reports(monde) == [0., 0., 0.]
     # Cellule où d'autres partent : le plus nourri n'a aucune destination meilleure.
-    pleine = World({1: _cellule_bourg(1, [1_000_000] * 3, [0., 1e8, 2e8])}, [])
+    pleine = World({1: _cellule_bourg(1, [1_000_000] * 3,
+                                          [0., _kilos_de_reserve(50, 1_000_000), _kilos_de_reserve(100, 1_000_000)])}, [])
     for lieu in pleine.cells[1].lieux: ecrire_report_de_depart(lieu, 3.)
     assert appliquer_departs(pleine) == 55  # 40 depuis le rang 0, 15 depuis le rang 1.
     def controler(m):
@@ -4318,7 +4347,7 @@ def _jouer_une_fois_de_l_appel(monde):
 
 
 def _appel(monde, part=1.0):
-    """L'appel de la receveuse, dérivé du petit monde (60 habitants sans champs × 2 kg)."""
+    """L'appel de la receveuse, dérivé du petit monde (60 habitants sans champs × la ration)."""
     manque = monde.cells[_RECEVEUSE_DE_L_APPEL].population - monde.populations_soutenables[_RECEVEUSE_DE_L_APPEL]
     return part * manque * FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
 
@@ -4337,11 +4366,13 @@ def test_appel_ville_affamee_la_receveuse_recoit_son_manque_des_champs(monkeypat
     assert gain[_RECEVEUSE_DE_L_APPEL] == 0.0 and gain[_SOURCE_DE_L_APPEL] == 0.0 and total == 0.0
 
 
-@pytest.mark.parametrize("capacite_kg", [15.0, 60.0])
-def test_appel_ville_affamee_le_rayon_porte_l_appel_sur_une_arete_etroite(capacite_kg, monkeypatch):
+@pytest.mark.parametrize("part_de_l_appel", [0.125, 0.5])
+def test_appel_ville_affamee_le_rayon_porte_l_appel_sur_une_arete_etroite(part_de_l_appel, monkeypatch):
     """L'arête porte moins que l'appel ; avec R = 1 la receveuse reçoit la capacité, avec R = 6 `min(appel, 6 × capacité)`."""
     from sim import engine
     _poser_appel(monkeypatch, 1, 1)
+    # La capacité de l'arête est une fraction exacte de l'appel : un huitième, puis la moitié.
+    capacite_kg = part_de_l_appel * _appel(_monde_de_l_appel())
     longueur = capacite_kg / engine._capacite_transport_arete_kg(_monde_de_l_appel(longueur_m=1000.0), _SOURCE_DE_L_APPEL,
                                                                   _RECEVEUSE_DE_L_APPEL) * 1000.0
     monde = _monde_de_l_appel(longueur_m=longueur)

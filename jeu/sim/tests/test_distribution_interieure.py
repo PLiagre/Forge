@@ -15,6 +15,9 @@ from sim.routes_interieures import facteurs_des_routes, lieu_de_la_route, routes
 from sim.world import World
 from sim.tests.amorcage_d_avant import amorcer_comme_avant_la_soudure
 
+# La ration livrée du grain : les besoins attendus s'en dérivent, jamais d'un littéral.
+RATION = constantes.consommation_kg_par_habitant_par_tick(constantes.MARCHANDISE_NOURRITURE)
+
 
 def _stock(cellule):
     return lire_stock_marchandise(cellule, constantes.MARCHANDISE_NOURRITURE)
@@ -314,11 +317,18 @@ def _controle_par_lieu(cellule, attendus, avant):
     assert 0 <= avant - _stock(cellule) <= besoin
 
 
+# Les populations sont des multiples de quatre : à 0,75 kg par habitant, un lieu mange alors un
+# nombre entier de kilos et les paniers restent des entiers. Le bourg de 52 habitants mange 39 kg ;
+# chaque champ de 4 habitants en mange 3.
 @pytest.mark.parametrize("capacite,relief,populations,paniers,restes,manque", [
-    (0, "plaine", [20, 1, 1], [0, 6, 200], [0, 4, 198], 40),
-    (10, "plaine", [20, 1, 1], [0, 6, 200], [0, 0, 188], 26),
-    (10, "montagne", [20, 1, 1], [0, 6, 200], [0, 1, 195], 34),
-    (10, "plaine", [1, 20, 1], [200, 0, 100], [188, 0, 98], 30),
+    (0, "plaine", [52, 4, 4], [0, 7, 200],
+     [0, 7 - 4 * RATION, 200 - 4 * RATION], 52 * RATION),
+    (10, "plaine", [52, 4, 4], [0, 7, 200],
+     [0, 0, 200 - 4 * RATION - 10], 52 * RATION - (7 - 4 * RATION) - 10),
+    (10, "montagne", [52, 4, 4], [0, 7, 200],
+     [0, 7 - 4 * RATION - 3, 200 - 4 * RATION - 3], 52 * RATION - 6),
+    (10, "plaine", [4, 52, 4], [200, 0, 100],
+     [200 - 4 * RATION - 10, 0, 100 - 4 * RATION], 52 * RATION - 10),
 ])
 def test_consommation_par_lieu(monkeypatch, capacite, relief, populations, paniers, restes, manque):
     cellule, carte = _cellule_par_lieu(populations, paniers)
@@ -338,12 +348,13 @@ def test_consommation_par_lieu(monkeypatch, capacite, relief, populations, panie
 @pytest.mark.parametrize("facteur", [2, 0.5])
 def test_commerce_a_proportion(monkeypatch, facteur):
     import sim.lieux as lieux
-    paniers, populations = [100, 500, 1000], [1, 2, 3]
+    # Des multiples de quatre habitants : chaque lieu mange un nombre entier de kilos.
+    paniers, populations = [100, 500, 1000], [4, 8, 12]
     cellule, carte = _cellule_par_lieu(populations, paniers)
     cellule.food_deficit_kg = 0
     ecrire_stock_marchandise(cellule, "nourriture", facteur * sum(paniers))
     monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 0)
-    attendus = [facteur * stock - population * constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    attendus = [facteur * stock - population * RATION
                 for population, stock in zip(populations, paniers)]
     def verifier(copie):
         assert engine._apply_consumption(copie, carte) == 0
@@ -359,15 +370,19 @@ def test_commerce_a_proportion(monkeypatch, facteur):
 def test_donneurs_par_lieu_par_rang_croissant(monkeypatch):
     """La demande s'arrête avant d'épuiser les deux champs donneurs."""
     paniers = [0, 102, 202, 0]
-    cellule, carte = _cellule_par_lieu([2, 1, 1, 20], paniers)
+    populations = [4, 4, 4, 52]
+    cellule, carte = _cellule_par_lieu(populations, paniers)
     cellule.area_km2 = len(cellule.lieux) * constantes.SURFACE_KM2_PAR_LIEU + 0.5
     monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 10)
+    besoin_bourg, besoin_champ_affame = 4 * RATION, 52 * RATION
+    reste_1, reste_2 = paniers[1] - 4 * RATION, paniers[2] - 4 * RATION
 
     def verifier(copie):
-        # Demande : 4 au bourg + 10 au champ affamé. Envois : 10 puis 4.
-        _egal_kg(engine._apply_consumption(copie, carte), 30)
-        _egal_kg(copie.food_deficit_kg, 39)
-        _controle_par_lieu(copie, [0, 90, 196, 0], sum(paniers))
+        # Demande : le besoin du bourg + 10 au champ affamé. Envois : 10 puis le besoin du bourg.
+        penurie = besoin_champ_affame - 10
+        _egal_kg(engine._apply_consumption(copie, carte), penurie)
+        _egal_kg(copie.food_deficit_kg, 9 + penurie)
+        _controle_par_lieu(copie, [0, reste_1 - 10, reste_2 - besoin_bourg, 0], sum(paniers))
 
     inversee = copy.deepcopy(cellule)
     inversee.lieux[1].rang, inversee.lieux[2].rang = 2, 1
@@ -379,13 +394,16 @@ def test_donneurs_par_lieu_par_rang_croissant(monkeypatch):
 def test_consommation_par_lieu_sans_repartage_inutile(monkeypatch):
     """Des paniers déjà exacts et suffisants ne repassent pas par les grands entiers."""
     import sim.lieux as lieux
-    cellule, carte = _cellule_par_lieu([1, 2, 3], [100.25, 500, 1000])
+    # Des multiples de quatre habitants : chaque lieu mange un nombre entier de kilos.
+    populations, paniers = [4, 8, 12], [100.25, 500, 1000]
+    cellule, carte = _cellule_par_lieu(populations, paniers)
     cellule.food_deficit_kg = 0
     def interdit(*args):
         pytest.fail("repartage inutile de paniers déjà exacts")
     monkeypatch.setattr(lieux, "partager", interdit)
     assert engine._apply_consumption(cellule, carte) == 0
-    _controle_par_lieu(cellule, [98.25, 496, 994], 1600.25)
+    _controle_par_lieu(cellule, [panier - population * RATION
+                                 for population, panier in zip(populations, paniers)], sum(paniers))
     assert all(isinstance(_stock(lieu), int) for lieu in cellule.lieux[1:])
 
 
@@ -460,9 +478,11 @@ def _controle_dette_par_lieu(cellule, dettes=None, faims=None):
         assert [lieu.duree_faim_ticks for lieu in cellule.lieux] == faims
 
 
+# La dette de départ de la cellule, 9 kg, se partage d'abord en trois dettes de 3 kg ; le manque du
+# lieu affamé s'y ajoute. Le lieu affamé compte 52 habitants (39 kg) : un nombre entier de kilos.
 @pytest.mark.parametrize("capacite,populations,paniers,dette,dettes,faims", [
-    (0, [20, 1, 1], [0, 6, 200], 49, [43, 3, 3], [1, 0, 0]),
-    (10, [1, 20, 1], [200, 0, 100], 39, [3, 33, 3], [0, 1, 0]),
+    (0, [52, 4, 4], [0, 6, 200], 9 + 52 * RATION, [3 + 52 * RATION, 3, 3], [1, 0, 0]),
+    (10, [4, 52, 4], [200, 0, 100], 9 + 52 * RATION - 10, [3, 3 + 52 * RATION - 10, 3], [0, 1, 0]),
 ])
 def test_dette_par_lieu_manque(monkeypatch, capacite, populations, paniers, dette, dettes, faims):
     cellule, carte = _cellule_par_lieu(populations, paniers)
@@ -478,19 +498,24 @@ def test_dette_par_lieu_manque(monkeypatch, capacite, populations, paniers, dett
 
 
 def test_dette_par_lieu_remboursement():
-    cellule, carte = _cellule_par_lieu([1, 2, 3], [10, 10, 12])
+    # Des multiples de quatre habitants ; chaque lieu garde de quoi manger plus 8, 6 et 6 kg, soit
+    # 20 kg de surplus pour la cellule.
+    populations, surplus = [4, 8, 12], [8, 6, 6]
+    cellule, carte = _cellule_par_lieu(
+        populations, [population * RATION + reste for population, reste in zip(populations, surplus)])
     cellule.food_deficit_kg = 40
     for lieu, dette, faim in zip(cellule.lieux, [30, 10, 0], [2, 0, 0]):
         lieu.dette_alimentaire_kg = dette
         lieu.duree_faim_ticks = faim
     assert engine._apply_consumption(cellule, carte) == 0
-    assert cellule.food_deficit_kg == 20
+    assert cellule.food_deficit_kg == 40 - sum(surplus)
     _controle_dette_par_lieu(cellule, [15, 5, 0], [0, 0, 0])
 
 
 def test_dette_par_lieu_nulle_sans_partager(monkeypatch):
     from sim import lieux
-    cellule, carte = _cellule_par_lieu([1, 2, 3], [100.25, 500, 1000])
+    # Des multiples de quatre habitants : chaque lieu mange un nombre entier de kilos.
+    cellule, carte = _cellule_par_lieu([4, 8, 12], [100.25, 500, 1000])
     cellule.food_deficit_kg = 0
     cellule.lieux[0].duree_faim_ticks = 2
     monkeypatch.setattr(lieux, "partager", lambda *args: pytest.fail("partage inutile"))
@@ -541,10 +566,12 @@ def test_dette_par_lieu_arrondi_cellulaire(monkeypatch):
     _controle_dette_par_lieu(cellule, [manque, 0, 0], [1, 0, 0])
 
 
-@pytest.mark.parametrize("paniers,dette_finale", [([2, 4, 6], 40), ([100, 100, 100], 0)])
+# Premier cas : chaque panier couvre pile la ration de son lieu, sans surplus, la dette reste.
+@pytest.mark.parametrize("paniers,dette_finale", [
+    ([4 * RATION, 8 * RATION, 12 * RATION], 40), ([100, 100, 100], 0)])
 def test_dette_par_lieu_inchangee_ou_effacee(monkeypatch, paniers, dette_finale):
     from sim import lieux
-    cellule, carte = _cellule_par_lieu([1, 2, 3], paniers)
+    cellule, carte = _cellule_par_lieu([4, 8, 12], paniers)
     cellule.food_deficit_kg = 40
     for lieu, dette in zip(cellule.lieux, [30, 10, 0]):
         lieu.dette_alimentaire_kg = dette
@@ -728,9 +755,12 @@ def _eloignement_test(point):
 def test_route_capacite(monkeypatch):
     monkeypatch.setattr(constantes, "CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK", 5)
     facteur = constantes.FACTEUR_ROUTE_INTERIEURE
+    # Le bourg de 52 habitants mange 39 kg ; chaque champ de 4 habitants en mange 3.
+    besoin_bourg, reste_1, reste_2, capacite = 52 * RATION, 7 - 4 * RATION, 200 - 4 * RATION, 5
+    assert reste_1 < capacite < reste_2
 
     def mesurer(facteurs):
-        cellule, carte = _cellule_par_lieu([20, 1, 1], [0, 6, 200])
+        cellule, carte = _cellule_par_lieu([52, 4, 4], [0, 7, 200])
         penurie = engine._apply_consumption(cellule, carte, facteurs)
         return penurie, [_stock(lieu) for lieu in cellule.lieux], cellule
 
@@ -739,16 +769,18 @@ def test_route_capacite(monkeypatch):
         _egal_kg(obtenu, penurie)
         for observe, attendu in zip(observes, paniers):
             _egal_kg(observe, attendu)
-        _controle_par_lieu(cellule, paniers, 206)
+        _controle_par_lieu(cellule, paniers, 207)
         _egal_kg(cellule.food_deficit_kg, 9 + penurie)
 
-    verifier(None, 31, [0, 0, 193])
-    verifier({2: facteur}, 16, [0, 0, 178])
-    verifier({1: facteur}, 31, [0, 0, 193])
+    sans_facteur = besoin_bourg - reste_1 - capacite
+    avec_facteur = besoin_bourg - reste_1 - capacite * facteur
+    verifier(None, sans_facteur, [0, 0, reste_2 - capacite])
+    verifier({2: facteur}, avec_facteur, [0, 0, reste_2 - capacite * facteur])
+    verifier({1: facteur}, sans_facteur, [0, 0, reste_2 - capacite])
     # Le rang 1 n'a que 4 kg au-dessus de sa ration, déjà sous la capacité 5.
-    verifier({1: facteur, 2: facteur}, 16, [0, 0, 178])
+    verifier({1: facteur, 2: facteur}, avec_facteur, [0, 0, reste_2 - capacite * facteur])
     with pytest.raises(AssertionError):
-        verifier({1: facteur}, 16, [0, 0, 178])
+        verifier({1: facteur}, avec_facteur, [0, 0, reste_2 - capacite * facteur])
 
 
 def test_route_commerce(monkeypatch):

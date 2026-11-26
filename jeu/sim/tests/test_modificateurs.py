@@ -58,9 +58,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # les personnes sont inchangés. La population passe de 37 481 793 à 37 147 031 : dans ce monde sans famine posée
 # et au commerce d'avant, l'ancien taux vidait le bourg de Paris vers ses champs et masquait sa disette ;
 # gardés au bourg, ses gens y meurent de faim (523 habitants au lieu de 131 966 dans la cellule).
+# Les habitants de 1400 (la part cultivée de chaque région, le rendement et la ration recalés, la mort
+# ordinaire, la coutume à 0,05) changent, au 365e tick, toutes les cellules, leurs greniers, convois et cumuls,
+# et dans la photographie les cellules : la population part de 65 217 511 et finit à 65 270 701.
 EMPREINTES_365 = {
-    "linux": ("9fdeb4c1f48cdd9d175f76f68bd84c33c4ac0b98a123fac9d92949ce35092056",
-              "3a43f1d14fd86f2f22124af1b42ec5fe8a34157c441950776df1978f0761515e"),
+    "linux": ("d6f1d14b07a677dfa815db5cfa35b0e94b8caa667fc3509f92c134b60b1339b6",
+              "86ec871b3bfe87676001441dd82160fc872edac7255b3e6d76026a444255f71e"),
 }
 
 
