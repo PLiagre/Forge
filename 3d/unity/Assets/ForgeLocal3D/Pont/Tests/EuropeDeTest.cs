@@ -10,11 +10,12 @@ using UnityEngine;
 
 namespace Forge.Pont.Tests {
     // La carte de toute l'Europe que les tests lisent. Les réponses figées (`carte-graine0-europe.json`, `terres-graine0-europe.json`,
-    // `atlas-graine0.json`, `jouables-graine0-europe.json`) viennent du vrai service, graine 0, au tick 30, sans IA ; celle des lieux
+    // `atlas-graine0.json`, `jouables-graine0-europe.json`) viennent du vrai service, graine 0, au tick 30, sans IA ni amorçage ;
+    // `test_carte_servie.py` rejoue `/terres` et `/jouables` et les compare octet pour octet. Celle des lieux
     // (`lieux-graine0-tick3.json`) est du tick 3. Elles sont servies une fois par un faux service et lues par les vrais clients,
     // `ClientCarte`, `ClientGuerre`, `ClientAtlas`, `ClientJouables` et `ClientLieux`.
-    // Le corps de `/atlas` est aussi gardé tel que `LecteurJson` le lit, pour juger ce que le client en a lu. `/formes` n'est pas relevé : le terrain prend
-    // un lieu par cellule (`FormesDeTest.Lever`).
+    // Le corps de `/atlas` est aussi gardé tel que `LecteurJson` le lit, pour juger ce que le client en a lu. `/formes` de l'Europe entière n'est pas
+    // relevé : le terrain prend un lieu par cellule (`FormesDeTest.Lever`) ; ses formes ne sont gardées que pour l'Ouest et les Détroits (`FormesDeTest`).
     // Publique : les tests de l'interface lisent la même Europe.
     public static class EuropeDeTest {
         public const string CARTE = "carte-graine0-europe.json", TERRES = "terres-graine0-europe.json", ATLAS = "atlas-graine0.json", JOUABLES = "jouables-graine0-europe.json", LIEUX = "lieux-graine0-tick3.json";
