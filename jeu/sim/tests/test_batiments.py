@@ -24,7 +24,8 @@ import pytest
 import sim.constants as c
 from sim import batiments as B, engine, modificateurs as M
 from sim.intentions import IntentionRefusee, recevoir_intention
-from sim.model import ecrire_habitants_par_metier, lire_habitants_par_metier, lire_ouvriers_du_jour
+from sim.model import (ecrire_habitants_par_metier, lire_habitants_par_metier, lire_ouvriers_du_jour,
+                       lire_report_de_depart)
 from sim.world import World
 
 NOURRITURE = c.MARCHANDISE_NOURRITURE
@@ -190,9 +191,9 @@ def test_le_moulin_acheve_recolte_dix_pour_cent_de_vrais_kilos_en_plus(depart, m
     for nom, essai, alea in (("moulin", monde, copy.deepcopy(rng)), ("sans", sans, copy.deepcopy(rng))):
         verses[nom] = {}
 
-        def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None, _v=verses[nom]):
+        def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None, facteurs_carte=None, _v=verses[nom]):
             avant = cell.stocks.get(NOURRITURE, 0.0)
-            original(cell, recolte, carte, saison, recoltes, facteurs)
+            original(cell, recolte, carte, saison, recoltes, facteurs, facteurs_carte)
             _v[cell.cell_id] = cell.stocks.get(NOURRITURE, 0.0) - avant
 
         with monkeypatch.context() as ctx:
@@ -602,9 +603,9 @@ def _verser(monde, alea, monkeypatch):
     verse = {}
     original = engine._verser_recolte
 
-    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None):
+    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None, facteurs_carte=None):
         avant = cell.stocks.get(NOURRITURE, 0.0)
-        original(cell, recolte, carte, saison, recoltes, facteurs)
+        original(cell, recolte, carte, saison, recoltes, facteurs, facteurs_carte)
         verse[cell.cell_id] = cell.stocks.get(NOURRITURE, 0.0) - avant
 
     with monkeypatch.context() as ctx:
@@ -670,16 +671,29 @@ def test_la_grange_achevee_change_les_departs_de_sa_cellule_au_tick_pres(depart,
     sans = copy.deepcopy(monde)
     assert M.retirer(sans, batiment.source) == 1
 
+    def quittent(monde_, reports, partis):
+        """Les personnes qui quittent chaque lieu de la cellule ce tick : les foyers partis, plus ce que le report a gagné.
+
+        Le taux des départs est annuel : un tick ne fait partir qu'une fraction de foyer, qui attend au report.
+        """
+        return {(cid, lieu.rang): partis.get((cid, lieu.rang), 0) + lire_report_de_depart(lieu) - reports[lieu.rang]
+                for lieu in monde_.cells[cid].lieux}
+
     def comparer(avec, sans, alea):
         for monde_ in (avec, sans):
             _vider_le_bourg(monde_, cid)
+        reports_avec = {lieu.rang: lire_report_de_depart(lieu) for lieu in avec.cells[cid].lieux}
+        reports_sans = {lieu.rang: lire_report_de_depart(lieu) for lieu in sans.cells[cid].lieux}
         t = avec.ticks_ecoules
         verse_avec = _verser(avec, copy.deepcopy(alea), monkeypatch)
         verse_sans = _verser(sans, alea, monkeypatch)
         partis_avec, partis_sans = avec.flux.jours[t].partis, sans.flux.jours[t].partis
-        assert partis_sans.get((cid, 0), 0) > 0
-        assert partis_avec.get((cid, 0), 0) < partis_sans[(cid, 0)]
-        assert all(partis_avec.get(cle, 0) <= partis_sans.get(cle, 0) for cle in lieux)
+        quittent_avec = quittent(avec, reports_avec, partis_avec)
+        quittent_sans = quittent(sans, reports_sans, partis_sans)
+        assert quittent_sans[(cid, 0)] > 0, "échantillon vide : personne ne quitte le bourg vidé"
+        # Le modificateur de la grange (−0,25) est le seul écart : trois quarts des départs du bourg.
+        assert quittent_avec[(cid, 0)] == pytest.approx(0.75 * quittent_sans[(cid, 0)], rel=1e-9)
+        assert all(quittent_avec[cle] <= quittent_sans[cle] for cle in lieux)
         assert {k: v for k, v in partis_avec.items() if k[0] != cid} == {
             k: v for k, v in partis_sans.items() if k[0] != cid}
         assert verse_avec == verse_sans

@@ -1429,13 +1429,20 @@ lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
   capacité des arêtes. Le décor d'avant (`sim/tests/amorcage_d_avant.py`,
   `couper_l_appel_des_villes`) rend 0 et 1.
 - Aucun kilo n'est créé ni détruit, et `food_deficit_kg` n'est pas touché.
-- Le Caire ne peut pas gagner d'habitants par l'appel : aucun mort de faim, aucune
-  perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
+- Une ville qui, sous l'appel, n'a ni mort de faim ni perte nette au pas des
+  départs n'est pas jugée sur ses habitants, seulement sur son grain et ses morts :
+  ils ne bougent plus que par ses naissances, par les réfugiés de ses voisines et
+  par les hommes que sa maison lève : l'IA lève autant d'hommes que son grenier
+  en nourrit au-delà de sa réserve, et l'appel remplit ce grenier. Le test dérive
+  l'exemption des comptes de la ville, jamais d'une liste.
 
-`test_grain_monte_vers_les_villes_un_an` rejoue les quatre réglages sur un an
-(graine 0, IA active, 365 jours) : après un an, Paris, Milan, Gand et Alexandrie
-ont plus d'habitants et de grain qu'avec le commerce d'avant, et Le Caire plus
-de grain.
+`test_grain_monte_vers_les_villes_un_an` rejoue le commerce d'avant et l'appel
+sur un an (graine 0, IA active, 365 jours) : après un an, chacune des villes
+affamées de l'appel (Paris, Milan, Gand, Alexandrie, Le Caire) a plus de grain et
+moins de morts de faim qu'avec le commerce d'avant, et plus d'habitants si elle
+n'en est pas exemptée comme ci-dessus. Les deux réglages intermédiaires (le rayon
+seul, l'appel seul) ne sont pas rejoués : leurs mesures, prises sur le monde
+d'avant l'échelle de 1400, ne valent plus.
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même

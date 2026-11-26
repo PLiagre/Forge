@@ -1727,8 +1727,8 @@ def test_cellules_minieres_produisent_moins_et_portent_moins_de_monde():
         productions = {cid: 0.0 for cid in porteuses}
         originale = engine.production_du_tick_kg
 
-        def _mesurer(cell, yield_factor, carte, jour=None):
-            valeur = originale(cell, yield_factor, carte, jour)
+        def _mesurer(cell, yield_factor, carte, jour=None, facteurs_carte=None):
+            valeur = originale(cell, yield_factor, carte, jour, facteurs_carte=facteurs_carte)
             if cell.cell_id in productions:
                 productions[cell.cell_id] += valeur
             return valeur
