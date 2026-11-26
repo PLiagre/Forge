@@ -48,8 +48,9 @@ def test_lecture_de_toutes_les_lignes(tmp_path):
     puissances_sans_ancre = sum(p.id not in visees for p in table.puissances)
     print(f"puissances_lues={puissances_lues}, ancres_lues={ancres_lues}")
     print(f"puissances_sans_ancre={puissances_sans_ancre}")
-    assert 91 <= puissances_lues == len(brut["puissances"]) <= 92
-    assert 125 <= ancres_lues == len(brut["ancres"]) <= 130
+    # Les six pays d'Irlande (Tír Eoghain, Tír Chonaill, Íochtar Connacht, Thomond, Ormond, Desmond) et leurs ancres.
+    assert 97 <= puissances_lues == len(brut["puissances"]) <= 98
+    assert 131 <= ancres_lues == len(brut["ancres"]) <= 136
     assert puissances_sans_ancre == 0
     assert charger_table(_ecrire(tmp_path, brut)) == table
 def _alterer(document, cas, id_navarre):
@@ -267,8 +268,8 @@ def test_lecture_des_douze_ajouts(tmp_path):
         return sum(p.nom in attendues and p.id in visees for p in table.puissances)
 
     def verifier_bornes(table, document):
-        assert 91 <= len(table.puissances) == len(document["puissances"]) <= 92
-        assert 125 <= len(table.ancres) == len(document["ancres"]) <= 130
+        assert 97 <= len(table.puissances) == len(document["puissances"]) <= 98
+        assert 131 <= len(table.ancres) == len(document["ancres"]) <= 136
 
     table = charger_table()
     verifier_bornes(table, _document())
@@ -580,7 +581,8 @@ def test_les_ancres_sont_des_points_et_ne_decident_aucune_cellule():
     # partages dont le bourg est d'une ville sans pays.
     comptes = Counter(vue.values())
     assert (comptes[ids["Byzance"]], comptes[ids["Ottomans"]]) == (10, 33)
-    assert (sum(p is not None for p in vue.values()), comptes[None]) == (553, 43)
+    # Le Mayo des Burke et Achill, lacunes des Seigneuries d'Irlande, n'ont plus de pays.
+    assert (sum(p is not None for p in vue.values()), comptes[None]) == (551, 45)
     grenade = [a for a in table.ancres if a.nom in {"Grenade", "Malaga"}]
     assert len(grenade) == 2 and all(point_dans_geometrie(
         *projeter_epsg3035(a.lat, a.lon), monde.carte[10209]["geometry"]) for a in grenade)
@@ -621,3 +623,19 @@ def test_le_lieu_de_constantinople_est_byzantin():
     for nom in ("Çorlu", "Kırk Kilise"):
         point = projeter_epsg3035(partage[nom].lat, partage[nom].lon)
         assert _puissance_du_lieu_de(monde, places, vue, lieux, *point) == ids["Ottomans"]
+
+
+def test_irlande_le_pale_et_non_l_ile_entiere():
+    """La seigneurie d'Irlande tient Dublin, au cœur du Pale ; Sligo, des Ó Conchobhair Sligigh, et Armagh, au pays
+    des Ó Néill, n'y sont plus : la puissance du lieu de chaque ville, au point de sa ville."""
+    from sim.places import places_du_monde
+    from sim.projection import projeter_epsg3035
+    monde, table = World.charger(0), charger_table()
+    places, vue, lieux = places_du_monde(monde), puissances_depuis_monde(monde), puissances_des_lieux(monde)
+    irlande = next(p.id for p in table.puissances if p.nom == "Irlande")
+    def puissance(lat, lon):
+        return _puissance_du_lieu_de(monde, places, vue, lieux, *projeter_epsg3035(lat, lon))
+    assert puissance(53.35, -6.26) == irlande
+    assert puissance(54.27, -8.47) not in (irlande, None) and puissance(54.35, -6.65) not in (irlande, None)
+    # Contre-épreuve : un point de Londres n'est pas à l'Irlande.
+    assert puissance(51.51, -0.13) != irlande

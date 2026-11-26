@@ -661,6 +661,42 @@ def test_balkans_constantinople_est_sur_la_terre_d_un_lieu_byzantin(livre):
     assert _juger_constantinople(livre.monde, livre.places, decoupe, pays, {}, byzance)
 
 
+# Les villes d'Irlande que la preuve lit : Dublin, au cœur du Pale ; Sligo, des Ó Conchobhair Sligigh ; Armagh,
+# dans le pays des Ó Néill.
+DUBLIN, SLIGO, ARMAGH = (53.35, -6.26), (54.27, -8.47), (54.35, -6.65)
+# Les cellules de l'île d'Irlande sur la carte figée.
+ILE = (1192, 9835, 10224, 10226, 10227, 10228, 10232, 10233, 10234)
+
+
+def _juger_irlande(livre, pays, irlande):
+    """Les fautes : le lieu de Dublin est servi à la seigneurie d'Irlande, ceux de Sligo et d'Armagh ne le sont pas."""
+    fautes = []
+    for nom, (lat, lon), attendu in (("Dublin", DUBLIN, True), ("Sligo", SLIGO, False), ("Armagh", ARMAGH, False)):
+        lieu = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(lat, lon))
+        if lieu is None:
+            fautes.append(f"{nom} : hors de la carte")
+        elif (pays.get(lieu) == irlande) != attendu:
+            fautes.append(f"{nom} : lieu {lieu} servi à {pays.get(lieu)}, {'à' if attendu else 'pas à'} {irlande} attendu")
+    return fautes
+
+
+def test_ouest_irlande_le_pale_et_les_pays_gaeliques(livre):
+    """La seigneurie d'Irlande ne tient que ce que le roi d'Angleterre tenait en 1400 : Dublin et le Pale, et les
+    ports royaux ; Sligo et Armagh sont aux seigneurs gaéliques."""
+    pays = pays_des_lieux(livre.monde, livre.vue, livre.maisons, livre.lieux)
+    irlande = identifiant_de_puissance(next(p.id for p in livre.table.puissances if p.nom == "Irlande"))
+    assert _juger_irlande(livre, pays, irlande) == []
+    # Le Pale et les ports : l'Irlande tient des lieux, mais moins de la moitié de ceux de l'île.
+    ile = [(c, l.rang) for c in ILE for l in livre.monde.cells[c].lieux]
+    tenus = sum(pays.get(lieu) == irlande for lieu in ile)
+    assert ile and 0 < tenus < len(ile) / 2, f"l'Irlande tient {tenus} des {len(ile)} lieux de l'île"
+    sligo = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(*SLIGO))
+    # Contre-épreuves : Dublin rendu à un autre pays, Sligo rendu à l'Irlande.
+    dublin = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(*DUBLIN))
+    assert _juger_irlande(livre, {**pays, dublin: "puissance-1"}, irlande)
+    assert _juger_irlande(livre, {**pays, sligo: irlande}, irlande)
+
+
 # ---------------------------------------------------------------------------------------------
 # Les preuves de la table et de ses effets sur un partage synthétique. Elles partent de la table
 # livrée, trois cellules changées : chacune écrit la sienne dans `tmp_path`, et le monde se charge une

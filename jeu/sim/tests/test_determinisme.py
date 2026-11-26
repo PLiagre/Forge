@@ -817,7 +817,7 @@ def test_registre_bit_pres(monkeypatch, graine_monde, graine_tick):
     normal = World.charger(graine_monde, copy.deepcopy(carte))
     with monkeypatch.context() as contexte:
         contexte.setattr(etat_monde, "charger_registre_maisons", lambda carte: ())
-        contexte.setattr(etat_monde, 'construire_personnages', lambda monde: ((), {}))
+        contexte.setattr(etat_monde, 'construire_personnages', lambda monde, places=None: ((), {}))
         contexte.setattr(maitres, "attribuer_maitres", lambda monde: ({}, ()))
         temoin = World.charger(graine_monde, copy.deepcopy(carte))
     assert normal is not temoin and normal.maisons and temoin.maisons == ()
@@ -1021,13 +1021,17 @@ def test_noms_purete_et_tick(monkeypatch):
 # la population de 218 lieux (214 pour la graine 42) et de deux cellules, leurs métiers et 117 (115) reports non
 # nuls ; au point 3, avec 655 (653) lieux, ce qui suit les bouches : stocks, dettes, commerce, bassin et retours.
 # Les tirages sont inchangés.
+# L'Irlande de 1400 (le Pale, les ports royaux, six pays gaéliques et anglo-irlandais, les Seigneuries d'Irlande)
+# change, à chaque point et pour les deux graines, le registre (six grandes maisons neuves, 9 maisons plausibles
+# neuves, 19 retirées, le suzerain de 5) et le maître de 53 lieux de six cellules d'Irlande ; sans les maîtres,
+# les cellules, le bassin, les tirages et les retours sont ceux d'avant.
 _PART_BASE = {
-    (0, 0): ('da0b04bbc16955819a85d8749fc52f42069d1b5e9504784bffbb821995374bf5', '550f9d0bca4a5eaf0e8dc5554c305feee9728a857018e2443ff3185a3033c320'),
-    (0, 1): ('3d85aebf6a686f9f722bb1066a6754c0e4b20a136ec4f18b124905e030bacf57', '2b13ed0c742e76bff9828aefba287d6b5293ff046dc2122c07a0379e0a322e62'),
-    (0, 3): ('8ca36f0de41ad1a100139607e1195c05dad058bd91bb4da88069fa18489b4dc9', '9a2ab56ef546dc96ea471c58b4866d14feb052a91a01cec7269230bc1da9a57e'),
-    (42, 0): ('e02ab87d40a9c137ff09b6a6ae3baf0f425b0b8bb7669dac6df8740a637bf513', 'd920cf811dc88e1098df1cc96f326377a0646cb90aa2ab68b611a1439b3ff281'),
-    (42, 1): ('6375dcf1ce25f91278fa0bd3604fea785b2a7bfbfd0640391668bfeb935cbff4', 'dcdcd42f567b66ea7364fec35ca5833a2e51a9d9070164536e1c2ba4cac81940'),
-    (42, 3): ('f16f3837fe0f72ba0b551c8ccac9932be61c9bd47994c951642e9fbc8a0bf3bd', 'a8b881905abf6bc08961059e652ca19dfd19c8d8ec38a07994e9d95826baf994'),
+    (0, 0): ('ae48250b8ffa48ffd5c637415ccb1b9cbd13ca7b23ada5f5345c97ab1ddff65a', '272856f7db2ba4a272bb46cc88cd4400fe0882894860932bfea91b859e21cb2c'),
+    (0, 1): ('4ce070b582ce43a897120dc529a52b0194f6923a880d0addde1d3859e3538699', '322b69cbf707f183f600566a6fa82b9175f27bf00781107f5e0007d095dec68d'),
+    (0, 3): ('9f29c450b46c58e21cb6b192dd2f8d548d5b7aba0cb86b52e32d5b2dc986a7e0', '9ba62a5572959a794cfb0c33345579b7655487d716061b0f447eff5be392b08b'),
+    (42, 0): ('c09960480a8623c2dac5cc109bed8124d3232238fb05811e76e006e158dfa653', '40ff78de061867dffe2e6e1a3e6e4b2a1e7ce5c828330f160f4b24cba6fce0f4'),
+    (42, 1): ('4969d43f7c42b8b1d09c750538f32e04745d5ca0b2658310f675bf6058ad1a87', '3b2d71a873a80a8f3104d9d0bcb3bf1714a87546ce551c0ae3da13634985e05c'),
+    (42, 3): ('4ef088c36e027a228de23f7ab841855624d835e24eb41307922490ac820a47e1', 'efeea6cdc46891bd857a0611a2be7b39302a95e5add0e6700cee34274b261f36'),
 }
 
 def test_part_bit_pres(monkeypatch):
@@ -1069,13 +1073,15 @@ def test_part_bit_pres(monkeypatch):
 # Le mieux-vivre au rythme de l'année change les mêmes couches que pour `_PART_BASE` aux points 1 et 3 ; au
 # point 20, la population de 3 133 lieux (3 128) et de 225 cellules (232), leurs métiers et ce qui en découle,
 # jusqu'à deux greniers, aux convois et aux cumuls mangé et perdu. Les tirages sont inchangés.
+# L'Irlande de 1400 change, à chaque point, le registre et le maître de 53 lieux comme pour `_PART_BASE`, et avec
+# eux les greniers et les convois ; sans les maîtres, les cellules, le bassin, les tirages et les retours sont égaux.
 _PRELEVEMENT_BASE = {
-    (0, 1): ('0738b6421a0ed2e4bef3f4c05e01bb636652179386588b79e4e942493a4bd189', 'c1f83c1a70d4b28a8d2dc91096764912a003c928d08fdbaf4eee9b38acdf2937'),
-    (0, 3): ('52a3a1568f45fc6ac7d6b8c71b9c7f003c4f59a850ec8c605b8f929c3b07e220', '26f753621ac5043db81d3036c573d201b0d4300ea3ef8f7dd63ca5b302dd1835'),
-    (0, 20): ('4bfce82ba46d9db355d8940484fc00e3994cb86388ba7edd45bbdf94262e95a0', '8901c4e8068ac9fa44bba08e5ade2aa7c506853b8b6e4ba52f1b070c29613bae'),
-    (42, 1): ('47c51803b18cda00ad98e81d1b86609152198cc64b5849a28452be23d2c385a9', '2622fc922136d0390266f2ed9c767c3d8969021d4d9b3a851d1e2682e63245f0'),
-    (42, 3): ('0ff4a5194f0761640c6a912afa51cdf0bff41198ef5b47bcc66448e2a83637cf', '0e7a9f066a6fb3a8ed0825e4473874f94fde6cfba128a47a1862081471181254'),
-    (42, 20): ('10dd6b25351c9940b0ca0acc7f2ac96487d774d59858c9e7279568a57adf0089', 'bf2b254a547965d39a67cff786b0b0446671b460cd2e8e208ae1ecbfffdf48a2'),
+    (0, 1): ('405c142f5381e6cf40f4f8baf9496fc46b9582c828ba5882ee3e1b14341aa8b8', '0c1960b140084fcd5120d1d544985413b084de20230e2c2904775e1746548e29'),
+    (0, 3): ('b66d1f095c43f0f88848a6e5a404d7293367292094a409a96be25d3353ff11e6', 'fc36d15d2646f02c0165abcb7f149e21e6b5fbc404d8dd4252a09f368eca6c94'),
+    (0, 20): ('9ab6580e238d6dfe98daf777a363f750fb3697d4e28ce3cd973b18b747f8135b', '16f1955637a08626533d3a57a63e6186f401b6ad8debd65337e4939b67469765'),
+    (42, 1): ('adfa4121c0e3df47143d5b4594959178c68b0c6c7479a46ef137950df5bfc557', '784d3caa09ea04a6e08a55e0a63bc195ea2e04704110ebea2615b307cea4dc79'),
+    (42, 3): ('d1bc27988936cf1e1873f11ff8d571f0bb0fcb3d0df77af7f64b862bbdfd3113', 'c5defd9798ac2e95d34f21cbd4fc092655964270d4efef91703154025fab996c'),
+    (42, 20): ('a448710e95d646943422a64a1123a9647c11c4279ed1382bf89b2575cd0aaff5', 'fb5adc7f88b88b7d465d37db47089ad4d389bc2f9c0869dab48f1787371db0fe'),
 }
 
 
@@ -1143,11 +1149,13 @@ def test_prelevement_bit_pres(monkeypatch):
 # maître de 119 lieux de onze cellules, les dus de leurs vassaux, les greniers et les convois ; les cellules,
 # le bassin, les tirages et les retours sont inchangés.
 # Le mieux-vivre au rythme de l'année y change les mêmes couches qu'au monde avec prélèvement, aux mêmes points.
+# L'Irlande de 1400 y change, aux points 3 et 20, le registre, le maître de 53 lieux, les dus des vassaux d'Ormond
+# et de Desmond, les greniers et les convois ; sans les maîtres, les cellules sont égales.
 _DU_BASE = {
-    (0, 3): ('5ecea62be344db8da9bd0cdb1d60b0c382069de8f04a4c1d57c5e6eed3f71800', '7378f42290347f7ac56461f74012643cf666d017f22774585c87d470d5c6ebb8'),
-    (0, 20): ('55efe2888a65440f0d87ac2b09be08af509efc4de08817e447bcea567442beb2', '900eeef68ba34407bb38a38d226f2df08ef313f2efe4a480e837f2ae6d84b4fa'),
-    (42, 3): ('e5b19fa3a1a7a2b93095335041fdd0080b384a4c7e6d4e39244a8eff6c101554', '410093186fc4144a837a7b3e35c4158a723143502bb8991ef36a26f43f086b58'),
-    (42, 20): ('e6303495416922681b9d9660b7c82bdf681ec74b613a66e90face1eee91b8832', '25c73055af7d91751a8bb16b070922b1f95672bb83951ebd037a6dd2880d972a'),
+    (0, 3): ('de065cf3ebfd2cfe3e71e8df93c4885d517728464f4c6ca3a9a68a1bff8b1ebb', 'b0777702e253191e545daefa19af7aac32975d339e3c4af0b216f7c61931f14b'),
+    (0, 20): ('7e7bb55a4858a486068085dc40e1ccb5f78be9fd02e63ddc30f4d4e0dc51a097', '88c94866249e1f2ef02893ab80f70d39cf05d3f182d3f5ec0db1fe318974a00a'),
+    (42, 3): ('03971d51406c879bb6ae2e7db5492243a4530ae981389626e3e9d1f6ac72edc1', '2d7a53be011f44143330c22ccfda7551ae132369a87744ca070c462ed5e668ee'),
+    (42, 20): ('5bd2298c925223fc8f8378a104c68d497ddbf82cff04136768660347c2590715', '805f71745aa868e9592fb968bbf32d32c9f422ff93886075dd680236e5bfcbaf'),
 }
 
 
