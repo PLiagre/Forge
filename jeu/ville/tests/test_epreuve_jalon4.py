@@ -33,7 +33,13 @@ def preuve(tmp_path_factory):
     assert all(json.loads(octets)["maison_du_joueur"] == maison for octets in mondes)
     assert all((ouvrages := json.loads(mondes[0])['plans'][str(cellule)][nom]) and all(e['travail_fourni'] > 0 for e in ouvrages) for nom in ('rues', 'parcelles', 'batiments'))
     bilan = epreuve.juger(*mondes, journal, 10)
-    assert bilan["cellules_modifiees"] == bilan["plans_modifies"] == [str(cellule)]
+    # Seul le plan de Biskra change. Ses gestes nourrissent mieux son bourg : une voisine d'adjacence peut
+    # s'y voir attirée (le mieux-vivre de ses lieux vers ce bourg), aucune autre cellule ne bouge.
+    from sim.world import World
+    voisines = {str(a["b"] if a["a"] == cellule else a["a"]) for a in World.lire_carte()["adjacence"]
+                if cellule in (a["a"], a["b"])}
+    assert bilan["plans_modifies"] == [str(cellule)] and str(cellule) in bilan["cellules_modifiees"]
+    assert set(bilan["cellules_modifiees"]) <= {str(cellule)} | voisines, bilan["cellules_modifiees"]
     assert bilan["cellules_controlees"] == len(json.loads(mondes[0])["cells"])
     return mondes, journal
 
