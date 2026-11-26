@@ -81,7 +81,7 @@ trois minutes après son ouverture.
    ne compte pas : un objectif qu'il ne trouve pas en cinq essais est bloqué,
    un défaut qui arrête ou trompe un joueur est bloquant, et l'étape n'est
    alors pas tenue. Le CTO repropose d'abord ce qui la corrige, et ce tour de
-   correction, qui compte un à deux jours, part sans attendre. Après deux
+   correction, qui compte un à deux jours, part sans attendre. Après cinq
    « non tenue » de suite, la chaîne n'ouvre plus rien seule : elle appelle le
    propriétaire.
 6. **Le propriétaire garde le dernier mot.** Il joue quand il veut. Ce qu'il
