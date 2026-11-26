@@ -310,6 +310,24 @@ def test_budget_flux_et_contre_epreuve(monde, monkeypatch):
         with pytest.raises(AssertionError): _mesurer(monde)
 
 
+def test_mesure_rend_le_ramasse_miettes():
+    import gc
+    from sim.tests.mesure_du_tick import chronometrer_les_jours, MESURES
+    # L'interpréteur fige déjà quelques objets au démarrage : le réglage se voit à ce qu'il en fige davantage.
+    figes, avant = [], gc.get_freeze_count()
+    def jouer(m, rng, numero):
+        figes.append(gc.get_freeze_count())
+        if numero == 2: raise RuntimeError('jour en échec')
+    with pytest.raises(RuntimeError, match='jour en échec'):
+        chronometrer_les_jours(charger=SimpleNamespace, jouer=jouer)
+    assert len(figes) == 3 and all(n > avant for n in figes)
+    assert gc.get_freeze_count() == 0
+    figes.clear()
+    _, durees = chronometrer_les_jours(charger=SimpleNamespace, jouer=lambda m, rng, numero: figes.append(gc.get_freeze_count()))
+    assert len(durees) == MESURES and all(n > 0 for n in figes)
+    assert gc.get_freeze_count() == 0
+
+
 def test_documentation_et_contre_epreuve():
     texte = (Path(__file__).parents[1] / 'MODELE.md').read_text(encoding='utf-8')
     titre = '## Les flux sur trente jours'
