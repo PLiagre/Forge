@@ -20,7 +20,7 @@ la semaine. Elle a son issue épinglée (« Palier n ») et son jalon.
 | **le dernier lot fermé** | le PC | dans les dix minutes, à toute heure : un build figé de l'étape, que le pilote attend |
 | **le build figé** | le testeur | le joue sur le PC, par l'écran seul, dès que le propriétaire a quitté clavier et souris depuis dix minutes : il ne connaît que la promesse de l'étape. Son rapport est posé sur l'issue : le parcours objectif par objectif, ce que l'écran n'explique pas, ce qui est faux ou brouillon, les trois défauts à corriger d'abord, ses photos, son verdict |
 | **le verdict rendu** | le CTO | une note d'une page sur l'issue : quoi essayer, ce qui marche, ce qui manque, d'après le rapport du testeur. Puis la suite, sur la même issue : l'étape suivante de `CAP.md` (avec les défauts à corriger d'abord) si l'étape est tenue ; ce qui la corrige si elle ne l'est pas |
-| **la suite proposée** | le pilote | l'ouvre sur le verdict du testeur, sans attendre. Deux « non tenue » de suite : il n'ouvre plus rien et appelle le propriétaire |
+| **la suite proposée** | le pilote | l'ouvre sur le verdict du testeur, sans attendre. Cinq « non tenue » de suite : il n'ouvre plus rien et appelle le propriétaire |
 | **quand il veut** | le propriétaire | joue le build figé, seul. Ce qu'il écrit sur l'issue de l'étape passe devant le verdict : le CTO repropose en commençant par ce qui corrige, et rien ne s'ouvre plus sur cette issue sans son « oui » |
 
 Le testeur qui ne peut pas jouer ne retient pas l'étape : après six heures
@@ -146,7 +146,7 @@ monde, qui parle de fichiers.
 | le propriétaire écrit sur une issue | sa consigne suit le lot : le chef et le relecteur la reçoivent ; un lot bloqué repart |
 | le testeur n'a pas d'écran (le propriétaire est au clavier, la session est fermée, un lot fait tourner le jeu) | il **attend** : son passage guette l'écran trois quarts d'heure, puis répond par une attente, que le pilote renvoie au quart d'heure ; au bout de six heures, la note de démo part sans lui |
 | le propriétaire reprend son écran pendant que le testeur joue | le testeur s'arrête au geste suivant et ferme le jeu ; ce qu'il avait trouvé est posé sur l'issue sans valoir verdict, et le passage est rejoué |
-| le testeur dit l'étape non tenue | le CTO propose ce qui la corrige, et ce tour s'ouvre seul ; à la seconde fois de suite, le propriétaire décide |
+| le testeur dit l'étape non tenue | le CTO propose ce qui la corrige, et ce tour s'ouvre seul ; à la cinquième fois de suite, le propriétaire décide |
 
 ## Ce que coûte la chaîne
 

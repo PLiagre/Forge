@@ -183,7 +183,7 @@ def test_la_table_des_roles_a_sept_lignes_et_dit_le_parallelisme_et_le_poids_du_
     assert lignes[7].split() == ["artiste", "gemini-3.8-flash-medium", "—", "1800", "s"]
     assert lignes[-3:] == ["lots en même temps : vps 2, pc 2, asset 1",
                            "agents en même temps : antigravity 1, claude 4",
-                           "verdict du testeur : il ouvre l'étape suivante ; après 2 « non tenue » de suite, le "
+                           "verdict du testeur : il ouvre l'étape suivante ; après 5 « non tenue » de suite, le "
                            "propriétaire décide"]
     assert table_des_roles(projet).splitlines()[-3:] == [
         "lots en même temps : vps 1, pc 1, asset 1", "agents en même temps : sans plafond",
@@ -192,7 +192,7 @@ def test_la_table_des_roles_a_sept_lignes_et_dit_le_parallelisme_et_le_poids_du_
 
 def test_le_poids_du_verdict_du_testeur_se_regle_et_se_refuse_s_il_se_lit_mal(tmp_path, vrai):
     """Sans la section, le testeur informe et le propriétaire ouvre : un dépôt ne perd pas sa garde par oubli."""
-    assert (vrai.testeur_ouvre, vrai.testeur_refus_max) == (True, 2)
+    assert (vrai.testeur_ouvre, vrai.testeur_refus_max) == (True, 5)
     assert (_charger(tmp_path, TOML).testeur_ouvre, _charger(tmp_path, TOML).testeur_refus_max) == (False, 2)
     regle = _charger(tmp_path, TOML + "\n[testeur]\nouvre = true\nrefus_max = 3\n")
     assert (regle.testeur_ouvre, regle.testeur_refus_max) == (True, 3)

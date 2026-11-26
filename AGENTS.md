@@ -45,7 +45,8 @@ construit. Le détail : [docs/WORKFLOW.md](docs/WORKFLOW.md) et
 - **Une étape est tenue quand le testeur l'a jouée seul et que son récit le
   prouve** : la suivante s'ouvre alors sans attendre. Un objectif qu'il ne
   trouve pas en cinq essais est bloqué, et l'étape n'est pas tenue : la
-  chaîne corrige d'abord, une fois seule, puis s'arrête. Aller vite
+  chaîne corrige seule, et s'arrête au cinquième « non tenue » de suite
+  (`[testeur] refus_max`). Aller vite
   n'adoucit pas ce critère.
 - **Le propriétaire garde le dernier mot.** Il joue quand il veut ; ce qu'il
   écrit sur l'issue de l'étape passe devant tout verdict, et rien ne s'y

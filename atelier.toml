@@ -98,7 +98,7 @@ artiste = 1800
 # seule un tour de correction : le propriétaire décide.
 [testeur]
 ouvre = true
-refus_max = 2
+refus_max = 5
 
 # Ce qu'un agent n'a pas le droit de lancer pendant un lot : la suite entière
 # du jeu, et une simulation plus longue que ce nombre de jours. La CI joue la
