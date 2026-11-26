@@ -16,6 +16,7 @@ CHEMIN_CHEFS_LIEUX = Path(__file__).resolve().parent.parent / 'data/chefs-lieux-
 _CLES_CHEFS_LIEUX = frozenset({'date', 'reference', 'unite', 'description', 'fidelite', 'chefs_lieux', 'sans_ville'})
 _DATE_CHEFS_LIEUX, _REFERENCE_CHEFS_LIEUX = '1400-01-01', 'EPSG:4326'
 _URL = re.compile(r'https?://\S+')
+_ARTICLES_DE_REGION = ("le ", "la ", "les ", "l'")
 
 @dataclasses.dataclass(frozen=True)
 class ChefLieu:
@@ -26,9 +27,11 @@ class ChefLieu:
 
 @dataclasses.dataclass(frozen=True)
 class ChefsLieux:
-    """cell_id → chef-lieu sourcé, et cell_id → raison d'une terre où l'histoire ne nomme aucune ville."""
+    """cell_id → chef-lieu sourcé ; cell_id → raison d'une terre où l'histoire ne nomme aucune ville ;
+    cell_id → nom de cette terre, avec son article (« le Souf »), pour les mêmes cellules."""
     lignes: types.MappingProxyType
     sans_ville: types.MappingProxyType
+    regions: types.MappingProxyType
 
 def charger_noms(chemin=None):
     """Valide toutes les listes, y compris celles que la carte ne consulte pas."""
@@ -65,7 +68,7 @@ def _chefs_lieux(chemin):
     if document['date'] != _DATE_CHEFS_LIEUX or document['reference'] != _REFERENCE_CHEFS_LIEUX: raise ValueError('chefs-lieux : date ou référence inattendue')
     for cle in ('unite', 'description', 'fidelite'): _texte_chef_lieu(document[cle], cle)
     if not isinstance(document['chefs_lieux'], list) or not isinstance(document['sans_ville'], list): raise ValueError('chefs-lieux : listes attendues')
-    vues, noms, lignes, sans_ville = set(), set(), {}, {}
+    vues, noms, lignes, sans_ville, regions = set(), set(), {}, {}, {}
     for ligne in document['chefs_lieux']:
         cid = _cellule_chef_lieu(ligne, vues)
         if set(ligne) != {'cell_id', 'nom', 'lat', 'lon', 'source'}: raise ValueError(f'chefs-lieux, cellule {cid} : champs cell_id, nom, lat, lon, source attendus')
@@ -74,11 +77,22 @@ def _chefs_lieux(chemin):
         if nom.strip().casefold() in noms: raise ValueError(f'chefs-lieux, cellule {cid} : nom {nom} deux fois')
         noms.add(nom.strip().casefold())
         lignes[cid] = ChefLieu(nom, _degres(ligne['lat'], LATITUDE_MAX, f'cellule {cid} lat'), _degres(ligne['lon'], LONGITUDE_MAX, f'cellule {cid} lon'), source)
+    pris = set()
     for ligne in document['sans_ville']:
         cid = _cellule_chef_lieu(ligne, vues)
-        if set(ligne) != {'cell_id', 'raison'}: raise ValueError(f'chefs-lieux, cellule {cid} : champs cell_id, raison attendus')
+        if set(ligne) != {'cell_id', 'region', 'raison'}: raise ValueError(f'chefs-lieux, cellule {cid} : champs cell_id, region, raison attendus')
+        region = _texte_chef_lieu(ligne['region'], f'cellule {cid} region')
+        droite = region.replace("\u2019", "'")
+        article = next((a for a in _ARTICLES_DE_REGION if droite.startswith(a) and droite[len(a):].strip()), None)
+        if article is None: raise ValueError(f'chefs-lieux, cellule {cid} : région {region} sans article ({", ".join(a.strip() for a in _ARTICLES_DE_REGION)})')
+        sans_article = droite[len(article):].strip().casefold()
+        if droite.strip().casefold() in noms or sans_article in noms: raise ValueError(f'chefs-lieux, cellule {cid} : région {region} est le nom d\'un chef-lieu')
+        if droite.strip().casefold() in pris: raise ValueError(f'chefs-lieux, cellule {cid} : région {region} deux fois')
+        pris.add(droite.strip().casefold())
+        regions[cid] = region
         sans_ville[cid] = _texte_chef_lieu(ligne['raison'], f'cellule {cid} raison')
-    return ChefsLieux(types.MappingProxyType(dict(sorted(lignes.items()))), types.MappingProxyType(dict(sorted(sans_ville.items()))))
+    return ChefsLieux(types.MappingProxyType(dict(sorted(lignes.items()))), types.MappingProxyType(dict(sorted(sans_ville.items()))),
+                      types.MappingProxyType(dict(sorted(regions.items()))))
 def charger_chefs_lieux(chemin=None):
     """Lit et valide le fichier une fois par chemin ; le résultat est immuable."""
     return _chefs_lieux(str(Path(chemin or CHEMIN_CHEFS_LIEUX).resolve()))

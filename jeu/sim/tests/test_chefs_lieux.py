@@ -306,12 +306,17 @@ def _gater(document, defaut):
     elif defaut == "longitude non finie": ligne["lon"] = float("nan")
     elif defaut == "champ en trop": ligne["population"] = 1000
     elif defaut == "raison vide": sans["raison"] = ""
+    elif defaut == "région vide": sans["region"] = ""
+    elif defaut == "région deux fois": document["sans_ville"][1]["region"] = sans["region"].upper()
+    elif defaut == "région sans article": sans["region"] = "Jura"
+    elif defaut == "région d'un chef-lieu": sans["region"] = "la " + ligne["nom"]
     return document
 
 
 DEFAUTS = ("clé en trop", "clé absente", "date", "fidélité vide", "cellule en texte", "cellule booléenne", "cellule deux fois",
            "nommée et sans ville", "nom deux fois", "nom vide", "source sans URL", "latitude hors bornes",
-           "longitude non finie", "champ en trop", "raison vide")
+           "longitude non finie", "champ en trop", "raison vide", "région vide", "région deux fois", "région sans article",
+           "région d'un chef-lieu")
 
 
 @pytest.mark.parametrize("defaut", DEFAUTS)
@@ -335,6 +340,17 @@ def test_le_fichier_des_chefs_lieux_se_lit_une_fois_et_ne_change_pas():
         chefs.lignes[cid] = None
     with pytest.raises(dataclasses.FrozenInstanceError):
         chefs.lignes[cid].nom = "Autre"
+    with pytest.raises(TypeError):
+        chefs.regions[next(iter(chefs.regions))] = "le Souf"
+
+
+def test_chaque_terre_sans_ville_porte_sa_region_avec_son_article():
+    from sim.noms import _ARTICLES_DE_REGION, charger_chefs_lieux
+    chefs = charger_chefs_lieux()
+    assert chefs.sans_ville, "échantillon vide : aucune terre déclarée sans ville"
+    assert list(chefs.regions) == sorted(chefs.sans_ville)
+    assert all(r.startswith(_ARTICLES_DE_REGION) for r in chefs.regions.values())
+    assert len({r.casefold() for r in chefs.regions.values()}) == len(chefs.regions)
 
 
 def test_le_bourg_suit_le_siege_puis_la_ville_puis_le_chef_lieu(livre):
@@ -365,8 +381,10 @@ def test_la_regle_du_bourg_refuse_chaque_ligne_fausse(livre):
     from sim.noms import ChefLieu, ChefsLieux, bourgs_historiques, charger_chefs_lieux
     monde, attribution, chefs = livre.monde, livre.monde.attribution_villes, charger_chefs_lieux()
     def avec(lignes=None, sans_ville=None):
+        regions = dict(chefs.regions) if sans_ville is None else {c: chefs.regions.get(c, "la terre d'épreuve") for c in sans_ville}
         return ChefsLieux(types.MappingProxyType(dict(chefs.lignes) if lignes is None else lignes),
-                          types.MappingProxyType(dict(chefs.sans_ville) if sans_ville is None else sans_ville))
+                          types.MappingProxyType(dict(chefs.sans_ville) if sans_ville is None else sans_ville),
+                          types.MappingProxyType(regions))
     cid, ligne = next(iter(chefs.lignes.items()))
     loin = monde.carte[next(c for c in sorted(chefs.lignes) if c != cid)]["centroid"]
     deplacee = {**chefs.lignes, cid: dataclasses.replace(ligne, lat=loin["lat"], lon=loin["lon"])}
