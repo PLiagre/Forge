@@ -205,8 +205,12 @@ def nom_de_seigneur(nom_du_lieu, region=None):
     d'Orléans, du Mans), une désignation (« campagne de … ») prend « de la », et le bourg d'une terre déclarée sans
     ville prend sa `region` telle qu'écrite dans les données, article en minuscule (Seigneur du Souf, de l'île de Jura)."""
     if region is not None: return f'{SEIGNEUR} {_de_la_province(region)}'
-    if nom_du_lieu.startswith(_CAMPAGNE + ' '): return f'{SEIGNEUR} de la {nom_du_lieu}'
+    if nom_du_lieu.startswith(_CAMPAGNE + ' '): return f'{SEIGNEUR} de {avec_son_article(nom_du_lieu)}'
     return f'{SEIGNEUR} {_de_la_province(nom_du_lieu)}'
+def avec_son_article(nom_du_lieu):
+    """Le nom d'un lieu tel qu'une phrase l'écrit après « de » : une désignation prend son article (« la campagne de
+    Bar-le-Duc, au nord-est »), un nom de ville reste tel quel."""
+    return f'la {nom_du_lieu}' if nom_du_lieu.startswith(_CAMPAGNE + ' ') else nom_du_lieu
 def _vers(direction):
     """« au nord », « à l'est-sud-est »."""
     return ("à l'" if direction.startswith(('est', 'ouest')) else 'au ') + direction

@@ -3084,7 +3084,9 @@ Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
   Gediminides de Jagellon au titre de la Pologne). Un prince d'Empire n'a pas de
   suzerain : son `ensemble` se lit dans la fiche du pays de `/terres` ;
 - `ville` `{batie, scene, raison}` : `batie` dit si la capitale a une ville bâtie
-  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas.
+  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas ; le siège d'un petit seigneur, une
+  désignation, y prend son article (« la ville de la campagne de Borgund, au nord-ouest n'est pas encore bâtie »,
+  `noms.avec_son_article`).
 
 Le `nom` d'un petit seigneur vient des noms servis, non de son identifiant. La
 liste des capitales bâties est `data/villes-3d.json` (`sim/villes_3d.py`) : les

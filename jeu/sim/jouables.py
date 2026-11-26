@@ -112,7 +112,7 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
     bâtie que si sa maison est déclarée dans la donnée des villes en 3D ; sinon sa raison le dit."""
     from types import SimpleNamespace
     from sim.maisons_servies import _nom_de_maison
-    from sim.noms import noms_depuis_monde
+    from sim.noms import avec_son_article, noms_depuis_monde
     from sim.pays_servis import fiches_des_pays, pays_des_maisons, regne, sources_des_pays
     from sim.villes_3d import charger_villes_3d, raison_sans_ville
     tenus = _lieux_tenus(monde)
@@ -150,6 +150,6 @@ def maisons_jouables(monde, sources=None, noms=None, villes=None) -> list:
             "pays": court(pays[m.id]), "regne": [court(p) for p in regnes[m.id]],
             "siege": siege, "suzerain": suzerain,
             "ville": {"batie": batie, "scene": scenes.get(m.id),
-                      "raison": None if batie else raison_sans_ville(villes, siege["nom"], baties)},
+                      "raison": None if batie else raison_sans_ville(villes, avec_son_article(siege["nom"]), baties)},
         })
     return resultat
