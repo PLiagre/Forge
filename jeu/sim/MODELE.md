@@ -1191,10 +1191,14 @@ avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
 fixent les mêmes quatre lieux initiaux de la cellule 10430, soit 16 151 foyers
 complets (4 049 + 3 × 4 034) :
-- part 0,1 : 0 foyers internes, 8 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 15 foyers hors domaine.
-Le mieux-vivre au rythme de l'année garde la direction (une part plus lourde fait
-partir davantage), à l'échelle de quelques foyers par an.
+- part 0,15 : 0 foyers internes, 28 foyers hors domaine ;
+- part 0,3 : 0 foyers internes, 58 foyers hors domaine.
+Jusqu'à 0,3, le mieux-vivre au rythme de l'année garde la direction (une part plus
+lourde fait partir davantage), à l'échelle de quelques dizaines de foyers par an.
+À 0,1, deux fois la coutume, l'écart de réserve avec les voisins ne franchit pas
+une tranche : aucun foyer ne part. Au-delà de 0,3, la faim tue les foyers de Bar
+avant qu'ils partent : 32 foyers à 0,4, 13 à 0,6, quand le monde compte à 0,6
+51 000 habitants de moins qu'à 0,1.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -2391,7 +2395,7 @@ Temps mesuré du chargement sur srv1914711 (AMD EPYC 9354P) :
 `places_du_monde` 0,35 s, la table 0,011 s, `World.charger` 1,93 s.
 
 Après Production et avant Commerce, l'étape Prélèvement relit `World.parts`
-(la coutume `PART_COUTUMIERE` vaut 0,03, niveau 2). Elle entame
+(la coutume `PART_COUTUMIERE` vaut 0,05, niveau 2). Elle entame
 chaque groupe en route de `PERTE_CONVOI_PAR_JOUR` (0,01, niveau 2), cumule
 les kilos mangés par les charretiers et bêtes dans `mange_convois_kg`, puis
 verse les arrivées du tick dans le grenier. Elle retire enfin la part de la
@@ -2422,12 +2426,14 @@ maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`
 `habitants(p)` est la somme des populations des cellules après cette année.
 La perte `1 − habitants(p) / habitants(0)` se mesure contre le même monde
 sans prélèvement au même jour, car le monde grandit pendant l'année.
-Convois compris, la part nulle laisse 65055376 habitants ; la part 0,03
-en laisse 64840718 (perte 0,33 %), la part 0,04 en laisse 64742618 (perte
-0,48 %). La règle de `PART_COUTUMIERE` demande la plus haute part au centième
-qui coûte au plus 1 % : sa perte reste sous ce seuil et celle de
-`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Ces mesures du monde livré ne la
-tiennent plus (voir plus bas). Prendre plus coûte davantage.
+Convois compris, la part nulle laisse 65055376 habitants ; la part 0,05
+en laisse 64620472 (perte 0,67 %), la part 0,06 en laisse 64439364 (perte
+0,95 %), la part 0,07 en laisse 64241928 (perte 1,25 %). Prendre plus coûte
+davantage. `PART_COUTUMIERE` est la plus haute part au centième qui coûte au
+plus 1 % : sa perte reste sous ce seuil et celle de
+`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Ce seuil se juge sur les bras
+calibrés, aux deux paragraphes suivants : à bras 0,1, la part 0,06 reste
+sous 1 %, et cette référence ne garde que la direction.
 C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
 pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
@@ -2435,8 +2441,10 @@ Tout changement de production, de faim ou de départs exige de remesurer.
 **Calibration de la part coutumière à 95, sans départs.** Le même protocole
 (graine 0, 365 ticks numérotés, `random.Random(0)`, taux du mieux-vivre à 0)
 garde les bras à 95. À part nulle, il reste 65061219 habitants ;
-la part 0,03 en laisse 64833469 (perte 0,35 %), la part 0,04 en laisse
-64728105 (perte 0,51 %). Ni 0,03 ni 0,04 ne dépasse la borne de 1 %.
+la part 0,05 en laisse 64601901 (perte 0,71 %), la part 0,06 en laisse
+64408677 (perte 1,00 %, exactement 1,002966 %), la part 0,07 en laisse
+64195917 (perte 1,33 %). La borne de 1 % reste tenue pour 0,05 et dépassée
+pour 0,06.
 Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
@@ -2447,17 +2455,15 @@ morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
 - part 0,00 : 65062311 habitants ; perte 0,000000 % ; 7644 foyers déplacés.
-- part 0,03 : 64833595 habitants ; perte 0,351534 % ; 6064 foyers déplacés.
-- part 0,04 : 64728507 habitants ; perte 0,513053 % ; 5471 foyers déplacés.
+- part 0,05 : 64602495 habitants ; perte 0,706732 % ; 5052 foyers déplacés.
+- part 0,06 : 64409160 habitants ; perte 1,003885 % ; 4475 foyers déplacés.
 - part 0,10 : 63272706 habitants ; perte 2,750602 % ; 3163 foyers déplacés.
-Calibration en échec : perte(0,03) = 0,351534 % et perte(0,04) = 0,513053 % restent sous 1 %.
-Les quatre populations décroissent strictement ; 0,10 coûte 2,75 %.
+Calibration tenue : perte(0,05) = 0,706732 % ≤ 1 % < perte(0,06) = 1,003885 %.
+La part 0,07 y coûte 1,329419 %. Les quatre populations décroissent
+strictement ; 0,10 est trop coûteux. C'est ce protocole, celui du monde
+complet, qui fixe `PART_COUTUMIERE`.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
-
-Sur le monde livré, la part 0,03 n'est plus la plus haute part au centième qui
-coûte au plus 1 % : la règle `PART_COUTUMIERE` n'est plus tenue, et sa remesure
-attend une décision.
 
 `World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
 par maison et un facteur commun de perte : aucune allocation par lieu.
@@ -2607,7 +2613,7 @@ appliqué : choisir une terre avant d'ouvrir le grenier »), puis la maison du j
 Le dépôt commun et `--gestes` acceptent toute maison connue, chemin commun de l'IA.
 
 `fixer_part` accepte exactement `{"type": "fixer_part", "maison": <id du registre>, "part": <fraction>}`.
-Niveau 2, plausible : `PART_COUTUMIERE = 0.03`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
+Niveau 2, plausible : `PART_COUTUMIERE = 0.05`, `PART_MAXIMALE = 0.6` dans `constants.py`. Le dépôt refuse champs absents ou inconnus, maison inconnue ou mal formée, booléens, valeurs non numériques, non finies ou hors bornes, sans modifier l'attente.
 Le geste copié et gelé remplace à sa position celui de la même maison après validation.
 Après la garde du tick, il écrit seulement `World.parts`, sans lecture du registre ni prélèvement ; l'étape existante vide l'attente, dans le même ordre qu'avant.
 Sous le verrou, le service exige un départ appliqué et la maison du joueur. Le dépôt commun accepte toute maison connue ; `--gestes` garde ce chemin et sa chronologie.

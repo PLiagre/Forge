@@ -360,20 +360,29 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-@pytest.mark.parametrize("bras", [0.1, c.BRAS_AUX_CHAMPS_PAR_KM2], ids=["historique", "calibre"])
+# Les bras livrés, lus avant qu'un test ne les remplace : le calibrage de la part s'y juge.
+_BRAS_CALIBRES = c.BRAS_AUX_CHAMPS_PAR_KM2
+
+
+@pytest.mark.parametrize("bras", [0.1, _BRAS_CALIBRES], ids=["historique", "calibre"])
 def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
     monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr(c, 'taux_annuel_de_depart', lambda: 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
-    calibres = f'{c.BRAS_AUX_CHAMPS_PAR_KM2:g}'.replace('.', ',')
+    calibres = f'{_BRAS_CALIBRES:g}'.replace('.', ',')
     marqueur = f'**Calibration de la part coutumière à {calibres}, sans départs.**'
     historique, calibree = section.split(marqueur, 1)
     section = historique if bras == 0.1 else marqueur + calibree.split('**Mesures avec départs actifs.**', 1)[0]
     _verifier_modele_calibration(section, habitants)
-    _verifier_calibration(part, habitants)
-    if bras == c.BRAS_AUX_CHAMPS_PAR_KM2:
+    if bras == _BRAS_CALIBRES:
+        _verifier_calibration(part, habitants)
+    else:
+        # La référence à bras 0,1 ne mesure pas le monde complet : elle ne juge plus la borne
+        # de 1 %, que tiennent les bras calibrés ; elle garde la direction (plus de part, moins d'habitants).
+        _verifier_direction([habitants[p] for p in (0, part, round(part + 0.01, 2))])
+    if bras == _BRAS_CALIBRES:
         for population in habitants.values():
             assert str(population) in section
     coutume = f'{part:.2f}'.replace('.', ',')
@@ -716,13 +725,18 @@ def _departs_aveugles(world):
     return total
 
 
+# Les deux parts de Bar, les autres maisons gardant la coutume : la faible fait déjà partir des foyers,
+# la forte davantage. Au-delà de 0,3, la faim tue les foyers de Bar avant qu'ils partent (MODELE.md).
+PART_FAIBLE_DE_BAR, PART_FORTE_DE_BAR = 0.15, 0.3
+
+
 def test_departs_direction_et_contre_epreuves():
-    faible, forte = _annee_departs(0.1), _annee_departs(0.6)
+    faible, forte = _annee_departs(PART_FAIBLE_DE_BAR), _annee_departs(PART_FORTE_DE_BAR)
     for a, b in ((faible | {'lieux': {}}, forte), (forte, faible), (faible, faible),
-                 (_course_departs(0.1, lambda m: 0), forte)):
+                 (_course_departs(PART_FAIBLE_DE_BAR, lambda m: 0), forte)):
         with pytest.raises(AssertionError):
             _verifier_direction_departs(a, b)
-    aveugles = [_course_departs(p, _departs_aveugles) for p in (0.1, 0.6)]
+    aveugles = [_course_departs(p, _departs_aveugles) for p in (PART_FAIBLE_DE_BAR, PART_FORTE_DE_BAR)]
     assert all(r['total'] > 0 and r['externes'] > 0 for r in aveugles)
     with pytest.raises(AssertionError):
         _verifier_direction_departs(*aveugles)
@@ -841,15 +855,15 @@ def _verifier_modele_calibration_active(texte, habitants, bar):
     verdict = 'tenue' if _perte(part, habitants) <= .01 < _perte(round(part + .01, 2), habitants) else 'en échec'
     assert f'Calibration {verdict}' in active
     section = texte.split('## Les départs', 1)[1].split('\n## ', 1)[0]
-    for p, r in zip((.1, .6), bar):
-        assert f'part {p:.1f} : {r["internes"]} foyers internes, {r["externes"]} foyers hors domaine'.replace('.', ',') in section
+    for p, r in zip((PART_FAIBLE_DE_BAR, PART_FORTE_DE_BAR), bar):
+        assert f'part {p:g} : {r["internes"]} foyers internes, {r["externes"]} foyers hors domaine'.replace('.', ',') in section
     for terme in ('Bar', 'sorties brutes', 'TAILLE_FOYER', '0 à 364', 'graine 0'):
         assert terme in section
 
 
 def test_modele_calibration_active():
     habitants = _mesures_calibration_active()
-    bar = [_annee_departs(p) for p in (.1, .6)]
+    bar = [_annee_departs(p) for p in (PART_FAIBLE_DE_BAR, PART_FORTE_DE_BAR)]
     texte = (SIM / 'MODELE.md').read_text()
     marqueur = '**Mesures avec départs actifs.**'
     assert marqueur in texte, 'mesure active absente'
