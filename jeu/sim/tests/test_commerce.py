@@ -4541,8 +4541,6 @@ def test_rayon_ville_affamee_donnee_refuse_un_fichier_absent_et_relit(tmp_path):
 # Les épreuves du monde de 1400. Chacune charge son propre monde.
 
 _VILLES_DE_L_APPEL = ("Paris", "Milan", "Gand", "Alexandrie", "Le Caire")
-_VILLES_JUGEES_AUX_HABITANTS_DE_L_APPEL = ("Paris", "Milan", "Gand", "Alexandrie")
-_CAIRE_DE_L_APPEL = "Le Caire"
 
 
 class _SuiviDeLAppel:
@@ -4666,19 +4664,39 @@ def _etat_de_l_appel(suivi):
     return etat
 
 
-def _villes_moins_nourries(candidat, reference):
-    """La liste des fautes : une ville jugée qui n'a pas strictement plus d'habitants ou de grain que dans la référence.
+def _exemptee_des_habitants(ville):
+    """Une ville sans mort de faim ni perte nette au pas des départs ne se juge pas à ses habitants.
 
-    Paris, Milan, Gand et Alexandrie se jugent à leurs habitants et à leur grain ; Le Caire à son grain
-    seul (il ne peut pas gagner d'habitants : voir le test).
+    Ses habitants ne bougent plus que par ses naissances, par les réfugiés de ses voisines et par les
+    hommes que sa maison lève : les juger mesurerait la faim des voisines ou la guerre, pas la sienne.
+    Milan est dans ce cas sous l'appel : sa maison lève sur un grenier plus plein, et les hommes encore
+    en campagne au 365e jour (17 373, contre 2 236 sous le commerce d'avant) manquent à ses habitants,
+    quand le mieux-vivre et la migration lui en apportent et que ses voisines meurent moins de faim.
+    """
+    return ville["morts"] == 0 and ville["pertes"] == 0
+
+
+def _villes_moins_nourries(candidat, reference):
+    """La liste des fautes : une ville moins nourrie dans le candidat que dans la référence.
+
+    Chaque ville a strictement plus de grain ; strictement moins de morts de faim si la référence en a,
+    jamais plus sinon ; strictement plus d'habitants, sauf si le candidat l'exempte par ses comptes
+    (`_exemptee_des_habitants`), jamais par son nom.
     """
     fautes = []
     for nom in _VILLES_DE_L_APPEL:
-        if nom in _VILLES_JUGEES_AUX_HABITANTS_DE_L_APPEL and not candidat[nom]["habitants"] > reference[nom]["habitants"]:
-            fautes.append(f"{nom} : {candidat[nom]['habitants']} habitants, pas plus que {reference[nom]['habitants']}")
-        if not candidat[nom]["stock"] > reference[nom]["stock"]:
-            fautes.append(f"{nom} : {candidat[nom]['stock']:.0f} kg, pas plus que {reference[nom]['stock']:.0f}")
+        ville, avant = candidat[nom], reference[nom]
+        if not _exemptee_des_habitants(ville) and not ville["habitants"] > avant["habitants"]:
+            fautes.append(f"{nom} : {ville['habitants']} habitants, pas plus que {avant['habitants']}")
+        if not ville["stock"] > avant["stock"]:
+            fautes.append(f"{nom} : {ville['stock']:.0f} kg, pas plus que {avant['stock']:.0f}")
+        if not (ville["morts"] < avant["morts"] if avant["morts"] else ville["morts"] == 0):
+            fautes.append(f"{nom} : {ville['morts']} morts de faim, pas moins que {avant['morts']}")
     return fautes
+
+
+def _nommee_aux_habitants(fautes, nom):
+    return any(faute.startswith(f"{nom} : ") and " habitants, pas plus que " in faute for faute in fautes)
 
 
 def _imprimer_la_table_de_l_appel(ce_lot, avant):
@@ -4691,12 +4709,11 @@ def _imprimer_la_table_de_l_appel(ce_lot, avant):
 
 
 def test_grain_monte_vers_les_villes_un_an(monkeypatch):
-    """Après un an, Paris, Milan, Gand et Alexandrie ont plus d'habitants et de grain qu'avec le commerce d'avant ; Le Caire plus de grain.
+    """Après un an, chaque ville affamée a plus de grain et moins de morts de faim qu'avec le commerce d'avant, et plus d'habitants.
 
-    Pourquoi Le Caire n'est pas jugé sur ses habitants : le test le dérive. Sous les deux règles, Le Caire
-    n'a aucun mort de `_apply_mortality` et aucune perte nette au pas des départs. Ses habitants ne bougent
-    donc que par les naissances et par les réfugiés de ses voisines : les juger mesurerait la faim d'Alexandrie,
-    pas la sienne. Si l'un de ces zéros tombe, la règle de l'appel perd son fondement.
+    Une ville qui, sous l'appel, n'a ni mort de faim ni perte nette au pas des départs n'est pas jugée sur ses
+    habitants (`_exemptee_des_habitants`) : le test le dérive de ses comptes, et la contre-épreuve 2 prouve
+    qu'un seul mort ou une seule perte la fait juger.
     """
     import copy
     import sim.constants as constantes
@@ -4710,15 +4727,27 @@ def test_grain_monte_vers_les_villes_un_an(monkeypatch):
     avant = _etat_de_l_appel(_jouer_de_l_appel(copy.deepcopy(depart), 365, monkeypatch, avant_l_appel=True))
     _imprimer_la_table_de_l_appel(ce_lot, avant)
     assert _villes_moins_nourries(ce_lot, avant) == []
-    # Le Caire : aucun mort, aucune perte nette, sous les deux règles.
-    for regle in (ce_lot, avant):
-        assert regle[_CAIRE_DE_L_APPEL]["morts"] == 0 and regle[_CAIRE_DE_L_APPEL]["pertes"] == 0
-    # Contre-épreuve 1 : le commerce d'avant ne nourrit pas mieux que lui-même, et ne nourrit pas Paris.
+    jugees = [nom for nom in _VILLES_DE_L_APPEL if not _exemptee_des_habitants(ce_lot[nom])]
+    assert jugees, "échantillon vide : aucune ville n'est jugée sur ses habitants"
+    # Contre-épreuve 2, sur chaque ville : sans mort ni perte et sans habitants de plus, elle n'est pas nommée
+    # à ses habitants ; un seul mort de faim, ou une seule perte nette, l'y fait nommer.
+    for nom in _VILLES_DE_L_APPEL:
+        exemptee = copy.deepcopy(ce_lot)
+        exemptee[nom].update(morts=0, pertes=0, habitants=min(ce_lot[nom]["habitants"], avant[nom]["habitants"]))
+        assert not _nommee_aux_habitants(_villes_moins_nourries(exemptee, avant), nom)
+        for compte in ("morts", "pertes"):
+            touchee = copy.deepcopy(exemptee)
+            touchee[nom][compte] = 1
+            assert _nommee_aux_habitants(_villes_moins_nourries(touchee, avant), nom), (
+                f"{nom} : un {compte[:-1]} sous l'appel, et ses habitants ne sont toujours pas jugés")
+    # Contre-épreuve 1 : le commerce d'avant ne nourrit pas mieux que lui-même, et nourrit moins Paris.
+    # Il ne lui porte que le manque du jour quand son grenier passe sous une ration ; l'appel, tout le manque de ses champs.
     fautes = _villes_moins_nourries(avant, avant)
     for nom in _VILLES_DE_L_APPEL:
         assert any(faute.startswith(nom) for faute in fautes), f"{nom} devrait être nommée : {fautes}"
-    assert avant["Paris"]["recu"] == 0.0, "Paris reçoit du grain sous le commerce d'avant"
     assert ce_lot["Paris"]["recu"] > 0.0, "échantillon vide : l'appel n'a rien porté à Paris"
+    assert ce_lot["Paris"]["recu"] > avant["Paris"]["recu"], (
+        f"Paris reçoit {avant['Paris']['recu']:.0f} kg sous le commerce d'avant, {ce_lot['Paris']['recu']:.0f} sous l'appel")
 
 
 def test_conservation_appel_ville_affamee_masse_paniers_et_garde(monkeypatch):
