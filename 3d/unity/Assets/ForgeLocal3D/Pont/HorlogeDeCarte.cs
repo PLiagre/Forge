@@ -12,8 +12,9 @@ namespace Forge.Pont {
     // `CommandesDuTemps`) ; la vitesse part au service (`POST /vitesse`), et le panneau affiche celle qu'il rend. Une
     // requête à la fois, hors du fil principal ; une vitesse demandée pendant une lecture part juste après. Sans service,
     // le panneau le dit, et aucune vitesse ne part : on ne règle pas un temps qu'on ne connaît pas.
-    // Le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de la
-    // carte (`ReglagesDesVues`) ; une fois le monde vu en marche, la reprise est celle qu'il avait.
+    // Le jeu s'ouvre en pause. À l'ouverture, en pause, Espace et « Reprendre » lancent le temps à la vitesse de départ
+    // (`ReglagesDesVues.VitesseDepart`, un palier lent : le joueur voit les jours défiler) ; une fois le monde vu en marche,
+    // la reprise est celle qu'il avait. Le panneau dit la date et la vitesse sur une seule ligne.
     [DefaultExecutionOrder(10)] // après CarteDessinee, dont il prend la caméra créée
     public sealed class HorlogeDeCarte : MonoBehaviour {
         public const float PERIODE_LECTURE_S = 0.25f;
@@ -62,11 +63,11 @@ namespace Forge.Pont {
             enCours = Task.Run(() => c.Lire());
         }
 
-        // Pause si le monde avance ; sinon, il repart à la vitesse qu'il avait, ou à celle de la carte s'il s'est ouvert en pause.
+        // Pause si le monde avance ; sinon, il repart à la vitesse qu'il avait, ou à la vitesse de départ s'il s'est ouvert en pause.
         public void Basculer() {
             if (Lue == null) return;
             if (Lue.JoursParSeconde > 0) { vitesseDeReprise = Lue.JoursParSeconde; Demander(0); }
-            else Demander(vitesseDeReprise ?? ReglagesDesVues.Charger().VitesseCarte);
+            else Demander(vitesseDeReprise ?? ReglagesDesVues.Charger().VitesseDepart);
         }
         public void Accelerer() { if (Lue != null) Demander(Suivante(Lue.JoursParSeconde, +1)); }
         public void Ralentir() { if (Lue != null) Demander(Suivante(Lue.JoursParSeconde, -1)); }
@@ -79,7 +80,7 @@ namespace Forge.Pont {
         }
 
         public static string Decrire(HorlogeLue h) =>
-            "Jour " + Entier(h.Date.JourDeLAnnee) + " de " + Entier(h.Date.Annee) + "\n"
+            "Jour " + Entier(h.Date.JourDeLAnnee) + " de " + Entier(h.Date.Annee) + " · "
             + (h.JoursParSeconde == 0 ? "En pause" : Nombre(h.JoursParSeconde) + (h.JoursParSeconde >= 2 ? " jours" : " jour") + " par seconde");
 
         private void Demander(double joursParSeconde) => vitesseDemandee = joursParSeconde;

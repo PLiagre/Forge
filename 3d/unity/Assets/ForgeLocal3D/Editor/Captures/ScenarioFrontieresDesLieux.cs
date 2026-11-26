@@ -46,6 +46,9 @@ namespace ForgeLocal3D.Captures
             for (var a = AttentesDeCapture.Jusqua(() => ScenarioAccueil.Servie(cabinet) == maison && cabinet.Partie.Jouable != null && cabinet.Partie.Maison?.Presente == true
                 && !cabinet.Accueil.Ouvert && !cabinet.Accueil.Panneau.gameObject.activeSelf,
                 () => "après « Commencer » : maison « " + ScenarioAccueil.Servie(cabinet) + " », reçu « " + (cabinet.Partie.Recu?.Erreur ?? cabinet.Partie.Recu?.Absence) + " », accueil ouvert " + cabinet.Accueil.Ouvert); a.MoveNext();) yield return null;
+            // L'accueil se ferme dès le choix reçu, avant la maison servie : quelques images laissent le cabinet poser une fois la vue sur
+            // le siège servi, pour que ce cadrage-là ne passe pas après celui du scénario.
+            for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             // Les terres lues et appliquées aux lieux : ceux de Pampelune d'un autre pays que sa cellule portent le leur.
             var autres = guerre.Terres.AutresPaysDe(PAMPELUNE);
             if (autres.Count == 0) throw Faux("les terres servies ne donnent à la cellule " + PAMPELUNE + " aucun lieu d'un autre pays");

@@ -3,17 +3,21 @@ using NUnit.Framework;
 using UnityEngine;
 
 namespace Forge.Pont.Tests {
-    // Le joueur parcourt sa carte sans en sortir : le zoom va de toute la carte à `DEMI_MIN_KM`, le glissé et
-    // le zoom s'arrêtent aux bords de la carte servie. La caméra est en perspective et regarde à la verticale, nord en
-    // haut ; le point du sol sous la souris y reste, à la hauteur où le sol se trouve. La boîte est celle d'une carte de
-    // 4 000 × 3 000 km décentrée.
+    // Le joueur parcourt toute sa carte, même quand l'interface en cache une part : le zoom va de toute la carte, tenue
+    // dans la partie libre de l'écran, à `DEMI_MIN_KM` ; le glissé et le zoom mènent le point visé, sous le milieu de la
+    // partie libre, jusqu'aux bords de la carte servie, et pas au-delà. La caméra est en perspective et regarde à la
+    // verticale, nord en haut ; le point du sol sous la souris y reste, à la hauteur où le sol se trouve. La boîte est
+    // celle d'une carte de 4 000 × 3 000 km décentrée ; la partie libre de l'accueil est celle d'un écran de 1 920 × 1 080
+    // points sous un bandeau de 124 points, à gauche d'un panneau de 584 points.
     public sealed class VueDeCarteTests {
         private const float TOLERANCE = 1e-3f, LOIN = 1e7f;
         private static readonly Bounds BOITE = new Bounds(new Vector3(100, 0, -50), new Vector3(4000, 0, 3000));
         private static readonly Vector2 MILIEU = new Vector2(.5f, .5f);
+        private static readonly Rect TOUT = new Rect(0f, 0f, 1f, 1f), ACCUEIL = new Rect(0f, 0f, 1312f / 1920f, (1080f - 124f) / 1080f);
 
-        // Au plus loin, la vue tient dans la carte : sa hauteur ou sa largeur, la plus serrée des deux, sans marge.
-        private static float DemiMaxAttendu(float aspect) => Mathf.Min(BOITE.extents.z, BOITE.extents.x / aspect);
+        // Au plus loin, toute la carte tient dans la partie libre : sa hauteur et sa largeur, la plus large des deux la touche.
+        private static float DemiMaxAttendu(float aspect, Rect libre) => Mathf.Max(BOITE.extents.z / libre.height, BOITE.extents.x / (aspect * libre.width));
+        private static float DemiMaxAttendu(float aspect) => DemiMaxAttendu(aspect, TOUT);
         private static readonly float DEMI_CHAMP = Mathf.Tan(VueDeCarte.CHAMP * Mathf.Deg2Rad / 2f);
         private static readonly float[] HAUTEURS = { 0f, 2f, 4.5f }; // le niveau de la mer, une colline, un sommet des Alpes
 
@@ -27,6 +31,8 @@ namespace Forge.Pont.Tests {
             public void Poser(VueDeCarte v) { v.Changer(Camera.aspect); v.Poser(Camera, Carte); }
             // Le point du sol (x, hauteur, z) de la carte, en pixels de l'écran.
             public Vector2 AEcran(Vector2 sol, float hauteur) => Camera.WorldToScreenPoint(Carte.TransformPoint(new Vector3(sol.x, hauteur, sol.y)));
+            // Le même point en parts de la fenêtre, depuis le bas à gauche.
+            public Vector2 AFenetre(Vector2 sol) => Camera.WorldToViewportPoint(Carte.TransformPoint(new Vector3(sol.x, 0f, sol.y)));
             public void Dispose() { Camera.targetTexture = null; Object.DestroyImmediate(ecran); Object.DestroyImmediate(Camera.gameObject); Object.DestroyImmediate(Carte.gameObject); }
         }
 
@@ -104,34 +110,31 @@ namespace Forge.Pont.Tests {
             Assert.Less(loin, .25f / 10f, "contre-épreuve : de toute la carte, le lieu tient " + loin + " de la hauteur");
         }
 
-        // Ce que la vue montre, en (x, z) : gauche, bas, droite, haut.
-        private static Vector4 Montre(VueDeCarte v) =>
-            new Vector4(v.Centre.x - v.DemiLargeur, v.Centre.y - v.Demi, v.Centre.x + v.DemiLargeur, v.Centre.y + v.Demi);
-
-        private static void DansLaCarte(VueDeCarte v, string quand) {
-            Vector4 m = Montre(v);
-            if (2 * v.DemiLargeur < BOITE.size.x)
-                Assert.IsTrue(m.x >= BOITE.min.x - TOLERANCE && m.z <= BOITE.max.x + TOLERANCE, quand + " : la vue sort de la carte en x : " + m);
-            else Assert.AreEqual(BOITE.center.x, v.Centre.x, TOLERANCE, quand + " : plus large que la carte, la vue n'est pas centrée en x");
-            if (2 * v.Demi < BOITE.size.z)
-                Assert.IsTrue(m.y >= BOITE.min.z - TOLERANCE && m.w <= BOITE.max.z + TOLERANCE, quand + " : la vue sort de la carte en z : " + m);
-            else Assert.AreEqual(BOITE.center.z, v.Centre.y, TOLERANCE, quand + " : plus haute que la carte, la vue n'est pas centrée en z");
+        // Le point visé, sous le milieu de la partie libre, ne sort jamais de la carte.
+        private static void ViseDansLaCarte(VueDeCarte v, string quand) {
+            Vector2 p = v.Vise;
+            Assert.IsTrue(p.x >= BOITE.min.x - TOLERANCE && p.x <= BOITE.max.x + TOLERANCE && p.y >= BOITE.min.z - TOLERANCE && p.y <= BOITE.max.z + TOLERANCE, quand + " : le point visé sort de la carte : " + p);
         }
 
-        [Test] public void La_vue_s_ouvre_sur_toute_la_carte() {
+        // Le jeu s'ouvre sur la carte qui remplit l'écran, centrée ; on peut encore reculer jusqu'à toute la carte.
+        [Test] public void La_vue_s_ouvre_sur_la_carte_qui_remplit_l_ecran() {
             var v = new VueDeCarte(BOITE, 16f / 9f);
-            Assert.AreEqual(1f, v.Echelle); Assert.AreEqual(new Vector2(BOITE.center.x, BOITE.center.z), v.Centre);
-            Assert.AreEqual(DemiMaxAttendu(16f / 9f), v.Demi, TOLERANCE);
+            Assert.AreEqual(new Vector2(BOITE.center.x, BOITE.center.z), v.Centre);
+            Assert.AreEqual(Mathf.Min(BOITE.extents.z, BOITE.extents.x / (16f / 9f)), v.Demi, TOLERANCE, "la carte ne remplit pas l'écran sur son axe le plus serré");
+            Assert.Less(v.Echelle, 1f, "à l'ouverture, la vue est déjà au plus loin : on ne peut pas reculer jusqu'à toute la carte");
+            Assert.AreEqual(TOUT, v.Libre, "sans partie libre donnée, tout l'écran est libre");
+            // Tant que rien ne l'a menée, la vue d'ouverture suit la forme de la fenêtre.
+            foreach (float aspect in new[] { 0.5f, 4f / 3f, 2.4f }) { v.Changer(aspect); Assert.AreEqual(Mathf.Min(BOITE.extents.z, BOITE.extents.x / aspect), v.Demi, TOLERANCE, "à l'ouverture, en " + aspect + ", la carte ne remplit pas l'écran"); }
         }
 
         [Test] public void Le_zoom_est_borne_des_deux_cotes() {
             var v = new VueDeCarte(BOITE, 16f / 9f);
             v.Zoomer(1000, MILIEU);
             Assert.AreEqual(VueDeCarte.DEMI_MIN_KM, v.Demi, TOLERANCE, "au plus près");
-            DansLaCarte(v, "au plus près");
+            ViseDansLaCarte(v, "au plus près");
             v.Zoomer(-1000, MILIEU);
             Assert.AreEqual(1f, v.Echelle, "au plus loin"); Assert.AreEqual(DemiMaxAttendu(16f / 9f), v.Demi, TOLERANCE, "au plus loin");
-            Assert.AreEqual(new Vector2(BOITE.center.x, BOITE.center.z), v.Centre, "au plus loin, la vue n'est pas recentrée");
+            Assert.Less((v.Vise - new Vector2(BOITE.center.x, BOITE.center.z)).magnitude, TOLERANCE, "au plus loin, la vue n'est pas recentrée");
         }
 
         [Test] public void Un_cran_rapproche_du_pas_de_zoom() {
@@ -147,26 +150,81 @@ namespace Forge.Pont.Tests {
             Assert.Less((v.PointSous(ancre) - avant).magnitude, TOLERANCE, "le point sous la souris a bougé : " + v.PointSous(ancre) + " pour " + avant);
         }
 
-        // Au plus loin, quelle que soit la forme de la fenêtre, les quatre coins de l'écran tombent dans la carte : la
-        // caméra posée y lance ses rayons, et ils touchent le niveau de la mer dans la boîte. La carte touche le bord de
-        // l'écran sur son axe le plus serré : rien n'est perdu de ce qui tient.
-        [Test] public void Au_plus_loin_les_quatre_coins_de_l_ecran_tombent_dans_la_carte() {
-            int coins = 0;
-            foreach (float aspect in new[] { 0.5f, 1f, 4f / 3f, 16f / 9f, 2.4f }) {
-                using var temoin = new CameraTemoin(); var v = new VueDeCarte(BOITE, aspect); v.Zoomer(-1000, MILIEU);
-                v.Poser(temoin.Camera, temoin.Carte); temoin.Camera.aspect = aspect; float plusLarge = 0f, plusHaut = 0f;
-                foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
-                    Ray rayon = temoin.Camera.ViewportPointToRay(coin); Vector3 o = temoin.Carte.InverseTransformPoint(rayon.origin), d = temoin.Carte.InverseTransformDirection(rayon.direction);
-                    Vector3 sol = o + d * (-o.y / d.y); coins++;
-                    Assert.IsTrue(sol.x >= BOITE.min.x - .5f && sol.x <= BOITE.max.x + .5f && sol.z >= BOITE.min.z - .5f && sol.z <= BOITE.max.z + .5f, "aspect " + aspect + " : le coin " + coin + " de l'écran tombe hors de la carte, en " + sol);
-                    plusLarge = Mathf.Max(plusLarge, Mathf.Abs(sol.x - BOITE.center.x) / BOITE.extents.x); plusHaut = Mathf.Max(plusHaut, Mathf.Abs(sol.z - BOITE.center.z) / BOITE.extents.z);
-                }
-                Assert.AreEqual(1f, Mathf.Max(plusLarge, plusHaut), 1e-3f, "aspect " + aspect + " : au plus loin, la carte ne touche pas le bord de l'écran");
-                // Contre-épreuve : la vue d'avant, qui tenait toute la carte avec une marge, montrait au-delà de la carte.
-                float avant = Mathf.Max(BOITE.extents.z, BOITE.extents.x / aspect) * VueDeCarte.MARGE;
-                Assert.IsTrue(avant * aspect > BOITE.extents.x || avant > BOITE.extents.z, "aspect " + aspect + " : la contre-épreuve ne sort pas de la carte");
+        // L'accueil tient la droite de l'écran : glissée vers l'est, la carte amène son bord est à gauche du panneau,
+        // sous le milieu de la partie libre, et l'Orient se lit au lieu de rester sous le panneau.
+        [Test] public void Avec_l_accueil_ouvert_le_bord_est_de_la_carte_vient_a_gauche_du_panneau() {
+            using var temoin = new CameraTemoin(); int essais = 0;
+            foreach (float crans in new[] { 2f, 6f, 12f }) {
+                var v = new VueDeCarte(BOITE, 16f / 9f); v.Liberer(ACCUEIL); v.Zoomer(crans, ACCUEIL.center);
+                v.Glisser(new Vector2(-LOIN, 0f), 1080f); temoin.Poser(v); essais++;
+                Assert.AreEqual(BOITE.max.x, v.Vise.x, TOLERANCE, crans + " crans : le point visé ne va pas jusqu'au bord est de la carte");
+                float est = temoin.AEcran(new Vector2(BOITE.max.x, v.Vise.y), 0f).x;
+                Assert.AreEqual(1312f / 2f, est, .5f, crans + " crans : le bord est de la carte est à " + est + " px, pas au milieu de la partie libre");
+                Assert.Less(est, 1312f, crans + " crans : le bord est de la carte reste sous le panneau");
             }
-            Assert.AreEqual(20, coins, "échantillon vide");
+            Assert.AreEqual(3, essais, "échantillon vide");
+        }
+
+        // Amener le coin sud-est de la carte au milieu de la partie libre, à la souris : il y vient, et pas plus loin.
+        [Test] public void Le_coin_sud_est_se_pose_au_milieu_de_la_partie_libre() {
+            using var temoin = new CameraTemoin(); var coin = new Vector2(BOITE.max.x, BOITE.min.z); var pixels = new Vector2(1920f, 1080f);
+            var v = new VueDeCarte(BOITE, 16f / 9f); v.Liberer(ACCUEIL); v.Zoomer(8, ACCUEIL.center);
+            v.Amener(coin, ACCUEIL.center); temoin.Poser(v);
+            Assert.Less((v.Vise - coin).magnitude, TOLERANCE, "le coin sud-est n'est pas sous le milieu de la partie libre : " + v.Vise);
+            Assert.Less((temoin.AEcran(coin, 0f) - Vector2.Scale(ACCUEIL.center, pixels)).magnitude, .5f, "le coin sud-est est à l'écran en " + temoin.AEcran(coin, 0f));
+            // Au-delà du coin, la vue ne suit plus : le point visé reste sur le coin.
+            v.Amener(coin + new Vector2(500f, -500f), ACCUEIL.center);
+            Assert.Less((v.Vise - coin).magnitude, TOLERANCE, "le point visé sort de la carte : " + v.Vise);
+        }
+
+        // Au plus loin, quelle que soit la forme de la fenêtre et la part qu'en prend l'interface, et d'où qu'on recule,
+        // les quatre coins de la carte tombent dans la partie libre, et la carte la touche sur son axe le plus serré.
+        [Test] public void Au_plus_loin_la_carte_tient_dans_la_partie_libre() {
+            int coins = 0;
+            foreach (Rect libre in new[] { TOUT, ACCUEIL }) foreach (float aspect in new[] { 0.5f, 1f, 4f / 3f, 16f / 9f, 2.4f }) foreach (Vector2 depart in new[] { Vector2.zero, Vector2.one }) {
+                using var temoin = new CameraTemoin(); var v = new VueDeCarte(BOITE, aspect); v.Liberer(libre);
+                v.Zoomer(8, libre.center); v.Amener(new Vector2(depart.x > 0 ? BOITE.max.x : BOITE.min.x, depart.y > 0 ? BOITE.max.z : BOITE.min.z), libre.center);
+                v.Zoomer(-1000, libre.center); v.Poser(temoin.Camera, temoin.Carte); temoin.Camera.aspect = aspect; float touche = 0f; string quand = "aspect " + aspect + ", libre " + libre + ", depuis " + depart;
+                Assert.AreEqual(DemiMaxAttendu(aspect, libre), v.Demi, TOLERANCE, quand + " : la vue n'est pas au plus loin");
+                foreach (var c in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                    Vector2 f = temoin.AFenetre(new Vector2(Mathf.Lerp(BOITE.min.x, BOITE.max.x, c.x), Mathf.Lerp(BOITE.min.z, BOITE.max.z, c.y))); coins++;
+                    Assert.IsTrue(f.x >= libre.xMin - 1e-4f && f.x <= libre.xMax + 1e-4f && f.y >= libre.yMin - 1e-4f && f.y <= libre.yMax + 1e-4f, quand + " : le coin " + c + " de la carte tombe hors de la partie libre, en " + f);
+                    touche = Mathf.Max(touche, Mathf.Abs(f.x - libre.center.x) / (libre.width / 2f), Mathf.Abs(f.y - libre.center.y) / (libre.height / 2f));
+                }
+                Assert.AreEqual(1f, touche, 1e-3f, quand + " : au plus loin, la carte ne touche pas le bord de la partie libre");
+            }
+            Assert.AreEqual(2 * 5 * 2 * 4, coins, "échantillon vide");
+            // Contre-épreuve : la vue d'ouverture, qui remplit l'écran, met le coin est de la carte sous le panneau de l'accueil.
+            using var autre = new CameraTemoin(); var ouverte = new VueDeCarte(BOITE, 16f / 9f); ouverte.Liberer(ACCUEIL); autre.Poser(ouverte);
+            Assert.Greater(autre.AFenetre(new Vector2(BOITE.max.x, BOITE.center.z)).x, ACCUEIL.xMax, "la contre-épreuve ne cache rien sous le panneau");
+        }
+
+        // Quand l'accueil se ferme, la vue ne saute pas : même demi-hauteur, même centre ; seules ses bornes changent.
+        // Une partie libre vide ou hors de la fenêtre est refusée.
+        [Test] public void Quand_la_partie_libre_change_la_vue_garde_sa_demi_hauteur() {
+            var v = new VueDeCarte(BOITE, 16f / 9f); v.Liberer(ACCUEIL); v.Zoomer(6, ACCUEIL.center); v.Glisser(new Vector2(-300f, 120f), 1080f);
+            float demi = v.Demi; Vector2 centre = v.Centre;
+            Assert.IsTrue(v.Liberer(new Rect(0f, 0f, 1f, ACCUEIL.height)), "la partie libre n'a pas changé");
+            Assert.AreEqual(demi, v.Demi, TOLERANCE, "la vue a changé de demi-hauteur"); Assert.Less((v.Centre - centre).magnitude, TOLERANCE, "la vue a sauté");
+            Assert.IsFalse(v.Liberer(new Rect(0f, 0f, 1f, ACCUEIL.height)), "la même partie libre change la vue");
+            foreach (Rect fausse in new[] { new Rect(0f, 0f, 0f, 1f), new Rect(0f, 0f, 1f, -1f), new Rect(.5f, 0f, 1f, 1f), new Rect(-.1f, 0f, 1f, 1f) })
+                Assert.Throws<System.ArgumentException>(() => v.Liberer(fausse), "partie libre acceptée : " + fausse);
+        }
+
+        // En reculant vers le plus loin, le point visé revient au milieu de la carte sans jamais s'en écarter ni sauter.
+        [Test] public void En_reculant_la_carte_revient_au_milieu_de_la_partie_libre() {
+            var v = new VueDeCarte(BOITE, 16f / 9f); v.Liberer(ACCUEIL); v.Zoomer(1000, ACCUEIL.center);
+            var coin = new Vector2(BOITE.max.x, BOITE.min.z); var milieu = new Vector2(BOITE.center.x, BOITE.center.z); v.Amener(coin, ACCUEIL.center);
+            float ecart = (v.Vise - milieu).magnitude; int crans = 0;
+            while (v.Echelle < 1f) {
+                Vector2 avant = v.Vise; v.Zoomer(-1, ACCUEIL.center); crans++;
+                float apres = (v.Vise - milieu).magnitude;
+                Assert.LessOrEqual(apres, ecart + TOLERANCE, "cran " + crans + " : le point visé s'écarte du milieu de la carte");
+                Assert.Less((v.Vise - avant).magnitude, v.Demi, "cran " + crans + " : la vue saute de " + (v.Vise - avant).magnitude + " km");
+                ecart = apres;
+            }
+            Assert.Greater(crans, 10, "échantillon vide : la vue n'a pas reculé");
+            Assert.Less(ecart, TOLERANCE, "au plus loin, la carte n'est pas au milieu de la partie libre");
         }
 
         [Test] public void Le_point_saisi_reste_sous_la_souris_a_la_hauteur_du_sol() {
@@ -192,34 +250,41 @@ namespace Forge.Pont.Tests {
             v.Glisser(new Vector2(30, -20), 900f);
             Assert.Less((v.Centre - (avant - new Vector2(30, -20) * kmParPixel)).magnitude, TOLERANCE, "la vue n'a pas suivi le glissé");
             foreach (var (glisse, bord) in new[] { (new Vector2(LOIN, 0), "ouest"), (new Vector2(-LOIN, 0), "est"), (new Vector2(0, LOIN), "sud"), (new Vector2(0, -LOIN), "nord") }) {
-                v.Glisser(glisse, 900f); DansLaCarte(v, "glissé vers le " + bord);
-                Vector4 m = Montre(v);
-                float atteint = bord == "ouest" ? m.x - BOITE.min.x : bord == "est" ? m.z - BOITE.max.x : bord == "sud" ? m.y - BOITE.min.z : m.w - BOITE.max.z;
-                Assert.AreEqual(0f, atteint, TOLERANCE, "glissé vers le " + bord + " : la vue ne s'arrête pas au bord de la carte");
+                v.Glisser(glisse, 900f); ViseDansLaCarte(v, "glissé vers le " + bord);
+                Vector2 p = v.Vise;
+                float atteint = bord == "ouest" ? p.x - BOITE.min.x : bord == "est" ? p.x - BOITE.max.x : bord == "sud" ? p.y - BOITE.min.z : p.y - BOITE.max.z;
+                Assert.AreEqual(0f, atteint, TOLERANCE, "glissé vers le " + bord + " : le point visé ne s'arrête pas au bord de la carte");
             }
         }
 
-        // Une fenêtre très large, au plus loin : la vue a toute la largeur de la carte, centrée, et glisse seulement en hauteur.
-        [Test] public void Une_fenetre_tres_large_tient_la_carte_en_largeur() {
-            var v = new VueDeCarte(BOITE, 10f); v.Glisser(new Vector2(LOIN, LOIN), 900f);
-            Assert.AreEqual(BOITE.size.x, 2 * v.DemiLargeur, TOLERANCE, "au plus loin, la vue n'a pas la largeur de la carte");
-            Assert.Less(2 * v.Demi, BOITE.size.z, "le cas n'est pas celui d'une vue moins haute que la carte");
-            DansLaCarte(v, "fenêtre très large"); Assert.AreEqual(BOITE.min.z, v.Centre.y - v.Demi, TOLERANCE, "le glissé ne s'arrête pas au bord sud");
+        // Une fenêtre très large : au plus loin, la carte tient en hauteur, centrée ; à l'ouverture, elle remplit la
+        // largeur, et le glissé mène le point visé jusqu'au bord sud, la largeur restant centrée.
+        [Test] public void Une_fenetre_tres_large_tient_la_carte_en_hauteur() {
+            var v = new VueDeCarte(BOITE, 10f);
+            Assert.AreEqual(BOITE.size.x, 2 * v.DemiLargeur, TOLERANCE, "à l'ouverture, la vue n'a pas la largeur de la carte");
+            v.Glisser(new Vector2(LOIN, LOIN), 900f);
+            Assert.AreEqual(BOITE.min.z, v.Vise.y, TOLERANCE, "le glissé ne mène pas au bord sud"); Assert.AreEqual(BOITE.center.x, v.Vise.x, TOLERANCE, "la largeur n'est plus centrée");
+            v.Zoomer(-1000, MILIEU);
+            Assert.AreEqual(BOITE.size.z, 2 * v.Demi, TOLERANCE, "au plus loin, la vue n'a pas la hauteur de la carte");
+            Assert.Less((v.Vise - new Vector2(BOITE.center.x, BOITE.center.z)).magnitude, TOLERANCE, "au plus loin, la carte n'est pas centrée");
         }
 
         [Test] public void La_forme_de_la_fenetre_garde_l_echelle() {
-            var v = new VueDeCarte(BOITE, 16f / 9f);
-            foreach (float aspect in new[] { 4f / 3f, 0.5f, 3f }) { v.Changer(aspect); Assert.AreEqual(DemiMaxAttendu(aspect), v.Demi, TOLERANCE, "toute la carte à " + aspect); DansLaCarte(v, "aspect " + aspect); }
+            var v = new VueDeCarte(BOITE, 16f / 9f); v.Zoomer(-1000, MILIEU);
+            foreach (float aspect in new[] { 4f / 3f, 0.5f, 3f }) { v.Changer(aspect); Assert.AreEqual(DemiMaxAttendu(aspect), v.Demi, TOLERANCE, "toute la carte à " + aspect); ViseDansLaCarte(v, "aspect " + aspect); }
             v.Zoomer(6, MILIEU); float echelle = v.Echelle; v.Changer(16f / 9f);
-            Assert.AreEqual(echelle, v.Echelle, "l'échelle change avec la fenêtre"); DansLaCarte(v, "zoomée puis 16:9");
+            Assert.AreEqual(echelle, v.Echelle, "l'échelle change avec la fenêtre"); ViseDansLaCarte(v, "zoomée puis 16:9");
         }
 
+        // Un centrage demandé est tenu tant que le point visé reste dans la carte ; un centrage hors de la carte
+        // ramène le point visé au bord le plus proche.
         [Test] public void Le_centrage_demande_reste_dans_la_carte() {
             var v = new VueDeCarte(BOITE, 16f / 9f); var voulu = new Vector2(400f, 200f);
-            v.Centrer(voulu, 200f); Assert.AreEqual(voulu, v.Centre); Assert.AreEqual(200f, v.Demi, TOLERANCE); DansLaCarte(v, "centrage décentré");
-            v.Centrer(new Vector2(BOITE.min.x, BOITE.min.z), 200f); DansLaCarte(v, "centrage près d'un bord");
-            Vector4 m = Montre(v); Assert.AreEqual(BOITE.min.x, m.x, TOLERANCE, "bord ouest"); Assert.AreEqual(BOITE.min.z, m.y, TOLERANCE, "bord sud");
-            Assert.AreNotEqual(new Vector2(BOITE.min.x, BOITE.min.z), v.Centre, "le centre demandé hors carte a été gardé");
+            v.Centrer(voulu, 200f); Assert.AreEqual(voulu, v.Centre); Assert.AreEqual(200f, v.Demi, TOLERANCE); ViseDansLaCarte(v, "centrage décentré");
+            var coin = new Vector2(BOITE.min.x, BOITE.min.z);
+            v.Centrer(coin, 200f); Assert.Less((v.Vise - coin).magnitude, TOLERANCE, "le centrage sur le coin sud-ouest n'y est pas tenu : " + v.Vise);
+            v.Centrer(coin - new Vector2(800f, 800f), 200f); ViseDansLaCarte(v, "centrage hors de la carte");
+            Assert.Less((v.Vise - coin).magnitude, TOLERANCE, "le centrage hors de la carte n'est pas ramené au coin : " + v.Vise);
         }
 
         [Test] public void Le_jeu_s_ouvre_sur_la_carte_quand_on_le_demande() {

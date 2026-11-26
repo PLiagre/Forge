@@ -599,5 +599,93 @@ namespace Forge.Pont.Tests {
             }
             Assert.IsTrue(rivages == 1 && basses == 1, "à 1 km du rivage portugais, la terre n'est pas au ras de l'eau");
         }
+
+        // La carte ne s'arrête pas sur un trait droit : contre une coupe, la terre s'estompe au plus haut ; elle s'estompe de
+        // moins en moins en s'en éloignant, plus du tout au-delà de la portée ; la mer hors de la carte est papier, et aucune
+        // terre ni aucune mer loin des coupes (Paris, le large de Lisbonne) ne s'estompe.
+        [Test] public void La_terre_s_estompe_pres_d_une_coupe_et_nulle_part_ailleurs() {
+            TerrainDeCarte t = EuropeDeTest.TerrainEurope; PointCarte o = t.Origine; int jugees = 0;
+            foreach (Vector4 c in t.Coupes.Where(c => Dans(EnMetres(t, (c.x + c.z) / 2f, (c.y + c.w) / 2f), COUPES[0].x0, COUPES[0].x1, COUPES[0].y0, COUPES[0].y1))) {
+                Vector2 a = new Vector2(c.x, c.y), b = new Vector2(c.z, c.w), milieu = (a + b) / 2f, normale = new Vector2(b.y - a.y, a.x - b.x).normalized;
+                if (t.CelluleEn(milieu.x + 5f * normale.x, milieu.y + 5f * normale.y) == 0) normale = -normale; // vers la terre
+                Vector2 contre = milieu + 2f * normale, mi = milieu + 40f * normale, dehors = milieu - 20f * normale;
+                if ((a - b).magnitude < 20f || t.CelluleEn(contre.x, contre.y) == 0 || t.CelluleEn(mi.x, mi.y) == 0) continue;
+                Assert.Greater(t.EstompeEn(contre.x, contre.y), .95f, "à 2 km de la coupe " + c + ", la terre ne s'estompe pas");
+                Assert.That(t.EstompeEn(mi.x, mi.y), Is.InRange(.3f, .75f), "à 40 km de la coupe " + c + ", l'estompe ne décroît pas avec la distance");
+                Assert.AreEqual(1f, t.EstompeEn(dehors.x, dehors.y), "à 20 km au-delà de la coupe " + c + ", la mer hors de la carte n'est pas papier");
+                jugees++;
+            }
+            Assert.Greater(jugees, 0, "échantillon vide : aucune coupe de l'est de l'Anatolie jugée");
+            Vector2 paris = new Vector2((float)((3760000 - o.X) / 1000), (float)((2890000 - o.Y) / 1000)), large = new Vector2((float)((2600000 - o.X) / 1000), (float)((1940000 - o.Y) / 1000));
+            Assert.AreNotEqual(0, t.CelluleEn(paris.x, paris.y), "échantillon faussé : Paris est en mer"); Assert.AreEqual(0f, t.EstompeEn(paris.x, paris.y), "Paris s'estompe");
+            Assert.AreEqual(0f, t.EstompeEn(large.x, large.y), "le large de Lisbonne s'estompe");
+        }
+
+        // Une terre ronde n'a aucune arête d'enveloppe assez longue pour être une coupe : rien ne s'y estompe, et aucune coupure ne se nomme.
+        [Test] public void Une_carte_sans_coupe_ne_s_estompe_nulle_part() {
+            var anneau = Enumerable.Range(0, 25).Select(k => new PointCarte(100000 * Math.Cos(2 * Math.PI * k / 24), 100000 * Math.Sin(2 * Math.PI * k / 24))).ToArray();
+            TerrainDeCarte t = LeveDe(new CelluleDeCarte(1, new[] { new PolygoneDeCarte(anneau, new IEnumerable<PointCarte>[0]) }, null, null, new VilleDeCarte[0]));
+            Assert.IsEmpty(t.Coupes, "échantillon faussé : la terre ronde a une coupe"); Assert.IsEmpty(t.Coupures);
+            int terres = 0, estompees = 0;
+            for (float x = t.Coin.x; x < t.Coin.x + t.Largeur * t.Pas; x += 3f) for (float z = t.Coin.y; z < t.Coin.y + t.Hauteur * t.Pas; z += 3f) {
+                if (t.CelluleEn(x, z) != 0) terres++;
+                if (t.EstompeEn(x, z) != 0f) estompees++;
+            }
+            Assert.Greater(terres, 100, "échantillon vide"); Assert.AreEqual(0, estompees, "une carte sans coupe s'estompe");
+            // Contre-épreuve : un carré, dont chaque côté couvre son arête d'enveloppe, est coupé de partout, et s'estompe.
+            TerrainDeCarte carre = LeveDe(Carre(1, 0, 0, 200000));
+            Assert.IsNotEmpty(carre.Coupes); Assert.Greater(carre.EstompeEn((float)((5000 - carre.Origine.X) / 1000), (float)((100000 - carre.Origine.Y) / 1000)), .9f, "le bord coupé du carré ne s'estompe pas");
+        }
+
+        // Chaque tronçon de la carte d'Europe coupée se nomme là où la carte s'arrête : son milieu est sur l'enveloppe des
+        // terres, le papier à sa droite, la carte à sa gauche. Ils sont peu nombreux : un par 1 500 km au plus de carte coupée.
+        [Test] public void Chaque_coupure_a_le_papier_a_sa_droite_et_la_carte_a_sa_gauche() {
+            TerrainDeCarte t = EuropeDeTest.TerrainEurope; Assert.IsNotEmpty(t.Coupures, "aucune coupure : l'échantillon ne juge rien");
+            Assert.LessOrEqual(t.Coupures.Count, 8, "trop de « hors de la carte » : " + t.Coupures.Count);
+            foreach (var (milieu, direction) in t.Coupures) {
+                Assert.AreEqual(1f, direction.magnitude, 1e-4f, "la direction d'une coupure n'est pas unitaire");
+                Vector2 dehors = new Vector2(direction.y, -direction.x), papier = milieu + 30f * dehors, carte = milieu - 30f * dehors;
+                Assert.IsTrue(t.HorsCarteEn(papier.x, papier.y), "à droite de la coupure en " + milieu + ", la mer n'est pas hors de la carte");
+                Assert.IsFalse(t.HorsCarteEn(carte.x, carte.y), "à gauche de la coupure en " + milieu + ", c'est encore le papier : elle n'est pas au bord de la carte");
+            }
+            // Chaque côté coupé est à moins d'un tronçon d'un « hors de la carte » : aucune coupe n'est laissée sans son mot.
+            foreach (Vector4 c in t.Coupes) {
+                var m = new Vector2((c.x + c.z) / 2f, (c.y + c.w) / 2f); float plusPres = t.Coupures.Min(n => (n.milieu - m).magnitude);
+                Assert.Less(plusPres, (float)TerrainDeCarte.LONGUEUR_PAR_NOM_KM, "la coupe en " + m + " est à " + plusPres + " km du plus proche « hors de la carte »");
+            }
+        }
+
+        // La jupe prolonge le maillage de sa largeur de chaque côté, à la hauteur de son bord : ses triangles s'appuient sur
+        // les sommets de bord, regardent vers le haut, et couvrent exactement l'anneau entre le rectangle et la jupe, sans fente
+        // ni recouvrement. Ses uv continuent ceux du maillage.
+        [Test] public void La_jupe_prolonge_le_bord_sans_fente_et_regarde_vers_le_haut() {
+            TerrainDeCarte t = Terrain; const float J = 2500f; int m = TerrainDeCarte.TEXELS_PAR_MAILLE, nx = t.Largeur / m + 1, nz = t.Hauteur / m + 1, grille = nx * nz;
+            var (s, uv, tri) = t.Jupe(J);
+            Assert.IsTrue(s.Length == 2 * nx + 2 * nz + 4 && uv.Length == s.Length && tri.Length > 0 && tri.Length % 3 == 0, s.Length + " sommets, " + tri.Length + " indices");
+            Vector3 Sommet(int k) => k < grille ? t.Sommets[k] : s[k - grille];
+            float largeur = t.Largeur * t.Pas, hauteur = t.Hauteur * t.Pas; double aire = 0; int renverses = 0, horsBornes = 0, auBord = 0;
+            for (int k = 0; k < tri.Length; k += 3) {
+                if (tri.Skip(k).Take(3).Any(i => i < 0 || i >= grille + s.Length)) { horsBornes++; continue; }
+                Vector3 a = Sommet(tri[k]), b = Sommet(tri[k + 1]), c = Sommet(tri[k + 2]); float y = Vector3.Cross(b - a, c - a).y;
+                if (!(y > 0f)) renverses++; aire += y / 2.0;
+                if (tri.Skip(k).Take(3).Any(i => i < grille)) auBord++;
+            }
+            Assert.AreEqual(0, horsBornes, "indices hors des sommets"); Assert.AreEqual(0, renverses, "triangles de la jupe qui ne regardent pas vers le haut");
+            double anneau = (largeur + 2.0 * J) * (hauteur + 2.0 * J) - (double)largeur * hauteur;
+            Assert.AreEqual(anneau, aire, 1e-4 * anneau, "la jupe ne couvre pas exactement l'anneau autour du maillage : fente ou recouvrement");
+            // Le long de chaque côté, les deux triangles de chaque maille touchent le maillage ; aux coins sud-ouest et nord-est,
+            // coupés loin du coin du maillage, un triangle est tout au loin.
+            Assert.AreEqual(tri.Length / 3 - 2, auBord, "la jupe ne s'appuie pas sur les sommets de bord du maillage");
+            int faux = 0, horsGrille = 0;
+            for (int k = 0; k < s.Length; k++) {
+                bool dehors = s[k].x < t.Coin.x - J + 1e-2f || s[k].x > t.Coin.x + largeur + J - 1e-2f || s[k].z < t.Coin.y - J + 1e-2f || s[k].z > t.Coin.y + hauteur + J - 1e-2f;
+                if (!dehors) faux++;
+                // La jupe garde la hauteur du bord le plus proche du maillage.
+                if (Math.Abs(s[k].y - t.SolDuMaillage(s[k].x, s[k].z)) > 1e-4f) faux++;
+                if (Math.Abs(uv[k].x * largeur - (s[k].x - t.Coin.x)) > 1e-1f || Math.Abs(uv[k].y * hauteur - (s[k].z - t.Coin.y)) > 1e-1f) horsGrille++;
+            }
+            Assert.AreEqual(0, faux, "sommets de la jupe hors de son bout, ou pas à la hauteur du bord"); Assert.AreEqual(0, horsGrille, "uv de la jupe qui ne continuent pas ceux du maillage");
+            Assert.Throws<ArgumentException>(() => t.Jupe(0f), "une jupe sans largeur");
+        }
     }
 }

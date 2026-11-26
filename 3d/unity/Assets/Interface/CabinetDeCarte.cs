@@ -47,7 +47,7 @@ namespace Forge.Interface
         FicheDeCellule fiche;
         GameObject toile;
         Text date, barre, guide, maison, territoire, etat;
-        RectTransform dossier, lieu;
+        RectTransform bandeau, dossier, lieu;
         AccueilDuPays accueil;
         BoutonDeLaVille ville;
         PremiersGestes premiersGestes;
@@ -92,8 +92,8 @@ namespace Forge.Interface
             toile.GetComponent<Canvas>().sortingOrder = 10;
             var echelle = toile.GetComponent<CanvasScaler>();
             echelle.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            echelle.referenceResolution = new Vector2(1920, 1080);
-            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
+            echelle.referenceResolution = REFERENCE;
+            bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
             // Les icônes des dossiers, entre « Entrer dans la ville » et les commandes du temps (x 1112 à 1288, au pas de PAS_DES_ICONES) ;
             // le bandeau garde ses trois boutons enfants directs.
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
@@ -165,7 +165,7 @@ namespace Forge.Interface
             var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas, villes); atlas.Eviter(calques);
             // Les capitales se lisent dans les pays jouables que la partie lit déjà.
             villes.Brancher(() => Partie?.Jouables != null && Partie.Jouables.Presente ? Partie.Jouables.Donnees : null, guerre, atlas); lieux.Eviter(guerre, calques);
-            // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
+            // L'accueil se tient à droite de la carte tant que le monde n'a ni accepté le choix ni servi de maison ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,
                 id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); });
@@ -315,7 +315,7 @@ namespace Forge.Interface
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             bool enAvant = TempsAttendu(Partie.Monde, Partie.Recu, horloge.Lue);
             if (enAvant != sceauDuTemps.activeSelf) { temps[1].colors = enAvant ? tempsEngage : tempsOrdinaire; sceauDuTemps.SetActive(enAvant); }
-            barre.text = Barre(Partie.Monde, Partie.Comptes);
+            barre.text = Barre(Partie.Monde, Partie.Comptes, Partie.Recu, accueil.Choisi, Partie.Jouable?.Pays.Nom);
             jauges.Afficher(Partie.Monde, Partie.Pays);
             etat.gameObject.SetActive(carte.CellulesServies < 0);
             if (carte.CellulesServies < 0) etat.text = carte.TexteAffiche ?? "La carte se prépare…";
@@ -324,6 +324,7 @@ namespace Forge.Interface
             guide.gameObject.SetActive(geste != null);
             if (geste != null) guide.text = geste;
             accueil.Afficher();
+            Liberer();
             // Rien ne s'ouvre sans un clic : « Votre maison » par son icône, la fiche par une terre gardée ; l'accueil passe devant.
             dossier.gameObject.SetActive(maisonOuverte && !accueil.Ouvert); lieu.gameObject.SetActive(retenue != null && !accueil.Ouvert);
             capitale.gameObject.SetActive(carte.Vue != null && carte.camera != null && SiegePlace() != null);
@@ -334,18 +335,42 @@ namespace Forge.Interface
             AfficherMaison();
         }
 
+        // La partie de l'écran que l'interface laisse à la carte, en parts de la fenêtre depuis le bas à gauche : sous le
+        // bandeau, et à gauche de l'accueil tant qu'il est ouvert. Les positions sont celles de la toile, en points de
+        // `REFERENCE`, qui s'échelonne sur la largeur de l'écran ; un écran trop bas garde un dixième de sa hauteur à la carte.
+        public static readonly Vector2 REFERENCE = new Vector2(1920, 1080);
+        public static Rect PartieLibre(Vector2 ecranPx, float hauteurDuBandeau, float? gaucheDeLAccueil)
+        {
+            float points = ecranPx.x / REFERENCE.x;
+            float haut = Mathf.Clamp(1f - hauteurDuBandeau * points / ecranPx.y, 0.1f, 1f), droite = gaucheDeLAccueil is float g ? Mathf.Clamp(g / REFERENCE.x, 0.1f, 1f) : 1f;
+            return new Rect(0f, 0f, droite, haut);
+        }
+
+        // La vue de la carte connaît sa partie libre ; posée de nouveau quand elle change, pour que la caméra la suive à cette image.
+        void Liberer()
+        {
+            if (carte.Vue == null || carte.camera == null || carte.camera.pixelWidth <= 0 || carte.camera.pixelHeight <= 0) return;
+            var libre = PartieLibre(new Vector2(carte.camera.pixelWidth, carte.camera.pixelHeight), bandeau.sizeDelta.y, accueil.Ouvert ? accueil.Panneau.anchoredPosition.x : (float?)null);
+            if (carte.Vue.Liberer(libre)) carte.Vue.Poser(carte.camera, carte.transform);
+        }
+
         // La barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.
-        public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes)
+        // Maison servie, ses lignes s'ouvrent sur le pays du joueur quand on le connaît ; maison pas encore servie, un choix accepté
+        // par le monde (`recu`) le dit, avec le pays choisi quand on le connaît, en attendant le jour qui l'applique.
+        public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes, RecuIntention recu = null, string paysChoisi = null, string paysDuJoueur = null)
         {
             if (monde == null) return "Lecture de la maison…";
             if (!monde.Presente) return "Maison indisponible : " + TexteDuMonde.Absence(monde.Absence);
             string id = monde.Donnees.MaisonDuJoueur;
-            if (id == null) return "Aucune maison choisie";
+            if (id == null)
+                return recu?.Acceptee != true ? "Aucune maison choisie"
+                    : paysChoisi == null ? "Choix reçu, le monde l'applique à son premier jour" : paysChoisi + " · choix reçu, le monde l'applique à son premier jour";
+            string pays = paysDuJoueur == null ? "" : paysDuJoueur + " · ";
             if (comptes == null || comptes.Presente && (comptes.Donnees.Maison.Id != id || comptes.Donnees.Tick != monde.Donnees.Monde.Tick))
-                return "Comptes en attente du monde";
-            if (!comptes.Presente) return DossierMaison.Indisponible(comptes.Absence);
+                return pays + "Comptes en attente du monde";
+            if (!comptes.Presente) return pays + DossierMaison.Indisponible(comptes.Absence);
             var lus = comptes.Donnees;
-            return (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
+            return pays + (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
         }
 
         // Le siège servi de la maison du joueur, posé sur la carte ; null sans maison servie, sans position servie, ou hors de la carte.

@@ -50,11 +50,15 @@ namespace Forge.Pont.Tests {
                 while (transition.RequeteEnVol && montre.ElapsedMilliseconds < ATTENTE_MS) Thread.Sleep(5); }
             Assert.IsFalse(transition.EnCours, "la transition n'a pas fini"); return opacites; }
         [Test] public void Les_reglages_donnent_une_annee_d_une_heure_en_ville_et_d_une_minute_sur_la_carte() {
-            var r = ReglagesDesVues.Charger(); Assert.AreEqual(0.1, r.VitesseVille); Assert.AreEqual(6, r.VitesseCarte); Assert.AreEqual(0.1, r.Vitesse(VueDuJeu.Ville)); Assert.AreEqual(6, r.Vitesse(VueDuJeu.Carte));
+            var r = ReglagesDesVues.Charger(); Assert.AreEqual(0.1, r.VitesseVille); Assert.AreEqual(6, r.VitesseCarte); Assert.AreEqual(1, r.VitesseDepart); Assert.AreEqual(0.1, r.Vitesse(VueDuJeu.Ville)); Assert.AreEqual(6, r.Vitesse(VueDuJeu.Carte));
+            Assert.AreEqual(r.VitesseCarte, r.Vitesse(VueDuJeu.Carte), "le passage d'une vue à l'autre prend la vitesse de la vue, jamais celle du départ"); Assert.AreNotEqual(r.VitesseDepart, r.Vitesse(VueDuJeu.Carte));
             Assert.That(365 / r.VitesseVille / 60, Is.InRange(50, 70), "une année en ville, en minutes"); Assert.That(365 / r.VitesseCarte, Is.InRange(50, 70), "une année sur la carte, en secondes"); }
-        [TestCase("{\"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": \"6\"}", "VITESSE_CARTE")]
-        [TestCase("{\"VITESSE_VILLE\": 0, \"VITESSE_CARTE\": 6}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": -1}", "VITESSE_CARTE")]
-        [TestCase("{\"VITESSE_VILLE\":0.1,\"VITESSE_CARTE\":1e309}", "VITESSE_CARTE")] [TestCase("{\"VITESSE_VILLE\":1e309,\"VITESSE_CARTE\":6}", "VITESSE_VILLE")]
+        [TestCase("{\"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": 1}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": \"6\", \"VITESSE_DEPART\": 1}", "VITESSE_CARTE")]
+        [TestCase("{\"VITESSE_VILLE\": 0, \"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": 1}", "VITESSE_VILLE")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": -1, \"VITESSE_DEPART\": 1}", "VITESSE_CARTE")]
+        [TestCase("{\"VITESSE_VILLE\":0.1,\"VITESSE_CARTE\":1e309,\"VITESSE_DEPART\":1}", "VITESSE_CARTE")] [TestCase("{\"VITESSE_VILLE\":1e309,\"VITESSE_CARTE\":6,\"VITESSE_DEPART\":1}", "VITESSE_VILLE")]
+        [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": 6}", "VITESSE_DEPART")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": \"1\"}", "VITESSE_DEPART")]
+        [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": 0}", "VITESSE_DEPART")] [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": null}", "VITESSE_DEPART")]
+        [TestCase("{\"VITESSE_VILLE\": 0.1, \"VITESSE_CARTE\": 6, \"VITESSE_DEPART\": -1}", "VITESSE_DEPART")] [TestCase("{\"VITESSE_VILLE\":0.1,\"VITESSE_CARTE\":6,\"VITESSE_DEPART\":1e309}", "VITESSE_DEPART")]
         public void Un_reglage_absent_faux_ou_qui_met_en_pause_est_refuse(string json, string cle) =>
             StringAssert.Contains(cle, Assert.Catch<Exception>(() => ReglagesDesVues.Lire(json)).Message);
         [TestCase("Desert_City", VueDuJeu.Ville, "0.1")] [TestCase(OuvertureDeLaCarte.SCENE, VueDuJeu.Carte, "6")]

@@ -102,6 +102,28 @@ namespace Forge.Interface.Tests
             Assert.That((Nom("Cerda").gameObject.activeSelf, Nom("Alba").gameObject.activeSelf), Is.EqualTo((true, false)), "le nom d'une ville cachée reste, ou celui d'une ville montrée part");
             Assert.That(villes.Montrees, Is.EqualTo(1));
         }
+
+        // Un port posé sur la mer, à 3 km de la côte de sa terre, comme Constantinople déborde sur la mer de Marmara : sa
+        // figurine répond sur tout ce qu'elle couvre, son pied compris, par le lieu de sa terre ; au-delà, la mer reste la mer.
+        [Test] public void Une_ville_cotiere_repond_sur_toute_sa_figurine_meme_sur_la_mer()
+        {
+            Fermer(); Monter(new[] { ("Alba", 500L, 20000d), ("Brivas", 5000L, 60000d), ("Port", 80000L, 123000d) });
+            villes.Pas(); var port = villes.Figurines.Single(f => f.ville == "Port");
+            Vector3 Monde(Vector3 local) => racine.transform.TransformPoint(local);
+            Assert.That(port.montree && port.rayonKm > 3.5f, Is.True, "échantillon faussé : la figurine du port est cachée ou ne couvre pas la côte (" + port.rayonKm + " km)");
+            Assert.That(carte.Terrain.CelluleEn(port.pied.x, port.pied.z), Is.EqualTo((ushort)0), "échantillon faussé : le pied du port n'est pas sur la mer");
+            int points = 0;
+            for (int k = -1; k < 8; k++)
+            {
+                Vector3 ici = port.pied + (k < 0 ? Vector3.zero : new Vector3(Mathf.Cos(k * Mathf.PI / 4f), 0f, Mathf.Sin(k * Mathf.PI / 4f)) * .9f * port.rayonKm);
+                var lieu = carte.LieuSous(Monde(ici)); points++;
+                Assert.That(lieu.HasValue && lieu.Value.cellule.CellId == 30 && lieu.Value.rang == 0, Is.True, "sous la figurine du port, en " + ici + ", " + (lieu.HasValue ? "la terre " + lieu.Value.cellule.CellId : "la mer"));
+            }
+            Assert.That(points, Is.EqualTo(9), "échantillon vide");
+            // Contre-épreuve : à 5 km au-delà de la figurine, la mer ; et une figurine cachée ne couvre rien.
+            Assert.That(carte.LieuSous(Monde(port.pied + Vector3.right * (port.rayonKm + 5f))), Is.Null, "au-delà de la figurine, la mer rend un lieu");
+            carte.Ancrer(new object(), port.pied, 30, 0f); Assert.That(carte.LieuSous(Monde(port.pied + Vector3.right * (port.rayonKm + 5f))), Is.Null, "une ancre de rayon nul couvre la mer");
+        }
     }
 
     // Les capitales sur l'Europe entière relevée du vrai service : le siège de la maison de chaque pays tenant, servi par
@@ -112,6 +134,38 @@ namespace Forge.Interface.Tests
         [OneTimeSetUp] public void Poser() => europe = new EuropeDeCarte();
         [OneTimeTearDown] public void Fermer() => europe?.Dispose();
         static TerresDeLaCarte Terres => Forge.Pont.Tests.EuropeDeTest.TerresEurope;
+
+        // Chaque ville servie et chaque capitale posée, vue de près (150 km de demi-hauteur), répond au survol et au clic sur
+        // tout ce que sa figurine couvre : son pied et huit points à neuf dixièmes de son rayon rendent un lieu. Au large de la
+        // mer Ionienne, loin de toute figurine, la mer reste la mer.
+        [Test] public void Chaque_ville_et_chaque_capitale_repond_sous_toute_sa_figurine()
+        {
+            Camera camera = europe.Carte.camera; Vector3 avant = camera.transform.position; float taille = camera.orthographicSize;
+            var muettes = new List<string>(); int jugees = 0, cachees = 0; var toutes = europe.Villes.Figurines.ToList();
+            try
+            {
+                foreach (var f0 in toutes)
+                {
+                    camera.transform.position = new Vector3(f0.pied.x, 5000f, f0.pied.z); camera.orthographicSize = 150f; europe.Villes.Pas();
+                    var f = europe.Villes.Figurines.First(x => x.ville == f0.ville && x.pied == f0.pied);
+                    if (!f.montree) { cachees++; continue; }
+                    jugees++;
+                    for (int k = -1; k < 8; k++)
+                    {
+                        Vector3 ici = f.pied + (k < 0 ? Vector3.zero : new Vector3(Mathf.Cos(k * Mathf.PI / 4f), 0f, Mathf.Sin(k * Mathf.PI / 4f)) * .9f * f.rayonKm);
+                        if (europe.Carte.LieuSous(europe.Racine.transform.TransformPoint(ici)) == null) { muettes.Add(f.ville + (k < 0 ? " (pied)" : " (vers " + k * 45 + "°)")); }
+                    }
+                }
+            }
+            finally { camera.transform.position = avant; camera.orthographicSize = taille; europe.Villes.Pas(); }
+            Assert.That(toutes.Count, Is.GreaterThan(57), "échantillon vide : ni les villes de la carte ni les capitales de l'atlas");
+            Assert.That(jugees, Is.GreaterThanOrEqualTo(toutes.Count * 8 / 10), cachees + " figurines cachées de près sur " + toutes.Count);
+            Assert.That(muettes, Is.Empty, muettes.Count + " points muets sous une figurine : " + string.Join(", ", muettes.Take(20)));
+            // Contre-épreuve : la mer Ionienne, à plus de 100 km de toute figurine, ne rend aucun lieu.
+            Vector2 ionienne = europe.Ici(new PointCarte(5030000, 1545000));
+            Assert.That(toutes.Min(f => Vector2.Distance(ionienne, new Vector2(f.pied.x, f.pied.z))), Is.GreaterThan(100f), "échantillon faussé : une figurine est près de la mer Ionienne");
+            Assert.That(europe.Carte.LieuSous(europe.Racine.transform.TransformPoint(new Vector3(ionienne.x, 0f, ionienne.y))), Is.Null, "la mer Ionienne rend un lieu");
+        }
 
         // La capitale attendue de chaque pays tenant, lue dans les réponses figées : son nom et sa place en km locaux ; null si son siège ne se place pas.
         Dictionary<string, (string nom, Vector2 place)?> Attendues(JouablesLus jouables)

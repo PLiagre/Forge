@@ -10,18 +10,23 @@ using UnityEngine.UI;
 namespace Forge.Pont {
     public enum VueDuJeu { Ville, Carte }
 
-    // La vitesse du monde par vue, en jours par seconde, lue dans `Resources/ReglagesDesVues.json` comme le lanceur Python.
-    // Sans repli : un réglage absent, faux ou nul lève en nommant sa clé ; hors du double (1e309), la dernière clé lue avant l'erreur.
+    // La vitesse du monde par vue et celle du premier « Reprendre » d'un monde ouvert en pause, en jours par seconde, lues dans
+    // `Resources/ReglagesDesVues.json` comme le lanceur Python. Seul le passage d'une vue à l'autre prend `Vitesse(vue)` ;
+    // `VitesseDepart` est celle de l'horloge de la carte. Sans repli : un réglage absent, faux ou nul lève en nommant sa clé ;
+    // hors du double (1e309), la dernière clé lue avant l'erreur.
     public sealed class ReglagesDesVues {
         public const string RESSOURCE = "ReglagesDesVues";
-        public double VitesseVille { get; } public double VitesseCarte { get; }
-        private ReglagesDesVues(double ville, double carte) { VitesseVille = ville; VitesseCarte = carte; }
+        private static readonly string[] CLES = { "VITESSE_VILLE", "VITESSE_CARTE", "VITESSE_DEPART" };
+        public double VitesseVille { get; } public double VitesseCarte { get; } public double VitesseDepart { get; }
+        private ReglagesDesVues(double ville, double carte, double depart) { VitesseVille = ville; VitesseCarte = carte; VitesseDepart = depart; }
         public double Vitesse(VueDuJeu vue) => vue == VueDuJeu.Ville ? VitesseVille : VitesseCarte;
         public static ReglagesDesVues Lire(string json) { Dictionary<string, object> r; try { r = LecteurJson.LireObjet(json); }
-            catch (ErreurJson e) { throw new FormatException("réglage " + Fautif(json.Substring(0, Math.Min(e.Position, json.Length))) + " illisible : " + e.Message, e); } return new ReglagesDesVues(Positive(r, "VITESSE_VILLE"), Positive(r, "VITESSE_CARTE")); }
-        private static string Fautif(string avant) => avant.LastIndexOf("\"VITESSE_VILLE\"", StringComparison.Ordinal) > avant.LastIndexOf("\"VITESSE_CARTE\"", StringComparison.Ordinal) ? "VITESSE_VILLE" : avant.Contains("\"VITESSE_CARTE\"") ? "VITESSE_CARTE" : "(aucune clé lue)";
+            catch (ErreurJson e) { throw new FormatException("réglage " + Fautif(json.Substring(0, Math.Min(e.Position, json.Length))) + " illisible : " + e.Message, e); } return new ReglagesDesVues(Positive(r, CLES[0]), Positive(r, CLES[1]), Positive(r, CLES[2])); }
+        // La dernière clé écrite avant la position de l'erreur de syntaxe : celle dont la valeur est illisible.
+        private static string Fautif(string avant) { string fautive = "(aucune clé lue)"; int plus = -1;
+            foreach (string cle in CLES) { int p = avant.LastIndexOf("\"" + cle + "\"", StringComparison.Ordinal); if (p > plus) (fautive, plus) = (cle, p); } return fautive; }
         public static ReglagesDesVues Charger() { var t = Resources.Load<TextAsset>(RESSOURCE); return t != null ? Lire(t.text) : throw new InvalidOperationException("ressource " + RESSOURCE + " absente de Resources"); }
-        // Une vitesse de vue nulle mettrait le monde en pause en changeant de vue : refusée, comme une négative ou non finie.
+        // Une vitesse nulle mettrait le monde en pause en changeant de vue ou à la reprise : refusée, comme une négative ou non finie.
         private static double Positive(Dictionary<string, object> racine, string cle) {
             if (!racine.TryGetValue(cle, out object brute)) throw new FormatException("réglage " + cle + " absent"); if (brute is double v && v > 0 && !double.IsInfinity(v)) return v;
             throw new FormatException("réglage " + cle + " : un nombre fini > 0 attendu, reçu " + (brute is string s ? "le texte \"" + s + "\"" : Convert.ToString(brute, CultureInfo.InvariantCulture))); }
