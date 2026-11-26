@@ -597,8 +597,9 @@ def _km2_cultives_reference(cell, carte):
     raw = carte[cell.cell_id]
     relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
     eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
-    agricole = 1 - _constantes.part_miniere_de(
-        raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+    # La terre aux champs : la part cultivée de la cellule, moins ce que prennent ses mines.
+    agricole = raw[_constantes.CLE_PART_CULTIVEE] * (1 - _constantes.part_miniere_de(
+        raw.get("gisements"), _constantes.facteurs_richesse_extraction()))
     return cell.area_km2 * relief * eau * agricole
 
 
@@ -735,8 +736,8 @@ def test_calibrage_bras(monkeypatch):
                       for j in range(365))
         relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
         eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
-        agricole = 1 - _constantes.part_miniere_de(
-            raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+        agricole = raw[_constantes.CLE_PART_CULTIVEE] * (1 - _constantes.part_miniere_de(
+            raw.get("gisements"), _constantes.facteurs_richesse_extraction()))
         surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         non_paysans = cell.population - metiers.get("paysans", 0)
         for lieu in cell.lieux:

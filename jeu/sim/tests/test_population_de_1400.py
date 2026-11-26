@@ -258,3 +258,23 @@ def test_la_lituanie_est_moins_de_moitie_aussi_dense_que_la_france(livre):
     assert all(surfaces.values()) and all(habitants.values()), "échantillon vide"
     lituanie, france = (habitants[n] / surfaces[n] for n in ("Lituanie", "France"))
     assert lituanie < france / 2, f"Lituanie {lituanie:.2f} hab/km², France {france:.2f} hab/km²"
+
+
+def test_le_monde_pose_la_part_de_chaque_cellule_et_le_moteur_la_lit(livre):
+    from sim import constants, engine
+    cle = constants.CLE_PART_CULTIVEE
+    parts = parts_cultivees(livre.monde.carte, livre.regions, livre.frontieres, livre.table)
+    assert livre.monde.parts_cultivees == parts
+    assert all(livre.monde.carte[cid][cle] == part for cid, part in parts.items())
+    # La carte lue n'est pas touchée : la part ne vit que dans le monde chargé.
+    assert all(cle not in brute for brute in World.lire_carte()["cellules"])
+    cellule = livre.monde.cells[next(cid for cid in sorted(parts) if livre.monde.carte[cid]["relief"] == "plaine")]
+    brute = livre.monde.carte[cellule.cell_id]
+    production = engine.production_du_tick_kg(cellule, 1.0, livre.monde.carte)
+    assert production > 0
+    moitie = {cellule.cell_id: brute | {cle: brute[cle] / 2}}
+    assert engine.production_du_tick_kg(cellule, 1.0, moitie) == pytest.approx(production / 2)
+    for fausse in ({k: v for k, v in brute.items() if k != cle}, brute | {cle: 0}, brute | {cle: 1.5},
+                   brute | {cle: True}, brute | {cle: float("nan")}):
+        with pytest.raises(engine.PartCultiveeInvalideError, match=f"cell_id={cellule.cell_id}"):
+            engine.production_du_tick_kg(cellule, 1.0, {cellule.cell_id: fausse})

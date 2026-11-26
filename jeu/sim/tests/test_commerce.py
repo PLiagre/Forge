@@ -2766,14 +2766,21 @@ def test_commerce_par_bourg_chemins_et_ration(capacite, relief, facteur, monkeyp
     monde = World({1: source, 2: cible}, [{'a': 1, 'b': 2, 'shared_length_m': 100000}])
     monde.carte = {1: {'relief': relief}, 2: {'relief': 'plaine'}}
     monkeypatch.setattr(k, 'CAPACITE_CHEMIN_INTERIEUR_KG_PAR_TICK', capacite)
-    disponible = min(205., 10 + min(200, capacite * facteur) + min(100, capacite * facteur))
-    champs1 = min(200., capacite * facteur, max(0., disponible - 10))
-    champs2 = max(0., disponible - 10 - champs1)
+    # Chaque lieu garde la ration de ses dix habitants ; le bourg de la cible manque de celle
+    # de ses cent habitants, son champ de celle de ses dix.
+    ration = k.consommation_kg_par_habitant_par_tick(MARCHANDISE_NOURRITURE)
+    garde = 10 * ration
+    besoin = (100 * ration - 10.) + (10 * ration - 5.)
+    surplus_du_bourg = 30. - garde
+    disponible = min(besoin, surplus_du_bourg + min(220. - garde, capacite * facteur)
+                     + min(120. - garde, capacite * facteur))
+    champs1 = min(220. - garde, capacite * facteur, max(0., disponible - surplus_du_bourg))
+    champs2 = max(0., disponible - surplus_du_bourg - champs1)
     avant = sum(c.food_stock_kg for c in monde.cells.values())
     total = [0.]
     _apply_commerce(monde, total)
     def controler():
-        assert _paniers_bourg(source) == [20., 220. - champs1, 120. - champs2]
+        assert _paniers_bourg(source) == [garde, 220. - champs1, 120. - champs2]
         assert _paniers_bourg(cible) == [10. + disponible, 5.]
         assert total[0] == disponible
         assert sum(c.food_stock_kg for c in monde.cells.values()) == avant

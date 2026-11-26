@@ -94,6 +94,10 @@ class KindsMaritimesMultiplesError(ValueError):
 class RichesseGisementInvalideError(ValueError):
     """Classe de richesse absente ou inconnue sur un gisement de la carte."""
 
+
+class PartCultiveeInvalideError(ValueError):
+    """Part cultivée absente ou hors de ]0, 1] sur une cellule du monde chargé."""
+
 # Le moteur lit TOUTES ses constantes réglables par le module `_constantes`,
 # jamais par `from sim.constants import ...`. Un nom importé par valeur est
 # figé au chargement : le remplacer en mémoire ne change alors rien au moteur,
@@ -192,12 +196,31 @@ def _gisements_de(cell: Cell, carte: dict):
     return raw.get("gisements")
 
 
+def _part_cultivee_pour_cellule(cell: Cell, carte: dict) -> float:
+    """Lit la part cultivée que `World.charger` pose dans l'enregistrement de la cellule.
+
+    Une part absente, non numérique, non finie ou hors de ]0, 1] est refusée : la terre mise
+    en culture d'une cellule ne se devine pas."""
+    raw = carte.get(cell.cell_id)
+    part = raw.get(_constantes.CLE_PART_CULTIVEE) if isinstance(raw, dict) else None
+    if (
+        isinstance(part, bool)
+        or not isinstance(part, (int, float))
+        or not math.isfinite(part)
+        or not 0 < part <= 1
+    ):
+        raise PartCultiveeInvalideError(
+            f"cell_id={cell.cell_id} {_constantes.CLE_PART_CULTIVEE}={part!r}"
+        )
+    return float(part)
+
+
 def _facteur_agricole(cell: Cell, carte: dict) -> float:
-    """Part qui reste aux champs : 1 moins la part minière de la cellule."""
-    return 1.0 - _constantes.part_miniere_de(
+    """Part de la cellule aux champs : sa part cultivée, moins ce que prennent ses mines."""
+    return _part_cultivee_pour_cellule(cell, carte) * (1.0 - _constantes.part_miniere_de(
         _gisements_de(cell, carte),
         _constantes.facteurs_richesse_extraction(),
-    )
+    ))
 
 
 def _production_base_kg(cell: Cell, yield_factor: float) -> float:

@@ -102,6 +102,23 @@ def _porter_la_soudure_dans_chaque_lieu(cell: Cell) -> None:
         ecrire_stock_marchandise(cell, MARCHANDISE_NOURRITURE, total)
 
 
+def _poser_les_parts_cultivees(carte: dict) -> dict:
+    """La carte, chaque enregistrement portant la part cultivée de sa cellule.
+
+    La part se dérive une fois, au chargement, de la table des régions de 1400
+    (`sim.regions.parts_cultivees`), comme la pluie et la crue se posent à la lecture de
+    la carte ; le tick la lit dans l'enregistrement, jamais dans un fichier. Un
+    enregistrement qui la porte déjà (une carte d'épreuve) la garde. Les enregistrements
+    reçus ne sont pas modifiés : ceux qui changent sont des copies.
+    """
+    from sim.regions import parts_cultivees
+
+    cle = constantes.CLE_PART_CULTIVEE
+    sans_part = {cid: raw for cid, raw in carte.items() if cle not in raw}
+    parts = parts_cultivees(sans_part) if sans_part else {}
+    return {cid: ({**raw, cle: parts[cid]} if cid in parts else raw) for cid, raw in carte.items()}
+
+
 def lire_stock_mer(world: "World", marchandise: str) -> float:
     """
     Lit le stock d'une marchandise dans le bassin maritime.
@@ -145,6 +162,10 @@ class World:
                      l'empreinte ; lue par le commerce pour reconnaître une
                      cellule affamée. None si le monde est construit à la main :
                      la garde d'avant s'applique alors (absence déclarée).
+        parts_cultivees : cell_id → part de la cellule mise en culture, posée au
+                     chargement dans son enregistrement de carte (`part_cultivee`),
+                     d'où le tick la lit. Hors de to_dict et de la photographie.
+                     None si le monde est construit à la main.
         ancres_des_bourgs : cell_id → (siège du maître du bourg ou None,
                      ville placée ou None). Posé au chargement, hors de
                      to_dict. None si le monde est construit à la main :
@@ -211,6 +232,7 @@ class World:
         self.attribution_villes = attribution_villes
         self.populations_bourg_amorcage = None
         self.populations_soutenables = None
+        self.parts_cultivees = None
         self.ancres_des_bourgs = None
         self.ticks_ecoules = 0
         self.intentions_en_attente = []
@@ -305,7 +327,7 @@ class World:
 
         raw_cells = sorted(carte_doc["cellules"], key=lambda cellule: cellule["cell_id"])
         raw_adjacency = carte_doc["adjacence"]
-        carte = {int(raw["cell_id"]): raw for raw in raw_cells}
+        carte = _poser_les_parts_cultivees({int(raw["cell_id"]): raw for raw in raw_cells})
         carte_meta = {cle: valeur for cle, valeur in carte_doc.items()
                       if cle not in ("cellules", "adjacence")}
         attribution = attribuer_villes(carte_doc, charger_villes())
@@ -370,6 +392,7 @@ class World:
                    attribution_villes=attribution)
         monde.populations_bourg_amorcage = populations_bourg_amorcage
         monde.populations_soutenables = populations_soutenables
+        monde.parts_cultivees = {cid: carte[cid][constantes.CLE_PART_CULTIVEE] for cid in sorted(carte)}
         monde.maisons = charger_registre_maisons(monde.carte)
         from sim.maitres import attribuer_maitres
 

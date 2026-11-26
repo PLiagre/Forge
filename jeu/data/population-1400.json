@@ -15,7 +15,7 @@
       "terres": [],
       "cellules": [2943, 10178, 10319, 10426, 10430, 10443],
       "raison_cellules": "La Corse génoise, Bayonne et Saint-Jean-Pied-de-Port, Perpignan, Avignon, Verdun et Toul, la Lorraine : terres de la France d'aujourd'hui, que HYDE compte avec elle.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.222,
       "habitants_1400": [
         {"pays_actuel": "France", "habitants": 10930934, "source": "hyde"}
       ],
@@ -28,7 +28,7 @@
       "terres": [],
       "cellules": [1175, 1176, 1178, 1208, 1209, 1210, 1211, 1213, 10185, 10199],
       "raison_cellules": "Les Orcades et les Shetland, norvégiennes en 1400 : terres du Royaume-Uni d'aujourd'hui.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.111,
       "habitants_1400": [
         {"pays_actuel": "Royaume-Uni", "habitants": 2903873, "source": "hyde"},
         {"pays_actuel": "Irlande", "habitants": 700000, "source": "urlanis"}
@@ -42,7 +42,7 @@
       "terres": ["italie", "sulcis"],
       "cellules": [1547, 10132, 10446, 10447],
       "raison_cellules": "La Sardaigne aragonaise et le Piémont savoyard : terres de l'Italie d'aujourd'hui.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.347,
       "habitants_1400": [
         {"pays_actuel": "Italie", "habitants": 8004110, "source": "hyde"},
         {"pays_actuel": "Malte", "habitants": 10000, "source": "hyde"}
@@ -56,7 +56,7 @@
       "terres": [],
       "cellules": [],
       "raison_cellules": null,
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.164,
       "habitants_1400": [
         {"pays_actuel": "Espagne", "habitants": 5500000, "source": "hyde"},
         {"pays_actuel": "Portugal", "habitants": 825848, "source": "hyde"},
@@ -71,7 +71,7 @@
       "terres": ["empire", "frise"],
       "cellules": [10391, 10427],
       "raison_cellules": "La Flandre bourguignonne, de Bruges et Gand à Anvers : terres de la Belgique d'aujourd'hui.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.199,
       "habitants_1400": [
         {"pays_actuel": "Allemagne", "habitants": 6500000, "source": "hyde"},
         {"pays_actuel": "Autriche", "habitants": 1250000, "source": "hyde"},
@@ -92,7 +92,7 @@
       "terres": ["livonie"],
       "cellules": [],
       "raison_cellules": null,
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.052,
       "habitants_1400": [
         {"pays_actuel": "Pologne", "habitants": 3500000, "source": "hyde"},
         {"pays_actuel": "Lituanie", "habitants": 95245, "source": "hyde"},
@@ -111,7 +111,7 @@
       "terres": ["champs-sauvages"],
       "cellules": [10415],
       "raison_cellules": "La Crimée, que la Horde partage avec la Cembalo génoise.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.02,
       "habitants_1400": [
         {"pays_actuel": "Russie", "habitants": 5868000, "part": "172227/3995200", "source": "hyde", "raison": "La carte s'arrête au 35e méridien : de la Russie d'Europe (3 995 200 km²), elle ne porte que les terres de Novgorod et de Pskov, 172 227 km²."},
         {"pays_actuel": "Ukraine", "habitants": 2061000, "part": "137527/603628", "source": "hyde", "raison": "La Horde et les Champs sauvages : 137 527 km² de la carte sur les 603 628 km² de l'Ukraine."}
@@ -125,7 +125,7 @@
       "terres": [],
       "cellules": [],
       "raison_cellules": null,
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.083,
       "habitants_1400": [
         {"pays_actuel": "Hongrie", "habitants": 1000000, "source": "hyde"},
         {"pays_actuel": "Slovaquie", "habitants": 700000, "source": "hyde"},
@@ -141,7 +141,7 @@
       "terres": ["albanie", "grece", "egee"],
       "cellules": [1355, 1389, 1398, 1415, 1419, 1428, 1435, 1437, 1440, 9989, 9996, 10003, 10311, 10326, 10334, 10335, 10337, 10340, 10341, 10343, 10347, 10348, 10350, 10355, 10361, 10366, 10370, 10374, 10376],
       "raison_cellules": "Les terres ottomanes d'Europe, de la Thrace au Danube ; les îles et les places vénitiennes et génoises de Grèce et d'Albanie ; Constantinople.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.08,
       "habitants_1400": [
         {"pays_actuel": "Roumanie", "habitants": 1250000, "part": "135563/238397", "source": "hyde", "raison": "La Valachie et la Moldavie : la Roumanie moins ses 102 834 km² hongrois."},
         {"pays_actuel": "Moldavie", "habitants": 234000, "source": "hyde"},
@@ -163,7 +163,7 @@
       "terres": [],
       "cellules": [10012],
       "raison_cellules": "Smyrne et sa vallée, que les Hospitaliers partagent avec les Ottomans.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.149,
       "habitants_1400": [
         {"pays_actuel": "Turquie", "habitants": 5800000, "part": "357781/783562", "source": "hyde", "raison": "La carte s'arrête au 35e méridien : les terres ottomanes d'Anatolie y couvrent 357 781 km² des 783 562 km² de la Turquie."}
       ],
@@ -176,7 +176,7 @@
       "terres": ["desert", "sous", "cyrenaique"],
       "cellules": [],
       "raison_cellules": null,
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.139,
       "habitants_1400": [
         {"pays_actuel": "Maroc", "habitants": 1800000, "source": "hyde"},
         {"pays_actuel": "Algérie", "habitants": 1470000, "source": "hyde"},
@@ -192,7 +192,7 @@
       "terres": [],
       "cellules": [],
       "raison_cellules": null,
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.518,
       "habitants_1400": [
         {"pays_actuel": "Égypte", "habitants": 4050000, "part": "2/3", "source": "hyde", "raison": "La carte s'arrête au 30e parallèle : le Caire et le Delta, sans la vallée de Haute-Égypte. Le Delta porte environ les deux tiers des terres cultivées de l'Égypte (niveau 2). Les Mamelouks ne tiennent pas le Levant sur la carte, qui s'arrête au Sinaï."}
       ],
@@ -205,7 +205,7 @@
       "terres": [],
       "cellules": [1349],
       "raison_cellules": "Gotland, que tient l'Ordre teutonique : terre de la Suède d'aujourd'hui.",
-      "part_cultivee": 0.3,
+      "part_cultivee": 0.03,
       "habitants_1400": [
         {"pays_actuel": "Danemark", "habitants": 400000, "source": "hyde"},
         {"pays_actuel": "Suède", "habitants": 433628, "source": "hyde"},
