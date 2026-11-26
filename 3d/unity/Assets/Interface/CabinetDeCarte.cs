@@ -165,7 +165,7 @@ namespace Forge.Interface
             var calques = GetComponent<CalquesCarte>(); calques.Brancher(lieux, fleches, guerre, atlas, villes); atlas.Eviter(calques);
             // Les capitales se lisent dans les pays jouables que la partie lit déjà.
             villes.Brancher(() => Partie?.Jouables != null && Partie.Jouables.Presente ? Partie.Jouables.Donnees : null, guerre, atlas); lieux.Eviter(guerre, calques);
-            // L'accueil se tient à droite de la carte tant qu'aucune maison n'est servie ; il lit le pays des terres sur la carte de la guerre.
+            // L'accueil se tient à droite de la carte tant que le monde n'a ni accepté le choix ni servi de maison ; il lit le pays des terres sur la carte de la guerre.
             int port = carte.port;
             accueil = new AccueilDuPays(toile.transform, () => Partie, () => guerre.Terres,
                 id => { using (var c = new ClientPays(port, System.TimeSpan.FromSeconds(10))) return c.LireTerres(id); });
@@ -315,7 +315,7 @@ namespace Forge.Interface
             temps[1].GetComponentInChildren<Text>().text = horloge.Lue?.JoursParSeconde == 0 ? "Reprendre" : "Pause";
             bool enAvant = TempsAttendu(Partie.Monde, Partie.Recu, horloge.Lue);
             if (enAvant != sceauDuTemps.activeSelf) { temps[1].colors = enAvant ? tempsEngage : tempsOrdinaire; sceauDuTemps.SetActive(enAvant); }
-            barre.text = Barre(Partie.Monde, Partie.Comptes);
+            barre.text = Barre(Partie.Monde, Partie.Comptes, Partie.Recu, accueil.Choisi, Partie.Jouable?.Pays.Nom);
             jauges.Afficher(Partie.Monde, Partie.Pays);
             etat.gameObject.SetActive(carte.CellulesServies < 0);
             if (carte.CellulesServies < 0) etat.text = carte.TexteAffiche ?? "La carte se prépare…";
@@ -355,17 +355,22 @@ namespace Forge.Interface
         }
 
         // La barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.
-        public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes)
+        // Maison servie, ses lignes s'ouvrent sur le pays du joueur quand on le connaît ; maison pas encore servie, un choix accepté
+        // par le monde (`recu`) le dit, avec le pays choisi quand on le connaît, en attendant le jour qui l'applique.
+        public static string Barre(Lecture<MondeAvecMaisonLu> monde, Lecture<ComptesDeMaison> comptes, RecuIntention recu = null, string paysChoisi = null, string paysDuJoueur = null)
         {
             if (monde == null) return "Lecture de la maison…";
             if (!monde.Presente) return "Maison indisponible : " + TexteDuMonde.Absence(monde.Absence);
             string id = monde.Donnees.MaisonDuJoueur;
-            if (id == null) return "Aucune maison choisie";
+            if (id == null)
+                return recu?.Acceptee != true ? "Aucune maison choisie"
+                    : paysChoisi == null ? "Choix reçu, le monde l'applique à son premier jour" : paysChoisi + " · choix reçu, le monde l'applique à son premier jour";
+            string pays = paysDuJoueur == null ? "" : paysDuJoueur + " · ";
             if (comptes == null || comptes.Presente && (comptes.Donnees.Maison.Id != id || comptes.Donnees.Tick != monde.Donnees.Monde.Tick))
-                return "Comptes en attente du monde";
-            if (!comptes.Presente) return DossierMaison.Indisponible(comptes.Absence);
+                return pays + "Comptes en attente du monde";
+            if (!comptes.Presente) return pays + DossierMaison.Indisponible(comptes.Absence);
             var lus = comptes.Donnees;
-            return (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
+            return pays + (lus.Maison.Nom ?? TexteDuMonde.Absence(lus.Maison.Absents["nom"])) + " · " + DossierMaison.Prelevement(lus.Part) + " · " + DossierMaison.Grenier(lus.Grenier);
         }
 
         // Le siège servi de la maison du joueur, posé sur la carte ; null sans maison servie, sans position servie, ou hors de la carte.

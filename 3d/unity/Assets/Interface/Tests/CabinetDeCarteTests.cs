@@ -403,6 +403,9 @@ namespace Forge.Interface.Tests
             Assert.That(cabinet.TempsMisEnAvant, Is.False, "le temps est mis en avant avant le choix");
             await cabinet.Accueil.Lancer(); cabinet.Afficher();
             Assert.That(partie.Recu?.Acceptee, Is.True, "le choix n'est pas reçu : échantillon vide");
+            // Le monde en pause n'a pas encore joué le jour qui applique le choix : l'accueil est déjà fermé et la barre nomme le pays choisi.
+            Assert.That(cabinet.Accueil.Ouvert, Is.False, "l'accueil reste ouvert après le reçu"); Assert.That(cabinet.Accueil.Panneau.gameObject.activeSelf, Is.False);
+            Assert.That(Propre(BARRE), Is.EqualTo("Despotat témoin · choix reçu, le monde l'applique à son premier jour"));
             var demandee = typeof(HorlogeDeCarte).GetField("vitesseDemandee", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             Assert.That(demandee.GetValue(horloge), Is.Null, "le choix a demandé une vitesse à l'horloge"); Assert.That(horloge.EnPause, Is.True);
             Assert.That(cabinet.TempsMisEnAvant, Is.True, "« Pause / Reprendre » n'est pas mis en avant après le choix");
@@ -824,6 +827,24 @@ namespace Forge.Interface.Tests
             Poser(partie, "Monde", Lecture<MondeAvecMaisonLu>.Absent("service coupé")); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo("Maison indisponible : service coupé"));
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
             Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet" && b.name != BoutonDeLaVille.NOM), Is.EqualTo(3), "la barre n'est pas une commande");
+        }
+        // Le choix reçu, la maison pas encore servie : la barre nomme le pays choisi. La maison servie : chaque ligne s'ouvre sur le pays du joueur, quand on le connaît.
+        [Test] public void La_barre_nomme_le_pays_choisi_puis_le_pays_du_joueur()
+        {
+            var sans = MondeDe(null); var avec = MondeDe(JOUEUR); var recu = RecuIntention.AccepteeAu(7);
+            Assert.That(CabinetDeCarte.Barre(sans, null, recu, "France"), Is.EqualTo("France · choix reçu, le monde l'applique à son premier jour"));
+            Assert.That(CabinetDeCarte.Barre(sans, null, recu), Is.EqualTo("Choix reçu, le monde l'applique à son premier jour"));
+            Assert.That(CabinetDeCarte.Barre(sans, null, RecuIntention.Refusee(409, "refus"), "France"), Is.EqualTo("Aucune maison choisie"), "un refus n'est pas un choix");
+            Assert.That(CabinetDeCarte.Barre(sans, null, null, "France"), Is.EqualTo("Aucune maison choisie"), "rien n'est parti");
+            Assert.That(CabinetDeCarte.Barre(sans, ComptesBarre(JOUEUR, 1)), Is.EqualTo("Aucune maison choisie"));
+            var comptes = ComptesBarre(JOUEUR, 1);
+            Assert.That(CabinetDeCarte.Barre(avec, comptes, recu, "Bohême", "France"), Is.EqualTo("France · " + LIGNE_DE_LA_BARRE), "la maison servie passe devant le choix reçu");
+            Assert.That(CabinetDeCarte.Barre(avec, comptes), Is.EqualTo(LIGNE_DE_LA_BARRE), "sans pays du joueur, la ligne ne change pas");
+            Assert.That(CabinetDeCarte.Barre(avec, null, null, null, "France"), Is.EqualTo("France · " + ATTENTE));
+            Assert.That(CabinetDeCarte.Barre(avec, null), Is.EqualTo(ATTENTE));
+            var absent = Lecture<ComptesDeMaison>.Absent("refus témoin");
+            Assert.That(CabinetDeCarte.Barre(avec, absent, null, null, "France"), Is.EqualTo("France · Comptes indisponibles : refus témoin"));
+            Assert.That(CabinetDeCarte.Barre(avec, absent), Is.EqualTo("Comptes indisponibles : refus témoin"));
         }
         // « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
         static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
