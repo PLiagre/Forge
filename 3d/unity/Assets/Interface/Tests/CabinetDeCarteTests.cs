@@ -891,7 +891,9 @@ namespace Forge.Interface.Tests
                 Assert.That(icones.Overlaps(Monde(voisin)), Is.False, "les icônes " + icones + " recouvrent « " + voisin.name + " » " + Monde(voisin));
             // La date raccourcie laisse sa place à « Entrer dans la ville », de x 888 à 1104, avant les dossiers.
             Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(400f));
-            foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(400f), texte); }
+            // La ligne la plus longue de l'horloge (le dernier jour, le dernier palier) tient aussi, sur sa seule ligne.
+            var lignes = new[] { "Date indisponible : le monde ne répond pas" }.Concat(new[] { 0.5, 1.5, 20 }.Select(v => HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), v))));
+            foreach (string texte in lignes) { date.text = texte; TestContext.WriteLine("largeur de la date « " + texte + " » : " + date.preferredWidth + " sur 400"); Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(400f), texte); }
             Assert.That(icones.Overlaps(Monde((RectTransform)Commande(BoutonDeLaVille.NOM).transform)), Is.False, "les icônes recouvrent « Entrer dans la ville »");
         }
         // Le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.

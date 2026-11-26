@@ -77,14 +77,14 @@ namespace Forge.Pont.Tests {
 
         [Test] public void Le_panneau_dit_l_horloge_servie_et_rien_d_autre() {
             Servir(); Poser(); double t = 1; Pas(ref t);
-            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 6 de 1400 · 2.5 jours par seconde", horloge.TexteAffiche);
             Assert.AreEqual(5L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             // Un service qui saute des jours et des ticks : le panneau recopie, il ne compte pas.
             lock (recues) { tick = 7; jour = 100; vitesse = 1; } Pas(ref t);
-            Assert.AreEqual("Jour 100 de 1400\n1 jour par seconde", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 100 de 1400 · 1 jour par seconde", horloge.TexteAffiche);
             Assert.AreEqual(7L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             lock (recues) vitesse = 0; Pas(ref t);
-            Assert.AreEqual("Jour 100 de 1400\nEn pause", horloge.TexteAffiche);
+            Assert.AreEqual("Jour 100 de 1400 · En pause", horloge.TexteAffiche);
             Assert.AreEqual(7L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
             Assert.IsTrue(Array.TrueForAll(Recues(), r => r == "GET /horloge"), "le panneau a réglé l'horloge sans qu'on le lui demande : " + string.Join(", ", Recues()));
         }
@@ -103,18 +103,18 @@ namespace Forge.Pont.Tests {
             Assert.AreEqual("Pause", Array.Find(objet.GetComponentsInChildren<Text>(true), x => x.name == "Libellé" && (x.text == "Pause" || x.text == "Reprendre"))?.text);
         }
 
-        // Le monde s'ouvre en pause ; la première reprise prend la vitesse de la carte, et un monde vu en marche garde la sienne.
-        [Test] public void La_reprise_d_une_pause_d_ouverture_prend_la_vitesse_de_la_carte() {
-            double v = ReglagesDesVues.Charger().VitesseCarte; Assert.AreNotEqual(1, v, "la vitesse de la carte ne distingue pas l'ancienne reprise");
+        // Le monde s'ouvre en pause ; la première reprise prend la vitesse de départ, et un monde vu en marche garde la sienne.
+        [Test] public void La_reprise_d_une_pause_d_ouverture_prend_la_vitesse_de_depart() {
+            var r = ReglagesDesVues.Charger(); double v = r.VitesseDepart; Assert.AreNotEqual(r.VitesseCarte, v, "la vitesse de départ ne distingue pas l'ancienne reprise");
             string texte = v.ToString("R", CultureInfo.InvariantCulture);
             lock (recues) vitesse = 0; Servir(); Poser(); double t = 1; Pas(ref t);
             Assert.AreEqual(0, horloge.Lue.JoursParSeconde, "le service témoin s'ouvre en pause");
-            horloge.Basculer(); Pas(ref t); Assert.AreEqual(v, horloge.Lue.JoursParSeconde, "la première reprise n'est pas à la vitesse de la carte");
+            horloge.Basculer(); Pas(ref t); Assert.AreEqual(v, horloge.Lue.JoursParSeconde, "la première reprise n'est pas à la vitesse de départ");
             horloge.Basculer(); Pas(ref t); Assert.AreEqual(0, horloge.Lue.JoursParSeconde);
             horloge.Basculer(); Pas(ref t); Assert.AreEqual(v, horloge.Lue.JoursParSeconde);
             CollectionAssert.AreEqual(new[] { "POST /vitesse?jours_par_seconde=" + texte, "POST /vitesse?jours_par_seconde=0", "POST /vitesse?jours_par_seconde=" + texte },
                 Array.FindAll(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)));
-            // Un monde vu en marche à 2,5 puis mis en pause reprend à 2,5, pas à la vitesse de la carte.
+            // Un monde vu en marche à 2,5 puis mis en pause reprend à 2,5, pas à la vitesse de départ.
             horloge.Arreter(); UnityEngine.Object.DestroyImmediate(objet); UnityEngine.Object.DestroyImmediate(cam.gameObject);
             lock (recues) { recues.Clear(); vitesse = 2.5; } Poser(); Pas(ref t);
             Assert.AreEqual(2.5, horloge.Lue.JoursParSeconde); lock (recues) vitesse = 0; Pas(ref t); Assert.AreEqual(0, horloge.Lue.JoursParSeconde);
@@ -133,7 +133,7 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(Array.Exists(Recues(), r => r == "GET /horloge"), "le service en panne n'a pas été lu");
             Assert.IsFalse(Array.Exists(Recues(), r => r.StartsWith("POST", StringComparison.Ordinal)), "un réglage est parti sans horloge connue : " + string.Join(", ", Recues()));
             lock (recues) panne = false; Pas(ref t);
-            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", horloge.TexteAffiche, "le service revenu n'est pas relu");
+            Assert.AreEqual("Jour 6 de 1400 · 2.5 jours par seconde", horloge.TexteAffiche, "le service revenu n'est pas relu");
             Assert.AreEqual(5L, horloge.Lue.Tick); Assert.IsNull(TexteDuMonde.Interdit(horloge.TexteAffiche), horloge.TexteAffiche);
         }
 
@@ -142,11 +142,29 @@ namespace Forge.Pont.Tests {
             string a = HorlogeDeCarte.Decrire(new HorlogeLue(5, new DateDuMonde(1400, 6), 2.5));
             string b = HorlogeDeCarte.Decrire(new HorlogeLue(9999, new DateDuMonde(1400, 6), 2.5));
             string c = HorlogeDeCarte.Decrire(new HorlogeLue(30, new DateDuMonde(1401, 365), 0));
-            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", a);
-            Assert.AreEqual("Jour 6 de 1400\n2.5 jours par seconde", b);
-            Assert.AreEqual("Jour 365 de 1401\nEn pause", c);
+            Assert.AreEqual("Jour 6 de 1400 · 2.5 jours par seconde", a);
+            Assert.AreEqual("Jour 6 de 1400 · 2.5 jours par seconde", b);
+            Assert.AreEqual("Jour 365 de 1401 · En pause", c);
             foreach (string texte in new[] { a, b, c }) { Assert.IsNull(TexteDuMonde.Interdit(texte), texte); StringAssert.DoesNotContain("9999", texte); }
-            Assert.AreEqual("tick", TexteDuMonde.Interdit("Jour 6 de 1400 · tick 5\n2.5 jours par seconde"), "le juge ne mord pas");
+            Assert.AreEqual("tick", TexteDuMonde.Interdit("Jour 6 de 1400 · tick 5 · 2.5 jours par seconde"), "le juge ne mord pas");
+        }
+
+        // La date et la vitesse tiennent sur une seule ligne, séparées par « · » : en pause, elle finit par « En pause » ; en marche, par « jour(s) par seconde ».
+        [Test] public void La_date_et_la_vitesse_tiennent_sur_une_seule_ligne() {
+            string pause = HorlogeDeCarte.Decrire(new HorlogeLue(3, new DateDuMonde(1400, 12), 0));
+            string un = HorlogeDeCarte.Decrire(new HorlogeLue(3, new DateDuMonde(1400, 12), 1));
+            string vingt = HorlogeDeCarte.Decrire(new HorlogeLue(3, new DateDuMonde(1400, 365), 20));
+            Assert.AreEqual("Jour 12 de 1400 · En pause", pause); Assert.AreEqual("Jour 12 de 1400 · 1 jour par seconde", un); Assert.AreEqual("Jour 365 de 1400 · 20 jours par seconde", vingt);
+            foreach (string texte in new[] { pause, un, vingt }) { StringAssert.DoesNotContain("\n", texte); StringAssert.StartsWith("Jour ", texte); StringAssert.Contains(" de 1400 · ", texte); }
+            StringAssert.EndsWith("En pause", pause); StringAssert.EndsWith("jour par seconde", un); StringAssert.EndsWith("jours par seconde", vingt);
+        }
+
+        // Le premier « Reprendre » d'un monde ouvert en pause part lentement : le palier juste au-dessous de la vitesse de la carte, ou plus lent.
+        [Test] public void La_vitesse_de_depart_est_un_palier_plus_lent_que_celui_de_la_carte() {
+            var r = ReglagesDesVues.Charger(); double[] p = HorlogeDeCarte.PALIERS;
+            Assert.Contains(r.VitesseDepart, p, "la vitesse de départ n'est pas un palier de l'horloge");
+            Assert.Less(r.VitesseDepart, r.VitesseCarte, "la vitesse de départ n'est pas strictement plus lente que celle de la carte");
+            Assert.LessOrEqual(r.VitesseDepart, HorlogeDeCarte.Suivante(r.VitesseCarte, -1), "la vitesse de départ n'est pas un palier sous celui de la carte");
         }
 
         [Test] public void Le_panneau_est_sur_la_camera_avec_trois_boutons() {
