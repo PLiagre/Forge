@@ -44,7 +44,7 @@ namespace Forge.Interface
         public NomsCourbes Ecriture => ecriture;
         public IReadOnlyList<TextMesh> NombresDesArmees => nombres;
 
-        CarteDessinee carte; VillesDeCarte villes; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
+        CarteDessinee carte; VillesDeCarte villes; CabinetDeCarte cabinet; VoisinageDeCarte voisinage; List<(long, long, long, long)> lieuxQuiSeTouchent; string echecDuVoisinage;
         Task<(VoisinageDeCarte voisinage, List<(long, long, long, long)> lieux)> calcul;
         Task<(Lecture<TerresDeLaCarte> terres, Lecture<GuerresLues> guerres)> vol; double prochaine;
         string cleDesTerres; bool aRetracer; NomsCourbes ecriture; Transform racineDesArmees; Material chemin; Mesh enMarche, auSiege;
@@ -75,6 +75,7 @@ namespace Forge.Interface
             if (carte == null) return;
             if (villes == null) villes = GetComponent<VillesDeCarte>();
             if (NomsMontres) ecriture?.Eviter(carte.camera, villes != null ? villes.EmprisesDesCapitales : null);
+            if (ecriture != null) ecriture.PaysDuJoueur = PaysDuJoueur;
             ecriture?.Suivre(carte.camera);
             if (racineDesArmees == null || carte.camera == null) return;
             foreach (Transform armee in racineDesArmees)
@@ -97,6 +98,18 @@ namespace Forge.Interface
         // Le pays d'une maison : celui des terres dont elle tient le bourg ; une maison sans bourg est son propre pays.
         public string PaysDeLaMaison(string maison) => PaysDeLaMaison(Terres, maison);
         public static string PaysDeLaMaison(TerresDeLaCarte terres, string maison) => terres?.Terres.FirstOrDefault(t => t.Maitre == maison)?.Pays ?? maison;
+        // La maison du joueur, telle que la partie servie au cabinet la dit (`/monde`) ; nulle avant le choix d'un pays. Lue, jamais touchée.
+        public Func<string> LecteurDuJoueur;
+        string MaisonDuJoueur()
+        {
+            if (LecteurDuJoueur != null) return LecteurDuJoueur();
+            if (cabinet == null) cabinet = GetComponent<CabinetDeCarte>();
+            var partie = cabinet != null ? cabinet.Partie : null; var monde = partie?.Monde;
+            return monde != null && monde.Presente ? monde.Donnees.MaisonDuJoueur : null;
+        }
+        // Le pays du joueur : celui des terres dont sa maison tient le bourg ; nul avant le choix d'un pays ou tant que les terres ne sont pas lues.
+        // Son nom ne descend jamais sous une taille lisible (`NomsCourbes.PaysDuJoueur`).
+        public string PaysDuJoueur { get { string maison = MaisonDuJoueur(); return maison == null || Terres == null ? null : PaysDeLaMaison(Terres, maison); } }
         // Les noms des pays se montrent-ils : cachés, ils ne se dessinent plus et ne réservent plus la place de leurs lettres.
         public bool NomsMontres { get; private set; } = true;
         public void MontrerLesNoms(bool montres) { NomsMontres = montres; if (ecriture != null) ecriture.Racine.gameObject.SetActive(montres); }
@@ -189,19 +202,23 @@ namespace Forge.Interface
             CotesDeFrontiere = n;
         }
 
-        // Un nom par pays, et sa maison puis son suzerain en petit dessous, sur le plus grand morceau d'un seul tenant de ses terres : le tracé vient du terrain posé et du
-        // pays servi de chaque terre, et se refait donc quand une terre change de pays.
+        // Un nom par pays, et sa maison puis son suzerain en petit dessous, sur le plus grand morceau d'un seul tenant de ses lieux : le tracé vient du terrain posé et du
+        // pays servi de chaque lieu (celui de `autres_pays`, sinon celui de sa terre), comme les couleurs, et se refait donc quand un lieu change de pays.
         void NommerLesPays()
         {
             if (carte.Terrain == null || carte.Lue == null || Terres == null) { ecriture?.Ecrire(new (string, string, TraceDeNom)[0]); return; }
             if (ecriture == null) { ecriture = new NomsCourbes(transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), p => carte.SurLeSol(p.x, p.y, NomsCourbes.HAUTEUR)); ecriture.Racine.gameObject.SetActive(NomsMontres); }
             var rangs = new Dictionary<string, int>(); for (int k = 0; k < Terres.Pays.Count; k++) rangs[Terres.Pays[k].Id] = k;
-            var pays = new int[carte.Lue.Cellules.Count];
-            for (int r = 0; r < pays.Length; r++) { string id = Terres.PaysDe(carte.Lue.Cellules[r].CellId); pays[r] = id != null && rangs.TryGetValue(id, out int k) ? k : -1; }
-            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(carte.Terrain, pays);
-            // Un nom qui s'écarte d'une capitale reste sur la terre de son pays, lue comme son tracé : le pays de la cellule du lieu sous le point.
-            TerrainDeCarte terrain = carte.Terrain; var paysDesRangs = pays; var parRang = Terres.Pays.Select(p => p.Id).ToList();
-            ecriture.SurSaTerre = (id, p) => { ushort n = terrain.LieuEn(p.x, p.y); if (n == 0) return false; int k = paysDesRangs[terrain.CelluleDuLieu(n - 1)]; return k >= 0 && parRang[k] == id; };
+            TerrainDeCarte terrain = carte.Terrain; var pays = new int[terrain.NombreDeLieux];
+            for (int l = 0; l < pays.Length; l++)
+            {
+                string id = Terres.PaysDuLieu(carte.Lue.Cellules[terrain.CelluleDuLieu(l)].CellId, terrain.RangDuLieu(l));
+                pays[l] = id != null && rangs.TryGetValue(id, out int k) ? k : -1;
+            }
+            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(terrain, pays);
+            // Un nom qui s'écarte d'une capitale reste sur la terre de son pays, lue comme son tracé : le pays du lieu sous le point.
+            var paysDesLieux = pays; var parRang = Terres.Pays.Select(p => p.Id).ToList();
+            ecriture.SurSaTerre = (id, p) => { ushort n = terrain.LieuEn(p.x, p.y); if (n == 0) return false; int k = paysDesLieux[n - 1]; return k >= 0 && parRang[k] == id; };
             // Le nom servi du pays, jamais un nom de remplacement : un pays que le monde ne nomme pas n'a pas de nom sur la carte.
             // En petit dessous, celui de sa maison quand il diffère.
             // Un vassal porte aussi, plus petit, « vassal de » son suzerain, tel que le monde le nomme.

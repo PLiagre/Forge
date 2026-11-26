@@ -87,7 +87,8 @@ namespace Forge.Pont {
         }
     }
 
-    // Le tracé du nom de chaque pays, tiré de la grille des lieux du terrain, chaque lieu au pays de sa cellule. Le
+    // Le tracé du nom de chaque pays, tiré de la grille des lieux du terrain, chaque lieu à son propre pays : un lieu d'une
+    // cellule partagée porte le nom du pays qui le tient, pas celui du bourg de sa cellule. Le
     // territoire d'un pays se lit par échantillons, un texel sur quelques-uns ; d'un pays en plusieurs morceaux, seul le plus grand d'un seul tenant
     // porte le nom : un nom ne s'étire pas par-dessus une mer ou un voisin. Sur ce morceau, le grand axe est celui où
     // les points s'étalent le plus, et l'arc est la parabole qui passe au plus près d'eux. Un territoire à peu près
@@ -107,20 +108,20 @@ namespace Forge.Pont {
         // mer) ne le coupe pas.
         public const int SONDES = 48, TROU = 2;
 
-        // `pays` dit le pays de chaque rang servi ; un pays négatif n'a pas de nom. Rend le tracé de chaque pays qui
-        // tient au moins un texel du terrain.
-        public static Dictionary<int, TraceDeNom> Tracer(TerrainDeCarte terrain, IReadOnlyList<int> pays) {
+        // `paysDesLieux` dit le pays de chaque lieu du terrain, dans l'ordre de ses lieux ; un pays négatif n'a pas de nom.
+        // Rend le tracé de chaque pays qui tient au moins un texel du terrain.
+        public static Dictionary<int, TraceDeNom> Tracer(TerrainDeCarte terrain, IReadOnlyList<int> paysDesLieux) {
             if (terrain == null) throw new ArgumentNullException(nameof(terrain));
-            if (pays == null) throw new ArgumentNullException(nameof(pays));
-            int rangs = pays.Count; long terre = 0; var parNumero = new int[terrain.NombreDeLieux + 1]; parNumero[0] = -1;
-            // Chaque lieu porte le nom du pays de sa cellule.
-            for (int l = 0; l < terrain.NombreDeLieux; l++) parNumero[l + 1] = pays[terrain.CelluleDuLieu(l)];
+            if (paysDesLieux == null) throw new ArgumentNullException(nameof(paysDesLieux));
+            if (paysDesLieux.Count != terrain.NombreDeLieux) throw new ArgumentException(paysDesLieux.Count + " pays pour " + terrain.NombreDeLieux + " lieux du terrain", nameof(paysDesLieux));
+            long terre = 0; var parNumero = new int[terrain.NombreDeLieux + 1]; parNumero[0] = -1;
             var zones = new Dictionary<int, RectInt>();
-            for (int r = 0; r < rangs; r++) {
-                int texels = terrain.TexelsDe(r);
-                if (pays[r] < 0 || texels == 0) continue;
-                terre += texels; RectInt zone = terrain.ZoneDe(r);
-                zones[pays[r]] = zones.TryGetValue(pays[r], out RectInt deja) ? Union(deja, zone) : zone;
+            for (int l = 0; l < terrain.NombreDeLieux; l++) {
+                int p = paysDesLieux[l]; parNumero[l + 1] = p;
+                int texels = terrain.TexelsDuLieu(l);
+                if (p < 0 || texels == 0) continue;
+                terre += texels; RectInt zone = terrain.ZoneDuLieu(l);
+                zones[p] = zones.TryGetValue(p, out RectInt deja) ? Union(deja, zone) : zone;
             }
             var traces = new Dictionary<int, TraceDeNom>();
             if (terre == 0) return traces;

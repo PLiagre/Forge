@@ -89,6 +89,33 @@ namespace Forge.Interface.Tests
             Assert.That(noms.Noms, Is.Empty);
         }
 
+        // Le nom du pays du joueur ne se cache jamais faute de taille : de loin, ses lignes s'agrandissent ensemble autour du milieu de son tracé
+        // jusqu'à ce que le nom se lise, et un autre pays aussi petit se cache comme avant. De près, il revient à sa taille ; de trop près, il
+        // s'efface comme les autres. Sans joueur, il se cache aussi.
+        [Test] public void Le_nom_du_joueur_reste_lisible_de_loin_et_un_autre_petit_pays_se_cache()
+        {
+            noms = new NomsCourbes(racine.transform, SocleInterface.Police(titre: true), SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier"), null);
+            var ici = new TraceDeNom(new Vector2(-60f, 0f), Vector2.right, -12f, 12f, 0f, 0f, 0f, 10f, 100); var la = new TraceDeNom(new Vector2(60f, 0f), Vector2.right, -12f, 12f, 0f, 0f, 0f, 10f, 100);
+            noms.Ecrire(new (string, string, string, string, TraceDeNom)[] { ("seigneurie-1", "Duché de Bar", "Bar", "France", ici), ("puissance-9", "Lorraine", null, null, la) });
+            NomCourbe bar = noms.Noms[0], lorraine = noms.Noms[1]; float corps = bar.Base.Corps; Vector2 milieu = ici.Point(0f);
+            void A(float px) { camera.orthographicSize = corps * ECRAN_PX / (2f * px); noms.Suivre(camera); }
+            A(4f); Assert.That((bar.Opacite, lorraine.Opacite), Is.EqualTo((0f, 0f)), "contre-épreuve : sans joueur, un nom de 4 pixels se lit");
+            noms.PaysDuJoueur = "seigneurie-1"; A(4f);
+            Assert.That(bar.CorpsPx, Is.EqualTo(NomsCourbes.CORPS_DU_JOUEUR_PX).Within(0.2f), "le nom du joueur ne prend pas un corps lisible"); Assert.That(bar.Opacite, Is.EqualTo(1f));
+            Assert.That(bar.Rendu.enabled && bar.Maillage.vertexCount > 0, Is.True, "le nom du joueur n'est pas dessiné");
+            Assert.That(lorraine.Opacite, Is.Zero, "un autre petit pays se lit"); Assert.That(lorraine.Agrandissement, Is.EqualTo(1f));
+            Assert.That(bar.Agrandissement, Is.EqualTo(NomsCourbes.CORPS_DU_JOUEUR_PX / 4f).Within(0.05f));
+            // Agrandi autour du milieu de son tracé : ses lettres dans le même ordre, à pas égaux grandis d'autant, et sa maison et sa vassalité avec lui.
+            var l = bar.Compose.Lettres; Assert.That(((l[0].Point + l[l.Count - 1].Point) / 2f - milieu).magnitude, Is.LessThan(0.05f * bar.Corps), "le nom ne reste pas centré sur son tracé");
+            Assert.That((l[1].Point - l[0].Point).magnitude, Is.EqualTo((bar.Base.Lettres[1].Point - bar.Base.Lettres[0].Point).magnitude * bar.Agrandissement).Within(1e-3f));
+            Assert.That((bar.Maison.Agrandissement, bar.Vassalite.Agrandissement), Is.EqualTo((bar.Agrandissement, bar.Agrandissement)), "la maison et la vassalité ne suivent pas le nom");
+            Assert.That(bar.Maison.Compose.Lettres.Max(p => p.Point.y), Is.LessThan(l.Min(p => p.Point.y)), "la maison n'est plus sous le nom");
+            // De près, le nom revient à sa taille ; de trop près, il s'efface.
+            A(60f); Assert.That(bar.Agrandissement, Is.EqualTo(1f)); Assert.That(bar.Compose, Is.SameAs(bar.Base)); Assert.That(bar.Opacite, Is.EqualTo(1f));
+            A(NomsCourbes.DISPARU * ECRAN_PX); Assert.That(bar.Opacite, Is.Zero, "le nom du joueur ne s'efface pas de trop près");
+            noms.PaysDuJoueur = null; A(4f); Assert.That((bar.Opacite, bar.Agrandissement), Is.EqualTo((0f, 1f)), "le nom reste agrandi sans joueur");
+        }
+
         // La maison du pays s'écrit en petit sous son nom, sur le même arc descendu d'environ un corps ; un pays qui porte
         // le nom de sa maison n'a qu'une ligne. Le tracé témoin est la droite d'ouest en est : le haut des lettres est au nord.
         [Test] public void La_maison_s_ecrit_en_petit_au_sud_du_nom_et_suit_son_opacite()

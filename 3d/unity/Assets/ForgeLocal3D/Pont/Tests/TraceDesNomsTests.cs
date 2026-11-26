@@ -195,6 +195,41 @@ namespace Forge.Pont.Tests {
             Assert.That(plusGrand, Is.GreaterThan(4f * plusPetit), "les noms ne suivent pas l'étendue des puissances");
         }
 
+        // Le pays de chaque lieu du terrain, d'après le pays de chaque cellule : tous les lieux d'une cellule à son pays.
+        private static int[] ParLieu(TerrainDeCarte terrain, int[] paysDesCellules) {
+            var pays = new int[terrain.NombreDeLieux];
+            for (int l = 0; l < pays.Length; l++) pays[l] = paysDesCellules[terrain.CelluleDuLieu(l)];
+            return pays;
+        }
+
+        // Sur le terrain des Détroits, le nom suit le pays de chaque lieu : dans la cellule de Constantinople, les lieux ottomans ne portent
+        // pas le nom de Byzance, et aucune lettre d'un pays ne tombe sur un lieu d'un autre. Contre-épreuve : au pays de la cellule, comme
+        // avant, Byzance s'écrit sur des lieux ottomans.
+        [Test] public void Sur_les_Detroits_chaque_lettre_tombe_sur_un_lieu_de_son_pays() {
+            TerrainDeCarte terrain = FormesDeTest.TerrainDetroits; CarteLue carte = FormesDeTest.CarteDetroits; TerresDeLaCarte terres = EuropeDeTest.TerresEurope;
+            int[] pays = FormesDeTest.PaysDesLieux(terrain, carte, terres);
+            int byzance = pays[terrain.LieuDe(carte.Cellules.ToList().FindIndex(c => c.CellId == FormesDeTest.CONSTANTINOPLE), 0)];
+            Assert.That(byzance, Is.GreaterThan(0), "échantillon vide : le bourg de Constantinople n'a pas de pays");
+            Assert.That(pays.Count(p => p != byzance && p > 0), Is.GreaterThan(0), "échantillon vide : aucun lieu d'un autre pays");
+            // Ce que montrent les lettres d'un nom de douze lettres, comme « EMPIRE OTTOMAN » : chacune sur un lieu de son pays, ou sur la mer.
+            var douze = Enumerable.Repeat(0.7f, 12).ToArray();
+            (int chezSoi, int chezUnAutre) Lettres(Dictionary<int, TraceDeNom> traces, int lePays) {
+                int soi = 0, autre = 0;
+                foreach (PlaceDeLettre l in traces[lePays].Composer(douze).Lettres) { ushort n = terrain.LieuEn(l.Point.x, l.Point.y); if (n == 0) continue; if (pays[n - 1] == lePays) soi++; else autre++; }
+                return (soi, autre);
+            }
+            Dictionary<int, TraceDeNom> auLieu = TraceDesNoms.Tracer(terrain, pays);
+            Assert.That(auLieu.Keys, Is.EquivalentTo(pays.Where(p => p > 0).Distinct()), "un pays qui tient un lieu n'a pas de tracé");
+            foreach (int lePays in auLieu.Keys) {
+                var (soi, autre) = Lettres(auLieu, lePays);
+                Assert.That(autre, Is.Zero, "le pays " + lePays + " écrit " + autre + " lettres sur les lieux d'un autre pays");
+                Assert.That(soi, Is.GreaterThan(6), "le pays " + lePays + " n'écrit presque rien sur ses lieux");
+            }
+            var bourgs = new int[carte.Cellules.Count]; for (int r = 0; r < bourgs.Length; r++) bourgs[r] = pays[terrain.LieuDe(r, 0)];
+            Assert.That(Lettres(TraceDesNoms.Tracer(terrain, ParLieu(terrain, bourgs)), byzance).chezUnAutre, Is.GreaterThan(0), "contre-épreuve : au pays de la cellule, Byzance ne s'écrit pas sur les Ottomans");
+            Assert.Throws<ArgumentException>(() => TraceDesNoms.Tracer(terrain, bourgs), "un pays par cellule passe pour un pays par lieu");
+        }
+
         // Sur le terrain des lieux de l'Ouest, chaque puissance servie porte son nom sur sa terre : les lieux d'une
         // cellule portent le nom du pays de leur cellule.
         [Test] public void Sur_le_terrain_des_lieux_chaque_puissance_a_son_trace_sur_sa_terre() {
@@ -208,7 +243,7 @@ namespace Forge.Pont.Tests {
             }
             Assert.That(cles.Count, Is.GreaterThanOrEqualTo(6), "échantillon vide : l'Ouest ne sert presque aucune puissance");
             Assert.That(terrain.NombreDeLieux, Is.GreaterThan(carte.Cellules.Count * 5), "échantillon vide : les cellules de l'Ouest n'ont pas leurs lieux");
-            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(terrain, pays);
+            Dictionary<int, TraceDeNom> traces = TraceDesNoms.Tracer(terrain, ParLieu(terrain, pays));
             Assert.That(traces.Keys, Is.EquivalentTo(cles.Values), "une puissance qui tient une terre n'a pas de tracé");
             int lettres = 0, chezElle = 0;
             foreach (KeyValuePair<int, TraceDeNom> paire in traces) {

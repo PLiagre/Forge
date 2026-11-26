@@ -18,8 +18,8 @@ namespace Forge.Pont.Tests {
     // `formes-graine0-detroits.json`) sont relevées du même service, graine 0, au tick 30, sans IA ; elles ne gardent
     // que la cellule du bourg de Constantinople, où des lieux de Byzance côtoient des lieux ottomans, et ses
     // voisines de Thrace et de Bithynie, toutes ottomanes. Leurs terres sont celles de l'Europe
-    // (`EuropeDeTest.TerresEurope`).
-    internal static class FormesDeTest {
+    // (`EuropeDeTest.TerresEurope`). Publique : les tests de l'interface lisent les mêmes Détroits.
+    public static class FormesDeTest {
         public const string CARTE = "carte-graine0-ouest.json", FORMES = "formes-graine0-ouest.json", TERRES = "terres-graine0-tick24.json";
         public const string CARTE_DETROITS = "carte-graine0-detroits.json", FORMES_DETROITS = "formes-graine0-detroits.json";
         // La cellule de Pampelune, à la Navarre, dont des lieux sont à la Castille ; celles de Gênes et de Florence.
