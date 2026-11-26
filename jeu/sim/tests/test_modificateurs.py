@@ -104,9 +104,9 @@ def _recoltes_mesurees(monkeypatch):
     verse = {}
     original = engine._verser_recolte
 
-    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None):
+    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None, facteurs_carte=None):
         avant = cell.stocks.get(NOURRITURE, 0.0)
-        original(cell, recolte, carte, saison, recoltes, facteurs)
+        original(cell, recolte, carte, saison, recoltes, facteurs, facteurs_carte)
         verse[cell.cell_id] = verse.get(cell.cell_id, 0.0) + cell.stocks.get(NOURRITURE, 0.0) - avant
 
     monkeypatch.setattr(engine, "_verser_recolte", mesurer)
