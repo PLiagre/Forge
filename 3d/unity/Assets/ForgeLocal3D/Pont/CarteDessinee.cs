@@ -145,6 +145,11 @@ namespace Forge.Pont {
             if (reperage == null) return null;
             Vector3 local = transform.InverseTransformPoint(monde); return reperage.LieuSous(local.x, local.z);
         }
+        // Ce qui est posé sur la carte répond sur tout ce qu'il couvre : l'ancre de cette clé, son pied en local, la cellule
+        // servie dont elle tient le lieu le plus proche (null : le lieu sous son pied, ou le plus proche), et son rayon en km.
+        // Sous elle, un point de la mer rend ce lieu (`ReperageDeCarte.Ancrer`). Faux sans carte posée ou sans lieu qui convienne.
+        public bool Ancrer(object cle, Vector3 pied, long? cellId, float rayonKm) => reperage != null && reperage.Ancrer(cle, pied.x, pied.z, cellId, rayonKm);
+        public void Desancrer(object cle) => reperage?.Desancrer(cle);
         // Le rang servi d'une cellule que le terrain dessine.
         private bool Posee(long cellId, out int rang) {
             if (rangs != null && rangs.TryGetValue(cellId, out rang) && posees[rang]) return true;
