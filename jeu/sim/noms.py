@@ -198,6 +198,15 @@ def _de_la_province(nom):
     for article, contraction in (('le ', 'du '), ('les ', 'des ')):
         if nom[:len(article)].casefold() == article: return contraction + nom[len(article):]
     return ("d'" if unicodedata.normalize('NFD', nom[0])[0].casefold() in 'aeiouy' else 'de ') + nom
+# Le nom d'un petit seigneur : une désignation de sa fonction et de son siège, jamais un nom de maison inventé.
+SEIGNEUR = 'Seigneur'
+def nom_de_seigneur(nom_du_lieu, region=None):
+    """« Seigneur de <lieu de son siège> » : une ville passe par `_de_la_province` (Seigneur de Saint-Dizier,
+    d'Orléans, du Mans), une désignation (« campagne de … ») prend « de la », et le bourg d'une terre déclarée sans
+    ville prend sa `region` telle qu'écrite dans les données, article en minuscule (Seigneur du Souf, de l'île de Jura)."""
+    if region is not None: return f'{SEIGNEUR} {_de_la_province(region)}'
+    if nom_du_lieu.startswith(_CAMPAGNE + ' '): return f'{SEIGNEUR} de la {nom_du_lieu}'
+    return f'{SEIGNEUR} {_de_la_province(nom_du_lieu)}'
 def _vers(direction):
     """« au nord », « à l'est-sud-est »."""
     return ("à l'" if direction.startswith(('est', 'ouest')) else 'au ') + direction
@@ -316,8 +325,9 @@ def _lieux_nommes(monde, attribution, places):
 def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None, places=None):
     """Un bloc neuf par cellule. Le bourg porte le nom sourcé de sa terre, ou la région d'une terre déclarée sans
     ville ; les autres lieux, une ville sourcée qui tombe chez eux, sinon une désignation (`noms_des_lieux`) ;
-    les maisons suivent leur fiche et leur rang initial. Sans `attribution`, les villes qui nomment les terres sont
-    celles de `villes-1400.json` (`attribution_livree`) ; sans `places`, celles de `places_du_monde`."""
+    chaque maison suit sa fiche : son nom et sa sorte, et pour une plausible « Seigneur de <lieu de son siège> »
+    (`nom_de_seigneur`) et un prénom de chef tiré de l'aire de sa terre. Sans `attribution`, les villes qui
+    nomment les terres sont celles de `villes-1400.json` (`attribution_livree`) ; sans `places`, celles de `places_du_monde`."""
     from sim.places import places_du_monde
     noms = charger_noms() if noms is None else noms
     table = charger_table() if table is None else table; vue = puissances_depuis_monde(monde, table=table) if vue is None else vue
@@ -329,14 +339,15 @@ def noms_depuis_monde(monde, noms=None, table=None, vue=None, attribution=None, 
     def aire(cid):
         if cid not in aires: aires[cid] = aire_de_cellule(cid, monde.carte[cid], vue[cid], table, noms)
         return aires[cid]
+    regions = charger_chefs_lieux().regions
     for cid, cellule in sorted(monde.cells.items()):
         fiches = {}
         for identifiant in sorted({l.maitre for l in cellule.lieux if l.maitre is not None}):
             m = registre[identifiant]
-            if m.sorte != 'plausible': fiches[identifiant] = {'nom': m.nom, 'prenom_chef': None}; continue
-            a = aire(m.cell_id); source = noms['aires'][a]
-            if m.rang >= len(source['maisons']): raise ValueError(f'{a} : maisons insuffisantes, cellule {m.cell_id}')
-            fiches[identifiant] = {'nom': source['maisons'][(m.cell_id + m.rang) % len(source['maisons'])],
-                                  'prenom_chef': source['prenoms'][(m.cell_id + m.rang) % len(source['prenoms'])]}
+            if m.sorte != 'plausible': fiches[identifiant] = {'nom': m.nom, 'prenom_chef': None, 'sorte': m.sorte}; continue
+            prenoms = noms['aires'][aire(m.cell_id)]['prenoms']
+            region = regions.get(m.cell_id) if m.rang == 0 else None
+            fiches[identifiant] = {'nom': nom_de_seigneur(lieux[m.cell_id][m.rang], region),
+                                  'prenom_chef': prenoms[(m.cell_id + m.rang) % len(prenoms)], 'sorte': m.sorte}
         resultat[cid] = {'lieux': [{'rang': rang, 'nom': nom} for rang, nom in sorted(lieux[cid].items())], 'maisons': fiches}
     return resultat

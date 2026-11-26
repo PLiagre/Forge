@@ -5157,6 +5157,8 @@ def test_service_ia_sans(monkeypatch):
     # des deux cellules ; sans eux, les réponses sont celles d'avant. Les lieux nommés d'après la ville qui
     # tombe chez eux, ou désignés d'après leur province, ne changent, pour 9922, que la réponse complète
     # et son bloc `noms` (la cellule 1175 n'a qu'un lieu, son bourg) ; sans les noms, les réponses sont égales.
+    # Les seigneurs plausibles servis comme tels (sorte, « Seigneur de … » au lieu d'un nom de liste) ne changent que
+    # le bloc `noms` : les réponses complètes et celles qui le gardent diffèrent, celles sans `noms` sont égales.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
         4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
@@ -5171,7 +5173,7 @@ def test_service_ia_sans(monkeypatch):
         0: [anterieures[0][0], '1d293e8904ca32aa6b72e29762b42c1c9862459dce1691599f57ce6468df97db', '05d131f47e10eb27753d019491ec5f3649d79c7a9195a9f80dff5293545af30d'],
         4: [anterieures[4][0], '99f49272c9f7e207c16b914926aed7679bc65e56a08116163b6dfea3203e96b5', 'dde477e10a89079cc1d90b4d87e67aba4f52f466ed22dd97fffdafc9ad864338'],
     }
-    completes = {0: ['08c6d39c97f336fd7db746facb63f6e49c2d8357ca0aded6e4141380af5bd843', '8fdfcbf9c262aa964525cf3f2111d6384c9651cf4c3f489df0b4efd574c48d9c'], 4: ['a5bb812c0e5da3751d7e83c48561881e07af974cc7d94dd7116adf10c83d56dc', '10326b5e265401c0aaf2a4992ed195daa7854739910518420e58b99c6d488b8e']}
+    completes = {0: ['cc6dd04946bacd375bff433c3315bd63a29b99487aac9c0c278dcee5ad09c23e', '82f6b90cc5a844e14c2946d3483bec8c776243e72748604c9743f911d0f0e34a'], 4: ['7393371780817c9e5954375f9b71c4e105c345eb560f2102ab2284b8f5a44262', 'bad210ce7d5d98f8db628728299e6c6324a2b9ed490fc15b7ddc120b31bb3fb7']}
     from sim.service import _serialiser
     with _lancer_service_sans_part(0) as port:
         for t, attendues in empreintes.items():
@@ -5183,7 +5185,7 @@ def test_service_ia_sans(monkeypatch):
                     assert _sha(octets) == completes[t][0 if '1175' in chemin else 1]
                     for lieu in reponse['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
                     for lieu in reponse['lieux']: lieu.pop('point')  # les réponses d'avant n'ont pas de point
-                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', 'c3867adedba2935b73c39e49595c0187d54b75181e0b7064fc72ab1ef37a0678', '0d112d99096dfbca042c60f2309bd6201128e2d91b4de71eb138b6d0117caf2a'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', 'd19239297a569f448f29f3e8417f6ca7249ab02716c6bdcd21fca6e6c82b992b', '811bfc85616268a87b0dcac1813da59345283be3b34ec621c87c8f13295eb64e']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
+                assert _sha(_serialiser(reponse)) == {0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '20e4eb76a19e4bc5d75ac7f11d3844682f2e7d6209263de0d6bb13fe150a70d1', 'd0dc16ec509598f7d782be3e00353831933701aef0b22e373357c707d9e4d736'], 4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '30e043757bbdec0dd24de844e3d6c71bbb200f951e7678538d73a9a1101ce6b9', '767325c75a629bb1b6839b82069124d11be0a946a8e3ff9e7984437cf5bdae2e']}[t][['/monde', '/lieu?cell=1175', '/lieu?cell=9922'].index(chemin)]
                 if chemin != '/monde':
                     document = json.loads(octets); assert document.pop('noms')
                     for lieu in document['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')

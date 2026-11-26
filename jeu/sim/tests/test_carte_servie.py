@@ -354,6 +354,8 @@ def test_jouables_fige_du_pont():
     document = json.loads(fige)
     assert document["jouables"] and document["tick"] == 0
     # Les jouables ne lisent ni les départs ni leurs chiffres : le monde de la graine 0 sans amorçage suffit.
+    # Les seigneurs plausibles servis comme tels (« Seigneur de … » au lieu d'un nom de liste) ne changent que
+    # leur `nom` : le nombre de fiches, leurs pays, sièges, suzerains et villes sont ceux d'avant.
     with lancer_service(0) as port:
         statut, _, octets = requete_service(port, "/jouables")
         assert statut == HTTPStatus.OK and octets == fige

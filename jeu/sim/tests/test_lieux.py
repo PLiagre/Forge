@@ -1662,18 +1662,16 @@ def test_noms_aires_de_cellule():
             dataclasses.replace(p, religion='musulmane') if p.id == 25 else p for p in table.puissances)), listes)
 
 
-@pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes'), ('maisons', 'capacite')])
+@pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes')])
 def test_noms_refus(tmp_path, champ, defaut):
     from sim.noms import charger_noms, noms_depuis_monde
     monde = World.charger(0); document = charger_noms(); aire = document['regles'][0]['aire']
     if champ == 'aire': del document['aires'][aire]
     elif champ == 'regles': document['regles'] = []
     elif defaut == 'vide': document['aires'][aire][champ] = []
-    elif defaut in ('texte', 'doublon'): document['aires'][aire][champ].append(' ' if defaut == 'texte' else document['aires'][aire][champ][0])
-    else:
-        for a in document['aires'].values(): a[champ] = a[champ][:1]
+    else: document['aires'][aire][champ].append(' ' if defaut == 'texte' else document['aires'][aire][champ][0])
     chemin = tmp_path / 'noms.json'; chemin.write_text(json.dumps(document))
-    with pytest.raises(ValueError, match='cellule' if champ == 'regles' else champ if defaut == 'capacite' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))
+    with pytest.raises(ValueError, match='cellule' if champ == 'regles' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))
 
 
 

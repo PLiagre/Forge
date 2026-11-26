@@ -84,7 +84,9 @@ def charger_catalogue(maisons, chemin=None):
 
 
 def fiche_plausible(maison, nom):
-    return {'maison': maison, 'nom': nom['prenom_chef'] + ' ' + nom['nom'], 'naissance': None,
+    """Le chef d'une maison plausible se nomme « <prénom>, seigneur de … » : son prénom, puis le nom de sa maison
+    (une désignation « Seigneur de … ») avec l'initiale en minuscule."""
+    return {'maison': maison, 'nom': nom['prenom_chef'] + ', ' + nom['nom'][:1].lower() + nom['nom'][1:], 'naissance': None,
             'sources': {'identite': None, 'naissance': None},
             'lacunes': {'identite': None, 'naissance': 'Naissance inconnue du chef plausible.'}}
 

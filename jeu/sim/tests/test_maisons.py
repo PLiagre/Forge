@@ -1270,21 +1270,43 @@ def test_maitre_permutations(monde_maitres, monkeypatch):
 
 
 def test_noms_maisons():
-    from sim.noms import charger_noms, noms_depuis_monde, aire_de_cellule
+    from sim.noms import charger_chefs_lieux, charger_noms, noms_depuis_monde, nom_de_seigneur, aire_de_cellule
     from sim.puissances import charger_table, puissances_depuis_monde
     monde = World.charger(0); vue = noms_depuis_monde(monde); listes = charger_noms(); table = charger_table(); puissances = puissances_depuis_monde(monde); registre = {m.id: m for m in monde.maisons}; assert registre and vue
+    regions = charger_chefs_lieux().regions; interdits = {n.casefold() for a in listes['aires'].values() for n in a['maisons']}
     def verifier(v):
         for cid, c in monde.cells.items():
             fiches = v[cid]['maisons']; aire = listes['aires'][aire_de_cellule(cid, monde.carte[cid], puissances[cid], table, listes)]; assert set(fiches) == {l.maitre for l in c.lieux if l.maitre is not None}
             plausibles = [f for i, f in fiches.items() if registre[i].sorte == 'plausible']; assert len({f['nom'] for f in plausibles}) == len(plausibles)
             for i, fiche in fiches.items():
                 m = registre[i]; assert fiche == vue[cid]['maisons'][i]
-                if m.sorte == 'plausible': assert fiche == {'nom': aire['maisons'][(cid + m.rang) % len(aire['maisons'])], 'prenom_chef': aire['prenoms'][(cid + m.rang) % len(aire['prenoms'])]}
-                else: assert fiche == {'nom': m.nom, 'prenom_chef': None}
-    verifier(vue); cid = next(c for c, bloc in vue.items() if len(bloc['maisons']) > 1); a, b = list(vue[cid]['maisons'])[:2]; m = next(m for m in monde.maisons if m.sorte == 'seigneurie')
-    for c, fiches in ((cid, {**vue[cid]['maisons'], a: vue[cid]['maisons'][b]}), (cid, {**vue[cid]['maisons'], a: {**vue[cid]['maisons'][a], 'prenom_chef': 'Autre'}}), (m.cell_id, {**vue[m.cell_id]['maisons'], m.id: {'nom': 'Autre', 'prenom_chef': None}}), (cid, {i: f for i,f in vue[cid]['maisons'].items() if i != a})):
+                if m.sorte == 'plausible':
+                    # Le nom est « Seigneur de <lieu du siège> », calculé sur le nom servi du lieu ; le prénom vient de l'aire de la terre.
+                    siege = next(l['nom'] for l in v[m.cell_id]['lieux'] if l['rang'] == m.rang); aire = listes['aires'][aire_de_cellule(m.cell_id, monde.carte[m.cell_id], puissances[m.cell_id], table, listes)]
+                    assert fiche == {'nom': nom_de_seigneur(siege, regions.get(m.cell_id) if m.rang == 0 else None), 'prenom_chef': aire['prenoms'][(m.cell_id + m.rang) % len(aire['prenoms'])], 'sorte': 'plausible'}
+                    assert fiche['nom'].startswith('Seigneur ') and fiche['nom'].casefold() not in interdits
+                else: assert fiche == {'nom': m.nom, 'prenom_chef': None, 'sorte': m.sorte}
+    verifier(vue); cid = next(c for c, bloc in vue.items() if len(bloc['maisons']) > 1); a, b = list(vue[cid]['maisons'])[:2]; m = next(m for m in monde.maisons if m.sorte == 'seigneurie'); p = next(m for m in monde.maisons if m.sorte == 'plausible')
+    assert any(m.rang == 0 and m.cell_id in regions for m in monde.maisons if m.sorte == 'plausible') and any('campagne' in f['nom'] for bloc in vue.values() for f in bloc['maisons'].values())
+    for c, fiches in ((cid, {**vue[cid]['maisons'], a: vue[cid]['maisons'][b]}), (cid, {**vue[cid]['maisons'], a: {**vue[cid]['maisons'][a], 'prenom_chef': 'Autre'}}), (m.cell_id, {**vue[m.cell_id]['maisons'], m.id: {'nom': 'Autre', 'prenom_chef': None, 'sorte': m.sorte}}), (cid, {i: f for i,f in vue[cid]['maisons'].items() if i != a}),
+                      (m.cell_id, {**vue[m.cell_id]['maisons'], m.id: {'nom': m.nom, 'prenom_chef': None}}),
+                      (p.cell_id, {**vue[p.cell_id]['maisons'], p.id: {**vue[p.cell_id]['maisons'][p.id], 'sorte': 'grande maison'}}),
+                      (p.cell_id, {**vue[p.cell_id]['maisons'], p.id: {**vue[p.cell_id]['maisons'][p.id], 'nom': listes['aires'][aire_de_cellule(p.cell_id, monde.carte[p.cell_id], puissances[p.cell_id], table, listes)]['maisons'][0]}})):
         faux = copy.deepcopy(vue); faux[c]['maisons'] = fiches
         with pytest.raises(AssertionError): verifier(faux)
+
+
+def test_nom_de_seigneur():
+    from sim.noms import SEIGNEUR, nom_de_seigneur
+    assert SEIGNEUR == 'Seigneur'
+    for lieu, region, attendu in (('Saint-Dizier', None, 'Seigneur de Saint-Dizier'), ('Orléans', None, "Seigneur d'Orléans"), ('Le Mans', None, 'Seigneur du Mans'), ('Les Baux', None, 'Seigneur des Baux'),
+                                  ('La Rochelle', None, 'Seigneur de La Rochelle'), ('Évreux', None, "Seigneur d'Évreux"),
+                                  ('campagne de Bar-le-Duc, au nord-est', None, 'Seigneur de la campagne de Bar-le-Duc, au nord-est'), ("campagne d'Orléans, à l'est", None, "Seigneur de la campagne d'Orléans, à l'est"),
+                                  ('Le Souf', 'le Souf', 'Seigneur du Souf'), ("L'île de Jura", "l'île de Jura", "Seigneur de l'île de Jura"), ('La Corse', 'la Corse', 'Seigneur de la Corse')):
+        assert nom_de_seigneur(lieu, region) == attendu
+    # Contre-épreuve : un nom de ville n'est ni gardé sans « de », ni pris pour une désignation, et la région garde son article en minuscule.
+    assert nom_de_seigneur('Saint-Dizier') != 'Seigneur Saint-Dizier' and nom_de_seigneur('Saint-Dizier') != 'Seigneur de la Saint-Dizier'
+    assert nom_de_seigneur("L'île de Jura", "l'île de Jura") != "Seigneur de L'île de Jura"
 
 
 def test_part_etat(monkeypatch):
@@ -1546,15 +1568,20 @@ def test_personnes_catalogue(registre, tmp_path, monkeypatch):
 
 def test_personnes_chefs():
     from sim import personnages as p
-    from sim.noms import noms_depuis_monde
+    from sim.noms import charger_chefs_lieux, noms_depuis_monde, nom_de_seigneur
     monde, document = World.charger(0), _personnages()
     historiques = {c['maison']: c for c in document['chefs']}
-    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    vue = noms_depuis_monde(monde); regions = charger_chefs_lieux().regions
+    noms = {i: f for v in vue.values() for i, f in v['maisons'].items()}
+    def seigneur(m):
+        # « <prénom>, seigneur de … » : la maison est « Seigneur de <lieu du siège> », initiale en minuscule.
+        maison = nom_de_seigneur(next(l['nom'] for l in vue[m.cell_id]['lieux'] if l['rang'] == m.rang), regions.get(m.cell_id) if m.rang == 0 else None)
+        return noms[m.id]['prenom_chef'] + ', ' + maison[:1].lower() + maison[1:]
     def preuve(personnes, chefs):
         assert personnes and set(chefs) == {m.id for m in monde.maisons}
         attendu = [{**c, 'id': 'personne-' + c['maison'], 'origine': 'historique'} for c in historiques.values() if c['nom']]
         attendu += [{'id': 'personne-' + m.id, 'maison': m.id, 'origine': 'plausible',
-                     'nom': noms[m.id]['prenom_chef'] + ' ' + noms[m.id]['nom'], 'naissance': None,
+                     'nom': seigneur(m), 'naissance': None,
                      'sources': {'identite': None, 'naissance': None},
                      'lacunes': {'identite': None, 'naissance': 'Naissance inconnue du chef plausible.'}}
                     for m in monde.maisons if m.sorte == 'plausible']

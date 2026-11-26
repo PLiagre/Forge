@@ -16,7 +16,7 @@ from sim.flux import flux_de_lieu, flux_de_maison
 from sim.maisons_servies import (
     MaisonInconnue, document_de_maison, liste_des_maisons, matiere_des_maisons,
 )
-from sim.noms import noms_depuis_monde
+from sim.noms import CHEMIN_NOMS, charger_chefs_lieux, nom_de_seigneur, noms_depuis_monde
 from sim.seigneuries import charger_seigneuries
 from sim.tests.test_carte_servie import _service_local
 from sim.tests.test_monde import requete_service
@@ -157,8 +157,15 @@ def test_toutes_les_fiches_exactes_et_contre_epreuves(service, documents):
 
 
 def _verifier_noms(document, maison, noms, lieux):
-    attendu = (noms[maison.cell_id]['maisons'][maison.id]['nom']
-               if maison.sorte == 'plausible' else maison.nom)
+    # Une plausible se nomme « Seigneur de <lieu de son siège> » d'après le nom servi de ce lieu ; elle ne prend ni son
+    # identifiant ni un nom de liste.
+    if maison.sorte == 'plausible':
+        siege = next(l['nom'] for l in lieux[maison.cell_id]['noms']['lieux'] if l['rang'] == maison.rang)
+        attendu = nom_de_seigneur(siege, charger_chefs_lieux().regions.get(maison.cell_id) if maison.rang == 0 else None)
+        assert noms[maison.cell_id]['maisons'][maison.id]['nom'] == attendu
+        assert noms[maison.cell_id]['maisons'][maison.id]['sorte'] == 'plausible'
+    else:
+        attendu = maison.nom
     assert document['nom'] == attendu
     if maison.sorte == 'plausible':
         assert document['nom'] != maison.id
@@ -181,6 +188,67 @@ def test_noms_du_monde_et_contre_epreuve(service, documents):
     plausible = next(m for m in service[0].world.maisons if m.sorte == 'plausible')
     with pytest.raises(AssertionError):
         _verifier_noms(fiches[plausible.id] | {'nom': plausible.id}, plausible, noms, lieux)
+    with pytest.raises(AssertionError):
+        _verifier_noms(fiches[plausible.id] | {'nom': 'Maison inventée'}, plausible, noms, lieux)
+
+
+def noms_des_listes():
+    """Tous les noms des listes `maisons` de noms-1400.json, à la casse près."""
+    document = json.loads(CHEMIN_NOMS.read_text(encoding='utf-8'))
+    return {nom.casefold() for listes in document['aires'].values() for nom in listes['maisons']}
+
+
+def fautes_des_plausibles(servis, plausibles, interdits):
+    """Les fautes des maisons plausibles servies. `servis` : (origine, identifiant, fiche) ; `plausibles` : les
+    identifiants des maisons plausibles du registre ; `interdits` : les noms qu'une liste porte. Une plausible
+    est servie avec sa sorte, sans le nom d'une liste, et deux plausibles ne portent jamais le même nom."""
+    retenus = [(origine, i, fiche) for origine, i, fiche in servis if i in plausibles]
+    fautes = [] if retenus else ['échantillon vide : aucune maison plausible servie']
+    porteurs = {}
+    for origine, i, fiche in retenus:
+        if fiche.get('sorte') != 'plausible':
+            fautes.append(f"{origine}, {i} : sorte {fiche.get('sorte')!r} au lieu de 'plausible'")
+        nom = fiche.get('nom')
+        if not isinstance(nom, str) or not nom.strip():
+            fautes.append(f'{origine}, {i} : nom absent')
+            continue
+        if nom.casefold() in interdits:
+            fautes.append(f'{origine}, {i} : {nom!r} est un nom tiré d\'une liste')
+        porteurs.setdefault(nom.casefold(), set()).add(i)
+    fautes += [f'{nom!r} porté par {sorted(ids)}' for nom, ids in sorted(porteurs.items()) if len(ids) > 1]
+    return fautes
+
+
+def _plausibles_servies(monde, liste, lieux):
+    """(origine, identifiant, fiche) des maisons plausibles du bloc `noms.maisons` de chaque /lieu et de /maisons."""
+    servis = [(f'/lieu?cell={cid}', i, fiche) for cid, doc in sorted(lieux.items()) for i, fiche in doc['noms']['maisons'].items()]
+    return servis + [('/maisons', entree['id'], entree) for entree in liste['maisons']]
+
+
+def test_maisons_plausibles_servies_comme_telles_sans_nom_de_liste(service, documents):
+    monde = service[0].world
+    liste, _, lieux = documents
+    plausibles = {m.id for m in monde.maisons if m.sorte == 'plausible'}
+    interdits = noms_des_listes()
+    assert plausibles and interdits
+    servis = _plausibles_servies(monde, liste, lieux)
+    assert not fautes_des_plausibles(servis, plausibles, interdits)
+    assert sum(1 for origine, i, _ in servis if i in plausibles and origine != '/maisons') >= len(plausibles) // 2
+    # Contre-épreuves : chaque faute est vue.
+    origine, i, fiche = next(s for s in servis if s[1] in plausibles and s[0] != '/maisons')
+    autre = next(s for s in servis if s[1] in plausibles and s[1] != i)
+    liste_de_noms = sorted(interdits)[0]
+    fiche_sans_sorte = {cle: v for cle, v in fiche.items() if cle != 'sorte'}
+    for faux, attendu in (
+            ([(origine, i, fiche | {'nom': liste_de_noms.upper()})], 'nom tiré d\'une liste'),
+            ([(origine, i, fiche_sans_sorte)], 'sorte None'),
+            ([(origine, i, fiche | {'sorte': 'historique'})], "sorte 'historique'"),
+            ([(origine, i, fiche), (autre[0], autre[1], autre[2] | {'nom': fiche['nom']})], 'porté par'),
+            ([(origine, i, fiche | {'nom': None})], 'nom absent'),
+            ([], 'échantillon vide'),
+            ([(origine, 'maison-inconnue', fiche)], 'échantillon vide')):
+        fautes = fautes_des_plausibles(faux, plausibles, interdits)
+        assert any(attendu in f for f in fautes), (attendu, fautes)
 
 
 def _verifier_absents(document):
