@@ -1,0 +1,19 @@
+# Les taux de la natalité et de la mort ordinaire (`jeu/sim/engine.py`, MODELE.md
+# « La natalité » et « Le déficit alimentaire et la mortalité »).
+#
+# Ce fichier se modifie sans toucher au code. Le moteur ramène chaque taux annuel
+# au tick (÷ 365 jours). Les deux valeurs sont de niveau 2 : plausibles, jamais
+# sourcées, mais recalées sur un ordre de grandeur de niveau 1 : vers 1400, une
+# population qui mange à sa faim compte autour de quarante naissances pour mille
+# habitants par an, et presque autant de morts ; elle ne grandit que de quelques
+# pour mille par an.
+
+# Part des habitants d'un lieu nourri et sans dette qui naît en un an. Un nombre
+# de 0 à 1 ; 0 coupe la natalité.
+natalite_annuelle = 0.040
+
+# Part des habitants d'un lieu qui meurt en un an de mort ordinaire (l'âge, la
+# maladie, l'accident), faim ou non. La faim tue en plus. Un nombre de 0 à 1 ;
+# 0 coupe la mort ordinaire. Juste sous la natalité : un lieu nourri gagne
+# environ un pour mille de ses habitants par an.
+mort_ordinaire_annuelle = 0.039

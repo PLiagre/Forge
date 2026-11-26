@@ -607,17 +607,59 @@ HUNGER_DEATH_SCALE = MORTALITE_PAR_RATION_DE_DETTE / FOOD_CONSUMPTION_KG_PER_PER
 # instantané même avec un déficit extrême.
 MAX_DEATH_RATE_PER_TICK = 0.10
 
-# --- Natalité (fidélité niveau 2) ---
+# --- Natalité et mort ordinaire (fidélité niveau 2) ---
 
-# Naissances par habitant et par tick, sur les seuls ticks où la cellule
-# a mangé sa ration entière sans dette alimentaire — ordre de grandeur
-# plausible niveau 2, jamais sourcé.
-NAISSANCES_PAR_HABITANT_PAR_TICK = 0.0002
+# Les taux annuels de la natalité et de la mort ordinaire vivent dans
+# `jeu/data/population.toml` ; les taux du tick s'en dérivent.
+_CHEMIN_POPULATION = Path(__file__).parents[1] / "data" / "population.toml"
+_CLE_NATALITE_ANNUELLE = "natalite_annuelle"
+_CLE_MORT_ORDINAIRE_ANNUELLE = "mort_ordinaire_annuelle"
+
+# Le contenu de `population.toml` lu dans `une_lecture_de_la_population`, ou None hors de ce contexte.
+_population_de_l_appel = None
 
 
-def naissances_par_habitant_par_tick() -> float:
-    """Relit NAISSANCES_PAR_HABITANT_PAR_TICK à chaque appel (motif 033)."""
-    return NAISSANCES_PAR_HABITANT_PAR_TICK
+@contextmanager
+def une_lecture_de_la_population():
+    """Le temps du bloc (un tick), les lecteurs du fichier par défaut l'ouvrent et l'analysent une
+    seule fois. Un chemin explicite relit toujours son fichier ; à la sortie, la lecture suivante
+    rouvre le fichier."""
+    global _population_de_l_appel
+    _population_de_l_appel = {}
+    try:
+        yield
+    finally:
+        _population_de_l_appel = None
+
+
+def _taux_annuel_de_population(cle, chemin):
+    """Le taux annuel de `cle` dans `population.toml`, dans [0, 1]."""
+    lecture = _population_de_l_appel if chemin is None else None
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_POPULATION
+    return _part_du_fichier(cle, chemin, lecture)
+
+
+def naissances_par_habitant_par_tick(chemin=None) -> float:
+    """
+    Naissances par habitant et par tick d'un lieu nourri sans dette : la natalité annuelle
+    de `jeu/data/population.toml`, ramenée au tick.
+
+    Relit le fichier à chaque appel, une seule fois dans `une_lecture_de_la_population`.
+    Refuse, en nommant la clé et le fichier, un fichier ou une clé absents, un booléen,
+    une chaîne et un nombre hors de [0, 1].
+    """
+    annuel = _taux_annuel_de_population(_CLE_NATALITE_ANNUELLE, chemin)
+    return annuel / CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
+
+
+def morts_ordinaires_par_habitant_par_tick(chemin=None) -> float:
+    """
+    Morts ordinaires par habitant et par tick, faim ou non : la mort ordinaire annuelle de
+    `jeu/data/population.toml`, ramenée au tick. Mêmes lectures et mêmes refus que
+    `naissances_par_habitant_par_tick` ; 0 coupe la mort ordinaire.
+    """
+    annuel = _taux_annuel_de_population(_CLE_MORT_ORDINAIRE_ANNUELLE, chemin)
+    return annuel / CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 
 # --- Amorçage initial ---
 
@@ -768,10 +810,9 @@ def une_lecture_des_departs():
         _departs_de_l_appel = None
 
 
-def _lire_cle_departs(cle, chemin):
-    """La valeur brute de `cle` dans `departs.toml`, ou une `ValueError` qui nomme la clé et le fichier."""
-    lecture = _departs_de_l_appel if chemin is None else None
-    chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
+def _lire_cle_du_fichier(cle, chemin, lecture):
+    """La valeur brute de `cle` dans le fichier TOML `chemin`, ou une `ValueError` qui nomme la
+    clé et le fichier. `lecture` (un dictionnaire, ou None) garde le fichier déjà analysé."""
     ou = f"{cle} ({chemin.name})"
     if lecture:
         donnees = lecture["donnees"]
@@ -788,14 +829,21 @@ def _lire_cle_departs(cle, chemin):
     return donnees[cle], ou
 
 
-def _part_de_departs(cle, chemin):
-    """La part de `cle` dans `departs.toml` ; refuse un booléen, une chaîne et un nombre hors de [0, 1]."""
-    valeur, ou = _lire_cle_departs(cle, chemin)
+def _part_du_fichier(cle, chemin, lecture):
+    """La part de `cle` dans le fichier ; refuse un booléen, une chaîne et un nombre hors de [0, 1]."""
+    valeur, ou = _lire_cle_du_fichier(cle, chemin, lecture)
     if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
         raise ValueError(f"{ou} : un nombre attendu, pas {valeur!r}")
     if not 0 <= valeur <= 1:
         raise ValueError(f"{ou} : un nombre dans [0, 1] attendu, pas {valeur}")
     return valeur
+
+
+def _part_de_departs(cle, chemin):
+    """La part de `cle` dans `departs.toml`, lu une fois dans `une_lecture_des_departs`."""
+    lecture = _departs_de_l_appel if chemin is None else None
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
+    return _part_du_fichier(cle, chemin, lecture)
 
 
 def taux_annuel_de_depart(chemin=None):

@@ -1851,34 +1851,35 @@ def _apply_mortality(cell: Cell, facteurs=None) -> None:
     """
     Maillon 5 — Mortalité.
 
-    Chaque lieu meurt de sa dette alimentaire et conserve son report local.
-    Le total des décès quitte les métiers une fois, au prorata. Sans lieux,
-    le repli cellulaire ci-dessous conserve ses formules et sentinelles.
+    Chaque lieu habité meurt chaque jour de mort ordinaire, faim ou non, et en plus de sa
+    dette alimentaire ; il conserve son report local. Le total des décès quitte les métiers
+    une fois, au prorata. Sans lieux, le repli cellulaire suit la même règle sur la cellule.
 
     Formule, sans plancher max(1, …) et avec report de la fraction :
-        per_capita_deficit = food_deficit_kg / population
-        death_rate = min(per_capita_deficit × HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK)
-        raw    = population × death_rate + mortality_remainder
-        deaths = int(raw)
-        mortality_remainder = raw - deaths
+        faim  = min(dette / population × HUNGER_DEATH_SCALE × facteur, MAX_DEATH_RATE_PER_TICK)
+                (0 sans dette)
+        taux  = morts_ordinaires_par_habitant_par_tick() + faim
+        brut  = population × taux + mortality_remainder
+        morts = int(brut)
+        mortality_remainder = brut - morts
 
-    Le report de la fraction supprime l'immortalité par arrondi : une cellule
-    de 5 habitants en famine totale produit 0.5 mort par tick, que `int()`
-    jetait entièrement à chaque tick. La fraction non appliquée est désormais
-    conservée et finit par tuer.
-
-    Un déficit infime produit un taux infime : aucune mort entière n'est
-    garantie ce tick par le seul fait qu'un déficit est non nul.
+    Le facteur des modificateurs (grandeur `mortalite`) ne porte que sur la faim, comme son
+    nom le dit ; le plafond ne borne que la faim. Le report de la fraction supprime
+    l'immortalité par arrondi : un lieu de 5 habitants meurt aussi, à son rythme. Un lieu
+    vide ne meurt pas, et son report reste intact.
     """
+    ordinaire = _constantes.morts_ordinaires_par_habitant_par_tick()
     if cell.lieux:
         retires = 0
         for lieu in cell.lieux:
-            if lieu.population > 0 and lieu.dette_alimentaire_kg > 0:
-                taux = lieu.dette_alimentaire_kg / lieu.population * _constantes.HUNGER_DEATH_SCALE
-                if facteurs is not None:
-                    taux *= facteurs.get((cell.cell_id, lieu.rang), 1.0)
-                taux = min(taux, _constantes.MAX_DEATH_RATE_PER_TICK)
-                brut = lieu.population * taux + lieu.mortality_remainder
+            if lieu.population > 0:
+                faim = 0.0
+                if lieu.dette_alimentaire_kg > 0:
+                    faim = lieu.dette_alimentaire_kg / lieu.population * _constantes.HUNGER_DEATH_SCALE
+                    if facteurs is not None:
+                        faim *= facteurs.get((cell.cell_id, lieu.rang), 1.0)
+                    faim = min(faim, _constantes.MAX_DEATH_RATE_PER_TICK)
+                brut = lieu.population * (ordinaire + faim) + lieu.mortality_remainder
                 morts = int(brut)
                 lieu.mortality_remainder = brut - morts
                 retrait = min(lieu.population, morts)
@@ -1891,17 +1892,18 @@ def _apply_mortality(cell: Cell, facteurs=None) -> None:
 
     remainder = cell.mortality_remainder if cell.mortality_remainder >= 0.0 else 0.0
 
-    if cell.food_deficit_kg > 0 and cell.population > 0:
-        per_capita_deficit = cell.food_deficit_kg / cell.population
-        death_rate = per_capita_deficit * _constantes.HUNGER_DEATH_SCALE
-        death_rate = min(death_rate, _constantes.MAX_DEATH_RATE_PER_TICK)
-        raw = cell.population * death_rate + remainder
+    if cell.population > 0:
+        faim = 0.0
+        if cell.food_deficit_kg > 0:
+            faim = cell.food_deficit_kg / cell.population * _constantes.HUNGER_DEATH_SCALE
+            faim = min(faim, _constantes.MAX_DEATH_RATE_PER_TICK)
+        raw = cell.population * (ordinaire + faim) + remainder
         deaths = int(raw)
         cell.mortality_remainder = raw - deaths
         retires = cell.population - max(0, cell.population - deaths)
         _retirer_par_les_foyers(cell, retires)
     else:
-        # Aucun décès ce tick : la fraction en attente est conservée telle
+        # Aucun habitant : la fraction en attente est conservée telle
         # quelle (et la sentinelle -1 devient une mesure réelle : 0.0).
         cell.mortality_remainder = remainder
 
@@ -2258,49 +2260,51 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
 
     penuries: dict[int, float] = {}
     affames = set()
+    # La natalité et la mort ordinaire se lisent une fois pour tout le tick.
+    with _constantes.une_lecture_de_la_population():
 
-    def recueillir_affames(cell, penurie_kg):
-        # Seulement là où la pénurie est positive : ailleurs la faim locale est remise à zéro.
-        if penurie_kg > 0:
-            for lieu in cell.lieux:
-                if lieu.population > 0 and lieu.duree_faim_ticks > 0:
-                    affames.add((cell.cell_id, lieu.rang))
+        def recueillir_affames(cell, penurie_kg):
+            # Seulement là où la pénurie est positive : ailleurs la faim locale est remise à zéro.
+            if penurie_kg > 0:
+                for lieu in cell.lieux:
+                    if lieu.population > 0 and lieu.duree_faim_ticks > 0:
+                        affames.add((cell.cell_id, lieu.rang))
 
-    if facteurs_routes or assiegees:
-        for cell in world.cells.values():
-            facteurs = facteurs_routes.get(cell.cell_id)
-            if cell.cell_id in assiegees:
-                # Les chemins des champs vers le bourg assiégé sont fermés, dans les deux sens.
-                facteurs = {rang: 0.0 for rang in range(1, len(cell.lieux))}
-            if facteurs:
-                penurie_kg = _apply_consumption(cell, carte, facteurs)
-            else:
+        if facteurs_routes or assiegees:
+            for cell in world.cells.values():
+                facteurs = facteurs_routes.get(cell.cell_id)
+                if cell.cell_id in assiegees:
+                    # Les chemins des champs vers le bourg assiégé sont fermés, dans les deux sens.
+                    facteurs = {rang: 0.0 for rang in range(1, len(cell.lieux))}
+                if facteurs:
+                    penurie_kg = _apply_consumption(cell, carte, facteurs)
+                else:
+                    penurie_kg = _apply_consumption(cell, carte)
+                penuries[cell.cell_id] = penurie_kg
+                _update_hunger(cell, penurie_kg)
+                if mortalite:
+                    _apply_mortality(cell, mortalite)
+                else:
+                    _apply_mortality(cell)
+                if natalite:
+                    _apply_natalite(cell, penurie_kg, natalite)
+                else:
+                    _apply_natalite(cell, penurie_kg)
+                recueillir_affames(cell, penurie_kg)
+        else:
+            for cell in world.cells.values():
                 penurie_kg = _apply_consumption(cell, carte)
-            penuries[cell.cell_id] = penurie_kg
-            _update_hunger(cell, penurie_kg)
-            if mortalite:
-                _apply_mortality(cell, mortalite)
-            else:
-                _apply_mortality(cell)
-            if natalite:
-                _apply_natalite(cell, penurie_kg, natalite)
-            else:
-                _apply_natalite(cell, penurie_kg)
-            recueillir_affames(cell, penurie_kg)
-    else:
-        for cell in world.cells.values():
-            penurie_kg = _apply_consumption(cell, carte)
-            penuries[cell.cell_id] = penurie_kg
-            _update_hunger(cell, penurie_kg)
-            if mortalite:
-                _apply_mortality(cell, mortalite)
-            else:
-                _apply_mortality(cell)
-            if natalite:
-                _apply_natalite(cell, penurie_kg, natalite)
-            else:
-                _apply_natalite(cell, penurie_kg)
-            recueillir_affames(cell, penurie_kg)
+                penuries[cell.cell_id] = penurie_kg
+                _update_hunger(cell, penurie_kg)
+                if mortalite:
+                    _apply_mortality(cell, mortalite)
+                else:
+                    _apply_mortality(cell)
+                if natalite:
+                    _apply_natalite(cell, penurie_kg, natalite)
+                else:
+                    _apply_natalite(cell, penurie_kg)
+                recueillir_affames(cell, penurie_kg)
 
     # La famine se pose après la faim du tick, avant que le flux la note.
     _evenements.poser_les_famines(world, affames)
