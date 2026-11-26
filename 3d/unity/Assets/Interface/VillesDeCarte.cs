@@ -22,6 +22,8 @@ namespace Forge.Interface
     // cette cellule, ou la seule ville de ce nom sur la carte, sinon le siège de cette maison dans `/atlas`, où une figurine nommée est posée. Les capitales passent
     // avant les autres villes : une ville ne cache jamais une capitale ; et devant les noms des pays, qui s'écartent de leur emprise
     // (`EmprisesDesCapitales`). Un siège introuvable ne se devine pas : il se déclare.
+    // Une figurine montrée répond au survol et au clic sur tout le sol qu'elle couvre, même là où elle déborde sur la mer : elle
+    // ancre sur la carte le lieu de sa cellule (`CarteDessinee.Ancrer`), au rayon qu'elle a à l'écran.
     public sealed class VillesDeCarte : MonoBehaviour
     {
         public const string RACINE = "Figurines des villes", NOMS = "Villes de la carte", CAPITALES = "Capitales de l'atlas";
@@ -39,12 +41,14 @@ namespace Forge.Interface
         readonly List<(string pays, string nom, string raison)> introuvables = new List<(string, string, string)>();
         sealed class Posee
         {
-            public Transform Figurine, Nom; public Vector3 Pied; public int Taille; public long Habitants; public Vector2 Ecran; public float RayonPx; public bool Montree;
+            public Transform Figurine, Nom; public Vector3 Pied; public int Taille; public long Habitants; public Vector2 Ecran; public float RayonPx, RayonKm; public bool Montree;
             public long CellId; public string Ville; public int Rang; public bool DeLAtlas; public readonly List<string> Pays = new List<string>();
             public bool Capitale => Pays.Count > 0;
         }
 
         public int Posees => posees.Count;
+        // Chaque figurine posée : sa ville, son pied en km locaux, le rayon qu'elle couvre sur le sol, et si elle se montre.
+        public IReadOnlyList<(string ville, Vector3 pied, float rayonKm, bool montree)> Figurines => posees.Select(p => (p.Ville, p.Pied, p.RayonKm, p.Montree)).ToList();
         public int Montrees { get; private set; }
         // Change quand des textes posés arrivent ou partent (les noms des sièges de l'atlas) : les calques les relèvent alors.
         public int VersionDesTextes { get; private set; }
@@ -67,7 +71,7 @@ namespace Forge.Interface
         // Les pays jouables (le siège de chaque maison), les pays des terres et l'atlas, d'où se lisent les capitales.
         public void Brancher(Func<JouablesLus> jouables, CarteDeLaGuerre guerre, AtlasDeCarte atlas) { this.jouables = jouables; this.guerre = guerre; this.atlas = atlas; signature = null; }
         void LateUpdate() => Pas();
-        void OnDestroy() { foreach (var o in crees) Detruire(o); crees.Clear(); posees.Clear(); }
+        void OnDestroy() { if (carte != null) foreach (Posee p in posees) carte.Desancrer(p); foreach (var o in crees) Detruire(o); crees.Clear(); posees.Clear(); }
 
         // La taille de la figurine d'une ville de ce nombre d'habitants, de 1 à `TAILLE_MAX`, entre la moins et la plus
         // peuplée des villes servies, sur une échelle logarithmique ; celle du milieu quand toutes ont les mêmes habitants.
@@ -92,7 +96,7 @@ namespace Forge.Interface
                 Vector3 monde = carte.transform.TransformPoint(p.Pied); float rayon = FormesDeCarte.RayonDuBourg(p.Taille), echelle = FormesDeCarte.EchellePourLEcran(camera, monde, rayon, p.Capitale ? MIN_PX_D_UNE_CAPITALE : MIN_PX);
                 p.Figurine.localScale = Vector3.one * echelle; float kmParPixel = FormesDeCarte.KmParPixel(camera, monde);
                 if (p.Nom != null) { float retrait = rayon * echelle + MARGE_DU_NOM_PX * kmParPixel; p.Nom.localPosition = carte.SurLeSol(p.Pied.x, p.Pied.z - retrait, CarteDessinee.HAUTEUR_NOM); }
-                p.Ecran = camera.WorldToScreenPoint(monde); p.RayonPx = kmParPixel > 0f ? rayon * echelle / kmParPixel : 0f;
+                p.Ecran = camera.WorldToScreenPoint(monde); p.RayonKm = rayon * echelle; p.RayonPx = kmParPixel > 0f ? p.RayonKm / kmParPixel : 0f;
             }
             // Des capitales aux autres villes, puis de la plus peuplée à la moins peuplée : une figurine se montre si elle n'en recouvre aucune déjà montrée.
             // De trop loin, une ville qui n'est pas une capitale ne se montre pas.
@@ -105,6 +109,9 @@ namespace Forge.Interface
                 p.Montree = libre; if (libre) Montrees++;
                 if (p.Figurine.gameObject.activeSelf != libre) p.Figurine.gameObject.SetActive(libre);
                 if (p.Nom != null && p.Nom.gameObject.activeSelf != libre) p.Nom.gameObject.SetActive(libre);
+                // La figurine montrée répond au survol et au clic sur tout ce qu'elle couvre, la mer comprise : son ancre tient
+                // le lieu de sa cellule (d'un siège de l'atlas, celui sous son pied) ; cachée, elle ne couvre rien.
+                carte.Ancrer(p, p.Pied, p.DeLAtlas ? (long?)null : p.CellId, libre ? p.RayonKm : 0f);
             }
             Emprises(camera);
         }
@@ -191,7 +198,7 @@ namespace Forge.Interface
             if (sb.ToString() == signature) return;
             signature = sb.ToString(); introuvables.Clear(); introuvables.AddRange(absents);
             // Les sièges de l'atlas d'avant partent ; les villes perdent leur marque.
-            foreach (Posee p in posees.Where(p => p.DeLAtlas).ToList()) { posees.Remove(p); Detruire(p.Figurine.gameObject); if (p.Nom != null) Detruire(p.Nom.gameObject); }
+            foreach (Posee p in posees.Where(p => p.DeLAtlas).ToList()) { posees.Remove(p); carte.Desancrer(p); Detruire(p.Figurine.gameObject); if (p.Nom != null) Detruire(p.Nom.gameObject); }
             foreach (Posee p in posees) p.Pays.Clear();
             if (racineDesCapitales == null) { racineDesCapitales = new GameObject(CAPITALES).transform; racineDesCapitales.SetParent(transform, false); crees.Add(racineDesCapitales.gameObject); }
             var deLAtlas = new Dictionary<string, Posee>(); int rang = posees.Count;

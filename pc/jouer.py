@@ -9,9 +9,11 @@ de 1400 (`-forgeCarte`) au lieu de la ville. Les autres maisons jouent : le
 service démarre avec `--ia`, sauf si `--sans-ia` est donné. Le service s'arrête
 quand le jeu se ferme, qu'il plante, ou que le joueur interrompt le lanceur.
 Le monde s'ouvre en pause : le service démarre à 0 jour par seconde,
-et le jeu lance le temps quand le joueur le décide. La vitesse lue dans le
-fichier de réglages partagé avec Unity est celle que la vue prend à la reprise :
-celle de la carte, ou celle de la ville si `--cellule` est donné sans `--carte`.
+et le jeu lance le temps quand le joueur le décide. Le fichier de réglages partagé
+avec Unity donne deux vitesses, que le lanceur affiche sans les poser : celle que la
+vue prend en changeant de vue (celle de la carte, ou celle de la ville si `--cellule`
+est donné sans `--carte`) et `VITESSE_DEPART`, celle du premier « Reprendre » d'un
+monde ouvert en pause. Une vitesse absente ou invalide ne lance rien.
 """
 from __future__ import annotations
 
@@ -57,9 +59,7 @@ LIGNES_STDERR_GARDEES = 20
 FIN_DE_FLUX = None
 
 
-def _vitesse(carte: bool, cellule: int | None) -> tuple[str, float]:
-    vue = "ville" if cellule is not None and not carte else "carte"
-    cle = f"VITESSE_{vue.upper()}"
+def _reglage(cle: str) -> float:
     try:
         valeur = json.loads(REGLAGES.read_text(encoding="utf-8"))[cle]
         if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
@@ -69,7 +69,16 @@ def _vitesse(carte: bool, cellule: int | None) -> tuple[str, float]:
             raise ValueError("un nombre fini strictement positif est attendu")
     except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
         raise RuntimeError(f"{REGLAGES} : {cle} invalide ({exc})") from exc
-    return vue, vitesse
+    return vitesse
+
+
+def _vitesse(carte: bool, cellule: int | None) -> tuple[str, float]:
+    vue = "ville" if cellule is not None and not carte else "carte"
+    return vue, _reglage(f"VITESSE_{vue.upper()}")
+
+
+def _vitesse_de_depart() -> float:
+    return _reglage("VITESSE_DEPART")
 
 
 def _regle():
@@ -200,10 +209,12 @@ def main(argv: list[str]) -> int:
 
     try:
         vue, vitesse = _vitesse(args.carte, cellule)
+        depart = _vitesse_de_depart()
     except RuntimeError as exc:
         print(f"le jeu n'est pas lancé : {exc}", file=sys.stderr)
         return 1
     print(f"vitesse de la {vue} : {vitesse} jours par seconde", flush=True)
+    print(f"premier « Reprendre » : {depart} {'jours' if depart >= 2 else 'jour'} par seconde", flush=True)
     print(OUVERTURE, flush=True)
     if args.sans_ia:
         print(SANS_IA, flush=True)

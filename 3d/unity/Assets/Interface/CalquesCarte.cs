@@ -544,8 +544,11 @@ namespace Forge.Interface
         void ReleverLesNoms()
         {
             var police = SocleInterface.Police(titre: true); versionDesTextes = villesDeCarte != null ? villesDeCarte.VersionDesTextes : -1;
-            noms = carte.GetComponentsInChildren<TextMesh>(true).Where(n => guerre == null || !guerre.Possede(n.transform)).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
-            foreach (var nom in noms)
+            var poses = carte.GetComponentsInChildren<TextMesh>(true).Where(n => guerre == null || !guerre.Possede(n.transform)).ToArray();
+            // « Hors de la carte » reste couché sur le papier, à la taille de l'atlas, le long de sa coupure : il prend la police
+            // et l'encre du socle, sans étiquette d'écran.
+            noms = poses.Where(n => n.transform.parent == null || n.transform.parent.name != CarteDessinee.HORS_CARTE).OrderBy(n => n.text, StringComparer.Ordinal).ToArray();
+            foreach (var nom in poses)
             {
                 nom.font = police; nom.fontSize = 16;
                 nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
