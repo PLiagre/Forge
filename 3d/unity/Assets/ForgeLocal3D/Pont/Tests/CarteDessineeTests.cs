@@ -223,12 +223,11 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(Mathf.Abs(cadre.xMin - (cellules.min.x - marge)) < 1e-3f && Mathf.Abs(cadre.yMin - (cellules.min.z - marge)) < 1e-3f && Mathf.Abs(cadre.xMax - (cellules.max.x + marge)) < 1e-3f && Mathf.Abs(cadre.yMax - (cellules.max.z + marge)) < 1e-3f, "les bornes ne sont pas à leur marge des cellules : " + cadre);
             Assert.IsTrue(cadre.xMin > t.Coin.x && cadre.yMin > t.Coin.y && cadre.xMax < t.Coin.x + t.Largeur * t.Pas && cadre.yMax < t.Coin.y + t.Hauteur * t.Pas, "les bornes de la vue sortent du terrain : la vue montrerait le vide");
             foreach (string disparue in new[] { "_Table", "_Filet", "_Cadre" }) Assert.IsFalse(Matiere.HasProperty(disparue), "le terrain dessine encore " + disparue);
-            // Au plus loin, les quatre coins de l'écran tombent sur le terrain levé.
+            // Glissé au loin, le point visé s'arrête au coin des bornes ; au plus loin, il revient au milieu de la carte.
+            carte.Vue.Zoomer(10, new Vector2(.5f, .5f)); carte.Vue.Glisser(new Vector2(-1e7f, -1e7f), 900f);
+            Assert.Less((carte.Vue.Vise - cadre.max).magnitude, 1e-2f, "glissé au nord-est, le point visé n'est pas au coin des bornes : " + carte.Vue.Vise);
             carte.Vue.Zoomer(-1000, new Vector2(.5f, .5f));
-            foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
-                Vector2 sol = carte.Vue.PointSous(coin);
-                Assert.IsTrue(sol.x >= cadre.xMin - 1e-2f && sol.x <= cadre.xMax + 1e-2f && sol.y >= cadre.yMin - 1e-2f && sol.y <= cadre.yMax + 1e-2f, "au plus loin, le coin " + coin + " de l'écran sort des bornes : " + sol);
-            }
+            Assert.Less((carte.Vue.Vise - cadre.center).magnitude, 1e-2f, "au plus loin, le point visé n'est pas au milieu des bornes : " + carte.Vue.Vise);
         }
         // Une image rendue par la caméra de la carte, en couleurs franches : au-delà de la coupe la plus à l'est (l'Anatolie),
         // le papier ; teinte par l'altitude, la terre prend la teinte des paliers. Au large de Lisbonne, aucun papier.
@@ -481,9 +480,9 @@ namespace Forge.Pont.Tests {
                 Assert.IsTrue(p.HasValue && Egal(p.Value, noms.GetChild(i++).localPosition) && Egal(p.Value, SurLeSol(v.Position, o, CarteDessinee.HAUTEUR_NOM)), v.Nom + " en " + p); }
             Assert.IsTrue(i == 57 && i == noms.childCount, i + " villes, " + noms.childCount + " noms");
         }
-        // Au plus loin, la caméra de la carte ne montre rien au-delà de ses bornes : quelle que soit la forme de la fenêtre, les
-        // quatre coins de l'écran tombent dedans, et la carte touche le bord de l'écran sur son axe le plus serré.
-        [Test] public void La_camera_tient_dans_la_carte_au_plus_loin() {
+        // Au plus loin, la caméra de la carte montre toute la carte : quelle que soit la forme de la fenêtre, les quatre
+        // coins de ses bornes tombent dans l'écran, et la carte touche le bord de l'écran sur son axe le plus serré.
+        [Test] public void Au_plus_loin_la_camera_montre_toute_la_carte() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; Canvas toile = objet.GetComponentInChildren<Canvas>(true);
             Assert.IsTrue(Nommes("Caméra de la carte") == 1 && cam != null && cam.name == "Caméra de la carte" && cam.transform.parent == objet.transform && !cam.orthographic, "caméra de la carte absente, ou pas en perspective");
@@ -498,9 +497,9 @@ namespace Forge.Pont.Tests {
             foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f, 2.4f }) {
                 cam.aspect = aspect; carte.Vue.Zoomer(-1000, new Vector2(.5f, .5f)); carte.Pas(2); float touche = 0f;
                 foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
-                    Vector2 sol = Sol(coin);
-                    Assert.IsTrue(sol.x >= cadre.xMin - .1f && sol.x <= cadre.xMax + .1f && sol.y >= cadre.yMin - .1f && sol.y <= cadre.yMax + .1f, "aspect " + aspect + ", le coin " + coin + " de l'écran sort de la carte : " + sol);
-                    touche = Mathf.Max(touche, Mathf.Abs(sol.x - cadre.center.x) / (cadre.width / 2f), Mathf.Abs(sol.y - cadre.center.y) / (cadre.height / 2f));
+                    Vector3 f = cam.WorldToViewportPoint(objet.transform.TransformPoint(new Vector3(Mathf.Lerp(cadre.xMin, cadre.xMax, coin.x), 0f, Mathf.Lerp(cadre.yMin, cadre.yMax, coin.y))));
+                    Assert.IsTrue(f.x >= -1e-4f && f.x <= 1f + 1e-4f && f.y >= -1e-4f && f.y <= 1f + 1e-4f, "aspect " + aspect + ", le coin " + coin + " de la carte sort de l'écran : " + f);
+                    touche = Mathf.Max(touche, Mathf.Abs(f.x - .5f) * 2f, Mathf.Abs(f.y - .5f) * 2f);
                 }
                 Assert.AreEqual(1f, touche, 1e-3f, "aspect " + aspect + " : au plus loin, la carte ne touche pas le bord de l'écran");
                 Assert.Greater(Sol(Vector2.up).y, Sol(Vector2.zero).y, "aspect " + aspect + " : le nord n'est pas en haut");
@@ -529,7 +528,7 @@ namespace Forge.Pont.Tests {
         [Test] public void La_camera_de_la_carte_suit_la_vue_sans_sortir_de_la_carte() {
             Servir(0, 200, Fixture); CarteMaillee attendue = Attendue(out int servies); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
             Camera cam = carte.camera; cam.aspect = 16f / 9f; carte.Pas(2);
-            Assert.IsNotNull(carte.Vue, "pas de vue sur une carte posée"); Assert.AreEqual(1f, carte.Vue.Echelle, "la carte ne s'ouvre pas sur toute la carte");
+            Assert.IsNotNull(carte.Vue, "pas de vue sur une carte posée"); Assert.IsTrue(carte.Vue.Echelle < 1f && (carte.Vue.Centre - carte.Cadre.center).magnitude < 1e-2f,"la carte ne s'ouvre pas centrée, en deçà du plus loin");
             Assert.IsTrue(!cam.orthographic && Mathf.Abs(cam.fieldOfView - VueDeCarte.CHAMP) < 1e-3f, "la caméra de la carte n'est pas en perspective, au champ de la vue");
             float minX = float.MaxValue, minZ = float.MaxValue, maxX = float.MinValue, maxZ = float.MinValue;
             foreach (MaillageDeCellule c in attendue.Cellules) foreach (Vector3 s in c.Maillage.Sommets) { minX = Mathf.Min(minX, s.x); maxX = Mathf.Max(maxX, s.x); minZ = Mathf.Min(minZ, s.z); maxZ = Mathf.Max(maxZ, s.z); }
@@ -540,7 +539,7 @@ namespace Forge.Pont.Tests {
                 Ray r = cam.ViewportPointToRay(new Vector3(ancre.x, ancre.y, 0)); Vector3 p = objet.transform.InverseTransformPoint(r.origin), d = objet.transform.InverseTransformDirection(r.direction);
                 float t = -p.y / d.y; return new Vector2(p.x + d.x * t, p.z + d.z * t);
             }
-            // La vue du départ, au plus loin, ne montre rien au-delà de la carte : les quatre coins de l'écran tombent dans ses bornes.
+            // La vue du départ remplit l'écran de la carte : les quatre coins de l'écran tombent dans ses bornes.
             foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
                 Vector2 sol = Sol(coin);
                 Assert.IsTrue(sol.x >= minX - 1e-1f && sol.x <= maxX + 1e-1f && sol.y >= minZ - 1e-1f && sol.y <= maxZ + 1e-1f, "le coin " + coin + " de l'écran tombe hors de la carte : " + sol);
@@ -556,12 +555,12 @@ namespace Forge.Pont.Tests {
                 Assert.Less((Sol(new Vector2(.5f, .5f)) - carte.Vue.Centre).magnitude, tolerance, quand + " : la caméra ne vise pas le centre de la vue");
                 foreach (Vector2 ancre in new[] { new Vector2(.3f, .6f), new Vector2(.9f, .1f), new Vector2(.05f, .95f) })
                     Assert.Less((Sol(ancre) - carte.Vue.PointSous(ancre)).magnitude, tolerance, quand + " : le rayon de l'écran en " + ancre + " ne tombe pas où la vue le dit");
-                if (crans < 0) { Assert.AreEqual(loin, carte.Vue.Distance, 1e-2f, "au plus loin, ce n'est plus toute la carte"); continue; }
-                Assert.Less(carte.Vue.Distance, loin / 4, quand + " : la vue ne s'est pas approchée");
-                // Le rectangle visé reste dans la boîte de la carte : ses bords de gauche et de droite se lisent au sol, à mi-hauteur de l'écran.
-                Vector2 gauche = Sol(new Vector2(0f, .5f)), droite = Sol(new Vector2(1f, .5f));
-                Assert.IsTrue(gauche.x >= minX - tolerance && droite.x <= maxX + tolerance && carte.Vue.Centre.y - carte.Vue.Demi >= minZ - tolerance && carte.Vue.Centre.y + carte.Vue.Demi <= maxZ + tolerance,
-                    quand + " : la vue sort de la carte : de " + gauche + " à " + droite);
+                // Le point visé, au sol sous le milieu de la partie libre, reste dans la boîte de la carte ; glissé au loin, il en touche le coin.
+                Vector2 vise = Sol(carte.Vue.Libre.center);
+                Assert.IsTrue(vise.x >= minX - tolerance && vise.x <= maxX + tolerance && vise.y >= minZ - tolerance && vise.y <= maxZ + tolerance, quand + " : le point visé sort de la carte : " + vise);
+                if (crans < 0) { Assert.AreEqual(1f, carte.Vue.Echelle, quand + " : la vue n'est pas au plus loin"); Assert.Greater(carte.Vue.Distance, loin, "au plus loin, la vue ne recule pas au-delà de l'ouverture"); continue; }
+                if (glisse.x != 0f) Assert.Less((vise - (glisse.x > 0 ? new Vector2(minX, minZ) : new Vector2(maxX, maxZ))).magnitude, tolerance, quand + " : le point visé ne va pas jusqu'au coin de la carte : " + vise);
+                else Assert.Less(carte.Vue.Distance, loin / 4, quand + " : la vue ne s'est pas approchée");
             }
         }
         // Le terrain se dessine en relief, la mer au niveau 0 : ce que la carte pose se pose sur ce sol, et le rayon de

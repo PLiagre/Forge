@@ -47,7 +47,7 @@ namespace Forge.Interface
         FicheDeCellule fiche;
         GameObject toile;
         Text date, barre, guide, maison, territoire, etat;
-        RectTransform dossier, lieu;
+        RectTransform bandeau, dossier, lieu;
         AccueilDuPays accueil;
         BoutonDeLaVille ville;
         PremiersGestes premiersGestes;
@@ -92,8 +92,8 @@ namespace Forge.Interface
             toile.GetComponent<Canvas>().sortingOrder = 10;
             var echelle = toile.GetComponent<CanvasScaler>();
             echelle.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            echelle.referenceResolution = new Vector2(1920, 1080);
-            var bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
+            echelle.referenceResolution = REFERENCE;
+            bandeau = SocleInterface.Panneau(toile.transform, "FORGE · Le cabinet", 0, 0, 1920, 124, true); // 124, le haut de chaque panneau posé dessous
             // Les icônes des dossiers, entre « Entrer dans la ville » et les commandes du temps (x 1112 à 1288, au pas de PAS_DES_ICONES) ;
             // le bandeau garde ses trois boutons enfants directs.
             var dossiers = new GameObject(DOSSIERS, typeof(RectTransform)).GetComponent<RectTransform>(); dossiers.SetParent(bandeau, false);
@@ -324,6 +324,7 @@ namespace Forge.Interface
             guide.gameObject.SetActive(geste != null);
             if (geste != null) guide.text = geste;
             accueil.Afficher();
+            Liberer();
             // Rien ne s'ouvre sans un clic : « Votre maison » par son icône, la fiche par une terre gardée ; l'accueil passe devant.
             dossier.gameObject.SetActive(maisonOuverte && !accueil.Ouvert); lieu.gameObject.SetActive(retenue != null && !accueil.Ouvert);
             capitale.gameObject.SetActive(carte.Vue != null && carte.camera != null && SiegePlace() != null);
@@ -332,6 +333,25 @@ namespace Forge.Interface
             CentrerSurLeSiege(false);
             AfficherTerres();
             AfficherMaison();
+        }
+
+        // La partie de l'écran que l'interface laisse à la carte, en parts de la fenêtre depuis le bas à gauche : sous le
+        // bandeau, et à gauche de l'accueil tant qu'il est ouvert. Les positions sont celles de la toile, en points de
+        // `REFERENCE`, qui s'échelonne sur la largeur de l'écran ; un écran trop bas garde un dixième de sa hauteur à la carte.
+        public static readonly Vector2 REFERENCE = new Vector2(1920, 1080);
+        public static Rect PartieLibre(Vector2 ecranPx, float hauteurDuBandeau, float? gaucheDeLAccueil)
+        {
+            float points = ecranPx.x / REFERENCE.x;
+            float haut = Mathf.Clamp(1f - hauteurDuBandeau * points / ecranPx.y, 0.1f, 1f), droite = gaucheDeLAccueil is float g ? Mathf.Clamp(g / REFERENCE.x, 0.1f, 1f) : 1f;
+            return new Rect(0f, 0f, droite, haut);
+        }
+
+        // La vue de la carte connaît sa partie libre ; posée de nouveau quand elle change, pour que la caméra la suive à cette image.
+        void Liberer()
+        {
+            if (carte.Vue == null || carte.camera == null || carte.camera.pixelWidth <= 0 || carte.camera.pixelHeight <= 0) return;
+            var libre = PartieLibre(new Vector2(carte.camera.pixelWidth, carte.camera.pixelHeight), bandeau.sizeDelta.y, accueil.Ouvert ? accueil.Panneau.anchoredPosition.x : (float?)null);
+            if (carte.Vue.Liberer(libre)) carte.Vue.Poser(carte.camera, carte.transform);
         }
 
         // La barre ne montre que des comptes de la maison du joueur servis au tick du monde lu ; sinon elle attend, sans un nombre.

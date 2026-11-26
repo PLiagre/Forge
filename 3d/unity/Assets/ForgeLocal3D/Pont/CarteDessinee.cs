@@ -27,7 +27,8 @@ namespace Forge.Pont {
     // des lieux, et éteindre le liseré des pays (`MontrerLesLiseres`) sans éteindre leurs frontières. La cellule marquée
     // est cernée d'un trait (`Marquer`), mesuré à ses côtés, côte comprise : sa teinte ne change pas.
     // Le nom de chaque ville, et sans caméra donnée, une à soi qui tient toute la carte.
-    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeCarte`) sans sortir de `Cadre`.
+    // Cette caméra montre la `Vue`, en perspective, que le joueur glisse et zoome (`ParcoursDeVue`) : le point visé ne sort
+    // pas de `Cadre`.
     public sealed class CarteDessinee : MonoBehaviour {
         public const string MESSAGE_ABSENCE = "le monde ne répond pas";
         public const float PERIODE_RELECTURE_S = 2f;
@@ -35,7 +36,7 @@ namespace Forge.Pont {
         // Ce que le dessin garde des hauteurs du terrain levé ; et le pas, en km, d'une ligne drapée ou d'un rayon qui cherche le sol.
         public const float ECHELLE_DU_RELIEF = 0.3f, PAS_DU_DRAPE_KM = 6f, PAS_DU_RAYON_KM = 0.5f;
         // De combien les bornes de la vue s'écartent des cellules : assez pour laisser de la mer autour d'elles, moins que la
-        // marge de mer du terrain, pour que la vue ne montre jamais rien au-delà du terrain.
+        // marge de mer du terrain.
         public const float MARGE_DU_CADRE_KM = 70f;
         // La part d'opacité qui dit, dans la palette, qu'un éclat couvre la teinte du lieu : il se voit même teint par l'altitude.
         public const float OPACITE_D_ECLAT = 0.8f;
@@ -283,8 +284,8 @@ namespace Forge.Pont {
             if (matiere == null) return;
             matiere.SetColor("_Mer", mer); matiere.SetColor("_Rivage", rivage); matiere.SetColor("_Roche", roche);
         }
-        // Les bornes de la vue, en km locaux : la boîte des cellules, élargie de `MARGE_DU_CADRE_KM`, toute dans le terrain
-        // dessiné ; vide avant la pose. Rien ne s'y dessine : au bord, la mer continue.
+        // Les bornes du point visé, en km locaux : la boîte des cellules, élargie de `MARGE_DU_CADRE_KM`, toute dans le
+        // terrain dessiné ; vide avant la pose. Rien ne s'y dessine : au bord, la mer continue.
         public Rect Cadre { get; private set; }
         // Pose une carte et ses formes déjà lues, sans service : le terrain se lève sur place. Sans effet sur une carte déjà posée.
         public void Montrer(CarteLue lue, FormesLues formes) { if (!close) Poser(lue, formes, TerrainDeCarte.Lever(lue, formes)); }
@@ -400,7 +401,7 @@ namespace Forge.Pont {
             // La vue tient toute la planche : les cellules et le cadre autour d'elles.
             boite = new Bounds(); boite.SetMinMax(new Vector3(Cadre.xMin, 0f, Cadre.yMin), new Vector3(Cadre.xMax, 0f, Cadre.yMax));
             origine = terrain.Origine; Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, formes, terrain.Origine); Lue = lue; Formes = formes;
-            if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // toute la carte
+            if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // la carte qui remplit l'écran
             CellulesServies = servies; Dire(""); Cadrer();
         }
         private Texture2D Creer(string nom, int largeur, int hauteur, TextureFormat format, FilterMode filtre, bool lineaire) {

@@ -506,6 +506,26 @@ namespace Forge.Interface.Tests
             var autre = new PointCarte(2999000, 1499000); Servir(B, autre); Assert.That(Vector2.Distance(carte.Vue.Centre, Attendu(autre)), Is.LessThan(1e-3f), "une autre maison ne recentre pas");
         }
 
+        // Le bandeau tient le haut de l'écran, l'accueil sa droite tant qu'il est ouvert : la vue de la carte ne compte que le
+        // reste, en parts de la fenêtre ; la toile s'échelonne sur la largeur de l'écran.
+        [Test] public void La_vue_de_la_carte_connait_la_partie_que_l_interface_lui_laisse()
+        {
+            void Egal(Rect attendu, Rect lu, string quand) => Assert.That(Mathf.Abs(lu.xMin - attendu.xMin) + Mathf.Abs(lu.yMin - attendu.yMin) + Mathf.Abs(lu.width - attendu.width) + Mathf.Abs(lu.height - attendu.height), Is.LessThan(1e-5f), quand + " : " + lu);
+            Egal(new Rect(0, 0, 1312f / 1920f, 956f / 1080f), CabinetDeCarte.PartieLibre(new Vector2(1920, 1080), 124, 1312), "en 1920 × 1080, l'accueil ouvert");
+            Egal(new Rect(0, 0, 1, 956f / 1080f), CabinetDeCarte.PartieLibre(new Vector2(3840, 2160), 124, null), "en 3840 × 2160, l'accueil fermé");
+            Egal(new Rect(0, 0, 1312f / 1920f, 1f - 124f * (1280f / 1920f) / 1024f), CabinetDeCarte.PartieLibre(new Vector2(1280, 1024), 124, 1312), "en 1280 × 1024, le bandeau garde sa part de la largeur");
+            Preparer(); var texture = new RenderTexture(1920, 1080, 16); camera.targetTexture = texture;
+            try
+            {
+                Proposer(); Assert.That(cabinet.Accueil.Ouvert, Is.True, "échantillon vide : l'accueil n'est pas ouvert");
+                Egal(new Rect(0, 0, 1312f / 1920f, 956f / 1080f), carte.Vue.Libre, "l'accueil ouvert, la vue ne connaît pas sa partie libre");
+                Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(cabinet.Accueil.Ouvert, Is.False);
+                Egal(new Rect(0, 0, 1, 956f / 1080f), carte.Vue.Libre, "l'accueil fermé, la vue ne reprend pas la largeur");
+                Assert.That(camera.transform.position, Is.EqualTo(carte.Vue.Position), "la caméra n'est pas posée sur la vue");
+            }
+            finally { camera.targetTexture = null; Object.DestroyImmediate(texture); }
+        }
+
         [Test] public void L_accueil_remplace_les_deux_dossiers_et_l_ancien_choix()
         {
             Proposer(); Transform toile = racine.transform.Find("Cabinet");
