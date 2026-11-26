@@ -39,7 +39,7 @@ jours, sans arrondi). Sans noms ou flux fournis, ces deux champs valent `None`. 
 de la réponse, `rang`) : **dérivée** de `cell_id`, jamais une seconde clé ; un
 lieu publié ne porte ni `cell_id` recopié ni `lieu_id`.
 
-Le bloc frère `noms` publie `lieux` (`rang`, `nom`) et `maisons`, dictionnaire par identifiant de `maitre` avec `nom` et `prenom_chef` (`null` si historique). Il égale celui de la photographie ; les lectures HTTP utilisent les octets figés.
+Le bloc frère `noms` publie `lieux` (`rang`, `nom` : le nom de la terre pour le bourg ; ailleurs, la ville sourcée qui tombe dans le lieu, sinon une désignation « campagne de <province>, <position> ») et `maisons`, dictionnaire par identifiant de `maitre` avec `nom`, `prenom_chef` (`null` si historique) et `sorte`. Il égale celui de la photographie ; les lectures HTTP utilisent les octets figés.
 
 ## La cellule par défaut des épreuves
 

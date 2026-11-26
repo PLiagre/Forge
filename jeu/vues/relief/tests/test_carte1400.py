@@ -478,8 +478,11 @@ def test_capitales_ia_sans(photographies, formes):
     # de l'Empire, du Nord, de l'Est, des Balkans, de l'Orient et du Maghreb ; les dix pays attestés qui
     # remplacent des terres sans pays en ajoutent : 90 pays dessinés, 43 cellules sans puissance (les terres
     # sans État de la table), 8 437 pixels de frontière au lieu de 8 338, 58 étiquettes omises au lieu de 53.
-    empreintes = ["2ffaf321bc5536d382435621daeb18f21b1002f8d717bf2564f33cf9735d10db",
-                  "70daa55eb80553442477180d8d320d20e9d6b45f3301220f920a791dfb43efdf"]
+    # L'Irlande de 1400 (le Pale et les ports royaux, six pays gaéliques et anglo-irlandais, les Seigneuries d'Irlande)
+    # redessine l'île : 96 pays dessinés, 45 cellules sans puissance (le Mayo et Achill en lacune), 8 668 pixels de
+    # frontière, 62 étiquettes omises.
+    empreintes = ["396e9b85832a83919edede84f4dda7d0671e815a0dfac15376f729ee0f33262f",
+                  "fa9dfffe7c1f3c3454da9f4d25cbb806fd7dee6d48d928bf777aef0a7ef60657"]
     cles = "lecture titre unite echelle minimum maximum cellules cellules_mesurees cellules_non_mesurees tick seed puissances cellules_sans_puissance pixels_de_frontiere villes_dessinees cellules_avec_villes villes_hors_carte etiquettes_omises terre_choisie".split()
     for document, empreinte in zip(photographies, empreintes):
         image, compte = _rendre(document, formes)

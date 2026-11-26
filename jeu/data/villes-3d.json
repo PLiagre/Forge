@@ -1,6 +1,7 @@
 {
   "description": "Les capitales dont la ville est bâtie en 3D : un fait de la vue, pas une règle du monde. Chaque entrée nomme la maison du registre et la scène Unity de sa ville, chemin depuis la racine du dépôt.",
   "raison_sans_ville": "la ville de {siege} n'est pas encore bâtie en 3D ; seule {baties} l'est",
+  "raison_sans_ville_designee": "le siège de ce seigneur, {siege}, n'est pas encore bâti en 3D ; seule {baties} l'est",
   "villes": [
     { "maison": "seigneurie-6", "scene": "3d/unity/Assets/ForgeLocal3D/Desert/Scenes/Forge_Desert_Ville_ksar_des_sept_puits.unity" }
   ]

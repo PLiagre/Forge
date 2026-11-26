@@ -354,6 +354,10 @@ def test_jouables_fige_du_pont():
     document = json.loads(fige)
     assert document["jouables"] and document["tick"] == 0
     # Les jouables ne lisent ni les départs ni leurs chiffres : le monde de la graine 0 sans amorçage suffit.
+    # Les seigneurs plausibles servis comme tels portent « Seigneur de … » au lieu d'un nom de liste, et le siège
+    # d'un seigneur désigné (« la campagne de … ») a sa raison, qui ne l'appelle pas ville. L'Irlande de 1400 fait
+    # passer les fiches de 2 240 à 2 236 : six grandes maisons et neuf maisons plausibles neuves, dix-neuf retirées,
+    # avec leurs pays, sièges et suzerains d'Irlande.
     with lancer_service(0) as port:
         statut, _, octets = requete_service(port, "/jouables")
         assert statut == HTTPStatus.OK and octets == fige

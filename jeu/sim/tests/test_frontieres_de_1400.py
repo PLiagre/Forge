@@ -12,7 +12,8 @@ partage ou une lacune, et chaque suzerain déclaré est un pays servi, sans bouc
 cellule n'en compte, et Bar a ses vrais voisins. Dans l'Empire : aucune terre ni aucun lieu n'a pour
 pays le Saint-Empire, le duché de Luxembourg tient au plus les lieux que la table lui donne, chaque
 prince servi porte son ensemble, et le Wurtemberg (Stuttgart) a ses vrais voisins. À l'Est : la
-Pologne et la Lituanie, la Bohême et la Hongrie ont chacune leur chef.
+Pologne et la Lituanie, la Bohême et la Hongrie ont chacune leur chef. Dans les Balkans : Constantinople
+est dans la forme servie d'un lieu byzantin.
 """
 import copy
 import dataclasses
@@ -596,6 +597,104 @@ def test_est_la_pologne_et_la_lituanie_ont_chacune_leur_chef(livre):
 
 def test_est_la_boheme_et_la_hongrie_ont_chacune_leur_chef(livre):
     _verifier_deux_chefs(livre, "Bohême", "Hongrie")
+
+
+def _points_de_constantinople(livre):
+    """Les points de Constantinople, en mètres : celui de `villes-1400.json`, que la carte dessine, et celui
+    de la ville de partage de la table des frontières, qui est aussi celui de la capitale des Paléologue."""
+    from sim.villes import charger_villes
+    ville = next(v for v in charger_villes() if v.nom == "Constantinople")
+    partage = next(v for villes in livre.frontieres.partages.values() for v in villes if v.nom == "Constantinople")
+    return {"villes-1400": (ville.x_m, ville.y_m), "partage": projeter_epsg3035(partage.lat, partage.lon)}
+
+
+def _lieu_du_point(monde, places, x, y):
+    """(cell_id, rang) du lieu dont la place est la plus proche du point, dans la cellule de la carte qui le
+    contient (la plus petite sur un bord) ; `None` hors de la carte."""
+    cid = next((c for c in sorted(monde.carte) if point_dans_geometrie(x, y, monde.carte[c]["geometry"])), None)
+    if cid is None:
+        return None
+    return cid, min(range(len(places[cid])), key=lambda r: (_carre(places[cid][r], x, y), r))
+
+
+def _juger_constantinople(monde, places, decoupe, pays, points, byzance):
+    """Les fautes : chaque point tombe dans une cellule de la carte ; le lieu de cette cellule dont la place
+    est la plus proche est servi au pays `byzance` ; sa forme servie contient le point, et elle seule parmi
+    les contours et les lieux de sa cellule."""
+    if not points:
+        return ["échantillon vide : aucun point de Constantinople"]
+    fautes = []
+    for nom, (x, y) in sorted(points.items()):
+        lieu = _lieu_du_point(monde, places, x, y)
+        if lieu is None:
+            fautes.append(f"{nom} : hors de la carte")
+            continue
+        cid, rang = lieu
+        if pays.get((cid, rang)) != byzance:
+            fautes.append(f"{nom} : lieu ({cid}, {rang}) servi à {pays.get((cid, rang))}, {byzance} attendu")
+        contours = [c for c, forme in sorted(decoupe.contours.items()) if point_dans_geometrie(x, y, forme)]
+        lieux = [r for r, forme in enumerate(decoupe.lieux[cid]) if point_dans_geometrie(x, y, forme)]
+        if contours != [cid] or lieux != [rang]:
+            fautes.append(f"{nom} : dans les contours {contours} et les lieux {lieux} de {cid}, ({cid}, {rang}) attendu")
+    return fautes
+
+
+def test_balkans_constantinople_est_sur_la_terre_d_un_lieu_byzantin(livre):
+    """Le lieu dont la place est la plus proche de Constantinople est servi à Byzance, et la forme servie de ce
+    lieu contient la ville, au point de la carte comme à celui de la capitale."""
+    from sim.formes import formes_du_monde
+    decoupe = formes_du_monde(livre.monde, livre.places)
+    pays = pays_des_lieux(livre.monde, livre.vue, livre.maisons, livre.lieux)
+    byzance = identifiant_de_puissance(next(p.id for p in livre.table.puissances if p.nom == "Byzance"))
+    points = _points_de_constantinople(livre)
+    assert _juger_constantinople(livre.monde, livre.places, decoupe, pays, points, byzance) == []
+    # Contre-épreuves : la ville posée à Çorlu, ottomane ; le lieu servi aux Ottomans ; les formes des lieux
+    # de sa cellule décalées d'un rang ; aucun point.
+    corlu = next(v for villes in livre.frontieres.partages.values() for v in villes if v.nom == "Çorlu")
+    assert _juger_constantinople(livre.monde, livre.places, decoupe, pays,
+                                 {"Çorlu": projeter_epsg3035(corlu.lat, corlu.lon)}, byzance)
+    cid, rang = _lieu_du_point(livre.monde, livre.places, *points["partage"])
+    ottomans = identifiant_de_puissance(corlu.pays)
+    assert _juger_constantinople(livre.monde, livre.places, decoupe, {**pays, (cid, rang): ottomans}, points, byzance)
+    decalees = dataclasses.replace(decoupe, lieux={**decoupe.lieux, cid: decoupe.lieux[cid][1:] + decoupe.lieux[cid][:1]})
+    assert _juger_constantinople(livre.monde, livre.places, decalees, pays, points, byzance)
+    assert _juger_constantinople(livre.monde, livre.places, decoupe, pays, {}, byzance)
+
+
+# Les villes d'Irlande que la preuve lit : Dublin, au cœur du Pale ; Sligo, des Ó Conchobhair Sligigh ; Armagh,
+# dans le pays des Ó Néill.
+DUBLIN, SLIGO, ARMAGH = (53.35, -6.26), (54.27, -8.47), (54.35, -6.65)
+# Les cellules de l'île d'Irlande sur la carte figée.
+ILE = (1192, 9835, 10224, 10226, 10227, 10228, 10232, 10233, 10234)
+
+
+def _juger_irlande(livre, pays, irlande):
+    """Les fautes : le lieu de Dublin est servi à la seigneurie d'Irlande, ceux de Sligo et d'Armagh ne le sont pas."""
+    fautes = []
+    for nom, (lat, lon), attendu in (("Dublin", DUBLIN, True), ("Sligo", SLIGO, False), ("Armagh", ARMAGH, False)):
+        lieu = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(lat, lon))
+        if lieu is None:
+            fautes.append(f"{nom} : hors de la carte")
+        elif (pays.get(lieu) == irlande) != attendu:
+            fautes.append(f"{nom} : lieu {lieu} servi à {pays.get(lieu)}, {'à' if attendu else 'pas à'} {irlande} attendu")
+    return fautes
+
+
+def test_ouest_irlande_le_pale_et_les_pays_gaeliques(livre):
+    """La seigneurie d'Irlande ne tient que ce que le roi d'Angleterre tenait en 1400 : Dublin et le Pale, et les
+    ports royaux ; Sligo et Armagh sont aux seigneurs gaéliques."""
+    pays = pays_des_lieux(livre.monde, livre.vue, livre.maisons, livre.lieux)
+    irlande = identifiant_de_puissance(next(p.id for p in livre.table.puissances if p.nom == "Irlande"))
+    assert _juger_irlande(livre, pays, irlande) == []
+    # Le Pale et les ports : l'Irlande tient des lieux, mais moins de la moitié de ceux de l'île.
+    ile = [(c, l.rang) for c in ILE for l in livre.monde.cells[c].lieux]
+    tenus = sum(pays.get(lieu) == irlande for lieu in ile)
+    assert ile and 0 < tenus < len(ile) / 2, f"l'Irlande tient {tenus} des {len(ile)} lieux de l'île"
+    sligo = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(*SLIGO))
+    # Contre-épreuves : Dublin rendu à un autre pays, Sligo rendu à l'Irlande.
+    dublin = _lieu_du_point(livre.monde, livre.places, *projeter_epsg3035(*DUBLIN))
+    assert _juger_irlande(livre, {**pays, dublin: "puissance-1"}, irlande)
+    assert _juger_irlande(livre, {**pays, sligo: irlande}, irlande)
 
 
 # ---------------------------------------------------------------------------------------------

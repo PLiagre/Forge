@@ -1672,19 +1672,19 @@ lit ensuite cette valeur dans la carte, sans consulter la vue du fleuve.
 
 La provenance est `data/puissances-1400.json`. La table couvre l'Ouest,
 l'Italie, l'Empire, le Nord, l'Est et l'Orient : Byzance, les Ottomans, les
-Mamelouks, le Maghreb et la Russie de Novgorod. Ses 91 puissances et 125 ancres,
+Mamelouks, le Maghreb et la Russie de Novgorod. Ses 97 puissances et 131 ancres,
 vérifiées contre des sources publiques, sont de **niveau 1** : elles doivent être
 justes dans les grandes lignes au 1er janvier 1400. La nature `principauté`
 désigne une puissance tenue par un duc, un comte ou un prince, comme Milan, la
 Savoie, la Bourgogne, la Bretagne, la Guyenne, Orléans, l'Anjou, le Berry, le
-Bourbonnais, Foix, l'Armagnac, la seigneurie d'Irlande, les princes d'Empire
+Bourbonnais, Foix, l'Armagnac, la seigneurie d'Irlande, les comtés d'Ormond et de Desmond, le Bas-Connacht (Íochtar Connacht) des Ó Conchobhair Sligigh, les princes d'Empire
 (Autriche, Bavière, Palatinat, Saxe, Misnie, Thuringe, Brandebourg, duché de
 Luxembourg, Brabant, Hollande, Hainaut, Lorraine, Gueldre, Clèves, Hesse,
 Brunswick, Mecklembourg, Poméranie, Holstein, burgraviat de Nuremberg), la
 Lituanie et la Mazovie, et les maîtres que la table des frontières laissait en lacune
 jusqu'à ce qu'ils y entrent : Padoue des Carrara, Rimini des Malatesta, la Zeta des Balšić,
 l'Épire d'Ésaü Buondelmonti, Céphalonie et Zante des Tocco, le duché de l'Archipel des
-Crispo et la Tripolitaine des Banou Thabit ; `royaume` désigne aussi l'Arborée, le
+Crispo et la Tripolitaine des Banou Thabit ; `royaume` désigne aussi les royaumes gaéliques de Tír Eoghain, de Tír Chonaill et de Thomond, et l'Arborée, le
 judicat sarde de Marien V ; `république`, avec Venise, Florence et Gênes, la commune de
 Bologne et Raguse ; `Église` désigne les États de l'Église, les archevêchés
 de Trèves, Cologne, Mayence, Brême, Magdebourg et Salzbourg, les évêchés d'Utrecht,
@@ -1702,7 +1702,7 @@ de Sigismond aussi.
 Une puissance peut déclarer son `suzerain`, une puissance de la table, avec sa
 `source_suzerain` ; un suzerain inconnu ou une chaîne qui boucle est refusé. Les
 vassaux de la France (Bourgogne, Bretagne, Orléans, Anjou, Berry, Bourbonnais, Foix,
-Armagnac), Gênes, sous le roi de France depuis 1396, la Guyenne sous l'Angleterre,
+Armagnac), Gênes, sous le roi de France depuis 1396, la Guyenne sous l'Angleterre, Ormond et Desmond, comtés de la pairie d'Irlande, sous la seigneurie d'Irlande,
 Naples sous l'Église, la Lituanie et la Mazovie sous la Pologne, la Serbie de Stefan
 Lazarević sous les Ottomans en déclarent un. Le
 suzerain se sert dans la fiche du pays ; il n'entre pas dans le registre des
@@ -1749,7 +1749,19 @@ Crimée de Qırq Yer, Cembalo génoise ; Venise, pour la Crète, Karpathos et Ka
 `maghreb` (les Hafsides de Tunis, du Djérid, de Constantine et de Bougie, la cellule de
 Biskra comprise ; les Zayyanides de Tlemcen, d'Oran, de Médéa et d'Alger ; les Mérinides
 de Fès, de Ceuta et Tanger, de Taza, de Meknès, du Tadla, de l'Atlas et de Marrakech ;
-Pantelleria sicilienne). La
+Pantelleria sicilienne). L'Irlande de 1400 est de l'Ouest : la seigneurie d'Irlande ne tient plus entière
+que la cellule de Dublin et du Pale (Drogheda, Trim, Kildare), et dans les cellules qu'elle partage les ports et
+villes royales qui lui restent, Dundalk, Waterford, Wexford, Limerick, Cork et Kinsale (article Lordship of
+Ireland). Les rois gaéliques et les comtes anglo-irlandais tiennent le reste, chacun là où la carte laisse un
+bourg à son siège : Tír Eoghain des Ó Néill à Dungannon (Armagh comprise), Tír Chonaill des Ó Domhnaill à
+Donegal (cellule entière ; Donegal n'est attestée comme capitale qu'au XVe siècle, **niveau 2** pour 1400), le
+Bas-Connacht des Ó Conchobhair Sligigh à Sligo, le Thomond des Ó Briain à Ennis (Clonroad), Ormond des Butler à
+Gowran, avec Kilkenny, et Desmond des FitzGerald à Tralee, avec Askeaton. Les seigneurs que la table ne porte pas
+comme pays, faute d'une cellule libre ou d'un siège sourcé, sont des Seigneuries d'Irlande, terre sans État : les
+Burke de Clanricarde (Loughrea, Athenry, dans la cellule du Thomond), les Ó Raghallaigh de Breifne (Cavan), le Mayo
+des Burke de Mac William Íochtar et Achill des Ó Máille, ces deux-là en lacune. Le Leinster de Mac Murchadha n'y
+est pas : aucune source lue ne fixe son siège en 1400. La soumission des rois gaéliques à Richard II (1395) reste
+de **niveau 3**. La
 Venise d'outre-mer (la Crète, Corfou, Cythère, Négrepont, Tinos et Mykonos, Karpathos et
 Kasos, Coron, Argos et Nauplie, Athènes, Durazzo et Scutari), la Chios et la Samos
 génoises et la Smyrne des Hospitaliers y sont déclarées avec elles, comme les dix pays
@@ -1771,29 +1783,30 @@ steppes du désert (l'Oued Righ, le Souf, le Zab occidental, le Mzab, les steppe
 Laghouat et de Djelfa, le Djebel Amour, les monts des Ksour, la haute Moulouya, Figuig,
 le Tafilalt, le Drâa, le Sous), des tribus et des oasis dont l'histoire ne nomme pas les
 maîtres. Aucune cellule de la carte ne doit son pays à l'ancre la plus proche. La table
-porte 458 cellules entières, rangées par pays avec une source publique par pays ; 97
-cellules partagées ; 41 lacunes avec leur raison ; 25 pays plus petits que deux lieux,
+porte 451 cellules entières, rangées par pays avec une source publique par pays ; 102
+cellules partagées ; 43 lacunes avec leur raison ; 25 pays plus petits que deux lieux,
 déclarés avec leur raison (Calais, Andorre, Saint-Marin, Piombino, Tournai, Péra,
 Théodoro, Lesbos des Gattilusi, une île d'un seul lieu, et les villes libres d'Empire,
 dont Lübeck, Cologne, Francfort, Nuremberg et Metz, chacune avec le pays ou la terre sans
-État qui reçoit son lieu) ; et 144 villes témoins, chacune avec son pays de 1400 et sa
+État qui reçoit son lieu) ; et 153 villes témoins, chacune avec son pays de 1400 et sa
 source, que les preuves lisent, d'une région au moins. Une cellule partagée nomme une
-ville sourcée par pays, 353 en tout, jamais une ville libre ; une ville sans pays
-(`pays: null`) dit sa raison, 24 en tout : Ferrare, Ravenne, Mantoue, Lucques et
+ville sourcée par pays, 369 en tout, jamais une ville libre ; une ville sans pays
+(`pays: null`) dit sa raison, 27 en tout : Ferrare, Ravenne, Mantoue, Lucques et
 Urbino ; Namur, Berg, Bade, Bamberg, Wurtzbourg, Verdun, Toul, Stuttgart (le Wurtemberg,
 terre de départ, dont les terres hors du siège ne sont pas simulées) ; Groningue et
 Emden de la Frise libre ; Riga, Kokenhusen, Dorpat et Hapsal en Livonie ; Thèbes des
-Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin, Krujë des Thopia et Valona.
+Acciaioli, Clarentza d'Achaïe, Patras de l'archevêque latin, Krujë des Thopia et Valona ;
+Loughrea et Athenry des Burke de Clanricarde, Cavan des Ó Raghallaigh.
 
 **Les terres sans État.** Chaque lacune et chaque ville sans pays nomment leur terre
 sans État (`terre`) dans `terres_sans_etat`, une liste de `{id, nom, raison}` : une
 région nommée, de **niveau 2** déclaré, dont les seigneurs plausibles restent maîtres de
-leurs lieux sans être servis comme des pays. La table en déclare douze : les Tribus du
+leurs lieux sans être servis comme des pays. La table en déclare treize : les Tribus du
 désert (18 lacunes, 407 lieux), les Tribus du Sous, les Bédouins de Cyrénaïque, les
 Champs sauvages, les Seigneuries d'Italie (Ferrare, Ravenne, Mantoue, Lucques, Urbino,
 Elbe), les Îles du Sulcis, les Seigneuries d'Albanie (Krujë, Valona), les Seigneuries de
 Grèce (Thèbes, Clarentza, Patras et les îles Saroniques), les Îles de l'Égée, les
-Évêchés de Livonie, la Frise libre et les Seigneuries d'Empire. Le découpage suit la
+Évêchés de Livonie, la Frise libre, les Seigneuries d'Empire et les Seigneuries d'Irlande. Le découpage suit la
 carte : les bourgs de terre ferme d'une même terre sans État sont d'un seul tenant par
 les arêtes `land-land`, et deux terres sans État ne se touchent pas (le Sous, qui ne
 touche pas le désert par la terre, a la sienne). `frontieres.terres_des_lieux` rend la
@@ -1804,10 +1817,10 @@ une lacune ou une ville sans pays sans `terre`, une terre inconnue, une `terre` 
 ville qui a son pays, une terre déclarée deux fois, sans nom ni raison, ou que rien ne
 cite.
 
-Par région, les cellules entières et partagées de ses pays : `ouest` 166 et 39,
+Par région, les cellules entières et partagées de ses pays : `ouest` 159 et 44,
 `empire` 25 et 39, `nord` 91 et 1, `est` 65 et 25, `balkans` 55 et 14, `orient` 38
 et 8, `maghreb` 28 et aucune. Une cellule de Venise compte dans l'Ouest et dans
-l'Orient ; une cellule partagée compte dans chaque région de ses pays. Avec les 41
+l'Orient ; une cellule partagée compte dans chaque région de ses pays. Avec les 43
 lacunes, la table décide les 596 cellules de la carte figée, et le chargement refuse,
 en la nommant, une cellule de la carte qu'elle ne décide pas ; un monde d'épreuve qui
 ne porte qu'une part de la carte refuse de même une de ses cellules non décidée.
@@ -1832,7 +1845,7 @@ prendra (`frontieres.maison_du_bourg`, dans l'ordre même de l'attribution des
 maîtres), sinon à la plus grande ville placée : la place du bourg se connaît avant
 ses maîtres, et c'est celle du chargement. La puissance de la cellule, pour tout ce
 qui la lit déjà, est celle de son bourg ; `frontieres.puissances_des_lieux` rend
-celle de chacun des 1 655 lieux partagés (87 sans pays). C'est ainsi que la Navarre
+celle de chacun des 1 704 lieux partagés (100 sans pays). C'est ainsi que la Navarre
 tient 13 lieux, moins que les 20 de la cellule de Pampelune, et Venise les 2 lieux
 du Trévisan, sans aucune cellule entière en Italie ; une ancre de Trévise porte sa capitale,
 son siège institutionnel étant hors carte. Le chargement refuse une cellule
@@ -1842,7 +1855,7 @@ monde d'épreuve qui ne porte qu'une part de la carte ignore les cellules décla
 qu'il n'a pas (`frontieres_du_monde`). Le pays d'une cellule déclarée, et celui de
 chaque ville témoin, sont de **niveau 1**, d'après des sources publiques citées
 pays par pays ; le tracé à l'intérieur d'une cellule partagée est de **niveau 2**.
-Sur la carte figée, 553 cellules ont une puissance et 43 n'en ont pas : les 41
+Sur la carte figée, 551 cellules ont une puissance et 45 n'en ont pas : les 43
 lacunes de la table et les deux cellules partagées dont le bourg est sans pays (celle de
 l'Achaïe et de Patras ; Stuttgart). Chacune dit sa raison et sa terre sans État dans la
 table : sa lacune, ou la ville sans pays de son bourg.
@@ -1872,7 +1885,7 @@ ne la lit pas**, ni la table des frontières.
 
 ## Les maisons de 1400, vue dérivée
 
-La même table `data/puissances-1400.json` déclare 64 maisons, chacune avec
+La même table `data/puissances-1400.json` déclare 70 maisons, chacune avec
 un `id`, un `nom` et une `source` publique qui atteste sa tenure au
 1er janvier 1400 : Lancastre, Stuart, Valois, Aviz, Trastamare, Barcelone,
 Évreux, Nasrides, Luxembourg, Visconti, Anjou-Durazzo, Savoie, Poméranie,
@@ -1884,8 +1897,10 @@ Foix-Grailly, Armagnac, Wittelsbach-Bavière, Ascanie, Wettin, Wettin-Thuringe,
 Luxembourg-Moravie, Louvain, Wittelsbach-Straubing, Lorraine, Juliers, La Marck,
 Hesse, Welf, Mecklembourg, Poméranie-Stettin, Schauenbourg, Hohenzollern,
 Gediminides, Piast de Mazovie, Luxembourg-Hongrie, Carrara, Doria-Bas (les juges
-d'Arborée), Malatesta, Balšić, Buondelmonti, Tocco, Crispo et Banou Thabit. Les huit
-dernières règnent chacune sur un pays neuf : Padoue, l'Arborée, Rimini, la Zeta,
+d'Arborée), Malatesta, Balšić, Buondelmonti, Tocco, Crispo, Banou Thabit, Ó Néill, Ó Domhnaill, Ó Conchobhair Sligigh,
+Ó Briain, Butler et FitzGerald de Desmond. Les six dernières règnent chacune sur un pays d'Irlande (Tír Eoghain,
+Tír Chonaill, Íochtar Connacht, Thomond, Ormond, Desmond) ; les huit qui les précèdent
+règnent chacune sur un pays neuf : Padoue, l'Arborée, Rimini, la Zeta,
 l'Épire, Céphalonie et Zante, le duché de l'Archipel et la Tripolitaine. Lancastre-Aquitaine et les six
 suivantes règnent sur les pays neufs de l'Ouest (Guyenne, Orléans, Anjou, Berry,
 Bourbonnais, Foix, Armagnac) ; Valois-Bourgogne et Montfort sur la Bourgogne et la
@@ -1897,7 +1912,7 @@ Hainaut ; chacune des autres maisons neuves règne sur un pays. Luxembourg-Hongr
 (Sigismond) règne sur la Hongrie, Gediminides (Vytautas) sur la Lituanie, Jagellon
 sur la Pologne.
 
-Chacune des 69 puissances de nature `royaume`, `principauté`, `empire`,
+Chacune des 75 puissances de nature `royaume`, `principauté`, `empire`,
 `sultanat` ou `khanat` désigne une maison connue. Les vingt-deux autres se
 **déclarent sans maison**, par leur nature `république`, `Église` ou `ordre` :
 Confédération des cantons suisses, Venise, Florence, Gênes, Bologne, Raguse, Novgorod
@@ -1918,11 +1933,15 @@ La maison tenante de chaque cellule est celle de son pays (`par_puissance`), que
 table des frontières décide ; une république, une Église, un ordre ou une lacune
 n'en ont pas. `maisons_depuis_monde` ne lit aucune ancre : échanger ou déplacer une
 ancre ne change la maison d'aucune cellule. La cellule du point de Constantinople,
-10374, est à Paléologue, la Bithynie (10032) à Osman.
-Sur les 596 cellules figées, **480** sont tenues par une maison, **73** sont
-sans maison par déclaration de nature, et **43** sont sans pays (lacunes, et partages
+10374, est à Paléologue, la Bithynie (10032) à Osman. Cette cellule est partagée : 4 de ses
+18 lieux sont byzantins (Constantinople, Sélymbria et leurs campagnes, environ 3 200 km² de
+formes servies) et les 14 autres ottomans (Çorlu, Kırk Kilise). Le lieu dont la place est la
+plus proche de la ville, au point de `villes-1400.json` comme à celui de la capitale, est son
+bourg, au siège des Paléologue, servi à Byzance, et sa forme servie contient la ville.
+Sur les 596 cellules figées, **478** sont tenues par une maison, **73** sont
+sans maison par déclaration de nature, et **45** sont sans pays (lacunes, et partages
 dont le bourg est d'une ville sans pays), chacune d'une terre sans État.
-Chacune des 64 maisons tient au moins une cellule.
+Chacune des 70 maisons tient au moins une cellule.
 
 Les attributions aux puissances sont de **niveau 1**, vérifiées contre des
 sources publiques. Leur étendue suit, sur toute la carte, la table des frontières,
@@ -1939,7 +1958,7 @@ Le registre ajoute seulement les liens de départ décrits ci-dessous. Restent d
 les personnes et la succession des dynasties, Naples disputée, Édigu derrière le
 khan, Marguerite derrière Éric, l'élection du roi des Romains, la diète et le lien
 d'Empire, les villes libres et les seigneuries de moins de deux lieux, et les
-familles des trente-quatre chefs neufs (grandes maisons 31 à 64).
+familles des quarante chefs neufs (grandes maisons 31 à 70).
 
 La vue `sim/maisons.py` est pure, recalculée et vit hors de `sim.model`.
 Elle lit la vue des puissances, refuse comme elle une cellule que la table des
@@ -2031,7 +2050,7 @@ une capitale par grande maison de la table des puissances, sans modifier
 celle-ci : `maison` (id), `nom`, `lat`, `lon` en EPSG:4326 et `source`
 publique du siège et de la tenure dynastique. Seul un point hors de tous
 les polygones porte `hors_carte`, sa raison textuelle. Sur la carte figée,
-**64** capitales sont déclarées : **63** placées, chacune dans une cellule
+**70** capitales sont déclarées : **69** placées, chacune dans une cellule
 que `maisons_depuis_monde` donne à sa propre maison, et **1** hors carte,
 Saraï des Djötchides sur la basse Volga, avec `cell_id = None` et sa raison.
 Deux capitales ne partagent jamais une cellule, chacune y prenant le bourg : Josse
@@ -2041,7 +2060,9 @@ Ier, Wolfenbüttel partageant celle de Magdebourg. Les capitales des pays neufs 
 Oristano, Rimini, Antivari, Ioannina, Agios Georgios (le château de Saint-Georges,
 capitale de Céphalonie), Naxos et Tripoli ; le point de Naxos est pris dans le polygone de
 l'île, à moins d'un kilomètre de la ville, la côte de la carte étant plus grossière
-(**niveau 2**).
+(**niveau 2**). Celles d'Irlande sont Dungannon, Donegal, Sligo, Ennis (le fort de Clonroad), Gowran (résidence
+ordinaire du comte d'Ormond, qui achète Kilkenny en 1391) et Tralee ; le roi de Thomond au 1er janvier 1400, Brian
+Sreamhach ou Conchobhar, que la source ne départage pas dans l'année, est une lacune d'identité déclarée.
 
 `cellule_de_capitale` projette le point par `projeter_epsg3035`, puis lit
 `point_dans_geometrie` en parcourant les polygones par `cell_id` croissant ;
@@ -2070,9 +2091,9 @@ appliqué au tick ; le dépôt en attente n'y change rien (`ia.decider_intention
 `sorte` (`grande maison` ou `seigneurie`), `id`, `nom` de la maison,
 `capitale` (ou siège), `cell_id`, `hors_carte` (raison ou `None`) et `source`.
 Les sièges viennent de `cellule_du_siege`, leur source de la seigneurie.
-Sans choix, **70** maisons ; après un choix appliqué au tick, **69**. Les maisons
+Sans choix, **76** maisons ; après un choix appliqué au tick, **75**. Les maisons
 neuves de l'Ouest, de l'Empire, de l'Est et des pays attestés qui remplacent des terres
-sans pays jouent par l'IA comme les autres, sans bonus ; l'IA de ces 70 maisons coûte
+sans pays jouent par l'IA comme les autres, sans bonus ; l'IA de 70 maisons, mesurée avant celles d'Irlande, coûte
 4,9 ms par jour sur le VPS (médiane de `jouer_ia` sur trente jours), contre 3,5 pour 62
 mesurées en même temps.
 La branche Paléologue de Morée est distincte de celle de Constantinople :
@@ -2103,7 +2124,7 @@ Républiques, Église et ordres, sans maison, sont absents de cette vue.
 
 ## Les maisons du monde
 
-`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée. Les vingt-neuf chefs des maisons et Églises de l'Empire, du Nord et de l'Est (grandes maisons 38 à 56, institutions 70 à 78 et 81) portent leur identité et leur fonction au départ, avec leur page ; leur naissance, que la page n'a pas été relue pour donner, est une lacune déclarée. Les chefs des huit grandes maisons des pays attestés qui remplacent des terres sans pays (grandes maisons 57 à 64) sont posés de même : François II de Carrare (Francesco Novello) à Padoue, Marien V d'Arborée sous la régence de son père Brancaleone Doria, Charles Ier Malatesta à Rimini, Đurađ II Balšić en Zeta, Ésaü Buondelmonti en Épire, Charles Ier Tocco à Céphalonie et Zante, Jacques Ier Crispo dans l'Archipel ; celui des Banou Thabit à Tripoli, que la page ne nomme pas au 1er janvier 1400, est une lacune d'identité déclarée. Bologne (institution 84), commune sans seigneur avant Giovanni Ier Bentivoglio en 1401, et Raguse (institution 88), dont le recteur change chaque mois, ont une direction collective déclarée en lacune.
+`data/personnages-1400.json` prépare les personnages réels au 1er janvier 1400 (**niveau 1**) : une fiche par entrée historique des trois tables, sièges hors carte compris, sans les maisons plausibles. Les pages publiques citées ont été consultées ; chaque identité précise la fonction exercée au départ et chaque naissance sa précision attestée. Les vingt-neuf chefs des maisons et Églises de l'Empire, du Nord et de l'Est (grandes maisons 38 à 56, institutions 70 à 78 et 81) portent leur identité et leur fonction au départ, avec leur page ; leur naissance, que la page n'a pas été relue pour donner, est une lacune déclarée. Les chefs des huit grandes maisons des pays attestés qui remplacent des terres sans pays (grandes maisons 57 à 64) sont posés de même : François II de Carrare (Francesco Novello) à Padoue, Marien V d'Arborée sous la régence de son père Brancaleone Doria, Charles Ier Malatesta à Rimini, Đurađ II Balšić en Zeta, Ésaü Buondelmonti en Épire, Charles Ier Tocco à Céphalonie et Zante, Jacques Ier Crispo dans l'Archipel ; celui des Banou Thabit à Tripoli, que la page ne nomme pas au 1er janvier 1400, est une lacune d'identité déclarée. Bologne (institution 84), commune sans seigneur avant Giovanni Ier Bentivoglio en 1401, et Raguse (institution 88), dont le recteur change chaque mois, ont une direction collective déclarée en lacune. Les chefs des six maisons d'Irlande (grandes maisons 65 à 70) sont posés de même, sans famille : Niall Óg Ó Néill en Tír Eoghain, Toirdhealbhach an Fhíona Ó Domhnaill en Tír Chonaill, Muircheartach Bachach Ó Conchobhair Sligigh à Sligo, James Butler, 3e comte d'Ormond, et Thomas FitzGerald, 5e comte de Desmond ; celui du Thomond, dont le roi change en 1400 à une date que la page ne donne pas, est une lacune d'identité déclarée.
 Chaque valeur présente possède sa source (`url`, `fait`) ; chaque valeur `null` possède exactement son motif dans `lacunes`. Une identité non établie interdit d’attribuer une naissance. Les approximations et intervalles gardent la formulation de la source ; aucune année ne devient un 1er janvier certain. Saraï et Tlemcen gardent leur succession indécidable au jour de départ ; le chef du Zab reste non sourcé.
 Les institutions conservent leur identifiant et leur nature : titulaire attesté ou direction collective explicitée, sans dynastie héréditaire inventée. Constantinople et Mistra ont des chefs distincts ; Prague et Heidelberg suivent les branches représentées par leurs sièges ; la Bohême (Venceslas) et la Hongrie (Sigismond), la Pologne (Ladislas II) et la Lituanie (Vytautas) ont chacune leur chef.
 `sim/personnages.py` lit et valide cette table au chargement du monde ; les personnes sont décrites ci-dessous.
@@ -2154,7 +2175,7 @@ les maîtres inconnus, les ids dupliqués et tout écart à la règle, couple no
 `valider_registre_maisons` refuse les suzerains inconnus et cycles.
 Niveau 2, plausible, jamais sourcé : les quatre lieux, groupes de trois,
 maisons plausibles et suzerains. Le maître est stocké au chargement.
-Niveau 3 : changement de maître. Les noms plausibles sont une vue de niveau 2.
+Niveau 3 : changement de maître. Les noms plausibles sont une vue de niveau 2 : « Seigneur de <lieu de son siège> », une désignation.
 La photographie et `/lieu` portent le maître de chaque lieu ; `/monde` ne le
 porte pas. Le tick ne lit ni les maîtres ni le registre et ne réattribue rien.
 
@@ -2174,7 +2195,7 @@ que le monde évolue. Les anciennes vues et la sélection de l'IA gardent leur c
 ## Les personnes
 
 Après les maîtres et leurs références aux suzerains, `World.charger` construit `personnages` (tuple trié par identifiant) et `chefs` (un lien par maison). L'identifiant initial `personne-<maison>` appartient à la personne, jamais automatiquement à son successeur. Aucun emplacement n'est ajouté : le siège reste celui de la maison.
-Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Chaque maison plausible reçoit le prénom et le nom de la vue existante (**niveau 2**), sans naissance ni source inventées et sans tirage aléatoire.
+Les identités, naissances, précisions, sources et lacunes historiques restent de **niveau 1**, sans interprétation. Une identité absente garde un lien nul motivé ; un titulaire institutionnel ne crée aucune dynastie. Le chef d'une maison plausible se nomme « <prénom>, seigneur de … » (**niveau 2**) : le prénom de la vue existante, une virgule, puis le nom de sa maison (« Seigneur de <lieu de son siège> ») avec l'initiale en minuscule (« Jean, seigneur de Saint-Dizier »), sans naissance ni source inventées et sans tirage aléatoire.
 Un monde manuel garde `personnages=()` et `chefs={}`. `to_dict()` copie toujours ces deux ajouts en profondeur, sans lecteur ni constructeur. Le tick ne les consulte pas : habitants, économie et générateur restent indépendants. Autres familles, âge calculé, vieillissement, mort et succession restent de **niveau 3**, non simulés.
 
 Le catalogue fermé conserve intégralement `chefs` et ajoute `familles` (cent quatre fiches), `liens` (compléments aux trente-deux chefs réutilisés) et `etats` (trente-quatre états, triés par maison ; Théodore Ier de Morée et le chef du Zab ont un état sans complément). **Niveau 1**, France (`grande-3`), Bretagne (`grande-28`) et Bohême (`grande-9`) : Isabeau de Bavière, Isabelle, Jeanne, Charles, Marie, Michelle, Louis et Jean de France. Les sept enfants ont pour parents Charles VI (`personne-grande-3`) et Isabeau ; Jeanne (`personne-jeanne`) reste une seule personne, épouse de Jean V (`personne-grande-28`). Sophie de Bavière (`personne-sophie-baviere`), née en 1376 (précision `annee`), épouse Venceslas depuis le 2 mai 1389. Les trois mariages sont réciproques ; aucun enfant de Jean V n'est né au départ (le premier naît en 1409).
@@ -2799,7 +2820,7 @@ calcul supplémentaire à chaque tick. Une erreur de construction rend
 du bourg : `{rang, maitre, pays}` (`pays_servis.pays_des_lieux`), vide quand tous
 en sont. Le pays d'un lieu suit la même règle que celui d'une terre, sur le maître
 du lieu et la puissance du lieu (`pays_servis.puissance_du_lieu`). Sur la graine 0,
-au départ, 100 terres en portent, pour 747 lieux : les cellules partagées (les lieux
+au départ, 105 terres en portent, pour 775 lieux : les cellules partagées (les lieux
 castillans de la cellule de Pampelune, les lieux de Trévise à Venise) et les terres de
 départ, dont les autres lieux sont des seigneurs du pays suzerain. Une terre sans État
 n'en porte aucun : tous ses lieux sont à elle.
@@ -2829,7 +2850,8 @@ terre, et la Bohême (5 terres) ; Sigismond sur la Hongrie (27) ; la Navarre a p
 maison Évreux ; la France compte 28 terres, la Bourgogne 7 et la Bretagne 6,
 l'Autriche 8, la Pologne 5 et la Lituanie 23 ; le duché de l'Archipel 13, Céphalonie et
 Zante 4, Raguse et la Tripolitaine 3, Bologne, Padoue, l'Arborée, Rimini, la Zeta et
-l'Épire 1 ; les six départs sont leurs propres pays ; les 42 terres hors de toute
+l'Épire 1 ; en Irlande, la seigneurie d'Irlande, Tír Eoghain, Tír Chonaill, Íochtar Connacht, le Thomond, Ormond
+et Desmond 1 chacun ; les six départs sont leurs propres pays ; les 44 terres hors de toute
 puissance ont pour pays leur terre sans État (18 aux Tribus du désert), et celle de
 Stuttgart, sans puissance, est au Wurtemberg. Aucun pays servi n'est un seigneur
 plausible.
@@ -2993,19 +3015,20 @@ hors de la carte y est nommée par un lieu qui s'y trouve.
 **Un siège** est servi `{nom, maison, x_m, y_m}` : le nom du siège de chaque
 maison du registre (`charger_registre_maisons`) placée sur la carte, quand ce
 nom n'est pas celui d'une ville de `villes-1400.json` ; la ville est déjà
-nommée par la carte. Sur la graine 0, 65 sièges, dont Biskra, Bar-le-Duc,
+nommée par la carte. Sur la graine 0, 71 sièges, dont Biskra, Bar-le-Duc,
 Mistra, les capitales de quatre pays neufs de l'Ouest (Bourges, Moulins, Foix,
 Lectoure ; Orléans, Angers et Bordeaux sont déjà des villes), et les capitales et
 sièges des princes d'Empire, du Nord et de l'Est (Munich, Wittenberg, Meissen, La
 Haye, Bonn, Aschaffenbourg, Cadolzbourg, Vilnius, Varsovie, Buda…), et ceux des pays
 neufs d'Italie, de l'Adriatique, de l'Égée et de la Tripolitaine (Oristano, Rimini,
-Raguse, Antivari, Ioannina, Agios Georgios, Naxos, Tripoli) ; Bologne, Padoue, Prague,
+Raguse, Antivari, Ioannina, Agios Georgios, Naxos, Tripoli), et d'Irlande (Dungannon, Donegal, Sligo, Ennis,
+Gowran, Tralee) ; Bologne, Padoue, Prague,
 Cologne et les autres villes de `villes-1400.json` sont déjà nommées. Leur position est celle de `sieges_des_maisons`. Une maison hors carte
 (Saraï, Venise) et les maisons plausibles, dont le siège est un identifiant
 synthétique, n'en servent aucun. Le fichier des villes ne bouge pas : y ajouter
 Biskra déplacerait des bourgs et changerait des noms de lieux.
 
-**Les chefs-lieux.** `data/chefs-lieux-1400.json` donne le chef-lieu de chaque terre que ni un siège ni une ville de `villes-1400.json` ne nomme : `chefs_lieux`, une ligne `{cell_id, nom, lat, lon, source}` par cellule, en degrés WGS84, la source citant l'article et son URL ; et `sans_ville`, `{cell_id, raison}`, les terres où l'histoire ne nomme aucune ville en 1400 (ergs, steppes vides, îlots, le fond du Zuiderzee). Là où les frontières nomment des villes (villes de partage, villes témoins), le chef-lieu est l'une d'elles, recopiée avec ses coordonnées et sa source, et dans une cellule partagée il est du pays du bourg. Sinon c'est la ville principale de la cellule en 1400 : capitale régionale, évêché, siège comtal, ville à charte, port. Le nom est le nom français d'usage quand il existe (Cracovie, Dantzig, Salonique), sinon celui qu'emploie un atlas de 1400 quand il diffère tout à fait de l'actuel (Königsberg, Smyrne), sinon le nom courant. `charger_chefs_lieux` lit le fichier une fois par chemin et rend une vue immuable ; il refuse, en nommant la cellule, une clé de trop ou absente, une date autre que le 1er janvier 1400, un texte vide, une source sans URL, une coordonnée non finie ou hors bornes, une cellule décidée deux fois (même à la fois nommée et sans ville) et un nom présent deux fois. La règle du bourg refuse une ligne dont le point tombe hors du polygone de sa cellule, une ligne ou une déclaration pour une terre déjà nommée par un siège ou une ville, et une terre de la carte ni nommée ni déclarée ; un monde d'épreuve qui n'a qu'une part des terres laisse de côté les lignes des autres. La règle juge le fichier contre les sièges du registre et les villes de `villes-1400.json` placées sur la carte du monde (`noms.attribution_livree`), quel que soit le jeu de villes qui a amorcé ses populations : un monde d'épreuve amorcé sans villes, ou avec d'autres villes, se charge donc et ses terres portent les noms du monde livré ; le monde livré reprend sa propre attribution sans la recalculer. Le contrôle des polygones (9 ms sur srv1914711) se fait une fois pour la carte et le fichier d'une partie : une prise de bourg qui refait les noms ne le refait pas ; `noms_depuis_monde` entier prend 16 ms, contre 64 ms avant les chefs-lieux. Le point d'une dizaine de villes côtières ou insulaires, qui tombait en mer sur le contour grossier de la carte, est déplacé de 1 à 4 km dans sa terre (**niveau 2**). Le fichier ne place aucun bourg : la place du bourg reste celle de « Les lieux d'une cellule, vue dérivée » (siège, ville, centroïde), et ni maître, ni population, ni le tick ne lisent un chef-lieu. Les sièges servis par `/atlas` ne changent pas.
+**Les chefs-lieux.** `data/chefs-lieux-1400.json` donne le chef-lieu de chaque terre que ni un siège ni une ville de `villes-1400.json` ne nomme : `chefs_lieux`, une ligne `{cell_id, nom, lat, lon, source}` par cellule, en degrés WGS84, la source citant l'article et son URL ; et `sans_ville`, `{cell_id, region, raison}`, les terres où l'histoire ne nomme aucune ville en 1400 (ergs, steppes vides, îlots, le fond du Zuiderzee) ; `region` nomme la terre avec son article (« le Souf », « l'île de Jura »), elle est unique et n'est jamais le nom d'un chef-lieu. Là où les frontières nomment des villes (villes de partage, villes témoins), le chef-lieu est l'une d'elles, recopiée avec ses coordonnées et sa source, et dans une cellule partagée il est du pays du bourg. Sinon c'est la ville principale de la cellule en 1400 : capitale régionale, évêché, siège comtal, ville à charte, port. Le nom est le nom français d'usage quand il existe (Cracovie, Dantzig, Salonique), sinon celui qu'emploie un atlas de 1400 quand il diffère tout à fait de l'actuel (Königsberg, Smyrne), sinon le nom courant. `charger_chefs_lieux` lit le fichier une fois par chemin et rend une vue immuable ; il refuse, en nommant la cellule, une clé de trop ou absente, une date autre que le 1er janvier 1400, un texte vide, une source sans URL, une coordonnée non finie ou hors bornes, une cellule décidée deux fois (même à la fois nommée et sans ville), un nom présent deux fois, et une région vide, sans article, présente deux fois ou qui est le nom d'un chef-lieu. La règle du bourg refuse une ligne dont le point tombe hors du polygone de sa cellule, une ligne ou une déclaration pour une terre déjà nommée par un siège ou une ville, et une terre de la carte ni nommée ni déclarée ; un monde d'épreuve qui n'a qu'une part des terres laisse de côté les lignes des autres. La règle juge le fichier contre les sièges du registre et les villes de `villes-1400.json` placées sur la carte du monde (`noms.attribution_livree`), quel que soit le jeu de villes qui a amorcé ses populations : un monde d'épreuve amorcé sans villes, ou avec d'autres villes, se charge donc et ses terres portent les noms du monde livré ; le monde livré reprend sa propre attribution sans la recalculer. Le contrôle des polygones (9 ms sur srv1914711) se fait une fois pour la carte et le fichier d'une partie : une prise de bourg qui refait les noms ne le refait pas ; `noms_depuis_monde` entier prend 10 ms quand les noms des lieux sont gardés (voir « Les lieux d'une cellule, vue dérivée »). Le point d'une dizaine de villes côtières ou insulaires, qui tombait en mer sur le contour grossier de la carte, est déplacé de 1 à 4 km dans sa terre (**niveau 2**). Le fichier ne place aucun bourg : la place du bourg reste celle de « Les lieux d'une cellule, vue dérivée » (siège, ville, centroïde), et ni maître, ni population, ni le tick ne lisent un chef-lieu. Les sièges servis par `/atlas` ne changent pas.
 
 **Ce que la place doit tenir.** Le pas de la carte est le côté d'une cellule de
 surface moyenne (105,8 km sur la graine 0). Chaque fleuve part d'une cellule de
@@ -3061,12 +3084,15 @@ Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
   Gediminides de Jagellon au titre de la Pologne). Un prince d'Empire n'a pas de
   suzerain : son `ensemble` se lit dans la fiche du pays de `/terres` ;
 - `ville` `{batie, scene, raison}` : `batie` dit si la capitale a une ville bâtie
-  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas.
+  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas ; le siège d'un petit seigneur, quand il est
+  une désignation, n'y est jamais appelé ville : il prend son article et son propre modèle (« le siège de ce
+  seigneur, la campagne de Borgund, au nord-ouest, n'est pas encore bâti en 3D », `noms.avec_son_article`).
 
 Le `nom` d'un petit seigneur vient des noms servis, non de son identifiant. La
 liste des capitales bâties est `data/villes-3d.json` (`sim/villes_3d.py`) : les
-maisons dont la ville existe en 3D, avec leur scène, et le modèle de la raison
-donnée aux autres. C'est un fait de la vue, pas une règle du monde : le moteur ne
+maisons dont la ville existe en 3D, avec leur scène, et les deux modèles de la raison
+donnée aux autres : `raison_sans_ville` pour un siège qui porte un nom de ville, `raison_sans_ville_designee`
+pour un siège désigné ; un modèle absent, vide ou sans `{siege}` est refusé en nommant son champ. C'est un fait de la vue, pas une règle du monde : le moteur ne
 vérifie pas que la scène existe, un test vérifie que les scènes existent et que
 les maisons sont exactement celles de `TerresAvecKit.Scenes`. Seule `seigneurie-6`
 (Biskra) y figure. Le tick ne lit ni cette vue ni cette donnée.
@@ -3111,8 +3137,11 @@ raison `hors_carte` dans `absents["siege"]`. Un nom plausible manquant, une
 part ou un grenier absent valent `null`, avec une raison dans `absents` ;
 celle du nom précise la cellule. Un panier vide et zéro lieu restent des
 mesures. Les noms historiques viennent du registre (**niveau 1**) ; ceux
-des maisons plausibles viennent du bloc de noms de leur cellule (**niveau 2**,
-plausibles, jamais sourcés).
+des maisons plausibles viennent du bloc de noms de leur cellule. L'existence
+d'un petit seigneur est de **niveau 2** (plausible, jamais sourcée) ; son nom
+est une désignation « Seigneur de <lieu de son siège> » qui ne prétend rien,
+jamais un nom de maison inventé. Deux petits seigneurs ne portent jamais le même
+nom, et `/maisons`, `/maison` et `/jouables` les servent avec leur sorte `plausible`.
 
 Mesures sur srv1914711 au tick 35, graine 0, premier départ, part 0,25,
 médianes de neuf appels en pause : matière non construite
@@ -3150,10 +3179,11 @@ La place d'un lieu est une vue dérivée (`sim/places.py`), et sa forme une vue 
 dessin (`sim/formes.py`, voir « La forme des lieux, vue dérivée ») : ni l'une ni
 l'autre n'est une grandeur du monde. La surface d'un lieu reste celle de
 `lieux_de_cellule`, jamais celle de son contour.
-Les noms sont une vue pure `sim/noms.py` hors du tick. Le nom du bourg est celui de toute la terre, à l'infobulle comme à la fiche. **Niveau 1**, il est sourcé (`bourgs_historiques`) : le siège de la maison qui prend le bourg (`frontieres.maison_du_bourg` : la première seigneurie par identifiant, sinon la première grande maison ou institution) ; sinon la ville de `villes-1400.json` placée dans la cellule, de plus forte population historique, puis nom croissant, dont aucun siège ne nomme déjà une autre terre (Tolède, dont le siège et la ville tombent de part et d'autre d'un bord, ne nomme que la terre de son siège) ; sinon le chef-lieu de la cellule dans `data/chefs-lieux-1400.json` (voir « Les noms de l'atlas, vue dérivée »). La ville qui nomme une terre est toujours une ville de `villes-1400.json`, même dans un monde amorcé avec d'autres villes. Sur la graine 0 : 100 terres par un siège ou une ville, 445 par leur chef-lieu, 51 déclarées sans ville. **Niveau 2**, plausible, jamais sourcé : le bourg d'une terre déclarée sans ville prend le premier nom de son parcours de `data/noms-1400.json` qu'aucune autre terre ne porte, les terres déclarées se servant dans l'ordre des `cell_id` ; et tous les lieux de rang 1 et plus. Deux terres ne portent jamais le même nom, à la casse près.
-La première règle applicable lit puissance, religion dans la table des puissances et position du centroïde ; sans puissance, les règles géographiques déclarent puissance et religion absentes. Une absence de règle ou une liste insuffisante est refusée.
-Le bloc frère `noms = {"lieux": [{"rang": R, "nom": N}], "maisons": {IDENTIFIANT: {"nom": N, "prenom_chef": P}}}` est identique dans la photographie et `/lieu`. Les maisons suivent leur fiche et leur rang initial, jamais le lieu consulté ; les historiques gardent leur nom et un prénom `null`, absence déclarée.
-Le parcours d'une cellule est sa liste de lieux décalée de `cell_id`, sans aléa ni réemploi. Son premier nom revient au bourg ; les rangs 1 et suivants prennent, dans l'ordre, les noms qui le suivent, sans le nom du bourg. Un bourg sourcé garde donc les noms de ses autres lieux tels qu'ils seraient sous un bourg plausible. Seuls version des listes, règles ou chefs-lieux, données historiques, puissance/religion/position ou découpage changent les noms ; graine, tick, population, faim, maître consulté et ordre des dictionnaires sont sans effet à carte, tables et rangs identiques.
+Les noms sont une vue pure `sim/noms.py` hors du tick. Le nom du bourg est celui de toute la terre, à l'infobulle comme à la fiche. **Niveau 1**, il est sourcé (`bourgs_historiques`) : le siège de la maison qui prend le bourg (`frontieres.maison_du_bourg` : la première seigneurie par identifiant, sinon la première grande maison ou institution) ; sinon la ville de `villes-1400.json` placée dans la cellule, de plus forte population historique, puis nom croissant, dont aucun siège ne nomme déjà une autre terre (Tolède, dont le siège et la ville tombent de part et d'autre d'un bord, ne nomme que la terre de son siège) ; sinon le chef-lieu de la cellule dans `data/chefs-lieux-1400.json` (voir « Les noms de l'atlas, vue dérivée »). La ville qui nomme une terre est toujours une ville de `villes-1400.json`, même dans un monde amorcé avec d'autres villes. Sur la graine 0 : 114 terres par un siège ou une ville, 432 par leur chef-lieu, 50 déclarées sans ville. Une terre déclarée sans ville porte sa région (`region` de `data/chefs-lieux-1400.json`), l'initiale en capitale : « Le Souf », « L'île de Jura ». Une région n'est pas un nom de ville : elle désigne la terre sans rien prétendre. Deux terres ne portent jamais le même nom, à la casse près.
+Les autres lieux (rang 1 et plus) suivent `noms.noms_des_lieux`. **Niveau 1** : chaque ville sourcée, dans cet ordre, les sièges du registre (par identifiant), les villes de `villes-1400.json` (population historique décroissante, puis nom), les villes de partage de la table des frontières (par cellule, dans l'ordre déclaré) et ses villes témoins (par nom), va au lieu de sa cellule dont la place est la plus proche, le plus petit rang à égalité (la règle de `frontieres.ville_de_la_place`). La cellule est celle du siège, celle où la ville est placée, celle que déclare le partage ou, pour un témoin, celle dont le polygone contient le point. Ce lieu prend le nom de la ville s'il n'est pas le bourg, s'il n'a pas déjà sa ville et si aucun lieu du monde ne porte ce nom, à la casse près. Les autres lieux se **désignent**, sans prendre de nom : « campagne de <province>, <position> ». La province est le nom de la terre, ou sa région, avec élision et contraction (« campagne d'Almería », « du Mans », « du Souf », « de l'île de Jura »). La position se voit depuis la place du bourg, et monte d'un degré pour les lieux qu'elle ne distingue pas encore : la direction en huit (« au nord-est ») ; puis la distance en kilomètres et la direction en huit (« à 14 km au nord-est ») ; puis en seize (« à 112 km au nord-nord-ouest ») ; puis la distance au dixième de kilomètre (« à 111,6 km au nord »). Deux lieux qu'aucun degré ne distingue sont refusés en nommant la cellule. Les directions se décident par comparaison de pentes, sur les tangentes des bornes des secteurs calculées par racines carrées, et la distance par une racine carrée : aucune trigonométrie, les mêmes octets sous Windows et sous Linux. Sur la graine 0, des 6 023 lieux hors des bourgs, 250 portent une ville, 845 se désignent par la direction, 4 918 par la distance et 10 au dixième de kilomètre. Aucun nom ne nomme deux lieux, à la casse près, et aucun n'est un nom des listes `lieux` de `data/noms-1400.json` : ces listes ne nomment plus aucun lieu, elles gardent les noms qu'on ne sert jamais (les captures d'Unity les guettent à l'écran) ; Altdorf, chef-lieu d'Uri et ville témoin, en est sortie.
+Une maison plausible se nomme « Seigneur de <lieu de son siège> » (`noms.nom_de_seigneur`, « Seigneur » étant la constante `SEIGNEUR`), d'après le nom servi du lieu de sa cellule `cell_id` et de son rang `rang`, jamais d'après une liste : une ville passe par l'élision et la contraction de « de » (« Seigneur de Saint-Dizier », « d'Orléans », « du Mans »), une désignation prend « de la » (« Seigneur de la campagne de Bar-le-Duc, au nord-est »), et le bourg d'une terre déclarée sans ville prend sa région telle qu'écrite dans `data/chefs-lieux-1400.json`, article en minuscule (« Seigneur du Souf », « Seigneur de l'île de Jura »). Les listes `maisons` de `data/noms-1400.json` ne nomment donc plus rien : `charger_noms` les valide toujours, elles gardent les noms qu'on ne sert jamais. Seul le prénom du chef plausible vient encore de l'aire de langue de la cellule de son siège : la première règle applicable lit puissance, religion dans la table des puissances et position du centroïde ; sans puissance, les règles géographiques déclarent puissance et religion absentes. Une absence de règle est refusée.
+Le bloc frère `noms = {"lieux": [{"rang": R, "nom": N}], "maisons": {IDENTIFIANT: {"nom": N, "prenom_chef": P, "sorte": S}}}` est identique dans la photographie et `/lieu`. Les maisons suivent leur fiche et leur rang initial, jamais le lieu consulté ; `sorte` est celle du registre ; les historiques gardent leur nom et un prénom `null`, absence déclarée.
+Les noms des lieux ne lisent aucun maître : ils se gardent pour la partie (`noms._lieux_nommes`, jugés par identité de la carte, des villes, des places et des chefs-lieux, et par valeur des cellules et des sièges du registre), et une prise ne refait que les fiches des maisons ; `noms_depuis_monde` prend alors 10 ms sur srv1914711, 40 ms la première fois. Le chargement passe aux noms les places de ses lieux, et le service celles qu'il garde (`_places_des_lieux`). Seuls version des listes, règles ou chefs-lieux, données historiques, table des frontières, puissance/religion/position, places ou découpage changent les noms ; graine, tick, population, faim, maître consulté et ordre des dictionnaires sont sans effet à carte, tables et rangs identiques.
 
 ### Ce que porte un lieu
 

@@ -6,6 +6,7 @@ from fractions import Fraction
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -1469,81 +1470,224 @@ def test_photographie_et_empreinte_maitre_manuel_absent():
     assert photo[0]["maitre"] is None
 
 
-def test_noms_lieux_et_priorites():
-    from sim.frontieres import maison_du_bourg
-    from sim.noms import charger_chefs_lieux, charger_noms, noms_depuis_monde, aire_de_cellule
-    from sim.puissances import charger_table, puissances_depuis_monde
-    from sim.villes import attribuer_villes, charger_villes
-    monde = World.charger(0); table = charger_table(); listes = charger_noms(); puissances = puissances_depuis_monde(monde); chefs = charger_chefs_lieux(); registre = {m.id: m for m in monde.maisons}
-    villes = attribuer_villes({**monde.carte_meta, 'cellules': list(monde.carte.values())}, charger_villes()); vue = noms_depuis_monde(monde, attribution=villes)
-    aires = {c: aire_de_cellule(c, monde.carte[c], puissances[c], table, listes) for c in monde.cells}
-    sieges = {c: registre[i].siege for c in sorted(monde.cells) if (i := maison_du_bourg(monde, c)) is not None}; pris = {s.casefold() for s in sieges.values()}
-    def parcours(liste, cid): return liste[cid % len(liste):] + liste[:cid % len(liste)]
-    def candidates(villes, c): return sorted((v for v in villes.entrees if villes.placees.get(v.nom) == c and v.nom.casefold() not in pris), key=lambda v: (-v.population, v.nom))
-    def bourgs_attendus(listes, villes):
-        bourgs = {c: sieges.get(c) or ([v.nom for v in candidates(villes, c)] + [chefs.lignes[c].nom if c in chefs.lignes else None])[0] for c in sorted(monde.cells)}
-        portes = {n.casefold() for n in bourgs.values() if n}
-        for c in sorted(monde.cells):
-            if bourgs[c] is None:
-                assert c in chefs.sans_ville
-                bourgs[c] = next(n for n in parcours(listes['aires'][aires[c]]['lieux'], c) if n.casefold() not in portes); portes.add(bourgs[c].casefold())
-        return bourgs
-    def verifier(v, listes=listes, villes=villes):
-        assert v and set(v) == set(monde.cells); bourgs = bourgs_attendus(listes, villes)
-        for cid, c in monde.cells.items():
-            lieux = v[cid]['lieux']; noms = [l['nom'] for l in lieux]; assert [l['rang'] for l in lieux] == sorted(l.rang for l in c.lieux)
-            assert all(n.strip() for n in noms) and len(set(noms)) == len(noms)
-            suite = [n for n in parcours(listes['aires'][aires[cid]]['lieux'], cid)[1:] if n.casefold() != bourgs[cid].casefold()]
-            assert len(suite) >= len(lieux) - 1 and noms == [bourgs[cid]] + suite[:len(lieux) - 1]
-    verifier(vue); assert any(p == 25 and len(vue[c]['lieux']) > 1 for c,p in puissances.items()) and None in puissances.values()
-    for puissance, lat, lon, aire in ((3, 44, 2, 'oc'), (3, 48, 2, 'oïl'), (25, 38, 23, 'grecque'), (None, 61, 22, 'finnoise')): assert aire_de_cellule(0, {'centroid': {'lat': lat, 'lon': lon}}, puissance, table, listes) == aire
-    with pytest.raises(ValueError, match='cellule 0'): aire_de_cellule(0, {'centroid': {'lat': 38, 'lon': 23}}, 25, dataclasses.replace(table, puissances=tuple(dataclasses.replace(p, religion='musulmane') if p.id == 25 else p for p in table.puissances)), listes)
-    for nom in ('Bar-le-Duc', 'Stuttgart', 'Mistra'):
-        siege = next(m for m in monde.maisons if m.siege == nom and m.sorte == 'seigneurie'); assert vue[siege.cell_id]['lieux'][0]['nom'] == nom
-    # une terre par source : siège d'une grande maison, ville placée, chef-lieu, terre sans ville
-    grande = next(m for m in monde.maisons if m.siege == 'Cracovie' and m.sorte == 'grande maison'); crac = grande.cell_id
-    assert maison_du_bourg(monde, crac) == grande.id and vue[crac]['lieux'][0]['nom'] == 'Cracovie' != parcours(listes['aires'][aires[crac]]['lieux'], crac)[0]
-    ville = next(c for c in sorted(set(villes.placees.values())) if c in monde.cells and c not in sieges and len(candidates(villes, c)) > 1 and len(vue[c]['lieux']) > 1); assert vue[ville]['lieux'][0]['nom'] == candidates(villes, ville)[0].nom
-    chef = next(c for c in sorted(chefs.lignes) if c in monde.cells and c not in sieges and not candidates(villes, c) and len(vue[c]['lieux']) > 1); assert vue[chef]['lieux'][0]['nom'] == chefs.lignes[chef].nom
-    sans = next(c for c in sorted(chefs.sans_ville) if c in monde.cells and len(vue[c]['lieux']) > 1); assert vue[sans]['lieux'][0]['nom'] in listes['aires'][aires[sans]]['lieux'] and vue[sans]['lieux'][0]['nom'].casefold() not in {n.casefold() for c in monde.cells if c != sans for n in [vue[c]['lieux'][0]['nom']]}
-    ecartees = [(v.nom, c) for v in villes.entrees if (c := villes.placees.get(v.nom)) in monde.cells and c not in sieges and v.nom.casefold() in pris]; assert ecartees and all(vue[c]['lieux'][0]['nom'] != n for n, c in ecartees)
-    def refuse(c, lignes):
-        faux = copy.deepcopy(vue); faux[c]['lieux'] = lignes
-        with pytest.raises(AssertionError): verifier(faux)
-    def pose(c, nom, rang=0): return [{**l, 'nom': nom if l['rang'] == rang else l['nom']} for l in vue[c]['lieux']]
-    def ancienne(c): return [{'rang': l['rang'], 'nom': n} for l, n in zip(vue[c]['lieux'], parcours(listes['aires'][aires[c]]['lieux'], c))]
-    # le bourg d'une terre non déclarée n'est jamais un nom des listes ; celui d'une terre déclarée n'est jamais un nom sourcé
-    for c in (crac, ville, chef): refuse(c, pose(c, parcours(listes['aires'][aires[c]]['lieux'], c)[0]))
-    # la règle d'avant : Cracovie et le chef-lieu, sans siège de seigneurie ni ville, portaient un nom des listes
-    for c in (crac, chef): assert ancienne(c)[0]['nom'] != vue[c]['lieux'][0]['nom']; refuse(c, ancienne(c))
-    for nom in ('Cracovie', chefs.lignes[chef].nom, vue[ville]['lieux'][0]['nom']): refuse(sans, pose(sans, nom))
-    cid = next(c for c in sorted(monde.cells) if len(vue[c]['lieux']) > 2); libre = next(n for n in listes['aires'][aires[cid]]['lieux'] if n not in {l['nom'] for l in vue[cid]['lieux']})
-    refuse(cid, vue[cid]['lieux'][:-1])
-    for n in ('', vue[cid]['lieux'][0]['nom'], 'Nom étranger', libre): refuse(cid, pose(cid, n, 1))
-    bar = next(m.cell_id for m in monde.maisons if m.siege == 'Bar-le-Duc'); refuse(bar, pose(bar, 'Haute-Rive'))
-    # un faux siège prend le bourg, même devant une ville placée là
-    site = next(m for m in monde.maisons if m.cell_id == bar and m.sorte == 'seigneurie'); copie = copy.copy(monde); copie.maisons += (dataclasses.replace(site, id='seigneurie--a', siege='Stuttgart'),); assert noms_depuis_monde(copie, attribution=dataclasses.replace(villes, placees={**villes.placees, villes.entrees[0].nom: bar}))[bar]['lieux'][0]['nom'] == 'Stuttgart'
-    # une liste qui porte le siège de Bar ne le réemploie jamais dans les rangs de Bar
-    reserves = copy.deepcopy(listes); liste = reserves['aires'][aires[bar]]['lieux']; liste.insert(bar % (len(liste) + 1), site.siege); rv = noms_depuis_monde(monde, noms=reserves, attribution=villes); verifier(rv, listes=reserves)
-    assert rv[bar]['lieux'][0]['nom'] == site.siege and all(l['nom'] != site.siege for l in rv[bar]['lieux'][1:]) and len(rv[bar]['lieux']) > 1
-    # deux villes dans une terre sans maison du bourg : la plus peuplée la nomme, et l'inverser change le bourg
-    multi = next(c for c in sorted(set(villes.placees.values())) if c in monde.cells and c not in sieges and len(candidates(villes, c)) > 1)
-    candidats = candidates(villes, multi); inverses = dataclasses.replace(villes, entrees=tuple(dataclasses.replace(v, population=candidats[0].population + 1) if v == candidats[1] else v for v in villes.entrees))
-    vue_inverse = noms_depuis_monde(monde, attribution=inverses); verifier(vue_inverse, villes=inverses)
-    assert vue_inverse[multi]['lieux'][0]['nom'] == candidats[1].nom != vue[multi]['lieux'][0]['nom'] == candidats[0].nom
+# --- Les noms des lieux : une vraie ville, sinon une désignation -------------------------------------------
 
-@pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes'), ('lieux', 'capacite'), ('maisons', 'capacite')])
+# Les directions d'une désignation, dans le sens des aiguilles d'une montre depuis le nord.
+DIRECTIONS_8 = ("nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest")
+DIRECTIONS_16 = ("nord", "nord-nord-est", "nord-est", "est-nord-est", "est", "est-sud-est", "sud-est", "sud-sud-est",
+                 "sud", "sud-sud-ouest", "sud-ouest", "ouest-sud-ouest", "ouest", "ouest-nord-ouest", "nord-ouest",
+                 "nord-nord-ouest")
+
+
+def _de_la_province(nom):
+    """« de » devant le nom d'une terre, élidé ou contracté : d'Orléans, du Mans, des Baux, du Souf, de La Rochelle."""
+    import unicodedata
+    for article, contraction in (("le ", "du "), ("les ", "des ")):
+        if nom[:len(article)].casefold() == article:
+            return contraction + nom[len(article):]
+    initiale = unicodedata.normalize("NFD", nom[0])[0].casefold()
+    return ("d'" if initiale in "aeiouy" else "de ") + nom
+
+
+def _vers(direction):
+    """« au nord », « à l'est-sud-est » : la préposition d'une direction."""
+    return ("à l'" if direction.startswith(("est", "ouest")) else "au ") + direction
+
+
+def _ville_du_lieu(monde, places, x, y, cid=None):
+    """(cell_id, rang) du lieu dont la place est la plus proche du point, dans `cid` ou, sans elle, dans la
+    cellule de la carte qui contient le point (la plus petite sur un bord) ; `None` hors du monde."""
+    from sim.villes import point_dans_geometrie
+    if cid is None:
+        cid = next((c for c in sorted(monde.carte) if point_dans_geometrie(x, y, monde.carte[c]["geometry"])), None)
+    if cid is None or cid not in monde.cells:
+        return None
+    return cid, min(range(len(places[cid])), key=lambda r: ((places[cid][r].x_m - x) ** 2 + (places[cid][r].y_m - y) ** 2, r))
+
+
+def villes_sourcees(monde, places):
+    """Nom → lieux (cell_id, rang) où tombe une ville de ce nom : les sièges du registre, les villes de
+    `villes-1400.json`, les villes de partage (dans leur cellule déclarée) et les villes témoins des frontières."""
+    from sim.frontieres import charger_frontieres
+    from sim.noms import attribution_livree
+    from sim.places import sieges_des_maisons
+    from sim.projection import projeter_epsg3035
+    sieges, points = sieges_des_maisons(), []
+    points += [(m.siege, *sieges[m.id], m.cell_id) for m in monde.maisons if m.sorte != "plausible" and m.id in sieges and m.cell_id is not None]
+    attribution = attribution_livree(monde)
+    points += [(v.nom, v.x_m, v.y_m, attribution.placees[v.nom]) for v in attribution.entrees if v.nom in attribution.placees]
+    frontieres = charger_frontieres()
+    points += [(v.nom, *projeter_epsg3035(v.lat, v.lon), cid) for cid, villes in frontieres.partages.items() for v in villes]
+    points += [(t.nom, *projeter_epsg3035(t.lat, t.lon), None) for t in frontieres.temoins if t.hors_carte is None]
+    villes = {}
+    for nom, x, y, cid in points:
+        lieu = _ville_du_lieu(monde, places, x, y, cid)
+        if lieu is not None:
+            villes.setdefault(nom, set()).add(lieu)
+    return villes
+
+
+def provinces_des_terres(monde, vue):
+    """Le nom de la province de chaque terre, tel qu'une désignation l'écrit : la région d'une terre déclarée
+    sans ville, avec son article en minuscule ; sinon le nom de son bourg."""
+    from sim.noms import charger_chefs_lieux
+    regions = charger_chefs_lieux().regions
+    return {cid: regions.get(cid, bloc["lieux"][0]["nom"]) for cid, bloc in vue.items()}
+
+
+def juger_les_noms_des_lieux(monde, vue, places, villes, provinces, interdits):
+    """Les fautes des noms des lieux servis (`vue`, celle de `noms_depuis_monde`). Un nom n'est jamais un des
+    `interdits` (les listes `lieux` de noms-1400.json) ni le nom d'un autre lieu, à la casse près. Hors du
+    bourg, un lieu porte une ville sourcée qui tombe chez lui, ou une désignation « campagne de <province>,
+    [à N km] au <direction> » vue depuis la place du bourg ; un lieu chez qui tombe une ville dont le nom
+    n'est porté nulle part ne se désigne pas."""
+    fautes = []
+    if not vue or not any(bloc["lieux"] for bloc in vue.values()):
+        return ["échantillon vide : aucun lieu nommé"]
+    portes = {}
+    for cid, bloc in sorted(vue.items()):
+        if [l["rang"] for l in bloc["lieux"]] != [l.rang for l in monde.cells[cid].lieux]:
+            fautes.append(f"cellule {cid} : rangs servis différents de ceux de la cellule")
+        for lieu in bloc["lieux"]:
+            portes.setdefault(lieu["nom"].casefold(), []).append((cid, lieu["rang"]))
+    for nom, lieux in sorted(portes.items()):
+        if len(lieux) > 1:
+            fautes.append(f"« {nom} » nomme {len(lieux)} lieux : {lieux[:4]}")
+    interdits = {n.casefold() for n in interdits}
+    tombees = {}
+    for nom, lieux in villes.items():
+        for lieu in lieux:
+            tombees.setdefault(lieu, set()).add(nom)
+    for cid, bloc in sorted(vue.items()):
+        bourg = places[cid][0]
+        for lieu in bloc["lieux"]:
+            nom, rang = lieu["nom"], lieu["rang"]
+            if nom.casefold() in interdits:
+                fautes.append(f"({cid}, {rang}) : « {nom} » est un nom des listes")
+            if rang == 0:
+                continue
+            if nom in villes:
+                if (cid, rang) not in villes[nom]:
+                    fautes.append(f"({cid}, {rang}) : la ville « {nom} » ne tombe pas chez lui")
+                continue
+            libres = sorted(n for n in tombees.get((cid, rang), ()) if n.casefold() not in portes)
+            if libres:
+                fautes.append(f"({cid}, {rang}) : désigné « {nom} » alors que {libres} tombe chez lui")
+            tete, virgule, position = nom.rpartition(", ")
+            if not virgule or tete != "campagne " + _de_la_province(provinces[cid]):
+                fautes.append(f"({cid}, {rang}) : « {nom} » n'est ni une ville sourcée ni une désignation de sa province")
+                continue
+            mots = position.split(" ")
+            km = mots[1] if mots[0] == "à" and len(mots) > 3 and mots[2] == "km" else None
+            direction = position.removeprefix(f"à {km} km " if km is not None else "")
+            direction = direction.removeprefix("au ").removeprefix("à l'")
+            dx, dy = places[cid][rang].x_m - bourg.x_m, places[cid][rang].y_m - bourg.y_m
+            angle = math.degrees(math.atan2(dx, dy)) % 360
+            attendues = {DIRECTIONS_8[round(angle / 45) % 8]} | ({DIRECTIONS_16[round(angle / 22.5) % 16]} if km is not None else set())
+            if direction not in attendues or not position.endswith(_vers(direction)):
+                fautes.append(f"({cid}, {rang}) : « {position} », mais le lieu est au {sorted(attendues)} du bourg")
+            # La distance en kilomètres, ou au dixième de kilomètre (« 112,4 ») quand rien d'autre ne distingue deux lieux.
+            distance = math.hypot(dx, dy) / 1000
+            mesuree = None if km is None else (str(round(distance)) if "," not in km else f"{round(distance * 10) / 10:.1f}".replace(".", ","))
+            if km is not None and km != mesuree:
+                fautes.append(f"({cid}, {rang}) : « {position} », mais le lieu est à {mesuree} km du bourg")
+    return fautes
+
+
+@pytest.fixture(scope="module")
+def noms_livres():
+    from sim.noms import charger_noms, noms_depuis_monde
+    from sim.places import places_du_monde
+    monde = World.charger(0)
+    places = places_du_monde(monde)
+    vue = noms_depuis_monde(monde)
+    listes = charger_noms()
+    return SimpleNamespace(monde=monde, places=places, vue=vue, villes=villes_sourcees(monde, places),
+                           provinces=provinces_des_terres(monde, vue),
+                           interdits=[n for aire in listes["aires"].values() for n in aire["lieux"]])
+
+
+def _juger(s, vue=None, villes=None):
+    return juger_les_noms_des_lieux(s.monde, s.vue if vue is None else vue, s.places, s.villes if villes is None else villes,
+                                    s.provinces, s.interdits)
+
+
+def test_noms_des_lieux_une_vraie_ville_sinon_une_designation(noms_livres):
+    s = noms_livres
+    assert sum(len(b["lieux"]) for b in s.vue.values()) > len(s.vue) > 0
+    fautes = _juger(s)
+    assert not fautes, f"{len(fautes)} fautes :\n" + "\n".join(fautes[:40])
+    # Le monde livré porte des villes hors du bourg, et des désignations à chaque degré de la règle.
+    noms = [l["nom"] for b in s.vue.values() for l in b["lieux"] if l["rang"] > 0]
+    assert any(n in s.villes for n in noms) and any(n.startswith("campagne ") for n in noms)
+    assert any(" km " in n for n in noms) and any(n.endswith(tuple(d for d in DIRECTIONS_16 if d not in DIRECTIONS_8)) for n in noms)
+
+
+def test_noms_des_lieux_le_juge_voit_chaque_faute(noms_livres):
+    s = noms_livres
+    assert _juger(s, vue={})
+    cid = next(c for c in sorted(s.vue) if len(s.vue[c]["lieux"]) > 2 and s.vue[c]["lieux"][1]["nom"].startswith("campagne "))
+    def pose(nom, rang=1, c=cid):
+        faux = copy.deepcopy(s.vue)
+        faux[c]["lieux"][rang]["nom"] = nom
+        return faux
+    autre = next(c for c in sorted(s.vue) if c != cid)
+    designation = s.vue[cid]["lieux"][1]["nom"]
+    tete, _, position = designation.rpartition(", ")
+    direction = position.split(" ")[-1].removeprefix("l'")
+    contraire = "-".join({"nord": "sud", "sud": "nord", "est": "ouest", "ouest": "est"}[m] for m in direction.split("-"))
+    for faux in (pose(s.interdits[0]),                                    # un nom des listes
+                 pose(s.vue[autre]["lieux"][0]["nom"]),                   # le nom d'une autre terre
+                 pose(s.vue[cid]["lieux"][2]["nom"]),                     # le nom d'un autre lieu de la terre
+                 pose("Nom inventé"),                                     # ni ville ni désignation
+                 pose("campagne de Nulle-Part, " + position),             # la province d'une autre terre
+                 pose(f"{tete}, à 999 km {_vers(direction)}"),            # une distance fausse
+                 pose(f"{tete}, {_vers(contraire)}")):                    # la direction contraire
+        assert _juger(s, vue=faux)
+    # Une ville sourcée posée dans un lieu où elle ne tombe pas, ou une ville libre qui tombe chez un lieu désigné.
+    ville, lieux = next((n, l) for n, l in sorted(s.villes.items()) if all(r > 0 for _, r in l)
+                        and any(b["lieux"][r]["nom"] == n for c, b in s.vue.items() for cc, r in l if cc == c))
+    assert _juger(s, vue=pose(ville))
+    assert _juger(s, villes={**s.villes, "Ville d'épreuve": {(cid, 1)}})
+
+
+def test_noms_des_lieux_refusent_un_lieu_pose_sur_son_bourg(noms_livres):
+    """Un lieu posé sur la place de son bourg n'a pas de direction : la désignation le refuse en nommant la cellule,
+    au lieu de chercher sans fin un quart de tour qui n'existe pas."""
+    import dataclasses as dc
+    from sim.noms import _designations, _direction
+    s = noms_livres
+    cid = next(c for c in sorted(s.places) if len(s.places[c]) > 2)
+    places = list(s.places[cid])
+    assert _designations(cid, places, [1, 2], "Épreuve")
+    places[1] = dc.replace(places[1], x_m=places[0].x_m, y_m=places[0].y_m)
+    with pytest.raises(ValueError, match=f"cellule {cid} : le lieu 1"):
+        _designations(cid, places, [1, 2], "Épreuve")
+    with pytest.raises(ValueError, match="vecteur nul"):
+        _direction(0, 0, 8)
+
+
+def test_noms_aires_de_cellule():
+    from sim.noms import charger_noms, aire_de_cellule
+    from sim.puissances import charger_table
+    table, listes = charger_table(), charger_noms()
+    for puissance, lat, lon, aire in ((3, 44, 2, 'oc'), (3, 48, 2, 'oïl'), (25, 38, 23, 'grecque'), (None, 61, 22, 'finnoise')):
+        assert aire_de_cellule(0, {'centroid': {'lat': lat, 'lon': lon}}, puissance, table, listes) == aire
+    with pytest.raises(ValueError, match='cellule 0'):
+        aire_de_cellule(0, {'centroid': {'lat': 38, 'lon': 23}}, 25, dataclasses.replace(table, puissances=tuple(
+            dataclasses.replace(p, religion='musulmane') if p.id == 25 else p for p in table.puissances)), listes)
+
+
+@pytest.mark.parametrize('champ,defaut', [(c, d) for c in ('lieux', 'maisons', 'prenoms') for d in ('vide', 'texte', 'doublon')] + [('aire', 'absente'), ('regles', 'absentes')])
 def test_noms_refus(tmp_path, champ, defaut):
     from sim.noms import charger_noms, noms_depuis_monde
     monde = World.charger(0); document = charger_noms(); aire = document['regles'][0]['aire']
     if champ == 'aire': del document['aires'][aire]
     elif champ == 'regles': document['regles'] = []
     elif defaut == 'vide': document['aires'][aire][champ] = []
-    elif defaut in ('texte', 'doublon'): document['aires'][aire][champ].append(' ' if defaut == 'texte' else document['aires'][aire][champ][0])
-    else:
-        for a in document['aires'].values(): a[champ] = a[champ][:1]
+    else: document['aires'][aire][champ].append(' ' if defaut == 'texte' else document['aires'][aire][champ][0])
     chemin = tmp_path / 'noms.json'; chemin.write_text(json.dumps(document))
-    with pytest.raises(ValueError, match='cellule' if champ == 'regles' else champ if defaut == 'capacite' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))
+    with pytest.raises(ValueError, match='cellule' if champ == 'regles' else aire + '.*' + (champ if champ != 'aire' else 'listes')): noms_depuis_monde(monde, noms=charger_noms(chemin))
 
 
 

@@ -185,6 +185,25 @@ def test_un_jouable_dit_son_pays_ses_regnes_son_siege_et_son_suzerain(sources, j
     assert all(m["nom"] and not m["nom"].startswith("plausible-") for m in jouables)
 
 
+def test_jouables_plausibles_servis_comme_tels_sans_nom_de_liste(sources, jouables):
+    from sim.tests.test_maisons_servies import fautes_des_plausibles, noms_des_listes
+    plausibles = {m.id for m in sources.monde.maisons if m.sorte == "plausible"}
+    interdits = noms_des_listes()
+    servis = [("/jouables", m["id"], m) for m in jouables]
+    assert plausibles and interdits
+    assert not fautes_des_plausibles(servis, plausibles, interdits)
+    # Contre-épreuves : chaque faute est vue.
+    premier, second = [s for s in servis if s[1] in plausibles][:2]
+    for faux, attendu in (
+            ([(*premier[:2], premier[2] | {"nom": sorted(interdits)[0].title()})], "nom tiré d'une liste"),
+            ([(*premier[:2], {k: v for k, v in premier[2].items() if k != "sorte"})], "sorte None"),
+            ([(*premier[:2], premier[2] | {"sorte": "grande maison"})], "sorte 'grande maison'"),
+            ([premier, (*second[:2], second[2] | {"nom": premier[2]["nom"]})], "porté par"),
+            ([], "échantillon vide")):
+        fautes = fautes_des_plausibles(faux, plausibles, interdits)
+        assert any(attendu in f for f in fautes), (attendu, fautes)
+
+
 @pytest.fixture(scope="module")
 def servie(sources):
     from sim.carte_servie import terres_et_pays
