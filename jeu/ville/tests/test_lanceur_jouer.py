@@ -152,25 +152,34 @@ def test_l_ia_joue_dans_le_monde_du_jeu_sauf_si_on_la_coupe(faux_jeu, tmp_path, 
     assert (_charger("jouer", LANCEUR).SANS_IA in texte) == bool(options)
 
 
+def _unite(vitesse):
+    """« jour » sous 2 jours par seconde, « jours » au-delà : l'accord de la date de la carte."""
+    return "jours" if vitesse >= 2 else "jour"
+
+
 @pytest.mark.parametrize("carte, ville", [(False, False), (True, False), (False, True), (True, True)])
 def test_pause_a_l_ouverture_vitesse_de_la_vue_a_la_reprise(faux_jeu, tmp_path, carte, ville):
     jouer = _charger("jouer", LANCEUR)
     reglages = json.loads(jouer.REGLAGES.read_text(encoding="utf-8"))
     vue = "ville" if ville and not carte else "carte"
     vitesse = reglages[f"VITESSE_{vue.upper()}"]
+    # Le premier « Reprendre » sur la carte part à la vitesse de départ ; en ville, à celle de la ville.
+    reprise = reglages["VITESSE_DEPART"] if vue == "carte" else vitesse
     options = (["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []) + (["--carte"] if carte else [])
     port, sortie = _port_libre(), tmp_path / "recu.json"
-    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port, vitesse), *options)
+    code, texte = _jouer(port, _commande_du_faux_jeu(faux_jeu, sortie, 0, port, reprise), *options)
     assert port_refuse(port)
     assert code == 0, texte
     recu = json.loads(sortie.read_text(encoding="utf-8"))
     assert recu["jours_par_seconde"] == 0
     assert recu["ticks"][0] == recu["ticks"][1], f"le monde avance à l'ouverture : {recu['ticks']}"
-    assert recu["jours_par_seconde_repris"] == vitesse
+    assert recu["jours_par_seconde_repris"] == reprise
     if vue == "carte":
         assert recu["ticks"][2] > recu["ticks"][1]
         assert 50 < 365 / vitesse < 70
     assert f"vitesse de la {vue} : {float(vitesse)} jours par seconde" in texte
+    depart = reglages["VITESSE_DEPART"]
+    assert f"premier « Reprendre » : {float(depart)} {_unite(depart)} par seconde" in texte
     assert jouer.OUVERTURE in texte
 
 
@@ -178,7 +187,7 @@ def test_pause_a_l_ouverture_vitesse_de_la_vue_a_la_reprise(faux_jeu, tmp_path, 
 def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, capsys, ville):
     jouer = _charger("jouer", LANCEUR)
     reglages = tmp_path / "reglages.json"
-    valeurs = {"VITESSE_VILLE": 0.25, "VITESSE_CARTE": 4}
+    valeurs = {"VITESSE_VILLE": 0.25, "VITESSE_CARTE": 4, "VITESSE_DEPART": 2}
     reglages.write_text(json.dumps(valeurs), encoding="utf-8")
     monkeypatch.setattr(jouer, "REGLAGES", reglages, raising=False)
     options = ["--cellule", str(CELLULE_DU_PANNEAU)] if ville else []
@@ -190,17 +199,33 @@ def test_vitesse_lue_dans_le_fichier_remplace(faux_jeu, tmp_path, monkeypatch, c
     recu = json.loads(sortie.read_text(encoding="utf-8"))
     assert recu["jours_par_seconde"] == 0
     vue, v = ("ville", valeurs["VITESSE_VILLE"]) if ville else ("carte", valeurs["VITESSE_CARTE"])
-    assert f"vitesse de la {vue} : {float(v)} jours par seconde" in capsys.readouterr().out
+    sortie_du_lanceur = capsys.readouterr().out
+    assert f"vitesse de la {vue} : {float(v)} jours par seconde" in sortie_du_lanceur
+    assert "premier « Reprendre » : 2.0 jours par seconde" in sortie_du_lanceur
 
 
-@pytest.mark.parametrize("contenu, ville", [
-    (None, False), ('{"VITESSE_CARTE":', False), ("{}", False),
-    ('{"VITESSE_CARTE": "6"}', False), ('{"VITESSE_CARTE": true}', False),
-    ('{"VITESSE_CARTE": 0}', False), ('{"VITESSE_CARTE": -1}', False),
-    ('{"VITESSE_CARTE": NaN}', False), ('{"VITESSE_CARTE": Infinity}', False),
-    ('{"VITESSE_VILLE": 0}', True), ("[]", False),
+ABSENTE = object()
+BASE_DES_REGLAGES = {"VITESSE_VILLE": "0.1", "VITESSE_CARTE": "6", "VITESSE_DEPART": "1"}
+
+
+def _reglages_dont(cle, brut):
+    """Un fichier de réglages dont seule `cle` est fausse (ou absente) : les deux autres sont valides."""
+    valeurs = {**BASE_DES_REGLAGES, cle: brut}
+    return "{" + ", ".join(f'"{k}": {v}' for k, v in valeurs.items() if v is not ABSENTE) + "}"
+
+
+CONTENUS_FAUX = ['"6"', "true", "0", "-1", "NaN", "Infinity", "1e999", ABSENTE]
+
+
+@pytest.mark.parametrize("contenu, ville, cle", [
+    (None, False, "VITESSE_CARTE"), ('{"VITESSE_CARTE":', False, "VITESSE_CARTE"),
+    ("{}", False, "VITESSE_CARTE"), ("[]", False, "VITESSE_CARTE"),
+    *[(_reglages_dont("VITESSE_CARTE", brut), False, "VITESSE_CARTE") for brut in CONTENUS_FAUX],
+    *[(_reglages_dont("VITESSE_VILLE", brut), True, "VITESSE_VILLE") for brut in CONTENUS_FAUX],
+    *[(_reglages_dont("VITESSE_DEPART", brut), ville, "VITESSE_DEPART")
+      for brut in CONTENUS_FAUX for ville in (False, True)],
 ])
-def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys, contenu, ville):
+def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys, contenu, ville, cle):
     jouer = _charger("jouer", LANCEUR)
     reglages = tmp_path / "reglages.json"
     if contenu is not None:
@@ -215,7 +240,7 @@ def test_vitesse_invalide_ne_lance_rien(faux_jeu, tmp_path, monkeypatch, capsys,
     assert code == 1
     assert "le jeu n'est pas lancé" in capture.err
     assert str(reglages) in capture.err
-    assert ("VITESSE_VILLE" if ville else "VITESSE_CARTE") in capture.err
+    assert cle in capture.err
     assert "service prêt" not in capture.out
     assert "service arrêté" not in capture.out
     assert not sortie.exists()

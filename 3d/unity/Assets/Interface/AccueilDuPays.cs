@@ -8,8 +8,8 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // L'accueil, tant que le monde n'a pas servi de maison du joueur : on y choisit son pays sur la carte ou parmi les départs
-    // conseillés, on lit sa fiche, et « Commencer » envoie le choix ; le temps reste en pause jusqu'à ce que le joueur le lance. Tout ce qui s'écrit vient de `/jouables`,
+    // L'accueil, tant que le monde n'a ni accepté le choix du joueur ni servi sa maison : on y choisit son pays sur la carte ou parmi les départs
+    // conseillés, on lit sa fiche, et « Commencer » envoie le choix ; le reçu accepté ferme l'accueil, et le temps reste en pause jusqu'à ce que le joueur le lance. Tout ce qui s'écrit vient de `/jouables`,
     // de `/terres` (le pays d'une terre, sa maison et les habitants du pays seul) et de `/pays` (les habitants de la maison avec ses
     // vassaux) : l'accueil n'additionne rien, et chaque nombre dit ce qu'il compte.
     // Une classe simple : le cabinet l'appelle à chaque image, et lui passe les terres cliquées sur la carte.
@@ -20,7 +20,6 @@ namespace Forge.Interface
         public const string NOM = "Nom du pays", FICHE = "Fiche du pays", ETAT = "État du choix", LISTE = "Départs proposés";
         public const string SANS_PAYS = "Choisissez d'abord un pays : cliquez-le sur la carte, ou prenez un départ conseillé.";
         public const string NON_JOUABLE = "Le monde ne propose pas ce pays au joueur : choisissez-en un autre.";
-        public const string CHOIX_RECU = "Choix reçu. Le temps reste en pause : « Reprendre », en haut à droite, le lance.";
         public const string AUCUN = "Aucun pays choisi", INVITATION = "Cliquez un pays sur la carte : sa fiche s'ouvre ici.";
         const string SANS_NOM = "Pays sans nom", MAISON_SANS_NOM = "maison non nommée par le monde";
         const float X = 1312, Y = 124, LARGEUR = 584, HAUTEUR = 932, INTERIEUR = 536, HAUTEUR_COMMENCER = 72;
@@ -34,14 +33,16 @@ namespace Forge.Interface
         readonly Func<string, Lecture<TerresDuPays>> lireHabitants;
         // Le pays montré : sa fiche jouable (nulle pour un pays que le monde ne propose pas), son identifiant, son nom et sa maison servis.
         FicheJouable montree; string paysMontre, nomMontre; IdentiteDeMaison maisonMontree; bool designe;
-        bool maisonVue, envoi;
+        bool maisonVue, recuVu, envoi;
         string cleDeLaListe;
         (string maison, Lecture<TerresDuPays> lu) habitants; Task<(string, Lecture<TerresDuPays>)> vol;
 
         public RectTransform Panneau => panneau;
         public Button Commencer => commencer;
-        // Ouvert tant qu'aucune maison du joueur n'a été servie ; il ne revient pas si le monde manque ensuite.
-        public bool Ouvert => !maisonVue;
+        // Ouvert tant que le monde n'a ni accepté le choix ni servi de maison du joueur ; il ne revient pas si le monde manque ensuite.
+        public bool Ouvert => !maisonVue && !recuVu;
+        // Le nom du pays que `Lancer` a envoyé, tel qu'il se lisait à l'envoi ; nul tant que rien n'est parti.
+        public string Choisi { get; private set; }
         public bool LectureEnVol => vol != null && !vol.IsCompleted;
         public FicheJouable Montree => montree;
         public string TexteDuNom => nom.text;
@@ -111,7 +112,7 @@ namespace Forge.Interface
         {
             var lue = partie(); var choisie = montree;
             if (choisie == null || lue == null || !lue.PeutChoisir || envoi) return;
-            envoi = true;
+            envoi = true; Choisi = Nom();
             try { await lue.Choisir(choisie.Id); }
             finally { envoi = false; }
         }
@@ -120,16 +121,16 @@ namespace Forge.Interface
         {
             var lue = partie(); var monde = lue?.Monde;
             if (monde != null && monde.Presente && monde.Donnees.MaisonDuJoueur != null) maisonVue = true;
+            if (lue?.Recu?.Acceptee == true) recuVu = true;
             panneau.gameObject.SetActive(Ouvert);
             if (!Ouvert) return;
-            AfficherLaListe(lue);
+            AfficherLaListe();
             var lus = lue?.Jouables;
             if (montree != null && lus != null && lus.Presente) montree = lus.Donnees.Fiches.FirstOrDefault(f => f.Id == montree.Id) ?? montree; // la fiche du jour servi
             LireLesHabitants();
             EcrireLaFiche();
-            bool recu = lue?.Recu?.Acceptee == true;
             commencer.interactable = montree != null && lue != null && lue.PeutChoisir && !envoi;
-            bulle.phrase = !designe ? SANS_PAYS : montree == null ? NON_JOUABLE : recu ? CHOIX_RECU
+            bulle.phrase = !designe ? SANS_PAYS : montree == null ? NON_JOUABLE
                 : "Prend " + Nom() + " : le temps reste en pause, et le monde applique votre choix dès que vous le lancez.";
             etat.text = Etat(lue);
         }
@@ -144,12 +145,12 @@ namespace Forge.Interface
             if (lue.Jouables == null) return "Lecture des pays…";
             if (!lue.Jouables.Presente) return "Pays indisponibles : " + TexteDuMonde.Absence(lue.Jouables.Absence);
             var recu = lue.Recu;
-            if (recu != null)
-                return recu.Acceptee ? CHOIX_RECU : recu.Presente ? "Demande refusée : " + TexteDuMonde.Absence(recu.Erreur) : "Envoi non confirmé : " + TexteDuMonde.Absence(recu.Absence);
+            if (recu != null) // un reçu accepté ferme l'accueil avant d'arriver ici
+                return recu.Presente ? "Demande refusée : " + TexteDuMonde.Absence(recu.Erreur) : "Envoi non confirmé : " + TexteDuMonde.Absence(recu.Absence);
             return !designe ? SANS_PAYS : montree == null ? NON_JOUABLE : "";
         }
 
-        void AfficherLaListe(LecturePartie lue)
+        void AfficherLaListe()
         {
             var conseilles = Conseilles();
             string cle = string.Join("\n", conseilles.Select(f => f.Id + " " + f.Pays.Nom));
@@ -166,8 +167,6 @@ namespace Forge.Interface
                     var ecrit = bouton.GetComponentInChildren<Text>(); ecrit.rectTransform.sizeDelta = new Vector2(260, SocleInterface.HauteurCommande); ecrit.supportRichText = false;
                 }
             }
-            bool libre = lue?.Recu?.Acceptee != true;
-            foreach (var bouton in liste.GetComponentsInChildren<Button>()) bouton.interactable = libre;
         }
 
         // Les habitants de la maison montrée, lus hors du fil principal, une fois par maison montrée.
@@ -222,7 +221,7 @@ namespace Forge.Interface
             var autres = montree.Regne.Where(p => p.Id != paysMontre).Select(p => p.Nom ?? SANS_NOM).ToArray();
             if (autres.Length > 0) lignes.Add("Règne aussi sur : " + string.Join(", ", autres));
             if (montree.Siege.Nom != null) lignes.Add("Siège : " + montree.Siege.Nom);
-            if (montree.Suzerain != null) lignes.Add("Suzerain : " + (montree.Suzerain.Nom ?? MAISON_SANS_NOM) + (montree.Suzerain.Pays.Nom != null ? " (" + montree.Suzerain.Pays.Nom + ")" : ""));
+            if (montree.Suzerain != null) lignes.Add("Suzerain : " + (montree.Suzerain.Pays.Nom ?? montree.Suzerain.Nom ?? MAISON_SANS_NOM));
             lignes.Add(montree.Ville.Batie ? "Ville à bâtir : oui" : "Ville à bâtir : non, pas encore de ville\n" + PhraseDeRaison(montree.Ville.Raison));
             fiche.text = string.Join("\n", lignes);
         }

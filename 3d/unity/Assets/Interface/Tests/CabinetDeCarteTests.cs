@@ -403,6 +403,9 @@ namespace Forge.Interface.Tests
             Assert.That(cabinet.TempsMisEnAvant, Is.False, "le temps est mis en avant avant le choix");
             await cabinet.Accueil.Lancer(); cabinet.Afficher();
             Assert.That(partie.Recu?.Acceptee, Is.True, "le choix n'est pas reçu : échantillon vide");
+            // Le monde en pause n'a pas encore joué le jour qui applique le choix : l'accueil est déjà fermé et la barre nomme le pays choisi.
+            Assert.That(cabinet.Accueil.Ouvert, Is.False, "l'accueil reste ouvert après le reçu"); Assert.That(cabinet.Accueil.Panneau.gameObject.activeSelf, Is.False);
+            Assert.That(Propre(BARRE), Is.EqualTo("Despotat témoin · choix reçu, le monde l'applique à son premier jour"));
             var demandee = typeof(HorlogeDeCarte).GetField("vitesseDemandee", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             Assert.That(demandee.GetValue(horloge), Is.Null, "le choix a demandé une vitesse à l'horloge"); Assert.That(horloge.EnPause, Is.True);
             Assert.That(cabinet.TempsMisEnAvant, Is.True, "« Pause / Reprendre » n'est pas mis en avant après le choix");
@@ -504,6 +507,26 @@ namespace Forge.Interface.Tests
             Assert.That(camera.transform.position, Is.EqualTo(carte.Vue.Position), "la caméra n'est pas posée sur la vue");
             carte.Vue.Centrer(new Vector2(-500, 300), 900); cabinet.Afficher(); Assert.That(carte.Vue.Centre, Is.EqualTo(new Vector2(-500, 300)), "la vue est reprise au joueur à chaque image");
             var autre = new PointCarte(2999000, 1499000); Servir(B, autre); Assert.That(Vector2.Distance(carte.Vue.Centre, Attendu(autre)), Is.LessThan(1e-3f), "une autre maison ne recentre pas");
+        }
+
+        // Le bandeau tient le haut de l'écran, l'accueil sa droite tant qu'il est ouvert : la vue de la carte ne compte que le
+        // reste, en parts de la fenêtre ; la toile s'échelonne sur la largeur de l'écran.
+        [Test] public void La_vue_de_la_carte_connait_la_partie_que_l_interface_lui_laisse()
+        {
+            void Egal(Rect attendu, Rect lu, string quand) => Assert.That(Mathf.Abs(lu.xMin - attendu.xMin) + Mathf.Abs(lu.yMin - attendu.yMin) + Mathf.Abs(lu.width - attendu.width) + Mathf.Abs(lu.height - attendu.height), Is.LessThan(1e-5f), quand + " : " + lu);
+            Egal(new Rect(0, 0, 1312f / 1920f, 956f / 1080f), CabinetDeCarte.PartieLibre(new Vector2(1920, 1080), 124, 1312), "en 1920 × 1080, l'accueil ouvert");
+            Egal(new Rect(0, 0, 1, 956f / 1080f), CabinetDeCarte.PartieLibre(new Vector2(3840, 2160), 124, null), "en 3840 × 2160, l'accueil fermé");
+            Egal(new Rect(0, 0, 1312f / 1920f, 1f - 124f * (1280f / 1920f) / 1024f), CabinetDeCarte.PartieLibre(new Vector2(1280, 1024), 124, 1312), "en 1280 × 1024, le bandeau garde sa part de la largeur");
+            Preparer(); var texture = new RenderTexture(1920, 1080, 16); camera.targetTexture = texture;
+            try
+            {
+                Proposer(); Assert.That(cabinet.Accueil.Ouvert, Is.True, "échantillon vide : l'accueil n'est pas ouvert");
+                Egal(new Rect(0, 0, 1312f / 1920f, 956f / 1080f), carte.Vue.Libre, "l'accueil ouvert, la vue ne connaît pas sa partie libre");
+                Publier(JOUEUR, new LieuTenu(10, 0)); cabinet.Afficher(); Assert.That(cabinet.Accueil.Ouvert, Is.False);
+                Egal(new Rect(0, 0, 1, 956f / 1080f), carte.Vue.Libre, "l'accueil fermé, la vue ne reprend pas la largeur");
+                Assert.That(camera.transform.position, Is.EqualTo(carte.Vue.Position), "la caméra n'est pas posée sur la vue");
+            }
+            finally { camera.targetTexture = null; Object.DestroyImmediate(texture); }
         }
 
         [Test] public void L_accueil_remplace_les_deux_dossiers_et_l_ancien_choix()
@@ -805,6 +828,24 @@ namespace Forge.Interface.Tests
             Poser(partie, "Monde", null); cabinet.Afficher(); Assert.That(Propre(BARRE), Is.EqualTo(BARRE));
             Assert.That(racine.GetComponentsInChildren<Button>().Count(b => b.transform.parent.name == "FORGE · Le cabinet" && b.name != BoutonDeLaVille.NOM), Is.EqualTo(3), "la barre n'est pas une commande");
         }
+        // Le choix reçu, la maison pas encore servie : la barre nomme le pays choisi. La maison servie : chaque ligne s'ouvre sur le pays du joueur, quand on le connaît.
+        [Test] public void La_barre_nomme_le_pays_choisi_puis_le_pays_du_joueur()
+        {
+            var sans = MondeDe(null); var avec = MondeDe(JOUEUR); var recu = RecuIntention.AccepteeAu(7);
+            Assert.That(CabinetDeCarte.Barre(sans, null, recu, "France"), Is.EqualTo("France · choix reçu, le monde l'applique à son premier jour"));
+            Assert.That(CabinetDeCarte.Barre(sans, null, recu), Is.EqualTo("Choix reçu, le monde l'applique à son premier jour"));
+            Assert.That(CabinetDeCarte.Barre(sans, null, RecuIntention.Refusee(409, "refus"), "France"), Is.EqualTo("Aucune maison choisie"), "un refus n'est pas un choix");
+            Assert.That(CabinetDeCarte.Barre(sans, null, null, "France"), Is.EqualTo("Aucune maison choisie"), "rien n'est parti");
+            Assert.That(CabinetDeCarte.Barre(sans, ComptesBarre(JOUEUR, 1)), Is.EqualTo("Aucune maison choisie"));
+            var comptes = ComptesBarre(JOUEUR, 1);
+            Assert.That(CabinetDeCarte.Barre(avec, comptes, recu, "Bohême", "France"), Is.EqualTo("France · " + LIGNE_DE_LA_BARRE), "la maison servie passe devant le choix reçu");
+            Assert.That(CabinetDeCarte.Barre(avec, comptes), Is.EqualTo(LIGNE_DE_LA_BARRE), "sans pays du joueur, la ligne ne change pas");
+            Assert.That(CabinetDeCarte.Barre(avec, null, null, null, "France"), Is.EqualTo("France · " + ATTENTE));
+            Assert.That(CabinetDeCarte.Barre(avec, null), Is.EqualTo(ATTENTE));
+            var absent = Lecture<ComptesDeMaison>.Absent("refus témoin");
+            Assert.That(CabinetDeCarte.Barre(avec, absent, null, null, "France"), Is.EqualTo("France · Comptes indisponibles : refus témoin"));
+            Assert.That(CabinetDeCarte.Barre(avec, absent), Is.EqualTo("Comptes indisponibles : refus témoin"));
+        }
         // « Terres et comptes » et « Autres maisons » sont deux icônes de la barre du haut, chacune avec son motif et sa phrase ; leurs feuillets ne recouvrent jamais la barre.
         static Rect Monde(RectTransform t) { var c = new Vector3[4]; t.GetWorldCorners(c); return Rect.MinMaxRect(c.Min(v => v.x), c.Min(v => v.y), c.Max(v => v.x), c.Max(v => v.y)); }
         [Test] public void Chaque_icone_de_la_barre_a_sa_phrase_et_son_motif()
@@ -850,7 +891,9 @@ namespace Forge.Interface.Tests
                 Assert.That(icones.Overlaps(Monde(voisin)), Is.False, "les icônes " + icones + " recouvrent « " + voisin.name + " » " + Monde(voisin));
             // La date raccourcie laisse sa place à « Entrer dans la ville », de x 888 à 1104, avant les dossiers.
             Text date = Nomme("Lecture de la date…"); Assert.That(date.rectTransform.sizeDelta.x, Is.EqualTo(400f));
-            foreach (string texte in new[] { "Date indisponible : le monde ne répond pas", HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), 1.5)) }) { date.text = texte; Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(400f), texte); }
+            // La ligne la plus longue de l'horloge (le dernier jour, le dernier palier) tient aussi, sur sa seule ligne.
+            var lignes = new[] { "Date indisponible : le monde ne répond pas" }.Concat(new[] { 0.5, 1.5, 20 }.Select(v => HorlogeDeCarte.Decrire(new HorlogeLue(364, new DateDuMonde(1400, 365), v))));
+            foreach (string texte in lignes) { date.text = texte; TestContext.WriteLine("largeur de la date « " + texte + " » : " + date.preferredWidth + " sur 400"); Assert.That(date.preferredWidth, Is.LessThanOrEqualTo(400f), texte); }
             Assert.That(icones.Overlaps(Monde((RectTransform)Commande(BoutonDeLaVille.NOM).transform)), Is.False, "les icônes recouvrent « Entrer dans la ville »");
         }
         // Le panneau « Parcourir le monde » quitte le bas de la carte ; ses commandes restent à leur place, son aide passe au Menu, l'état de la carte au centre de sa vue.

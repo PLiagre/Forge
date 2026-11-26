@@ -196,13 +196,48 @@ namespace Forge.Interface.Tests
             await accueil.Lancer(); Afficher();
             Assert.That(choix, Is.EqualTo(new[] { "seigneurie-6" }), "le choix part par l'identifiant de la maison");
             Assert.That(LecturePartie.IntentionDeChoix(choix[0]), Is.EqualTo("{\"type\":\"choisir_depart\",\"maison\":\"seigneurie-6\"}"));
-            Assert.That(accueil.TexteDeLEtat, Is.EqualTo(AccueilDuPays.CHOIX_RECU)); Assert.That(accueil.Commencer.interactable, Is.False, "un choix reçu ne se renvoie pas");
-            Assert.That(Bouton("Duché de Bar").interactable, Is.False, "un choix reçu ferme la liste");
+            Assert.That(accueil.Ouvert, Is.False, "un choix reçu ferme l'accueil, sans attendre la maison servie"); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False);
             await accueil.Lancer(); await accueil.Lancer(); Assert.That(choix.Count, Is.EqualTo(1), "le choix part deux fois");
-            Assert.That(accueil.TexteDeLEtat, Does.Contain("pause").And.Contain("« Reprendre »"), "l'état ne dit pas comment lancer le temps");
-            // La maison servie ferme l'accueil, qui ne revient pas.
+            // La maison servie ensuite laisse l'accueil fermé, et il ne revient pas.
             maisonServie = "seigneurie-6"; await Lu(); Assert.That(accueil.Ouvert, Is.False); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False);
             maisonServie = null; await Lu(); Assert.That(accueil.Ouvert, Is.False);
+        }
+
+        // Le monde a accepté le choix : l'accueil se ferme sans attendre le jour qui l'applique, garde le nom du pays envoyé, et ne revient pas.
+        [Test] public async Task Un_choix_recu_ferme_l_accueil_qui_ne_revient_pas_et_garde_le_pays_choisi()
+        {
+            await Lu(); Assert.That(accueil.Choisi, Is.Null, "rien n'est parti");
+            Bouton("Émirat du Zab").onClick.Invoke(); Afficher();
+            Assert.That(accueil.Ouvert, Is.True); Assert.That(accueil.Choisi, Is.Null, "choisir dans la liste n'envoie rien");
+            await accueil.Lancer(); Afficher();
+            Assert.That(partie.Recu?.Acceptee, Is.True, "le choix n'est pas reçu : échantillon vide"); Assert.That(maisonServie, Is.Null, "la maison n'est pas servie");
+            Assert.That(accueil.Ouvert, Is.False); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False); Assert.That(accueil.Choisi, Is.EqualTo("Émirat du Zab"));
+            Afficher(); Assert.That(accueil.Ouvert, Is.False, "un second affichage rouvre l'accueil");
+            await Lu(); Assert.That(accueil.Ouvert, Is.False, "une lecture sans maison rouvre l'accueil"); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.False);
+            Assert.That(accueil.Choisi, Is.EqualTo("Émirat du Zab"));
+        }
+
+        [Test] public async Task Un_choix_refuse_laisse_l_accueil_ouvert()
+        {
+            reponse = RecuIntention.Refusee(409, "départ déjà choisi : seigneurie-1");
+            await Lu(); accueil.Prendre(Bar); Afficher(); await accueil.Lancer(); Afficher();
+            Assert.That(partie.Recu?.Acceptee, Is.False, "le refus n'est pas reçu : échantillon vide"); Assert.That(partie.Recu, Is.Not.Null);
+            Assert.That(accueil.Ouvert, Is.True); Assert.That(accueil.Panneau.gameObject.activeSelf, Is.True);
+            await Lu(); Assert.That(accueil.Ouvert, Is.True, "un refus ferme l'accueil");
+        }
+
+        // Le suzerain se dit par son pays, comme au survol de la carte ; sa maison ne parle que si le pays manque.
+        [Test] public async Task Le_suzerain_de_la_fiche_se_dit_par_son_pays_et_par_sa_maison_sans_pays()
+        {
+            FicheJouable AvecSuzerain(string nomDuPays) => new FicheJouable(Valois.Id, Valois.Nom, Valois.Sorte, Valois.Lieux, Valois.Pays, Valois.Regne, Valois.Siege,
+                new SuzerainJouable("grande-5", "Hafsides", new IdentiteDePays("puissance-5", nomDuPays)), Valois.Ville);
+            string Ligne() => accueil.TexteDeLaFiche.Split('\n').Single(l => l.StartsWith("Suzerain"));
+            var fiche = AvecSuzerain("Ifriqiya"); Rebatir(() => Terres, Habitants, fiche); await Lu(); accueil.Prendre(fiche); Afficher();
+            Assert.That(Ligne(), Is.EqualTo("Suzerain : Ifriqiya"));
+            fiche = AvecSuzerain(null); Rebatir(() => Terres, Habitants, fiche); await Lu(); accueil.Prendre(fiche); Afficher();
+            Assert.That(Ligne(), Is.EqualTo("Suzerain : Hafsides"), "sans nom de pays, la maison du suzerain");
+            Rebatir(() => Terres, Habitants, Valois); await Lu(); accueil.Designer(200); Afficher();
+            Assert.That(accueil.TexteDeLaFiche, Does.Contain("Siège : Paris").And.Not.Contain("Suzerain"), "une fiche sans suzerain n'en écrit pas");
         }
 
         [Test] public async Task Commencer_ne_promet_pas_de_lancer_le_temps_et_un_refus_se_dit()
@@ -251,7 +286,7 @@ namespace Forge.Interface.Tests
             Assert.That(commencer.sizeDelta.y, Is.GreaterThan(SocleInterface.HauteurCommande), "« Commencer » est un gros bouton");
             var texte = toile.GetComponentsInChildren<Text>(true).Single(t => t.name == AccueilDuPays.FICHE);
             texte.text = "Bohême : " + TexteDuMonde.Nombre(12345678) + " habitants\nMaison de Luxembourg, avec ses vassaux : " + TexteDuMonde.Nombre(12345678)
-                + " habitants\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague\nSuzerain : Hafsides (Ifriqiya)\nVille à bâtir : non, pas encore de ville\nLa ville de Prague n'est pas encore bâtie en 3D ; seule Biskra l'est.";
+                + " habitants\nRègne aussi sur : Saint-Empire, Hongrie\nSiège : Prague\nSuzerain : Ifriqiya\nVille à bâtir : non, pas encore de ville\nLa ville de Prague n'est pas encore bâtie en 3D ; seule Biskra l'est.";
             Assert.That(texte.preferredHeight, Is.LessThanOrEqualTo(texte.rectTransform.sizeDelta.y), "la plus longue fiche déborde");
         }
     }
