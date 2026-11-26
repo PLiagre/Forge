@@ -44,7 +44,9 @@ def _enveloppe(amorcer_lieux):
             from sim.engine import population_soutenable_de
             from sim.villes import attribuer_villes, charger_villes
             document = _monde.World.lire_carte()
-            lecture["carte"] = {int(brute["cell_id"]): brute for brute in document["cellules"]}
+            # La carte du monde chargé : chaque cellule y porte sa part cultivée.
+            lecture["carte"] = _monde._poser_les_parts_cultivees(
+                {int(brute["cell_id"]): brute for brute in document["cellules"]})
             lecture["villes"] = set(attribuer_villes(document, charger_villes()).placees.values())
             lecture["soutenable"] = population_soutenable_de
         ration = _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK

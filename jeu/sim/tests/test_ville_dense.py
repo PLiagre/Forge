@@ -34,9 +34,10 @@ from sim.world import World
 _BISKRA = 10103
 _PARIS = 10322
 _BORNE_RAYON_M = 156
-# Mesuré sur la base de 1400 de Biskra et de Paris (graine 0) avant l'extraction de la boucle.
+# Mesuré sur la base de 1400 de Biskra et de Paris (graine 0) avant l'extraction de la boucle. Biskra suit
+# les habitants de 1400 (352 au bourg, 71 maisons) ; Paris, porté par sa ville, ne change pas.
 _EMPREINTES_BASE = {
-    _BISKRA: "9dfd3e281157559030d34e343894021056ebc1777319cbb5cd4ad5de81e8b902",
+    _BISKRA: "9afd47714f39fc1278101065795369a79ec5cc3e1a271c40cf69e75451c4a205",
     _PARIS: "b712f5ebdb9ecfb5efb62dc04c80f639aad21fe40580721b7f18c80ecfda5091",
 }
 _MODELE = pathlib.Path(__file__).parent.parent / "MODELE.md"

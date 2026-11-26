@@ -424,9 +424,10 @@ def test_precision_mortalite_sur_n_ticks():
         for _ in range(N_TICKS_OBSERVES):
             if cell.population <= 0:
                 break
-            # Taux du tick, recalculé comme le fait le moteur.
+            # Taux du tick, recalculé comme le fait le moteur : la mort ordinaire, plus la faim.
             per_capita = cell.food_deficit_kg / cell.population
-            taux = min(per_capita * HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK)
+            taux = (constantes.morts_ordinaires_par_habitant_par_tick()
+                    + min(per_capita * HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK))
             somme_exacte += cell.population * taux
 
             population_avant = cell.population
@@ -1069,23 +1070,31 @@ def test_le_monde_ne_nourrit_pas_plus_a_horizon_allonge():
     assert fraction <= plafond
 
 
-def test_la_demographie_repond_a_la_natalite(monkeypatch):
+def _copie_des_taux_de_population(dossier, cle, valeur):
+    """Une copie de `data/population.toml` où `cle` vaut `valeur`, le reste inchangé."""
+    texte = constantes._CHEMIN_POPULATION.read_text(encoding="utf-8")
+    assert f"{cle} = " in texte
+    copie = dossier / f"population-{cle}-{valeur!r}.toml"
+    copie.write_text("\n".join(f"{cle} = {valeur!r}" if ligne.startswith(f"{cle} = ") else ligne
+                               for ligne in texte.splitlines()), encoding="utf-8")
+    return copie
+
+
+def test_la_demographie_repond_a_la_natalite(monkeypatch, tmp_path):
     """
     fraction_survie(taux_nul) < fraction_survie(taux_nominal)
-    < fraction_survie(taux_double).
+    < fraction_survie(taux_double), la natalité annuelle réglée dans une copie des données.
     """
-    nominal = constantes.NAISSANCES_PAR_HABITANT_PAR_TICK
+    nominal = constantes.naissances_par_habitant_par_tick()
+    annuelle = nominal * constantes.CALENDAR_DAYS_PER_YEAR / constantes.TICK_DURATION_DAYS
+    assert annuelle > 0
 
     def _regime(facteur: float) -> float:
-        monkeypatch.setattr(
-            constantes, "NAISSANCES_PAR_HABITANT_PAR_TICK", nominal * facteur
-        )
-        try:
+        copie = _copie_des_taux_de_population(tmp_path, "natalite_annuelle", annuelle * facteur)
+        with monkeypatch.context() as garde:
+            garde.setattr(constantes, "_CHEMIN_POPULATION", copie)
+            assert constantes.naissances_par_habitant_par_tick() == pytest.approx(nominal * facteur)
             fraction, _, _ = _observer_le_monde()
-        finally:
-            monkeypatch.setattr(
-                constantes, "NAISSANCES_PAR_HABITANT_PAR_TICK", nominal
-            )
         return fraction
 
     s_nul = _regime(0.0)
@@ -1096,7 +1105,7 @@ def test_la_demographie_repond_a_la_natalite(monkeypatch):
     print(f"taux nominal : {s_nominal:.6f}")
     print(f"taux double : {s_double:.6f}")
 
-    assert constantes.NAISSANCES_PAR_HABITANT_PAR_TICK == nominal
+    assert constantes.naissances_par_habitant_par_tick() == nominal
     assert s_nul < s_nominal < s_double, (
         f"La démographie ne répond pas au taux de natalité : "
         f"{s_nul:.6f} / {s_nominal:.6f} / {s_double:.6f}."

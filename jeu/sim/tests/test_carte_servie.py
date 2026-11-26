@@ -177,9 +177,10 @@ def test_departs(monde, photographie):
         assert [f["id"] for f in document["departs"]] == ids
         assert document["departs"] == references
         assert next(f for f in document["departs"] if f["nom"] == "Duché de Bar") == photographie["terre_choisie"]
-        _lire(port, "/tick?n=1", "POST")
+        # Naissances et morts ordinaires se tiennent : les habitants ne bougent qu'au second jour.
+        _lire(port, "/tick?n=2", "POST")
         actuelles, _ = _lire(port, "/departs")
-        assert actuelles["tick"] == 4
+        assert actuelles["tick"] == 5
         assert any(a["habitants"] != b["habitants"] for a, b in zip(actuelles["departs"], references))
 
 
@@ -342,7 +343,7 @@ def test_departs_fige_du_pont():
         assert requete_service(port, "/tick?n=3", "POST")[0] == HTTPStatus.OK
         statut, _, octets = requete_service(port, "/departs")
         assert statut == HTTPStatus.OK and octets == fige == requete_service(port, "/departs")[2]
-        requete_service(port, "/tick?n=1", "POST")
+        requete_service(port, "/tick?n=2", "POST")
         suivants = requete_service(port, "/departs")[1]["departs"]
         assert any(a["habitants"] != b["habitants"] for a, b in zip(suivants, document["departs"]))
 

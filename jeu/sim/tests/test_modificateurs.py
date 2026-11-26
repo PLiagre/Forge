@@ -64,9 +64,12 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # et les personnes, le maître de 53 lieux d'Irlande, les greniers (15 neufs, 19 retirés, 8 changés) et les convois ;
 # dans la photographie, les noms des lieux et des maisons, et la puissance, la maison et les places des cellules
 # d'Irlande. Sans les maîtres, les cellules sont celles d'avant : la population reste 37 147 031.
+# Les habitants de 1400 (la part cultivée de chaque région, le rendement et la ration recalés, la mort
+# ordinaire, la coutume à 0,05) changent, au 365e tick, toutes les cellules, leurs greniers, convois et cumuls,
+# et dans la photographie les cellules : la population part de 65 217 511 et finit à 65 270 701.
 EMPREINTES_365 = {
-    "linux": ("9d1e6d20e4f79a0b1a4133910c5b62f7da5ee591f38ee637d9bc419fd570b534",
-              "f0833b1d27d2fccaa9218d1629a4ec477843db468446ea143b37f23ed9b49f7d"),
+    "linux": ("a1f21fcafe26fa02e6d73b2f34f62ed8f819b9658c6de4e01217423bf3d16b70",
+              "47e16cde9606917f753e5a07082b4372fc9e7062f13455712436a822335fc6e3"),
 }
 
 

@@ -5161,12 +5161,12 @@ def test_service_ia_sans(monkeypatch):
     # le bloc `noms` : les réponses complètes et celles qui le gardent diffèrent, celles sans `noms` sont égales.
     empreintes = {
         0: ['db5b4d9851958ea27359c0563e727014dcb5e605c1282b09903fbfa75a4493e7', '86daefd6e59ed8cd58789f68a61af0dc5f938f987348a1f7d1be9a159eae7644', 'e5d66b706219c5e31e74053875d85eabff8119dc60d8ac80e1449120508130d4'],
-        4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', 'e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83'],
+        4: ['4bd3b11ed49f416b1ff912103175f190d211a2d30a09b297fc44ccbd32e9190d', '22c7a477302550781b6c3ae262339dd591e98c9c543e7941ad706cb77e9c495e', '8ef2759312af58611ff00da0f33b8ff7b79c1812f7e03f220a1c516fcfec89d0'],
     }
     anterieures = copy.deepcopy(empreintes)
     avec_maitres = {
         0: [anterieures[0][0], 'bf688be8de2768c94087ffb718510cec297fb7619ef3e8bd8610fe1e942d18f6', '82d96e630f2f88d0efcbbeb821614c15345684fa1e4127f73adbd261f8f96271'],
-        4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'],
+        4: [anterieures[4][0], 'e3f87452f5177f921a5d605d3404831e9a07dda779ce844dcce20c4466fe4dff', '68401303b8df7380e96504e3b7376b6e0aa580066568eb76d973ab1a610c0a60'],
     }
     # Chaque lieu porte son point ; sans lui, on retrouve les réponses `avec_maitres`.
     empreintes = {
@@ -5261,7 +5261,7 @@ def test_service_ia_raison():
             verifier(route_avec('part_sur_projets_et_gens'))
 
 
-@pytest.mark.parametrize("tick,avant", [(3, "bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e"), (4, "96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de")])
+@pytest.mark.parametrize("tick,avant", [(3, "d94ae2bc50cce907718d78894f877da42721cb128beb1038e082c4e2078f6844"), (4, "68401303b8df7380e96504e3b7376b6e0aa580066568eb76d973ab1a610c0a60")])
 def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch):
     """Chaque lieu du fichier figé porte son point, dans sa cellule ; sans les points, c'est la réponse d'avant."""
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
@@ -5282,7 +5282,7 @@ def test_service_reponse_figee_places_et_anciens_champs(tick, avant, monkeypatch
     with pytest.raises(AssertionError): assert _sha(_serialiser(faux)) == avant
 
 
-@pytest.mark.parametrize("tick,ancienne", [(3, "e53288c4a92a82002f98645c7f760bf50ccb8ffac765d121e949bde90978b352"), (4, "e1e40d36d0debd5b3e7f31a8d991d7906d35ed0da0f5940f16422a37063b1f83")])
+@pytest.mark.parametrize("tick,ancienne", [(3, "a84f033e7b92ad5e05d607ddba8ddb4db8cc8791aea411bbbe5059b95aa9fb7d"), (4, "8ef2759312af58611ff00da0f33b8ff7b79c1812f7e03f220a1c516fcfec89d0")])
 def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeypatch):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     from sim.service import _serialiser
@@ -5293,7 +5293,7 @@ def test_service_reponse_figee_maitres_et_anciens_champs(tick, ancienne, monkeyp
     prive = copy.deepcopy(document); assert prive.pop("noms")
     for lieu in prive["lieux"]: lieu.pop("nom"); lieu.pop("flux_30j")
     for lieu in prive["lieux"]: lieu.pop("point")  # les réponses d'avant n'ont pas de point
-    assert _sha(_serialiser(prive)) == {3: 'bdee5f5b3f9296e664701da640c450d0ded0bb90a33267b59fb980bc2fb3754e', 4: '96d27135e8f3270809c34ff80e917a73736eb79253a51a3d24844729fd2b67de'}[tick]
+    assert _sha(_serialiser(prive)) == {3: 'd94ae2bc50cce907718d78894f877da42721cb128beb1038e082c4e2078f6844', 4: '68401303b8df7380e96504e3b7376b6e0aa580066568eb76d973ab1a610c0a60'}[tick]
     for lieu in prive["lieux"]: lieu.pop("maitre")
     assert _sha(_serialiser(prive)) == ancienne
     faux = copy.deepcopy(prive); faux["lieux"][0]["population"] += 1
@@ -5485,7 +5485,7 @@ def test_flux_des_lieux_publication_et_passe_unique(monkeypatch):
 
 # Les réponses figées gardent ici le bloc `noms` : les lieux nommés d'après leur ville ou désignés, et les seigneurs
 # plausibles servis comme tels (« Seigneur de … », `sorte`) le changent, et lui seul.
-@pytest.mark.parametrize('tick,ancienne', [(3, '266a5f47c9efdf7524c81211dfa80cf12d091c6f9e42c1ca7b7a222f39175ce3'), (4, 'ba4a160f9eb102c75f2988279f9bccb99001a133583746104d645b9920fc45fd')])
+@pytest.mark.parametrize('tick,ancienne', [(3, '91f5813681527bf48636552cc87edab894a081cbb166b7bb5c556beffdbce164'), (4, '06209f41eb9e7808ddedc3e6d963784801c0a851903d850193ba051e940cfa07')])
 def test_service_reponse_figee_flux_et_origine(tick, ancienne):
     from sim.service import _serialiser
     document = json.loads((_REPO.parent / f'3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json').read_bytes())

@@ -441,7 +441,7 @@ def test_le_service_ne_laisse_le_joueur_batir_que_pour_sa_maison():
 ZAB, BISKRA = "seigneurie-6", 10103
 FIGEES = Path(__file__).parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
 ROUTE_EST = {"type": "tracer_route", "maison": ZAB, "cell": BISKRA, "points": [[66, -8], [120, -8]], "largeur_m": 4}
-DECOUPE_EST = {"type": "decouper_parcelle", "maison": ZAB, "cell": BISKRA, "rue": 0, "segment": 0, "debut_m": 14,
+DECOUPE_EST = {"type": "decouper_parcelle", "maison": ZAB, "cell": BISKRA, "rue": 0, "segment": 0, "debut_m": 16,
                "facade_m": 10, "profondeur_m": 20, "cote": "gauche"}
 
 

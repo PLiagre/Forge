@@ -291,7 +291,8 @@ class _MondeEpreuve:
             2: Cell(cell_id=2, area_km2=1.0, population=1000,
                     food_stock_kg=0.0, hunger_ticks=0,
                     food_deficit_kg=100000.0, mortality_remainder=0.5),
-            3: Cell(cell_id=3, area_km2=10.0, population=1000,
+            # Un km² cultivé nourrit cent trente habitants environ : mille y manquent.
+            3: Cell(cell_id=3, area_km2=1.0, population=1000,
                     food_stock_kg=12.0, hunger_ticks=0,
                     food_deficit_kg=0.0, mortality_remainder=0.0),
         }

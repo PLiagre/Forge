@@ -1192,6 +1192,17 @@ def test_demographie_locale_etat(monkeypatch, tmp_path):
 def test_demographie_locale_mortalite(monkeypatch):
     from sim import engine
     from sim.model import Cell, creer_etat_de_lieu
+    # Chaque lieu habité meurt de mort ordinaire ; le lieu endetté meurt en plus de sa faim,
+    # bornée au plafond du tick.
+    ordinaire = _constantes.morts_ordinaires_par_habitant_par_tick()
+    faim = _constantes.MAX_DEATH_RATE_PER_TICK
+    assert 1000 / 5 * _constantes.HUNGER_DEATH_SCALE > faim and 0 < 10 * ordinaire < 0.1
+    endette_1 = 5 * (ordinaire + faim) + 0.0
+    voisin_1 = 5 * (ordinaire + 0.0) + 0.3
+    endette_2 = 5 * (ordinaire + faim) + endette_1
+    voisin_2 = 5 * (ordinaire + 0.0) + voisin_1
+    assert int(endette_1) == 0 and int(endette_2) == 1 and int(voisin_2) == 0
+
     def verifier():
         cellule = Cell(0, 2000, 10, habitants_par_metier={"mineurs": 5, "paysans": 5},
                        mortality_remainder=0.9, food_deficit_kg=1000)
@@ -1203,15 +1214,17 @@ def test_demographie_locale_mortalite(monkeypatch):
             garde.setattr(engine, "_retirer_par_les_foyers", lambda c, n: (appels.append(n), retirer(c, n)))
             engine._apply_mortality(cellule)
             assert [l.population for l in cellule.lieux] == [5, 5]
-            assert [l.mortality_remainder for l in cellule.lieux] == [0.5, 0.3]
+            assert [l.mortality_remainder for l in cellule.lieux] == [endette_1, voisin_1]
             assert cellule.population == sum(l.population for l in cellule.lieux)
             engine._apply_mortality(cellule)
         assert [l.population for l in cellule.lieux] == [4, 5]
+        assert [l.mortality_remainder for l in cellule.lieux] == [endette_2 - 1, voisin_2]
         assert appels == [0, 1]
         assert cellule.population == sum(l.population for l in cellule.lieux) == 9
         assert cellule.habitants_par_metier == {"mineurs": 4, "paysans": 5}
         assert cellule.mortality_remainder == 0.9
-        assert cellule.lieux[0].dette_alimentaire_kg == 1000 and cellule.lieux[1] == voisin
+        assert cellule.lieux[0].dette_alimentaire_kg == 1000
+        assert dataclasses.replace(cellule.lieux[1], mortality_remainder=0.3) == voisin
         from sim.lieux import repartir_sur_les_lieux
         coherents = copy.deepcopy(cellule.lieux)
         repartir_sur_les_lieux(cellule)
@@ -1229,25 +1242,93 @@ def test_demographie_locale_mortalite(monkeypatch):
     with pytest.raises(AssertionError): verifier()
 
 
+def _quatre_vingt_dix_jours_nourris(habitants):
+    """Un lieu de `habitants`, nourri et sans dette, passe 90 jours de mortalité et de natalité.
+    Rend sa population finale, ses morts et ses naissances."""
+    from sim import engine
+    from sim.model import Cell, creer_etat_de_lieu
+    cellule = Cell(0, 1000, habitants, habitants_par_metier={"paysans": habitants})
+    cellule.lieux = [creer_etat_de_lieu(0, habitants, {})]
+    morts = naissances = 0
+    for _ in range(90):
+        with _constantes.une_lecture_de_la_population():
+            avant = cellule.lieux[0].population
+            engine._apply_mortality(cellule)
+            apres_morts = cellule.lieux[0].population
+            engine._apply_natalite(cellule, 0.0)
+        morts += avant - apres_morts
+        naissances += cellule.lieux[0].population - apres_morts
+        assert cellule.population == cellule.lieux[0].population
+    return cellule.population, morts, naissances
+
+
+def test_mort_ordinaire_tient_un_lieu_nourri(tmp_path, monkeypatch):
+    """Nourri et sans dette, un lieu de 6 000 habitants varie de moins de 0,3 % en 90 jours : la mort
+    ordinaire fait face aux naissances. Sans elle, les naissances seules le font grandir."""
+    habitants = 6000
+    final, morts, naissances = _quatre_vingt_dix_jours_nourris(habitants)
+    assert morts > 0 and naissances > 0, "échantillon vide : ni mort ni naissance en 90 jours"
+    assert abs(final - habitants) / habitants < 0.003, (final, morts, naissances)
+    # Contre-épreuve : la mort ordinaire remise à zéro dans une copie des données.
+    texte = _constantes._CHEMIN_POPULATION.read_text(encoding="utf-8")
+    assert "mort_ordinaire_annuelle = " in texte
+    copie = tmp_path / "population.toml"
+    copie.write_text("\n".join("mort_ordinaire_annuelle = 0.0" if ligne.startswith("mort_ordinaire_annuelle")
+                               else ligne for ligne in texte.splitlines()), encoding="utf-8")
+    monkeypatch.setattr(_constantes, "_CHEMIN_POPULATION", copie)
+    final, morts, naissances = _quatre_vingt_dix_jours_nourris(habitants)
+    assert morts == 0 and (final - habitants) / habitants >= 0.003, (final, morts, naissances)
+
+
+@pytest.mark.parametrize("lecteur,cle", [
+    (_constantes.naissances_par_habitant_par_tick, "natalite_annuelle"),
+    (_constantes.morts_ordinaires_par_habitant_par_tick, "mort_ordinaire_annuelle"),
+])
+@pytest.mark.parametrize("valeur,motif", [
+    (None, "clé absente"), ("true", "un nombre attendu"), ('"0.04"', "un nombre attendu"),
+    ("-0.01", r"un nombre dans \[0, 1\]"), ("1.5", r"un nombre dans \[0, 1\]"),
+])
+def test_les_taux_de_population_refusent_et_nomment_la_cle(tmp_path, lecteur, cle, valeur, motif):
+    texte = _constantes._CHEMIN_POPULATION.read_text(encoding="utf-8")
+    lignes = [ligne for ligne in texte.splitlines() if not ligne.startswith(f"{cle} = ")]
+    if valeur is not None:
+        lignes.append(f"{cle} = {valeur}")
+    copie = tmp_path / "population.toml"
+    copie.write_text("\n".join(lignes), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"{cle} \\(population.toml\\) : {motif}"):
+        lecteur(copie)
+    with pytest.raises(ValueError, match=f"{cle} \\(absent.toml\\) : fichier .* absent"):
+        lecteur(tmp_path / "absent.toml")
+    # Contre-épreuve : le fichier livré se lit, et le taux du tick est le taux annuel ramené au jour.
+    annuel = float(next(l for l in texte.splitlines() if l.startswith(f"{cle} = ")).split("=")[1])
+    assert lecteur() == annuel / _constantes.CALENDAR_DAYS_PER_YEAR * _constantes.TICK_DURATION_DAYS > 0
+
+
 def test_demographie_locale_natalite(monkeypatch):
     from sim import engine
     from sim.model import Cell, creer_etat_de_lieu
+    # Un lieu assez peuplé pour qu'au taux livré le jour donne des naissances entières.
+    nourri = 20000
+    brut = nourri * _constantes.naissances_par_habitant_par_tick()
+    enfants = int(brut)
+    assert enfants >= 1
+
     def verifier():
-        cellule = Cell(0, 3000, 5005, habitants_par_metier={"mineurs": 5, "paysans": 5000},
+        cellule = Cell(0, 3000, nourri + 5, habitants_par_metier={"mineurs": 5, "paysans": nourri},
                        natalite_remainder=0.9, food_deficit_kg=1000)
         cellule.lieux = [creer_etat_de_lieu(0, 5, {}, dette_alimentaire_kg=1000,
                                           duree_faim_ticks=2, natalite_remainder=0.7),
-                         creer_etat_de_lieu(1, 5000, {}),
+                         creer_etat_de_lieu(1, nourri, {}),
                          creer_etat_de_lieu(2, 0, {}, natalite_remainder=0.8)]
         appels, ajouter = [], engine._ajouter_par_les_foyers
         with monkeypatch.context() as garde:
             garde.setattr(engine, "_ajouter_par_les_foyers", lambda c, n: (appels.append(n), ajouter(c, n)))
             engine._apply_natalite(cellule, 10)
-        assert [l.population for l in cellule.lieux] == [5, 5001, 0]
-        assert [l.natalite_remainder for l in cellule.lieux] == [0.7, 0.0, 0.8]
-        assert cellule.population == sum(l.population for l in cellule.lieux) == 5006
-        assert cellule.habitants_par_metier == {"mineurs": 5, "paysans": 5001}
-        assert appels == [1] and cellule.natalite_remainder == 0.9
+        assert [l.population for l in cellule.lieux] == [5, nourri + enfants, 0]
+        assert [l.natalite_remainder for l in cellule.lieux] == [0.7, brut - enfants, 0.8]
+        assert cellule.population == sum(l.population for l in cellule.lieux) == nourri + 5 + enfants
+        assert cellule.habitants_par_metier == {"mineurs": 5, "paysans": nourri + enfants}
+        assert appels == [enfants] and cellule.natalite_remainder == 0.9
     verifier()
     monkeypatch.setattr(engine, "_apply_natalite", lambda *args: None)
     with pytest.raises(AssertionError): verifier()
@@ -1257,12 +1338,17 @@ def test_demographie_locale_arrondis_apres_consommation_identique(monkeypatch):
     from sim import engine
     from sim.model import Cell, creer_etat_de_lieu
 
+    # Au taux livré, la cellule entière fait un enfant par jour, chacune de ses moitiés aucun.
+    habitants = 10000
+    taux = _constantes.naissances_par_habitant_par_tick()
+    assert int(habitants * taux) == 1 and int(habitants // 2 * taux) == 0
+
     def verifier():
         cellules = []
         carte = {0: {"relief": "plaine", "gisements": []}}
-        ration = 5000 * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
-        for populations in ((2500, 2500), (5000, 0)):
-            cellule = Cell(0, 2000, 5000, stocks={"nourriture": 2 * ration},
+        ration = habitants * _constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+        for populations in ((habitants // 2, habitants // 2), (habitants, 0)):
+            cellule = Cell(0, 2000, habitants, stocks={"nourriture": 2 * ration},
                            food_deficit_kg=0.0)
             cellule.lieux = [creer_etat_de_lieu(rang, population, {"nourriture": ration})
                              for rang, population in enumerate(populations)]
@@ -1275,9 +1361,10 @@ def test_demographie_locale_arrondis_apres_consommation_identique(monkeypatch):
             engine._apply_natalite(cellule, penurie)
             assert cellule.population == sum(l.population for l in cellule.lieux)
         # Une consommation identique ne promet pas les mêmes arrondis locaux.
-        assert [c.population for c in cellules] == [5000, 5001]
-        assert [l.natalite_remainder for l in cellules[0].lieux] == [0.5, 0.5]
-        assert [l.natalite_remainder for l in cellules[1].lieux] == [0.0, 0.0]
+        assert [c.population for c in cellules] == [habitants, habitants + 1]
+        moitie = habitants // 2 * taux
+        assert [l.natalite_remainder for l in cellules[0].lieux] == [moitie, moitie]
+        assert [l.natalite_remainder for l in cellules[1].lieux] == [habitants * taux - 1, 0.0]
 
     verifier()
     monkeypatch.setattr(engine, "_apply_natalite", lambda *args: None)
@@ -1292,32 +1379,44 @@ def test_demographie_locale_blocages(dette, faim):
     cellule.lieux = [creer_etat_de_lieu(0, 5000, {}, dette_alimentaire_kg=dette,
                                       duree_faim_ticks=faim, natalite_remainder=0.75,
                                       mortality_remainder=0.5)]
+    # La mort ordinaire frappe le lieu, endetté ou non ; la dette y ajoute sa faim.
+    faim_du_jour = dette / 5000 * _constantes.HUNGER_DEATH_SCALE
+    brut = 5000 * (_constantes.morts_ordinaires_par_habitant_par_tick() + faim_du_jour) + 0.5
+    morts = int(brut)
     engine._apply_mortality(cellule)
-    if dette:
-        assert 0.5 < cellule.lieux[0].mortality_remainder < 1
-    else:
-        assert cellule.lieux[0].mortality_remainder == 0.5
-    assert cellule.population == cellule.lieux[0].population == 5000
+    assert cellule.lieux[0].mortality_remainder == brut - morts
+    vivants = 5000 - morts
+    assert cellule.population == cellule.lieux[0].population == vivants
+    # La faim ou la dette ferment la natalité et gardent son report.
     engine._apply_natalite(cellule, 0)
-    assert cellule.population == cellule.lieux[0].population == 5000
+    assert cellule.population == cellule.lieux[0].population == vivants
     assert cellule.lieux[0].natalite_remainder == 0.75
     cellule.lieux[0].dette_alimentaire_kg = 0
     cellule.lieux[0].duree_faim_ticks = 0
+    naissances = vivants * _constantes.naissances_par_habitant_par_tick() + 0.75
+    assert int(naissances) >= 1
     engine._apply_natalite(cellule, 100)
-    assert cellule.population == cellule.lieux[0].population == 5001
-    assert cellule.lieux[0].natalite_remainder == 0.75
+    assert cellule.population == cellule.lieux[0].population == vivants + int(naissances)
+    assert cellule.lieux[0].natalite_remainder == naissances - int(naissances)
 
 
 def test_demographie_locale_repli_et_lieu_vide():
     from sim import engine
     from sim.model import Cell, creer_etat_de_lieu
     cellule = Cell(0, 1000, 5, food_deficit_kg=1000)
+    # Sans lieux, la cellule meurt de mort ordinaire et de sa faim, bornée au plafond.
+    jour = 5 * (_constantes.morts_ordinaires_par_habitant_par_tick() + _constantes.MAX_DEATH_RATE_PER_TICK)
+    deux_jours = 5 * (_constantes.morts_ordinaires_par_habitant_par_tick()
+                      + _constantes.MAX_DEATH_RATE_PER_TICK) + jour
+    assert int(jour) == 0 and int(deux_jours) == 1
     for _ in range(2): engine._apply_mortality(cellule)
-    assert cellule.population == 4 and cellule.mortality_remainder == 0
+    assert cellule.population == 4 and cellule.mortality_remainder == deux_jours - 1
     cellule.food_deficit_kg = 0
-    cellule.population = 5000
+    cellule.population = 20000
+    naissances = 20000 * _constantes.naissances_par_habitant_par_tick() + 0.0
     engine._apply_natalite(cellule, 0)
-    assert cellule.population == 5001 and cellule.natalite_remainder == 0
+    assert cellule.population == 20000 + int(naissances) > 20000
+    assert cellule.natalite_remainder == naissances - int(naissances)
     cellule.population = 0
     cellule.lieux = [creer_etat_de_lieu(0, 0, {}, dette_alimentaire_kg=1000,
                                       mortality_remainder=0.5, natalite_remainder=0.75)]

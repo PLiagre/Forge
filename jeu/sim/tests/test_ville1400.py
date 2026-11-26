@@ -615,7 +615,8 @@ def test_ilots_petites_bases_identiques(campagne, monkeypatch):
         return hashlib.sha256(texte.encode()).hexdigest()
 
     avant = empreinte()
-    assert avant == "7f9be1e18e336199993e260423bfe32e5d211b7f6d1c2211d72905506d517004"
+    # Les 198 bourgs sans îlots de la population de 1400 (37 478 maisons).
+    assert avant == "266349f3a63e4382d8caa7df5d3ebc524c57dcf44bad7313ecb07f1c9d914aeb"
     monkeypatch.setattr(_constantes, "FOYERS_SANS_ILOTS", 0)
     assert empreinte() != avant
 
@@ -673,7 +674,7 @@ def test_pont_plan_biskra_fige():
     from sim.tests.test_monde import requete_service
     fixture = (_SIM.parent.parent / "3d/unity/Assets/ForgeLocal3D/Pont/Tests/plan-biskra-graine0-tick0.json").read_bytes()
     base = json.loads(fixture)["base"]
-    assert len(base["maisons"]) == 33 and len(base["rues"]) == 7
+    assert len(base["maisons"]) == 71 and len(base["rues"]) == 7
     with _service_local() as (_serveur, port):
         assert requete_service(port, "/plan?cell=10103")[2] == fixture
         assert requete_service(port, "/plan?cell=1175")[1]["base"] != base

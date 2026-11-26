@@ -7,8 +7,13 @@ sans joueur, l'IA active, au 365e jour, aucune cellule de la table de
 référence ne perd plus de la moitié de ses habitants
 par la faim. Contre-épreuve : la réserve de cinq jours d'avant la fait échouer.
 
-La pire cellule de la table, Gand et Bruges, perd 47 % de ses habitants par la
-faim au 365e jour ; avec cinq jours, Paris en perd 89 % dès le 90e.
+La pire cellule de la table, Pise, perd 8,4 % de ses habitants par la faim au
+365e jour ; avec cinq jours, Paris passe la moitié dès le 90e.
+
+Les morts de faim se comptent à part de la mort ordinaire, qui frappe chaque lieu
+habité, faim ou non : chaque jour, la faim d'un lieu endetté lui retire
+`population × min(dette / population × HUNGER_DEATH_SCALE × facteur, plafond)`
+habitants, la part de ses morts que la faim ajoute à la mort ordinaire.
 """
 import random
 
@@ -47,14 +52,19 @@ def _jouer_sans_joueur(monkeypatch, ticks):
     monde = World.charger(rng_seed=0)
     table = _cellules_de_la_table(monde)
     depart = {cid: monde.cells[cid].population for cid in table}
-    morts = dict.fromkeys(table, 0)
+    morts = dict.fromkeys(table, 0.0)
     mortalite = engine._apply_mortality
 
     def compter(cellule, *facteurs):
-        avant = cellule.population
-        mortalite(cellule, *facteurs)
         if cellule.cell_id in morts:
-            morts[cellule.cell_id] += avant - cellule.population
+            # La part de la faim dans les morts du jour, avant que la mortalité ne les retire.
+            for lieu in cellule.lieux:
+                if lieu.population > 0 and lieu.dette_alimentaire_kg > 0:
+                    faim = lieu.dette_alimentaire_kg / lieu.population * constantes.HUNGER_DEATH_SCALE
+                    if facteurs and facteurs[0] is not None:
+                        faim *= facteurs[0].get((cellule.cell_id, lieu.rang), 1.0)
+                    morts[cellule.cell_id] += lieu.population * min(faim, constantes.MAX_DEATH_RATE_PER_TICK)
+        mortalite(cellule, *facteurs)
 
     monkeypatch.setattr(engine, "_apply_mortality", compter)
     rng, releve = random.Random(0), []

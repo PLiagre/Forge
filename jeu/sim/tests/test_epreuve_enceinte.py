@@ -29,12 +29,12 @@ CELLULE, MAISON, JEUX = 10103, "seigneurie-6", Path(__file__).parents[2]
 CONSTANTE_REDUITE = 0.01
 ROUTE = {"type": "tracer_route", "maison": MAISON, "cell": CELLULE,
          "points": [[-66, 2.2], [-120, 2.2]], "largeur_m": 4}
-CARRE = [[-80, -80], [80, -80], [80, 80], [-80, 80]]
+CARRE = [[-86, -86], [86, -86], [86, 86], [-86, 86]]
 ENCEINTE = {"type": "tracer_enceinte", "maison": MAISON, "cell": CELLULE, "points": CARRE, "foyers": 2}
 CROISEE = ENCEINTE | {"points": [[-80, -80], [80, 80], [80, -80], [-80, 80]]}
 JOURNAL = [{"tick": 0, "intention": ROUTE}, {"tick": 0, "intention": ENCEINTE}]
-PORTES = [{"point": [-80.0, 2.2], "rue": "plan", "identifiant": 0, "largeur_m": 4}]
-PORTE_DE_BASE = {"point": [-80.0, 2.2], "rue": "base", "identifiant": 3, "largeur_m": 4}
+PORTES = [{"point": [-86.0, 2.2], "rue": "plan", "identifiant": 0, "largeur_m": 4}]
+PORTE_DE_BASE = {"point": [-86.0, 2.2], "rue": "base", "identifiant": 3, "largeur_m": 4}
 CLE_ROUTE, CLE_ENCEINTE = (CELLULE, 0), (CELLULE, "enceinte", 0)
 
 
@@ -141,7 +141,7 @@ def test_chantier_paye(avec, sans, tmp_path, monkeypatch):
     monkeypatch.setattr(constants, "TRAVAIL_ENCEINTE_JOURNEES_PAR_M", CONSTANTE_REDUITE)
     requis = travail_requis_de_enceinte(contour)
     monkeypatch.undo()
-    assert requis == math.ceil(640 * CONSTANTE_REDUITE) == 7
+    assert requis == math.ceil(688 * CONSTANTE_REDUITE) == 7
     premiere = releves[0].apres
     assert (premiere.en_chantier, premiere.travail_fourni, premiere.travail_requis) == (True, 0, requis)
     fournis = [r.apres.travail_fourni for r in releves]
@@ -161,10 +161,10 @@ def test_chantier_paye(avec, sans, tmp_path, monkeypatch):
             assert route["bras"] > 0
     # Un grenier vide ne paie rien, puis la route passe avant l'enceinte.
     assert [e["bras"] for _, e in jours[:2]] == [0, 0] and jours[2][1]["bras"] > 0
-    assert releves[2].entrees[CLE_ROUTE]["bras"] == 5 and jours[2][1]["bras"] == 1
+    assert releves[2].entrees[CLE_ROUTE]["bras"] == 5 and jours[2][1]["bras"] == 4
     # L'enceinte s'achève le jour où le requis est atteint et quitte le journal le lendemain.
     fin = next(r.numero for r in releves if not r.apres.en_chantier)
-    assert fin == 4 and releves[fin].entrees.get(CLE_ENCEINTE) is not None
+    assert fin == 3 and releves[fin].entrees.get(CLE_ENCEINTE) is not None
     assert all(CLE_ENCEINTE not in r.entrees for r in releves[fin + 1:]) and fin + 1 < len(releves)
     # Le grenier finit plus bas que sans gestes : les salaires, moins les pertes évitées.
     paye = sum(e["grain_paye_kg"] for r in releves for k, e in r.entrees.items())
@@ -173,7 +173,7 @@ def test_chantier_paye(avec, sans, tmp_path, monkeypatch):
     assert paye == 81 and ecart == pytest.approx(paye - pertes, abs=1e-6) and 0 < pertes < 1
     # Contre-épreuve : à la vraie constante, la même commande laisse l'enceinte en chantier.
     reel = json.loads(_en_sous_processus(tmp_path, JOURNAL))["plans"][str(CELLULE)]["enceinte"]
-    assert reel["en_chantier"] and reel["travail_requis"] == 19200 and reel["travail_fourni"] < reel["travail_requis"]
+    assert reel["en_chantier"] and reel["travail_requis"] == 20640 and reel["travail_fourni"] < reel["travail_requis"]
 
 
 def test_portes_aux_croisements(avec):
@@ -182,7 +182,7 @@ def test_portes_aux_croisements(avec):
     contour = plan.enceinte.contour
     assert portes_de_l_enceinte(contour, plan.rues, rues_de_base) == PORTES
     controler_portes(contour, PORTES, plan.rues, rues_de_base)
-    for fausse in ({"point": [80.0, 0.0], "rue": "plan", "identifiant": 0, "largeur_m": 4}, PORTE_DE_BASE):
+    for fausse in ({"point": [86.0, 0.0], "rue": "plan", "identifiant": 0, "largeur_m": 4}, PORTE_DE_BASE):
         with pytest.raises(PorteSansRue):
             controler_portes(contour, [*PORTES, fausse], plan.rues, rues_de_base)
     def cles(valeur):

@@ -597,8 +597,9 @@ def _km2_cultives_reference(cell, carte):
     raw = carte[cell.cell_id]
     relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
     eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
-    agricole = 1 - _constantes.part_miniere_de(
-        raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+    # La terre aux champs : la part cultivée de la cellule, moins ce que prennent ses mines.
+    agricole = raw[_constantes.CLE_PART_CULTIVEE] * (1 - _constantes.part_miniere_de(
+        raw.get("gisements"), _constantes.facteurs_richesse_extraction()))
     return cell.area_km2 * relief * eau * agricole
 
 
@@ -735,8 +736,8 @@ def test_calibrage_bras(monkeypatch):
                       for j in range(365))
         relief = _constantes.facteurs_production_par_relief()[raw["relief"]]
         eau = _constantes.facteur_eau(raw["pluie_mm_par_an"] + raw["crue_mm_par_an"])
-        agricole = 1 - _constantes.part_miniere_de(
-            raw.get("gisements"), _constantes.facteurs_richesse_extraction())
+        agricole = raw[_constantes.CLE_PART_CULTIVEE] * (1 - _constantes.part_miniere_de(
+            raw.get("gisements"), _constantes.facteurs_richesse_extraction()))
         surfaces = lieux.surfaces_des_lieux(cell.cell_id, cell.area_km2)
         non_paysans = cell.population - metiers.get("paysans", 0)
         for lieu in cell.lieux:
@@ -835,6 +836,10 @@ def test_bras_suffisent_un_an(monkeypatch, numerote):
                   f"écart_récolte={altere[1] / temoin[1] - 1:.6%}")
 
 
+# La valeur livrée des bras, telle que MODELE.md l'écrit (virgule décimale).
+_BRAS_ECRITS = f"{_constantes.BRAS_AUX_CHAMPS_PAR_KM2:g}".replace(".", ",")
+
+
 def test_documentation_bras(monkeypatch):
     lire = pathlib.Path.read_text
     chemin = pathlib.Path(__file__).parents[1] / "MODELE.md"
@@ -843,7 +848,7 @@ def test_documentation_bras(monkeypatch):
         texte = chemin.read_text(encoding="utf-8")
         section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
         for attendu in ("BRAS_AUX_CHAMPS_PAR_KM2", "km² cultivés", "niveau 2", "du lieu", "saison", "0,1",
-                        "Le tick ne lit les métiers que pour la récolte", "6,2", "médiane", "maximum annuel"):
+                        "Le tick ne lit les métiers que pour la récolte", _BRAS_ECRITS, "médiane", "maximum annuel"):
             assert attendu in section
         reste = texte.split("## Ce que le moteur ne fait pas encore\n", 1)[1].split("\n## ", 1)[0]
         assert "aucun nombre du tick ne les lit" not in " ".join(reste.split())
@@ -851,7 +856,7 @@ def test_documentation_bras(monkeypatch):
         travail = reste.split("**répartir le travail.**", 1)[1].split("\n- ", 1)[0]
         assert "moisson" in travail
 
-    for ancien, nouveau in (("6,2", "valeur retirée"), ("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
+    for ancien, nouveau in ((_BRAS_ECRITS, "valeur retirée"), ("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
                             ("Le tick ne lit les métiers que pour la récolte",
                              "Le tick ne lit pas les métiers")):
         def texte_altere(path, *args, **kwargs):

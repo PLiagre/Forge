@@ -2307,7 +2307,8 @@ def _monde_de_secours():
     ])
     monde.maisons = (MaisonDuMonde(cle, 'Bar', 'seigneurie', None, 'Bar', 1, 0, None),)
     monde.parts = {cle: k.PART_COUTUMIERE}
-    fiche = {'relief': 'plaine', 'pluie_mm_par_an': 400, 'crue_mm_par_an': 0,
+    # Une plaine arrosée dont un cinquième est en culture, comme la France de 1400.
+    fiche = {'relief': 'plaine', 'pluie_mm_par_an': 400, 'crue_mm_par_an': 0, 'part_cultivee': 0.2,
              'climat': {'duree_jour_solstice_ete_h': 14.0, 'duree_jour_solstice_hiver_h': 10.0}}
     monde.carte = {cid: dict(fiche) for cid in monde.cells}
     habitants, journees = 40 + 10 + 20 + 6, 5 - 1

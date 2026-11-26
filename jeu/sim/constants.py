@@ -105,20 +105,39 @@ def fabrication_kg(stock_brut_kg: float) -> tuple[float, float]:
 # Toutes les constantes temporelles ci-dessous sont dérivées de cette valeur.
 TICK_DURATION_DAYS = 1
 
+# Jours de l'année calendaire ; les grandeurs annuelles (rendement, natalité) s'en dérivent.
+CALENDAR_DAYS_PER_YEAR = 365
+
 # Fenêtre de lecture : trente jours à un jour par tick, pas une règle du monde.
 FENETRE_FLUX_TICKS = 30
 
 # --- Production alimentaire ---
 
-# Rendement agricole paramétrique : kilogrammes de nourriture produits
-# par km² et par tick.
-# Proxy : 6 570 kg/km²/an (rendement médiéval estimé) ÷ 365 jours ×
-# TICK_DURATION_DAYS (voir MODELE.md).
-FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = 18.0 * TICK_DURATION_DAYS
+# Rendement net d'un km² mis en culture : kilogrammes de grain par tick, semence et
+# jachère déduites. Il ne vaut que pour la terre cultivée : la part cultivée de chaque
+# cellule (`data/population-1400.json`) et ses facteurs de relief, d'eau et de saison
+# disent combien de ses km² le portent (voir MODELE.md).
+#
+# Rendement brut des grains en Angleterre de 1250 à 1450 : 470 à 1 000 kg par hectare
+# ensemencé (Broadberry, English Agricultural Output 1250–1450, 2008, cité par
+# Wikipédia en anglais, Agriculture in the Middle Ages) ; le milieu de la fourchette.
+RENDEMENT_BRUT_KG_PAR_HA_ENSEMENCE = 735.0
+# Grains récoltés pour un grain semé, blé des domaines de Battle Abbey en Sussex, 1350–1399
+# (Brandon, Economic History Review, 1972, même article) : un grain sur 4,34 retourne au champ.
+GRAINS_RECOLTES_PAR_GRAIN_SEME = 4.34
+# Assolement triennal : deux soles ensemencées sur trois, la troisième en jachère (niveau 2).
+PART_ENSEMENCEE_DE_LA_TERRE_CULTIVEE = 2 / 3
+HECTARES_PAR_KM2 = 100
+# ≈ 103 kg/km²/jour.
+FOOD_PRODUCTION_KG_PER_KM2_PER_TICK = (
+    RENDEMENT_BRUT_KG_PAR_HA_ENSEMENCE * HECTARES_PAR_KM2
+    * (1 - 1 / GRAINS_RECOLTES_PAR_GRAIN_SEME) * PART_ENSEMENCEE_DE_LA_TERRE_CULTIVEE
+    / CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
+)
 
 # Bras par km² cultivé, niveau 2 : calibrés sur le lieu médian au pic annuel
-# de sa saison agricole (voir MODELE.md).
-BRAS_AUX_CHAMPS_PAR_KM2 = 6.2
+# de sa saison agricole (voir MODELE.md) ; le km² cultivé porte la part cultivée.
+BRAS_AUX_CHAMPS_PAR_KM2 = 95.0
 
 
 # --- Eau dans le rendement (fidélité niveau 2) ---
@@ -435,9 +454,17 @@ RNG_YIELD_HIGH = 1.5
 
 # --- Consommation alimentaire ---
 
-# Consommation alimentaire par personne et par tick (kg).
-# Proxy : ration journalière médiévale ~2 kg × TICK_DURATION_DAYS.
-FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK = 2.0 * TICK_DURATION_DAYS
+# Consommation alimentaire par personne et par tick, en kilogrammes de grain.
+# Pain mangé par personne et par jour au XIVe siècle : 1 à 1,5 kg, d'une région à
+# l'autre (Wikipédia en anglais, Medieval cuisine) ; le bas de la fourchette, pour une
+# population qui compte ses enfants.
+PAIN_KG_PAR_PERSONNE_PAR_JOUR = 1.0
+# Grain par kilo de pain : le blutage retire le son, la pâte prend son eau (niveau 2).
+GRAIN_KG_PAR_KG_DE_PAIN = 0.75
+# 0,75 kg : une fraction exacte en binaire, la soudure reste un nombre entier de kilos.
+FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK = (
+    PAIN_KG_PAR_PERSONNE_PAR_JOUR * GRAIN_KG_PAR_KG_DE_PAIN * TICK_DURATION_DAYS
+)
 
 
 def consommation_kg_par_habitant_par_tick(marchandise: str) -> float:
@@ -571,24 +598,68 @@ def ticks_de_reserve_ville_affamee(jours: int) -> float:
 # par kg de déficit alimentaire cumulé par habitant.
 # Mortalité = population × min(per_capita_deficit × HUNGER_DEATH_SCALE,
 #                              MAX_DEATH_RATE_PER_TICK)
-# Proxy paramétrique — voir MODELE.md.
-HUNGER_DEATH_SCALE = 0.005
+# Il se dit par ration : un jour de ration en dette par tête tue un pour cent des
+# habitants par tick, quelle que soit la ration. Proxy paramétrique — voir MODELE.md.
+MORTALITE_PAR_RATION_DE_DETTE = 0.01
+HUNGER_DEATH_SCALE = MORTALITE_PAR_RATION_DE_DETTE / FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
 
 # Taux de mortalité maximal par tick (plafond) — empêche l'effondrement
 # instantané même avec un déficit extrême.
 MAX_DEATH_RATE_PER_TICK = 0.10
 
-# --- Natalité (fidélité niveau 2) ---
+# --- Natalité et mort ordinaire (fidélité niveau 2) ---
 
-# Naissances par habitant et par tick, sur les seuls ticks où la cellule
-# a mangé sa ration entière sans dette alimentaire — ordre de grandeur
-# plausible niveau 2, jamais sourcé.
-NAISSANCES_PAR_HABITANT_PAR_TICK = 0.0002
+# Les taux annuels de la natalité et de la mort ordinaire vivent dans
+# `jeu/data/population.toml` ; les taux du tick s'en dérivent.
+_CHEMIN_POPULATION = Path(__file__).parents[1] / "data" / "population.toml"
+_CLE_NATALITE_ANNUELLE = "natalite_annuelle"
+_CLE_MORT_ORDINAIRE_ANNUELLE = "mort_ordinaire_annuelle"
+
+# Le contenu de `population.toml` lu dans `une_lecture_de_la_population`, ou None hors de ce contexte.
+_population_de_l_appel = None
 
 
-def naissances_par_habitant_par_tick() -> float:
-    """Relit NAISSANCES_PAR_HABITANT_PAR_TICK à chaque appel (motif 033)."""
-    return NAISSANCES_PAR_HABITANT_PAR_TICK
+@contextmanager
+def une_lecture_de_la_population():
+    """Le temps du bloc (un tick), les lecteurs du fichier par défaut l'ouvrent et l'analysent une
+    seule fois. Un chemin explicite relit toujours son fichier ; à la sortie, la lecture suivante
+    rouvre le fichier."""
+    global _population_de_l_appel
+    _population_de_l_appel = {}
+    try:
+        yield
+    finally:
+        _population_de_l_appel = None
+
+
+def _taux_annuel_de_population(cle, chemin):
+    """Le taux annuel de `cle` dans `population.toml`, dans [0, 1]."""
+    lecture = _population_de_l_appel if chemin is None else None
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_POPULATION
+    return _part_du_fichier(cle, chemin, lecture)
+
+
+def naissances_par_habitant_par_tick(chemin=None) -> float:
+    """
+    Naissances par habitant et par tick d'un lieu nourri sans dette : la natalité annuelle
+    de `jeu/data/population.toml`, ramenée au tick.
+
+    Relit le fichier à chaque appel, une seule fois dans `une_lecture_de_la_population`.
+    Refuse, en nommant la clé et le fichier, un fichier ou une clé absents, un booléen,
+    une chaîne et un nombre hors de [0, 1].
+    """
+    annuel = _taux_annuel_de_population(_CLE_NATALITE_ANNUELLE, chemin)
+    return annuel / CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
+
+
+def morts_ordinaires_par_habitant_par_tick(chemin=None) -> float:
+    """
+    Morts ordinaires par habitant et par tick, faim ou non : la mort ordinaire annuelle de
+    `jeu/data/population.toml`, ramenée au tick. Mêmes lectures et mêmes refus que
+    `naissances_par_habitant_par_tick` ; 0 coupe la mort ordinaire.
+    """
+    annuel = _taux_annuel_de_population(_CLE_MORT_ORDINAIRE_ANNUELLE, chemin)
+    return annuel / CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 
 # --- Amorçage initial ---
 
@@ -611,6 +682,11 @@ def naissances_par_habitant_par_tick() -> float:
 # bouche que sa terre nourrit, et perdait 86 % de ses habitants la première
 # année simulée. Ce n'était pas une famine émergente, c'était l'amorçage.
 PART_SOUTENABLE_AMORCEE = 0.8
+
+# La clé de la part cultivée dans l'enregistrement d'une cellule de la carte en mémoire :
+# `World.charger` la dérive de `data/population-1400.json`, comme la pluie et la crue,
+# et ni `/carte` ni la sauvegarde ne la servent.
+CLE_PART_CULTIVEE = "part_cultivee"
 
 # Variation aléatoire autour de la densité nominale lors de l'amorçage.
 SEED_POPULATION_VARIATION_LOW = 0.9
@@ -734,10 +810,9 @@ def une_lecture_des_departs():
         _departs_de_l_appel = None
 
 
-def _lire_cle_departs(cle, chemin):
-    """La valeur brute de `cle` dans `departs.toml`, ou une `ValueError` qui nomme la clé et le fichier."""
-    lecture = _departs_de_l_appel if chemin is None else None
-    chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
+def _lire_cle_du_fichier(cle, chemin, lecture):
+    """La valeur brute de `cle` dans le fichier TOML `chemin`, ou une `ValueError` qui nomme la
+    clé et le fichier. `lecture` (un dictionnaire, ou None) garde le fichier déjà analysé."""
     ou = f"{cle} ({chemin.name})"
     if lecture:
         donnees = lecture["donnees"]
@@ -754,14 +829,21 @@ def _lire_cle_departs(cle, chemin):
     return donnees[cle], ou
 
 
-def _part_de_departs(cle, chemin):
-    """La part de `cle` dans `departs.toml` ; refuse un booléen, une chaîne et un nombre hors de [0, 1]."""
-    valeur, ou = _lire_cle_departs(cle, chemin)
+def _part_du_fichier(cle, chemin, lecture):
+    """La part de `cle` dans le fichier ; refuse un booléen, une chaîne et un nombre hors de [0, 1]."""
+    valeur, ou = _lire_cle_du_fichier(cle, chemin, lecture)
     if isinstance(valeur, bool) or not isinstance(valeur, (int, float)):
         raise ValueError(f"{ou} : un nombre attendu, pas {valeur!r}")
     if not 0 <= valeur <= 1:
         raise ValueError(f"{ou} : un nombre dans [0, 1] attendu, pas {valeur}")
     return valeur
+
+
+def _part_de_departs(cle, chemin):
+    """La part de `cle` dans `departs.toml`, lu une fois dans `une_lecture_des_departs`."""
+    lecture = _departs_de_l_appel if chemin is None else None
+    chemin = Path(chemin) if chemin is not None else _CHEMIN_DEPARTS
+    return _part_du_fichier(cle, chemin, lecture)
 
 
 def taux_annuel_de_depart(chemin=None):
@@ -788,9 +870,8 @@ def plafond_annuel_de_depart(chemin=None):
     return _part_de_departs(_CLE_PLAFOND_ANNUEL_DE_DEPART, chemin)
 
 # --- Entrée en ligne de commande (python -m sim) ---
-# Un an calendaire de ticks, dérivé de la base de temps unique : jamais un
-# second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.
-CALENDAR_DAYS_PER_YEAR = 365
+# Un an calendaire de ticks (CALENDAR_DAYS_PER_YEAR, défini avec la base de temps) :
+# jamais un second littéral de durée. TICK_DURATION_DAYS vaut 1 aujourd'hui.
 
 # Année de départ du calendrier simplifié (niveau 2) ; cadre produit 1400-1900.
 ANNEE_INITIALE = 1400
@@ -821,8 +902,9 @@ def date_de_tick(ticks_ecoules: int) -> dict[str, int]:
 DEFAULT_CLI_TICKS = CALENDAR_DAYS_PER_YEAR * TICK_DURATION_DAYS
 DEFAULT_CLI_SEED = 0
 
-# Part du seigneur : niveau 2 ; 0,03 : −0,96 % en un an, 0,04 : −1,39 %, graine 0, convois compris.
-PART_COUTUMIERE = 0.03
+# Part du seigneur : niveau 2 ; la plus haute part au centième qui coûte au plus 1 % des habitants en un an,
+# graine 0, bras calibrés, départs actifs, convois compris : 0,05 en coûte 0,71 %, 0,06 en coûte 1,004 %.
+PART_COUTUMIERE = 0.05
 # Niveau 2, plausible : cette part de chaque arrivage repart au suzerain.
 PART_DUE_AU_SUZERAIN = 0.10
 # Niveau 2, plausible : charretiers et bêtes mangent cette part de la charge par jour.
