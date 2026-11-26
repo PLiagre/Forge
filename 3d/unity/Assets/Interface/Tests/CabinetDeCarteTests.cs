@@ -583,14 +583,14 @@ namespace Forge.Interface.Tests
             Survoler(muet, Centre(muet)); Assert.That(Feuillets(), Is.Empty, "un bouton sans Infobulle montre un feuillet");
         }
         // L'infobulle d'un lieu dit d'abord son pays, puis le lieu, sa province et son seigneur, et n'efface pas la phrase d'un bouton.
-        static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"m-1\":{\"nom\":\"de Basse Haie\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"m-1\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
+        static DocumentDuMonde DocTerre(long cell, string nom, int tick = 8, int jour = 9) => new DocumentDuMonde("{\"tick\":" + tick + ",\"cell_id\":" + cell + ",\"date\":{\"annee\":1400,\"jour_de_l_annee\":" + jour + "},\"population\":12345,\"noms\":{\"maisons\":{\"grande-60\":{\"nom\":\"Wittelsbach-Straubing\",\"prenom_chef\":null,\"sorte\":\"grande maison\"}}},\"lieux\":[{\"rang\":0,\"nom\":\"" + nom + "\",\"population\":12000,\"surface_km2\":12,\"maitre\":\"grande-60\",\"stocks\":{\"nourriture\":1234.5},\"flux_30j\":null}]}");
         static async System.Threading.Tasks.Task Fin(LectureDossier lecture) { for (int i = 0; i < 40 && lecture.EnCours; i++) await System.Threading.Tasks.Task.Yield(); Assert.That(lecture.EnCours, Is.False, lecture.Cle); }
         async System.Threading.Tasks.Task<(InfobulleDeTerre bulle, CelluleDeCarte terre)> Montrer20()
         {
             var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; var terre = Terre(20, "Bourg témoin"); bulle.Terres = DossierTerritoireTests.Terres;
             var porte = new System.Threading.Tasks.TaskCompletionSource<DocumentDuMonde>(); bulle.Lecture = new LectureDossier(_ => porte.Task);
             bulle.Pas(O, terre, 0); porte.SetResult(DocTerre(20, "Bourg témoin")); await Fin(bulle.Lecture); bulle.Pas(O, terre, 0.5);
-            Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut\n")); return (bulle, terre);
+            Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut · ")); return (bulle, terre);
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleDUnLieuDitSonPaysPuisLeLieuSaProvinceEtSonSeigneur()
         {
@@ -607,9 +607,9 @@ namespace Forge.Interface.Tests
             Assert.That(bulle.TexteAffiche, Does.StartWith(DossierTerritoire.PAYS_EN_LECTURE + "\nBourg témoin : "), "le lieu attend les terres");
             // Les terres lues : le pays du lieu passe devant, le seigneur local vient en dernier.
             bulle.Terres = DossierTerritoireTests.Terres; bulle.Pas(O, t20, 0.6);
-            string attendu = "Hainaut\nEnsemble : Saint-Empire\nHainaut : " + TexteDuMonde.Nombre(250000) + " habitants\nBourg témoin : " + TexteDuMonde.Nombre(12000)
-                + " habitants dans ce lieu\nProvince de Bourg témoin : " + TexteDuMonde.Nombre(12345) + " habitants\nSeigneur : Maison de Basse Haie";
-            Assert.That(bulle.TexteAffiche, Is.EqualTo(attendu)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("jour 9").And.Not.Contain("Maison :").And.Not.Contain("dans le territoire"));
+            string attendu = "Hainaut · Saint-Empire · " + TexteDuMonde.Nombre(250000) + " habitants\nBourg témoin : " + TexteDuMonde.Nombre(12000)
+                + " habitants dans ce lieu\nProvince de Bourg témoin · " + TexteDuMonde.Nombre(12345) + " habitants\nSeigneur : maison Wittelsbach-Straubing";
+            Assert.That(bulle.TexteAffiche, Is.EqualTo(attendu)); Assert.That(bulle.TexteAffiche, Does.Not.Contain("jour 9").And.Not.Contain("Maison").And.Not.Contain("dans le territoire"));
             var toile = racine.transform.Find("Cabinet"); var feuillets = toile.GetComponentsInChildren<RectTransform>().Where(t => t.name == "Infobulle").ToArray();
             Assert.That(feuillets.Length, Is.EqualTo(1)); Assert.That(feuillets[0].GetComponentInChildren<Text>().text, Is.EqualTo(attendu));
             int n = chemins.Count; bulle.Pas(O, t20, 1); Assert.That(chemins, Has.Count.EqualTo(n)); bulle.Pas(O, t20, 2.3); Assert.That(chemins, Is.EqualTo(new[] { "/lieu?cell=10", "/lieu?cell=20", "/lieu?cell=20" }));
@@ -618,17 +618,18 @@ namespace Forge.Interface.Tests
         [Test] public void LInfobulleParleAuGrainDuLieu()
         {
             var terres = DossierTerritoireTests.Terres(); var pampelune = DossierTerritoireTests.Lieu(DossierTerritoireTests.PAMPELUNE, "Pampelune");
-            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 2), Does.StartWith("Castille\nCastille : ").And.Contain("\nHameau témoin : ").And.EndWith("Seigneur : Maison de Lerín"));
-            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 0), Does.StartWith("Navarre\nNavarre : ").And.EndWith("Seigneur : Maison de Basse Haie"));
-            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.BORDEAUX, "Bordeaux"), terres, DossierTerritoireTests.BORDEAUX, 0), Does.StartWith("Guyenne\nSuzerain : Angleterre\n"));
-            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.AVIGNON, "Avignon"), terres, DossierTerritoireTests.AVIGNON, 0), Does.StartWith("États de l'Église\n").And.Not.Contain("Suzerain"));
-            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.SANS_PAYS, "Bourg libre"), terres, DossierTerritoireTests.SANS_PAYS, 0), Does.StartWith(DossierTerritoire.SANS_ETAT + "\n"));
+            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 2), Does.StartWith("Castille · ").And.Contain("\nHameau témoin : ").And.Contain("\nProvince de Pampelune · partagée : Navarre et Castille · ").And.EndWith(DossierTerritoire.SEIGNEUR_LOCAL));
+            Assert.That(InfobulleDeTerre.Decrire(null, pampelune, terres, DossierTerritoireTests.PAMPELUNE, 0), Does.StartWith("Navarre · ").And.EndWith("Seigneur : maison Wittelsbach-Straubing"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.BORDEAUX, "Bordeaux"), terres, DossierTerritoireTests.BORDEAUX, 0), Does.StartWith("Guyenne · vassal d'Angleterre · "));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.AVIGNON, "Avignon"), terres, DossierTerritoireTests.AVIGNON, 0), Does.StartWith("États de l'Église · ").And.Not.Contain("vassal"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.SANS_PAYS, "Bourg libre"), terres, DossierTerritoireTests.SANS_PAYS, 0), Does.StartWith(DossierTerritoire.SANS_ETAT + " · " + DossierTerritoire.AUCUN_PAYS + " · " + DossierTerritoire.ON_NE_LA_JOUE_PAS + "\n"));
+            Assert.That(InfobulleDeTerre.Decrire(null, DossierTerritoireTests.Lieu(DossierTerritoireTests.DESERT, "Le Souf"), terres, DossierTerritoireTests.DESERT, 0), Does.StartWith("Terre sans État · Tribus du désert · on ne la joue pas\n"));
             // Le rang survolé passe à l'infobulle, qui se récrit quand il change sans changer de terre.
             var bulle = racine.GetComponent<InfobulleDeTerre>(); bulle.automatique = true; bulle.Terres = () => terres;
             bulle.Lecture = new LectureDossier(_ => System.Threading.Tasks.Task.FromResult(pampelune)); var terre = Terre(DossierTerritoireTests.PAMPELUNE, "Pampelune");
             var ici = new Vector2(620, 300); // à droite de l'écran de test : le feuillet du lieu, plus large, se pose à sa gauche
             bulle.Pas(ici, terre, 0, 2); for (int i = 0; i < 40 && bulle.Lecture.EnCours; i++) System.Threading.Thread.Sleep(5); bulle.Pas(ici, terre, 0.1, 2);
-            Assert.That(bulle.TexteAffiche, Does.StartWith("Castille\n")); bulle.Pas(ici, terre, 0.2, 0); Assert.That(bulle.TexteAffiche, Does.StartWith("Navarre\n"));
+            Assert.That(bulle.TexteAffiche, Does.StartWith("Castille · ")); bulle.Pas(ici, terre, 0.2, 0); Assert.That(bulle.TexteAffiche, Does.StartWith("Navarre · "));
         }
         [Test] public async System.Threading.Tasks.Task LInfobulleDeLaTerreLaisseLaPhraseDUnBouton()
         {
@@ -640,7 +641,7 @@ namespace Forge.Interface.Tests
             Assert.That(feuillet.gameObject.activeInHierarchy && feuillet.GetComponentInChildren<Text>().text == phrase && bulle.TexteAffiche == null, Is.True, feuillet.GetComponentInChildren<Text>().text);
             UnityEngine.EventSystems.ExecuteEvents.Execute(bouton.gameObject, new UnityEngine.EventSystems.PointerEventData(null) { position = centre }, UnityEngine.EventSystems.ExecuteEvents.pointerExitHandler);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False);
-            bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut\n")); bulle.Pas(O, null, 1);
+            bulle.Pas(O, terre, 1); Assert.That(bulle.TexteAffiche, Does.StartWith("Hainaut · ")); bulle.Pas(O, null, 1);
             Assert.That(toile.GetComponentsInChildren<RectTransform>().Any(t => t.name == "Infobulle"), Is.False); Assert.That(racine.GetComponentsInChildren<Canvas>().Length, Is.EqualTo(1));
         }
         // L'infobulle d'une terre ajoute, au même tick, les lignes de `/modificateurs` pour son bourg ; elle les lit, elle ne les calcule pas.
