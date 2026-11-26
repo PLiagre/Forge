@@ -106,9 +106,10 @@ def valider_personnages(personnages, chefs, maisons, catalogue, noms):
     exiger(chefs == {i: lien for i, _, lien in attendus})
 
 
-def construire_personnages(monde):
+def construire_personnages(monde, places=None):
+    """Les personnes du monde et le chef de chaque maison ; `places` (`places_du_monde`) se repasse quand elles sont lues."""
     catalogue = charger_catalogue(monde.maisons)
-    noms = {i: f for v in noms_depuis_monde(monde).values() for i, f in v['maisons'].items()}
+    noms = {i: f for v in noms_depuis_monde(monde, places=places).values() for i, f in v['maisons'].items()}
     attendus = list(_attendus(monde.maisons, catalogue, noms))
     return tuple(_avec_familles([p for _, p, _ in attendus if p is not None], catalogue)), {i: lien for i, _, lien in attendus}
 

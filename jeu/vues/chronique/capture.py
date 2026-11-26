@@ -170,7 +170,7 @@ def _image_du_monde(world: World, numero_tick: int, places: dict | None = None, 
 
     repartitions = bourg_depuis_monde(world)
     places = places_du_monde(world) if places is None else places
-    noms = noms_depuis_monde(world) if noms is None else noms
+    noms = noms_depuis_monde(world, places=places) if noms is None else noms
     flux = flux_des_lieux(world)
     colonnes: dict[str, list] = {champ: [] for champ in CHAMPS_MOBILES}
     for identifiant, cellule in sorted(
