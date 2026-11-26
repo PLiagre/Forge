@@ -4983,3 +4983,26 @@ def test_familles_historiques_achevement(tmp_path):
     chemin.write_text(json.dumps(copie), encoding='utf-8')
     with pytest.raises(ValueError): p.charger_catalogue(monde.maisons, chemin)
     with pytest.raises(AssertionError): _achevement(copie['etats'], d['chefs'], monde.maisons)
+
+
+def test_le_maitre_du_lieu_de_constantinople_est_paleologue():
+    """Le lieu le plus proche de Constantinople, dans sa cellule, a pour maître la grande maison Paléologue, qui y
+    a sa capitale : c'est le bourg ; un lieu ottoman de la même cellule relève d'Osman."""
+    from sim.places import places_du_monde
+    monde = World.charger(0)
+    places, registre = places_du_monde(monde), {m.id: m for m in monde.maisons}
+    ids = {m.nom: f"grande-{m.id}" for m in charger_maisons().maisons}
+
+    def maitre_et_suzerain(lat, lon):
+        x, y = projeter_epsg3035(lat, lon)
+        cid = next(c for c in sorted(monde.carte) if point_dans_geometrie(x, y, monde.carte[c]["geometry"]))
+        rang = min(range(len(places[cid])), key=lambda r: ((places[cid][r].x_m - x) ** 2 + (places[cid][r].y_m - y) ** 2, r))
+        maitre = monde.cells[cid].lieux[rang].maitre
+        return cid, rang, maitre, registre[maitre].suzerain
+
+    capitale = next(c for c in charger_capitales() if c.nom == "Constantinople")
+    cid, rang, maitre, _ = maitre_et_suzerain(capitale.lat, capitale.lon)
+    assert (cid, rang, maitre) == (cellule_de_capitale(capitale, monde.carte), 0, ids["Paléologue"])
+    # Contre-épreuve : le même point posé à Çorlu, dans la même cellule, tombe sur un seigneur des Ottomans.
+    autre, _, maitre, suzerain = maitre_et_suzerain(41.16, 27.8)
+    assert autre == cid and maitre != ids["Paléologue"] and suzerain == ids["Osman"]

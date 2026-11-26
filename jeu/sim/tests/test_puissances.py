@@ -592,3 +592,32 @@ def test_les_ancres_sont_des_points_et_ne_decident_aucune_cellule():
             dataclasses.replace(a, lat=lat, lon=lon) if a.nom == "Constantinople" else a for a in table.ancres))
         assert puissances_depuis_monde(monde, table=alteree) == vue
     print(f"Byzance={comptes[ids['Byzance']]}, Ottomans={comptes[ids['Ottomans']]}, hors_carte={hors}")
+
+
+def _puissance_du_lieu_de(monde, places, vue, lieux, x, y):
+    """La puissance du lieu dont la place est la plus proche du point (x, y), dans la cellule qui le contient :
+    celle de sa ville de partage dans une cellule partagée, sinon celle de sa cellule."""
+    from sim.villes import point_dans_geometrie
+    cid = next(c for c in sorted(monde.carte) if point_dans_geometrie(x, y, monde.carte[c]["geometry"]))
+    rang = min(range(len(places[cid])), key=lambda r: ((places[cid][r].x_m - x) ** 2 + (places[cid][r].y_m - y) ** 2, r))
+    return lieux.get((cid, rang), vue[cid])
+
+
+def test_le_lieu_de_constantinople_est_byzantin():
+    """La cellule de Constantinople est partagée entre Byzance (Constantinople, Sélymbria) et les Ottomans (Çorlu,
+    Kırk Kilise) : le lieu le plus proche de la ville est byzantin, au point de `villes-1400.json` comme à celui
+    de la table des frontières."""
+    from sim.places import places_du_monde
+    from sim.projection import projeter_epsg3035
+    from sim.villes import charger_villes
+    monde, table = World.charger(0), charger_table()
+    places, vue, lieux = places_du_monde(monde), puissances_depuis_monde(monde), puissances_des_lieux(monde)
+    ids = {p.nom: p.id for p in table.puissances}
+    ville = next(v for v in charger_villes() if v.nom == "Constantinople")
+    partage = {v.nom: v for villes in charger_frontieres().partages.values() for v in villes}
+    points = [(ville.x_m, ville.y_m), projeter_epsg3035(partage["Constantinople"].lat, partage["Constantinople"].lon)]
+    assert points and all(_puissance_du_lieu_de(monde, places, vue, lieux, *p) == ids["Byzance"] for p in points)
+    # Contre-épreuve : le même point posé à Çorlu ou à Kırk Kilise tombe chez les Ottomans.
+    for nom in ("Çorlu", "Kırk Kilise"):
+        point = projeter_epsg3035(partage[nom].lat, partage[nom].lon)
+        assert _puissance_du_lieu_de(monde, places, vue, lieux, *point) == ids["Ottomans"]

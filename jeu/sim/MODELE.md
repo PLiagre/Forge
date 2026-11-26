@@ -1908,7 +1908,11 @@ La maison tenante de chaque cellule est celle de son pays (`par_puissance`), que
 table des frontières décide ; une république, une Église, un ordre ou une lacune
 n'en ont pas. `maisons_depuis_monde` ne lit aucune ancre : échanger ou déplacer une
 ancre ne change la maison d'aucune cellule. La cellule du point de Constantinople,
-10374, est à Paléologue, la Bithynie (10032) à Osman.
+10374, est à Paléologue, la Bithynie (10032) à Osman. Cette cellule est partagée : 4 de ses
+18 lieux sont byzantins (Constantinople, Sélymbria et leurs campagnes, environ 3 200 km² de
+formes servies) et les 14 autres ottomans (Çorlu, Kırk Kilise). Le lieu dont la place est la
+plus proche de la ville, au point de `villes-1400.json` comme à celui de la capitale, est son
+bourg, au siège des Paléologue, servi à Byzance, et sa forme servie contient la ville.
 Sur les 596 cellules figées, **480** sont tenues par une maison, **73** sont
 sans maison par déclaration de nature, et **43** sont sans pays (lacunes, et partages
 dont le bourg est d'une ville sans pays), chacune d'une terre sans État.
