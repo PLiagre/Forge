@@ -35,7 +35,7 @@ namespace ForgeLocal3D.Captures
         const float TOLERANCE_DU_CENTRE_KM = 5f;
         // La coupe de l'est de l'Anatolie : son milieu tombe dans ce rectangle d'EPSG:3035 (mètres), et la vue s'y cadre sur 180 km de demi-hauteur ;
         // le papier et la terre se comptent sur une grille de l'écran, chacun pour au moins une part des points.
-        const double ANATOLIE_X_MIN = 6340000, ANATOLIE_X_MAX = 6520000, ANATOLIE_Y_MIN = 1880000, ANATOLIE_Y_MAX = 2440000;
+        internal const double ANATOLIE_X_MIN = 6340000, ANATOLIE_X_MAX = 6520000, ANATOLIE_Y_MIN = 1880000, ANATOLIE_Y_MAX = 2440000;
         const float DEMI_DU_BORD_KM = 180f, PART_MIN_DE_LA_GRILLE = 0.05f; const int PAS_DE_LA_GRILLE_PX = 80;
         // La levée de la photo des guerres : la caserne s'attend par paquets de jours, au plus `JOURS_MAX_DE_LA_CASERNE` ; puis une
         // armée d'au plus `HOMMES_LEVES` hommes, avec des vivres pour `JOURS_DE_VIVRES` jours, au plus une part du grain libre servi.
