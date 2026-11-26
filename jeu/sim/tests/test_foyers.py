@@ -836,6 +836,10 @@ def test_bras_suffisent_un_an(monkeypatch, numerote):
                   f"écart_récolte={altere[1] / temoin[1] - 1:.6%}")
 
 
+# La valeur livrée des bras, telle que MODELE.md l'écrit (virgule décimale).
+_BRAS_ECRITS = f"{_constantes.BRAS_AUX_CHAMPS_PAR_KM2:g}".replace(".", ",")
+
+
 def test_documentation_bras(monkeypatch):
     lire = pathlib.Path.read_text
     chemin = pathlib.Path(__file__).parents[1] / "MODELE.md"
@@ -844,7 +848,7 @@ def test_documentation_bras(monkeypatch):
         texte = chemin.read_text(encoding="utf-8")
         section = texte.split("## Les foyers par métier\n", 1)[1].split("\n## ", 1)[0]
         for attendu in ("BRAS_AUX_CHAMPS_PAR_KM2", "km² cultivés", "niveau 2", "du lieu", "saison", "0,1",
-                        "Le tick ne lit les métiers que pour la récolte", "6,2", "médiane", "maximum annuel"):
+                        "Le tick ne lit les métiers que pour la récolte", _BRAS_ECRITS, "médiane", "maximum annuel"):
             assert attendu in section
         reste = texte.split("## Ce que le moteur ne fait pas encore\n", 1)[1].split("\n## ", 1)[0]
         assert "aucun nombre du tick ne les lit" not in " ".join(reste.split())
@@ -852,7 +856,7 @@ def test_documentation_bras(monkeypatch):
         travail = reste.split("**répartir le travail.**", 1)[1].split("\n- ", 1)[0]
         assert "moisson" in travail
 
-    for ancien, nouveau in (("6,2", "valeur retirée"), ("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
+    for ancien, nouveau in ((_BRAS_ECRITS, "valeur retirée"), ("saison", "période"), ("BRAS_AUX_CHAMPS_PAR_KM2", "constante retirée"),
                             ("Le tick ne lit les métiers que pour la récolte",
                              "Le tick ne lit pas les métiers")):
         def texte_altere(path, *args, **kwargs):

@@ -360,19 +360,20 @@ def _verifier_modele_calibration(section, habitants):
     assert 'provisoirement' not in section
 
 
-@pytest.mark.parametrize("bras", [0.1, 6.2], ids=["historique", "calibre"])
+@pytest.mark.parametrize("bras", [0.1, c.BRAS_AUX_CHAMPS_PAR_KM2], ids=["historique", "calibre"])
 def test_modele_calibration_de_la_part_coutumiere(monkeypatch, bras):
     monkeypatch.setattr(c, "BRAS_AUX_CHAMPS_PAR_KM2", bras)
     monkeypatch.setattr(c, 'taux_annuel_de_depart', lambda: 0)
     part = c.PART_COUTUMIERE
     habitants = {p: _habitants_apres_un_an(p) for p in (0, part, round(part + 0.01, 2))}
     section = _section_prelevement((SIM / 'MODELE.md').read_text())
-    marqueur = '**Calibration de la part coutumière à 6,2, sans départs.**'
+    calibres = f'{c.BRAS_AUX_CHAMPS_PAR_KM2:g}'.replace('.', ',')
+    marqueur = f'**Calibration de la part coutumière à {calibres}, sans départs.**'
     historique, calibree = section.split(marqueur, 1)
     section = historique if bras == 0.1 else marqueur + calibree.split('**Mesures avec départs actifs.**', 1)[0]
     _verifier_modele_calibration(section, habitants)
     _verifier_calibration(part, habitants)
-    if bras == 6.2:
+    if bras == c.BRAS_AUX_CHAMPS_PAR_KM2:
         for population in habitants.values():
             assert str(population) in section
     coutume = f'{part:.2f}'.replace('.', ',')

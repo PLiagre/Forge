@@ -44,8 +44,9 @@ part. À chaque tick, dans cet ordre :
 6. **Extraction** (`_apply_extraction`) — chaque gisement de la cellule sort
    des kilogrammes de sa ressource et les dépose dans le panier de la cellule.
 7. **Production** (`_apply_production`, `_apply_production_saison_moyenne`) —
-   la cellule produit de la nourriture proportionnellement à sa surface,
-   multipliée par un aléa de rendement du tick, par le facteur de sa classe de
+   la cellule produit de la nourriture proportionnellement à sa surface
+   cultivée (sa surface, moins ce que la région de la cellule ne met pas en
+   culture), multipliée par un aléa de rendement du tick, par le facteur de sa classe de
    relief — une montagne ne produit pas comme une plaine —, par le
    `facteur_eau` de l'eau de la cellule — sa pluie plus la crue du fleuve — et
    par le facteur de saison du jour, tiré de la durée du jour de la cellule :
@@ -73,7 +74,8 @@ part. À chaque tick, dans cet ordre :
 11. **Faim** (`_update_hunger`) — une cellule qui a *manqué* ce tick voit
    `hunger_ticks` monter ; une cellule ravitaillée exactement à son besoin,
    non.
-12. **Mortalité** (`_apply_mortality`) — chaque lieu meurt de sa propre dette,
+12. **Mortalité** (`_apply_mortality`) — chaque lieu habité meurt chaque jour
+    d'une mort ordinaire, plus de sa propre dette,
     avec son report de fraction pour ne pas devenir immortel par arrondi ;
     sans lieux, le calcul reste cellulaire.
 13. **Natalité** (`_apply_natalite`) — chaque lieu rassasié et sans dette gagne
@@ -100,8 +102,9 @@ est désormais détenu par `World.maisons` : chargé une fois, il figure dans
 `to_dict()` et n'est jamais lu au tick. Chaque maison a en outre son grenier
 dans `World.greniers`, lu tel quel par le tick. Le nombre et les surfaces des **lieux**
 se dérivent de la surface de la cellule ; ses lieux portent désormais leur population et leur
-panier sur `Cell`. Le tick lit la pluie et la crue dans la carte, jamais dans
-leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
+panier sur `Cell`. La **part cultivée** de chaque cellule se dérive de la table des régions et
+entre dans la carte de la même façon. Le tick lit la pluie, la crue et la part
+cultivée dans la carte, jamais dans leurs vues ; il ne consomme ni la vue des provinces, ni celle des puissances,
 ni celle des maisons. Il lit les habitants et paniers des lieux pour
 limiter la distribution intérieure ; chaque maillon tient ensuite ses
 écritures locales et cellulaires, sans partage général en fin de tick.
@@ -436,7 +439,9 @@ population = max(population_rurale, somme_des_villes_contenues)
 
 où `variation = rng.uniform(SEED_POPULATION_VARIATION_LOW, SEED_POPULATION_VARIATION_HIGH)`.
 `population_soutenable_de` se dérive de l'unique formule de production, au
-rendement et à la saison moyens. Le monde en relève la valeur une fois, à
+rendement et à la saison moyens, sur la terre que la cellule met en culture :
+elle porte donc la part cultivée de la cellule (« La table des régions et la
+part cultivée », plus bas). Le monde en relève la valeur une fois, à
 l'amorçage (`World.populations_soutenables`) : le commerce la lit pour
 reconnaître une cellule affamée (« Besoin, surplus et allocation »).
 
@@ -449,13 +454,83 @@ reconnaître une cellule affamée (« Besoin, surplus et allocation »).
 | `SEED_POPULATION_VARIATION_HIGH` | 1.1 | — | Variation maximale autour de la densité nominale (±10 %) |
 
 **Conséquence à connaître : le monde démarre selon ce qu'il nourrit.** La
-population rurale initiale suit le relief, la saison moyenne, la part laissée à
-l'agriculture par les mines et le `facteur_eau`. Le désert s'amorce presque
+population rurale initiale suit le relief, la saison moyenne, la part cultivée,
+la part laissée à l'agriculture par les mines et le `facteur_eau`. Le désert s'amorce presque
 vide ; la variation de plus ou moins dix pour cent ne remplace pas cette
 géographie, elle s'y applique. Les villes historiques peuvent dépasser la
 capacité nourricière locale ; leurs habitants ne s'ajoutent pas au proxy
 rural, ce qui évite un double compte. Plusieurs villes dans une cellule se
 cumulent. Leur plancher ne s'applique qu'une fois, à l'amorçage.
+
+### La table des régions et la part cultivée
+
+`data/population-1400.json` (lue par `sim/regions.py`) réunit les pays de 1400
+en **13 grandes régions** : France, Îles Britanniques, Italie, Ibérie, Empire,
+Pologne et Lituanie, Russie, Hongrie, Balkans, Anatolie, Maghreb, Égypte,
+Scandinavie. Chaque région réunit des puissances de 1400 et des terres sans
+État de la table des frontières ; chaque puissance et chaque terre sans État
+est dans une région et une seule. Sa liste `cellules` fait passer une cellule
+à la région qui la nomme, quel que soit son pays : les Ottomans d'Europe et les
+îles vénitiennes et génoises de Grèce vont aux Balkans, la Corse et la Lorraine
+à la France, la Sardaigne et le Piémont à l'Italie, la Flandre à l'Empire, le
+Gotland à la Scandinavie.
+Une cellule n'est nommée que par une région, et la région qui en nomme une dit
+sa raison.
+
+**Niveau 1 pour le total de chaque région, à un tiers près.** Sa cible
+d'habitants vers 1400 se dérive de sa composition en pays d'aujourd'hui :
+HYDE 3.3 (Our World in Data), qui reprend McEvedy et Jones (1978) avant 1700 ;
+l'Irlande vient d'Urlanis (1941), par l'article Medieval demography. Un pays
+que la carte ne couvre qu'en partie compte à la surface couverte (Turquie,
+Russie, Ukraine, Roumanie), l'Égypte aux deux tiers (le Caire et le Delta,
+niveau 2). Les habitants d'une région tiennent dans la fourchette
+[2/3, 4/3] de sa cible ; la Lituanie est moins de moitié aussi dense que la
+France.
+
+**Niveau 2 pour la part cultivée.** La table ne pose aucun habitant : elle
+règle la `part_cultivee` de chaque région, la part de sa terre mise en culture,
+calibrée pour que les habitants dérivés de la production tombent près de la
+cible. Parts calibrées : Égypte 0,518 ; Italie 0,347 ; France 0,222 ;
+Empire 0,199 ; Ibérie 0,164 ; Anatolie 0,149 ; Maghreb 0,139 ; Îles
+Britanniques 0,111 ; Hongrie 0,083 ; Balkans 0,080 ; Pologne et Lituanie
+0,052 ; Scandinavie 0,030 ; Russie 0,020.
+
+Une cellule prend la part de sa région : la région qui la nomme, sinon celle de
+son pays (cellule déclarée), sinon celle de la terre sans État de sa lacune ;
+une cellule partagée prend la moyenne des parts des régions de ses villes de
+partage, une par ville, dans l'ordre déclaré (niveau 2). Une cellule de la
+carte sans région est refusée : sa part ne se devine pas.
+
+`World.charger` dérive la part une fois et la pose dans une copie de
+l'enregistrement de carte de la cellule (clé `part_cultivee`,
+`constants.CLE_PART_CULTIVEE`), comme la pluie et la crue ; `World.parts_cultivees`
+la garde. Ni `/carte`, ni la photographie, ni la sauvegarde ne la servent, et la
+carte lue sur disque n'est pas touchée. Le moteur la lit dans l'enregistrement ;
+une part absente, booléenne, non finie ou hors de ]0, 1] lève
+`PartCultiveeInvalideError`.
+
+Habitants des lieux sur `World.charger(0)`, par région (la cible entre
+parenthèses) :
+
+| Région | Habitants | Cible |
+|---|---|---|
+| France | 10 921 431 | 10 930 934 |
+| Îles Britanniques | 3 617 579 | 3 603 873 |
+| Italie | 8 014 296 | 8 014 110 |
+| Ibérie | 6 323 129 | 6 327 465 |
+| Empire | 11 898 078 | 11 869 396 |
+| Pologne et Lituanie | 5 873 692 | 5 906 713 |
+| Russie | 718 725 | 722 526 |
+| Hongrie | 2 743 455 | 2 755 195 |
+| Balkans | 4 185 973 | 4 206 708 |
+| Anatolie | 2 653 299 | 2 648 329 |
+| Maghreb | 4 456 594 | 4 470 000 |
+| Égypte | 2 697 791 | 2 700 000 |
+| Scandinavie | 1 113 469 | 1 133 788 |
+
+Le total est de 65 217 511 habitants. `sim/tests/test_population_de_1400.py` le
+prouve : chaque région tient dans sa fourchette, et la Lituanie est moins de
+moitié aussi dense que la France.
 
 ### Déterminisme
 
@@ -508,7 +583,7 @@ paysans.
 **Le tick ne lit les métiers que pour la récolte et pour le chantier**.
 Ateliers lit aussi les métiers pour affecter les artisans ; Fabrication les lit pour leur budget de matière.
 Le métier `ouvriers` reçoit les paysans envoyés aux chantiers pour ce tick.
-Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × facteur_agricole`
+Les km² cultivés valent `area_km2 × facteur_relief × facteur_eau × part_cultivee × (1 − part minière)`
 (sans carte : `area_km2`). Chaque surface du lieu demande
 `km² cultivés du lieu × BRAS_AUX_CHAMPS_PAR_KM2 × facteur de saison` bras.
 La saison est celle du jour explicite (jour 0 compris), la moyenne annuelle pour le chemin moyen,
@@ -519,18 +594,19 @@ Sans lieux, besoin saisonnier et paysans se calculent sur la cellule. Sous le se
 de récolte ; au-dessus, le facteur vaut exactement 1 et rien ne change.
 Métiers non calculés (`-1`) ou bras requis nuls : facteur 1, récolte inchangée.
 La règle est de **niveau 2**, plausible, jamais sourcée.
-`BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` est relue à chaque appel.
+`BRAS_AUX_CHAMPS_PAR_KM2 = 95` est relue à chaque appel.
 Calibrage reproductible sur `World.charger(0)` : pour chaque lieu aux métiers calculés,
 on divise ses paysans par ses km² cultivés multipliés par le maximum annuel du facteur
 de saison de sa cellule (jours 0 à 364). Les km² suivent l'ordre surface du lieu × relief × eau × part agricole.
 Au bourg, on retire les non-paysans de la cellule à sa population, plancher zéro ;
 ailleurs, tous les habitants sont paysans. On garde les dénominateurs strictement positifs.
-La médiane mesurée est 6,204260778 sur 6 619 lieux cultivables ; elle ne se fige pas dans un test.
-À 6,2, la moitié des lieux manquent de bras à la moisson, aucun en janvier,
-et 35 sur le chemin à saison moyenne. Sans chantier, sur un an numéroté,
-la population finale baisse de 0,56 % et la récolte annuelle de 2,47 % face à 0,1,
-sous les bornes de 1 % et 3 %. Sans emprunter les bras voisins, le manque local
-change donc le monde annuel ; à bras suffisants, les octets restent exacts.
+La médiane mesurée est 94,957701623 sur 6 619 lieux cultivables ; elle ne se fige pas dans un test.
+À 95, 3 352 lieux sur 6 619 manquent de bras au pic de leur saison, 1 en janvier,
+et 58 sur le chemin à saison moyenne. Sans chantier, sur un an numéroté,
+`test_foyers.py::test_bras_suffisent_un_an`, joué la nuit, borne à 1 % la perte de
+population finale et à 3 % celle de la récolte annuelle face à 0,1. Sans emprunter
+les bras voisins, le manque local change donc le monde annuel ; à bras suffisants,
+les octets restent exacts.
 En famine, les paysans morts ou partis peuvent réduire la récolte : la famine
 peut s'aggraver d'elle-même.
 L'extraction garde son calcul de part minière ; la vue du bourg compte les métiers.
@@ -614,11 +690,14 @@ pas au point près, le chemin si). C'est un stock réel : il se mange, s'échang
 transporte comme tout grain ; il n'est pas un plancher de survie, et rien ne
 le renouvelle. La perte du grenier des foyers n'est pas simulée (niveau 3) :
 la soudure n'en retire rien ; le jour où elle le sera, elle portera de quoi la
-couvrir. Le stock vaut un nombre entier de kilogrammes (habitants × 2 × 212) :
-stock lu et stock exporté portent la même valeur, sans arrondi.
+couvrir. La ration vaut 0,75 kg de grain par personne et par jour, une
+fraction exacte en binaire : le stock vaut un nombre entier de kilogrammes
+(habitants × 0,75 × 212, soit habitants × 159) ; stock lu et stock exporté
+portent la même valeur, sans arrondi.
 
-**Niveau 1, en ordre de grandeur** : 14,8 Mt pour l'Europe, 58 % de ce
-qu'elle mange en un an, les sept douzièmes d'une récolte rentrée au 1er août.
+**Niveau 1, en ordre de grandeur** : 10,37 Mt pour l'Europe (65 217 511
+habitants × 159 kg), 58 % de ce qu'elle mange en un an (17,85 Mt), les sept
+douzièmes d'une récolte rentrée au 1er août.
 **Niveau 2** : la date de la moisson, une seule pour toute la carte (le blé de
 l'Europe du Nord et du Centre) — la Méditerranée moissonne en juin et
 l'Égypte en avril, une limite déclarée ; la répartition entre cellules et
@@ -629,14 +708,14 @@ premier tick ; celles sans ville restent en outre sous leur plafond local.
 Après ce premier tick, aucune absence de famine n'est garantie.
 
 **Ce que la soudure tient, et ce qu'elle ne tient pas** (graine 0, sans
-joueur, IA active, `sim/tests/test_soudure.py`) : au 365e jour, aucune
-cellule de la table de référence n'a perdu plus de la moitié de ses
-habitants par la faim (la pire, Gand et Bruges, 47 % ; Paris garde 51 % de ses
-habitants). La réserve de cinq jours d'avant faisait mourir de faim 89 % de
-Paris avant le 90e jour, et la contre-épreuve la rejoue. La soudure finie, les
-villes de 1400 retombent dans un manque que le commerce ne comble pas (Paris
-reçoit au plus 41 t par jour pour 417 t de manque) : la tenue sur dix ans est
-n'est pas garantie.
+joueur, IA active, 365 jours, `sim/tests/test_soudure.py`) : au 365e jour,
+aucune cellule de la table de référence n'a perdu plus de la moitié de ses
+habitants par la faim ; la pire, Pise, en perd 8,4 %. Paris n'en perd aucun par
+la faim et garde 94,1 % de ses habitants, le reste partant ou mourant de mort
+ordinaire ;
+le monde passe de 65 217 511 à 64 472 242 habitants. La réserve de cinq jours
+d'avant faisait mourir de faim Paris avant le 90e jour, et la contre-épreuve de
+cinq jours la rejoue.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
 Toutes les autres y entrent par l'extraction.
@@ -645,7 +724,9 @@ Toutes les autres y entrent par l'extraction.
 
 | Constante | Valeur | Unité | Justification |
 |---|---|---|---|
-| `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | 2.0 × TICK_DURATION_DAYS | kg/personne/tick | Ration journalière médiévale approx. 2 kg (céréales + substituts) × 1 jour/tick |
+| `PAIN_KG_PAR_PERSONNE_PAR_JOUR` | 1.0 | kg de pain/personne/jour | Le bas de la fourchette de 1 à 1,5 kg de pain par personne et par jour au XIVe siècle (Wikipédia en anglais, Medieval cuisine) ; niveau 1 en ordre de grandeur |
+| `GRAIN_KG_PAR_KG_DE_PAIN` | 0.75 | kg de grain/kg de pain | Le blutage retire le son, la pâte prend son eau ; niveau 2 |
+| `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` | `PAIN_KG_PAR_PERSONNE_PAR_JOUR` × `GRAIN_KG_PAR_KG_DE_PAIN` × TICK_DURATION_DAYS = 0.75 | kg de grain/personne/tick | 1,0 × 0,75 kg de grain par jour ; 0,75 est exact en binaire, la soudure reste un nombre entier de kilos |
 | `JOUR_DE_LA_MOISSON` | 212 | rang du jour dans l'année | Le 1er août : la moisson du blé rentrée en Europe du Nord et du Centre ; niveau 2. Remplace une réserve de cinq jours de ration plus un mois du manque des villes |
 
 ---
@@ -662,14 +743,19 @@ food_produced = area_km2 × FOOD_PRODUCTION_KG_PER_KM2_PER_TICK × yield_factor
                 × facteur_relief(classe de relief de la cellule)
                 × facteur_eau(pluie_mm_par_an + crue_mm_par_an de la cellule)
                 × facteur_saison(duree_jour)
-                × facteur_agricole(1 − part minière)  # potentiel à bras suffisants
+                × facteur_agricole  # potentiel à bras suffisants
+facteur_agricole = part_cultivee × (1 − part minière)
 ```
 
-Le relief, l'eau, la saison et la part minière sont lus dans la carte. Une
-cellule dont la carte ne porte pas ces données ne se voit pas attribuer une
-valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
-`PluieInvalideError`, `CrueInvalideError` ou `ClimatInvalideError` (règle 10 :
-l'absence ne s'invente pas en silence). Pour la pluie et la crue, il refuse
+`FOOD_PRODUCTION_KG_PER_KM2_PER_TICK` est un rendement net par km² **cultivé** :
+seule la part cultivée de la cellule le porte, et une plaine défrichée ne se
+confond plus avec une forêt.
+
+Le relief, l'eau, la saison, la part cultivée et la part minière sont lus dans
+la carte. Une cellule dont la carte ne porte pas ces données ne se voit pas
+attribuer une valeur par défaut — le moteur refuse, par `ReliefInvalideError`,
+`PluieInvalideError`, `CrueInvalideError`, `ClimatInvalideError` ou
+`PartCultiveeInvalideError` (règle 10 : l'absence ne s'invente pas en silence). Pour la pluie et la crue, il refuse
 aussi `None`, les booléens, les valeurs non numériques, non finies ou
 négatives ; zéro reste une mesure.
 
@@ -689,7 +775,11 @@ supérieure. L'amorçage ne dépend pas des métiers et ne forme pas de cercle.
 
 | Constante | Valeur | Unité | Dérivation |
 |---|---|---|---|
-| `FOOD_PRODUCTION_KG_PER_KM2_PER_TICK` | 18.0 × TICK_DURATION_DAYS | kg/km²/tick | Proxy annuel : ~6 570 kg/km²/an (rendement brut médiéval ~1 800 kg/ha à 36 % de surface cultivée, référence Slicher van Bath 1963) ÷ 365 jours/an × 1 jour/tick ≈ 18.0 |
+| `RENDEMENT_BRUT_KG_PAR_HA_ENSEMENCE` | 735.0 | kg/ha ensemencé | Le milieu des 470 à 1 000 kg/ha des grains en Angleterre de 1250 à 1450 (Broadberry 2008, cité par Wikipédia en anglais, Agriculture in the Middle Ages) |
+| `HECTARES_PAR_KM2` | 100 | ha/km² | Conversion d'unité |
+| `GRAINS_RECOLTES_PAR_GRAIN_SEME` | 4.34 | grains/grain | Blé de Battle Abbey en Sussex, 1350–1399 (Brandon 1972, même article) : un grain sur 4,34 retourne au champ comme semence |
+| `PART_ENSEMENCEE_DE_LA_TERRE_CULTIVEE` | 2/3 | part | Assolement triennal : deux soles sur trois ensemencées, la troisième en jachère ; niveau 2 |
+| `FOOD_PRODUCTION_KG_PER_KM2_PER_TICK` | 735 × 100 × (1 − 1/4,34) × 2/3 ÷ 365 × TICK_DURATION_DAYS ≈ 103,3 | kg/km² cultivé/tick | Rendement net par km² cultivé, semence et jachère déduites, ramené au jour. L'ancienne valeur (18 kg par km² de toute la terre, lue « 1 800 kg/ha à 36 % ») était fausse d'un facteur dix : 18 kg/km²/jour font 65 kg/ha/an, pas 1 800 |
 | `RNG_YIELD_LOW` | 0.5 | — | Facteur multiplicatif minimum : mauvaise année (sécheresse, gel) à 50 % du rendement nominal |
 | `RNG_YIELD_HIGH` | 1.5 | — | Facteur multiplicatif maximum : bonne année à 150 % du rendement nominal |
 
@@ -758,7 +848,7 @@ lequel des trois régimes il fait jouer.
 ### L'équilibre que ces valeurs produisent
 
 Le monde amorce une part de la population que sa production moyenne peut
-nourrir. Relief, eau et part minière abaissent ensemble ce plafond, sans
+nourrir. Part cultivée, relief, eau et part minière abaissent ensemble ce plafond, sans
 qu'aucune densité soit posée à part. La variabilité `[0.5, 1.5]` crée ensuite
 des ticks de surplus qui alimentent le commerce et des ticks de manque qui
 créent de la dette.
@@ -860,36 +950,52 @@ La nourriture qui a manqué est une **dette**, pas un oubli. Sentinelle `-1.0`
 
 ### La mortalité
 
-Après consommation et faim, chaque lieu vivant meurt de sa propre
-`dette_alimentaire_kg`. La faim locale (`duree_faim_ticks`) dit le manque du
-jour ; c'est la dette locale qui décide des décès. Son report local
+Après consommation et faim, chaque lieu habité meurt chaque jour d'une **mort
+ordinaire**, faim ou non, plus de sa propre faim. La faim locale
+(`duree_faim_ticks`) dit le manque du jour ; c'est la dette locale
+(`dette_alimentaire_kg`) qui décide des décès par la faim. Son report local
 `mortality_remainder`, flottant initialisé à `0.0`, conserve les fractions :
 
 ```
-si dette_alimentaire_kg > 0 et population > 0 :
-    deficit_par_tete = dette_alimentaire_kg / population
-    taux = min(deficit_par_tete × HUNGER_DEATH_SCALE, MAX_DEATH_RATE_PER_TICK)
-    brut   = population × taux + mortality_remainder
-    morts  = int(brut)
+si population > 0 :
+    faim  = min(dette_alimentaire_kg / population × HUNGER_DEATH_SCALE × facteur,
+                MAX_DEATH_RATE_PER_TICK)                 (0 sans dette)
+    taux  = morts_ordinaires_par_habitant_par_tick() + faim
+    brut  = population × taux + mortality_remainder
+    morts = int(brut)
     mortality_remainder = brut − morts
     population -= min(population, morts)
 ```
 
-Sans dette ou sans habitants, le report reste intact. Un décès ne rembourse
-aucune dette. Les morts des lieux sont totalisés : une seule application
-cellulaire retire les personnes des métiers au prorata, plus forts restes
-compris. La population cellulaire égale alors exactement la somme des lieux.
-Un métier tombé à zéro disparaît ; les métiers ne décident pas des morts.
+Le facteur est celui du registre des modificateurs (grandeur `mortalite`) ; lui
+et le plafond ne portent que sur la faim, pas sur la mort ordinaire. Un lieu vide
+ne meurt pas et son report reste intact. Un décès ne rembourse aucune dette.
+Les morts des lieux sont totalisés : une seule application cellulaire retire les
+personnes des métiers au prorata, plus forts restes compris. La population
+cellulaire égale alors exactement la somme des lieux. Un métier tombé à zéro
+disparaît ; les métiers ne décident pas des morts.
 
-**Sans lieux**, le repli garde cette formule sur `food_deficit_kg` et la
-population cellulaire, avec le report `Cell.mortality_remainder` et sa
+**Sans lieux**, le repli suit la même règle sur la cellule : `food_deficit_kg`
+et la population cellulaire, avec le report `Cell.mortality_remainder` et sa
 sentinelle `-1.0` lue comme zéro. Avec lieux, ce report cellulaire ne commande
 plus les décès et n'est pas réinitialisé. Aucun nouvel aléa n'intervient.
 
+**La mort ordinaire.** `mort_ordinaire_annuelle = 0,039` dans
+`jeu/data/population.toml`, ramenée au tick (÷ `CALENDAR_DAYS_PER_YEAR` ×
+`TICK_DURATION_DAYS`) par `morts_ordinaires_par_habitant_par_tick`. C'est une
+règle de niveau 2, plausible, jamais sourcée, recalée sur un ordre de grandeur
+de niveau 1 : vers 1400, une population qui mange à sa faim compte autour de
+quarante morts pour mille habitants par an. Le fichier se lit une seule fois
+par tick (`constants.une_lecture_de_la_population`) ; le lecteur refuse, en
+nommant la clé et le fichier, un fichier ou une clé absents, un booléen, une
+chaîne et une valeur hors de [0, 1] ; 0 coupe la mort ordinaire.
+
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
-| `HUNGER_DEATH_SCALE` | 0.005 | 1/(kg/personne) | 1 kg de dette par tête → 0,5 % de mortalité par tick. Une famine médiévale sévère est documentée à 10–30 % de mortalité annuelle sur les populations les plus touchées, soit 0,03–0,08 %/jour ; ce facteur permet à une dette de 5–10 kg/tête d'atteindre 2–5 % par jour. |
-| `MAX_DEATH_RATE_PER_TICK` | 0.10 | — | Plafond de 10 % par tick : pas d'effondrement instantané, même à dette extrême. |
+| `MORTALITE_PAR_RATION_DE_DETTE` | 0.01 | part/tick | Un jour de ration en dette par tête tue 1 % des habitants par tick ; proxy paramétrique |
+| `HUNGER_DEATH_SCALE` | `MORTALITE_PAR_RATION_DE_DETTE` / `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK` = 0,01 / 0,75 ≈ 0,0133 | 1/(kg/personne) | Il se dit par ration : un jour de ration en dette par tête tue 1 % des habitants par tick, quelle que soit la ration (1 kg de dette par tête → 1,33 %). Une famine médiévale sévère est documentée à 10–30 % de mortalité annuelle sur les populations les plus touchées, soit 0,03–0,08 %/jour ; cette échelle permet à une dette de plusieurs rations par tête d'atteindre quelques pour cent par jour. |
+| `MAX_DEATH_RATE_PER_TICK` | 0.10 | — | Plafond de 10 % par tick sur la faim : pas d'effondrement instantané, même à dette extrême. |
+| `mort_ordinaire_annuelle` (`population.toml`) | 0.039 | part/an | Niveau 2, recalé sur environ quarante morts pour mille par an |
 
 **Il n'y a pas de plancher `max(1, …)`.** Une famine légère ne tue plus au
 moins une personne par lieu et par tick : le report de la fraction
@@ -932,9 +1038,26 @@ cellule au prorata, plus forts restes compris. Les métiers ne décident pas
 des naissances. Après ce maillon, la somme des lieux retrouve exactement la
 population cellulaire.
 
+**Le taux** vient de `jeu/data/population.toml` : `natalite_annuelle = 0,040`,
+ramenée au tick (÷ `CALENDAR_DAYS_PER_YEAR` × `TICK_DURATION_DAYS`) par
+`naissances_par_habitant_par_tick`. Il est de niveau 2, plausible, jamais
+sourcé, recalé sur un ordre de grandeur de niveau 1 : vers quarante naissances
+pour mille habitants par an, presque autant de morts. Les deux taux se lisent
+dans le fichier une seule fois par tick (`constants.une_lecture_de_la_population`,
+sur le modèle de `une_lecture_des_departs`) ; le lecteur refuse, en nommant la
+clé et le fichier, un fichier ou une clé absents, un booléen, une chaîne et une
+valeur hors de [0, 1] ; 0 coupe le taux.
+
+**Conséquence à connaître** : un lieu nourri et sans dette gagne environ un
+pour mille de ses habitants par an (0,040 − 0,039).
+`test_lieux.py::test_mort_ordinaire_tient_un_lieu_nourri` le prouve : 6 000
+habitants, 90 jours, moins de 0,3 % de variation ; sans mort ordinaire, la
+hausse revient. Sur 90 jours de la graine 0 (chemin de `forge`, sans IA), le
+monde passe de 65 217 511 à 65 233 114 habitants.
+
 | Constante | Valeur | Unité | Ordre de grandeur |
 |---|---|---|---|
-| `NAISSANCES_PAR_HABITANT_PAR_TICK` | 0.0002 | naissance/hab/tick | niveau 2, jamais sourcé |
+| `natalite_annuelle` (`population.toml`) | 0.040 | part/an | niveau 2, recalé sur environ quarante naissances pour mille par an |
 
 **Sans lieux**, le repli conserve les conditions cellulaires
 `penurie_du_tick == 0` et `food_deficit_kg == 0`, la population après mortalité
@@ -1066,12 +1189,12 @@ par an. Délais, bagages et métiers propres aux lieux : niveau 3, non simulés.
 **Preuve annuelle à Bar.** Deux copies du même `World.charger(0)`, graine 0,
 avec `random.Random(0)`, jouent 365 ticks de 0 à 364 ; seule la part de
 `seigneurie-1` diffère, les autres maisons gardent la coutume. Ses routes
-fixent les mêmes quatre lieux initiaux, soit 4 752 foyers complets :
-- part 0,1 : 0 foyers internes, 2 foyers hors domaine ;
-- part 0,6 : 0 foyers internes, 4 foyers hors domaine.
-Au taux quotidien d'avant, les mêmes années en déplaçaient 74 et 255 : le mieux-vivre au rythme
-de l'année garde la direction (une part plus lourde fait partir davantage), à l'échelle de
-quelques foyers par an.
+fixent les mêmes quatre lieux initiaux de la cellule 10430, soit 16 151 foyers
+complets (4 049 + 3 × 4 034) :
+- part 0,1 : 0 foyers internes, 8 foyers hors domaine ;
+- part 0,6 : 0 foyers internes, 15 foyers hors domaine.
+Le mieux-vivre au rythme de l'année garde la direction (une part plus lourde fait
+partir davantage), à l'échelle de quelques foyers par an.
 Ce sont les sorties brutes effectivement appliquées par le mieux-vivre,
 en habitants divisés par `TAILLE_FOYER`, observées dans la boucle livrée,
 avec sources et destinations. Les mouvements internes restent séparés ;
@@ -1174,6 +1297,16 @@ capacité = (base + apport) × goulot
 | `METRES_PAR_KM` | 1000.0 | — | Conversion d'unité, pas un réglage. Lue par `metres_par_km()`. |
 | `TRADE_CAPACITY_KG_PER_EDGE_PER_TICK` | 200.0 × TICK_DURATION_DAYS | kg/arête/tick | **Repli seul** : employé uniquement par une arête qui ne porte pas `shared_length_m`. Une arête qui la porte n'y touche jamais. |
 
+**Ces débits sont des débits, pas des rations.** `DEBIT_KG_PAR_KM_DE_FRONTIERE_PAR_TICK`
+(200), `TRADE_CAPACITY_KG_PER_EDGE_PER_TICK` (200),
+`DEBIT_KG_PAR_KM_DE_COTE_PAR_TICK` (2 000) et `DEBIT_ROUTE_KG_PAR_M_PAR_TICK`
+(5 000) disent ce que porte un charroi ou une batellerie ; la ration n'y entre
+pas, et ils sont gardés. Le monde porte plus d'habitants (×1,87) qui mangent
+moins (0,75 kg au lieu de 2) : leurs besoins en kilos baissent, le produit
+1,87 × 0,75 / 2 valant environ 0,70. Sur 90 jours de la graine 0, le monde
+compte 600 morts de faim pour 65 millions d'habitants et 2 lieux affamés au
+90e jour : aucune capacité ne fait de famine, aucune n'est relevée.
+
 **Ce que cette forme dit du monde.** Une longue frontière commune laisse passer
 plus de convois qu'un contact ponctuel : il y a plus de chemins, plus de gués,
 plus de cols. Cette base décrit la perméabilité brute d'une frontière.
@@ -1251,15 +1384,15 @@ n'exporte, par terre comme par la mer, que ce qui dépasse. `N` vaut **21**,
 déclaré dans `jeu/data/commerce.toml` ; la durée n'est pas
 sourcée. 365 jours auraient interdit toute sortie, un tampon de quelques
 semaines laisse sortir le reste. 21 jours, parce que la preuve de la première
-année (`test_soudure.py`) rougit à 30 : Le Caire tient alors sa réserve dès le
-330e jour et cesse de nourrir Alexandrie, qui perd 50,4 % de ses habitants par
-la faim (seuil 50 %) ; à 25 jours, 56,6 % ; à 21 jours, 32,7 %. Une ville
+année (`test_soudure.py`) borne la réserve : une ville affamée qui garde trop de
+jours de grain cesse de nourrir sa voisine affamée, et la pire cellule dépasse
+le seuil de 50 % de ses habitants morts de faim. Une ville
 affamée qui garde son grain n'en donne pas à sa voisine affamée : la réserve a
 un prix, et la durée la borne. Le besoin ne change pas : une ville
 affamée qui manque reçoit toujours de ses voisines et du bassin. Aucun kilo n'est créé ni
 détruit. L'état « affamée » se relit à chaque commerce, sur la population du
 snapshot : une ville que la famine a fait passer sous ce que ses champs
-nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
+nourrissent n'a plus que sa ration pour garde.
 
 - Avec `N = 1`, ou sans relevé des champs (un monde construit à la main :
   `populations_soutenables` vaut `None`), la garde est la ration du tick : le
@@ -1267,29 +1400,13 @@ nourrissent (Gand, vers le 358e jour) n'a plus que sa ration pour garde.
 - Avec la soudure (212 jours de ration au 1er janvier), aucune ville affamée
   n'est sous 21 jours en janvier : les deux règles y envoient les mêmes kilos.
   La réserve ne mord que lorsqu'une ville a mangé son grenier jusqu'à elle.
-  Mesuré (graine 0, IA active, 365 jours,
-  `test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins`) :
-  Alexandrie exporte moins à partir du 123e jour, Le Caire du 130e, Gand du
-  307e.
+  `test_premier_mois_ville_affamee_janvier_inchange_puis_exportent_moins` le
+  rejoue (graine 0, IA active, 365 jours).
 
-| ville affamée | sortie, règle d'avant | sortie, réserve de 21 jours | stock au 365e jour, avant → réserve |
-|---|---|---|---|
-| Le Caire | 28 054 t | 26 192 t | 1 217 t → 3 125 t |
-| Alexandrie | 7 749 t | 7 060 t | 0 t → 0 t |
-| Gand et Bruges | 16 749 t | 15 903 t | 0 t → 0 t |
-| Paris | 0 t | 0 t | 956 t → 956 t |
-
-Paris est affamé, mais sans port il n'exporte rien sous les deux règles :
-il ne compte pas comme preuve. L'effet de 21 jours est donc réel et modeste ;
-une réserve plus longue ne change qu'une ligne de `commerce.toml`, mais la
-preuve de la première année en fixe le plafond (25 jours la fait échouer).
-
-Ces chiffres (Alexandrie à 32,7 %, la table des sorties ci-dessus) ont été
-mesurés **sans l'appel** des villes affamées : l'épreuve les rejoue sous
-`couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, la pire
-cellule de `test_soudure.py` est Gand (cellule 10391) : 35,3 % de ses
-habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %) ; sans l'appel elle est à 40,5 %, et Alexandrie à
-32,7 %.
+La réserve de 21 jours et l'appel restent bornés par la preuve de la première
+année (`test_soudure.py`), où la pire cellule de la table de référence, Pise,
+perd 8,4 % de ses habitants par la faim. Une réserve plus longue ne change
+qu'une ligne de `commerce.toml`, et cette preuve en fixe le plafond.
 
 **L'appel d'une ville affamée** (niveau 2 : plausible, jamais
 sourcé). L'idée est médiévale : une grande ville draine le grain de son contado
@@ -1315,24 +1432,10 @@ lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
 - Le Caire ne peut pas gagner d'habitants par l'appel : aucun mort de faim, aucune
   perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
 
-Mesuré (graine 0, IA active, 365 jours,
-`test_grain_monte_vers_les_villes_un_an`, qui rejoue les quatre réglages) :
-
-| ville | habitants, avant → avec l'appel | grain au 365e jour, avant → avec l'appel |
-|---|---|---|
-| Paris | 153 052 → 284 985 | 956 t → 8 081 t |
-| Milan | 185 767 → 196 333 | 4 557 t → 50 292 t |
-| Gand | 33 669 → 89 260 | 0 t → 1 665 t |
-| Alexandrie | 22 305 → 42 231 | 0 t → 1 252 t |
-| Le Caire (grain seul) | 389 614 → 388 042 | 3 125 t → 23 196 t |
-
-Les deux réglages sont nécessaires. Le rayon seul (`P = 0`, `R = 6`) ne nourrit
-personne : Paris finit comme avant (153 052 habitants, 956 t), car son grenier ne
-descend jamais sous un jour de ration et il n'appelle donc rien ; Gand, Alexandrie
-et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
-habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
-à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
-3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
+`test_grain_monte_vers_les_villes_un_an` rejoue les quatre réglages sur un an
+(graine 0, IA active, 365 jours) : après un an, Paris, Milan, Gand et Alexandrie
+ont plus d'habitants et de grain qu'avec le commerce d'avant, et Le Caire plus
+de grain.
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même
@@ -1426,8 +1529,8 @@ voisins de 5 000 habitants meurent normalement.
 
 Chaque lieu conserve la fraction non appliquée dans son
 `EtatDeLieu.mortality_remainder` (float, défaut `0.0`). Cinq habitants au
-plafond produisent un mort après deux ticks ; leur voisin sans dette garde
-ses habitants et son report. La formule est celle de « Le déficit alimentaire
+plafond produisent un mort après deux ticks ; leur voisin sans dette ne meurt que
+de mort ordinaire, dont la fraction reste elle aussi dans son report. La formule est celle de « Le déficit alimentaire
 et la mortalité ». Sans lieux seulement, `Cell.mortality_remainder` conserve
 le repli et sa sentinelle `-1.0` lue comme zéro.
 
@@ -2312,36 +2415,42 @@ maisons ont la même part `p`, par `monde.parts = dict.fromkeys(monde.parts, p)`
 `habitants(p)` est la somme des populations des cellules après cette année.
 La perte `1 − habitants(p) / habitants(0)` se mesure contre le même monde
 sans prélèvement au même jour, car le monde grandit pendant l'année.
-Convois compris, la part 0,03 coûte 0,96 % des habitants, la part 0,04
-en coûte 1,39 %. `PART_COUTUMIERE` est la plus haute part au centième qui
-coûte au plus 1 % : sa perte reste sous ce seuil et celle de
-`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Prendre plus coûte davantage.
+Convois compris, la part nulle laisse 65055376 habitants ; la part 0,03
+en laisse 64840718 (perte 0,33 %), la part 0,04 en laisse 64742618 (perte
+0,48 %). La règle de `PART_COUTUMIERE` demande la plus haute part au centième
+qui coûte au plus 1 % : sa perte reste sous ce seuil et celle de
+`round(PART_COUTUMIERE + 0.01, 2)` le dépasse. Ces mesures du monde livré ne la
+tiennent plus (voir plus bas). Prendre plus coûte davantage.
 C'est une règle plausible de niveau 2, jamais sourcée : la coutume ne vide
 pas les lieux ; aucune part historique d'un seigneur de 1400 n'est mesurée.
 Tout changement de production, de faim ou de départs exige de remesurer.
 
-**Calibration de la part coutumière à 6,2, sans départs.** Le même protocole
+**Calibration de la part coutumière à 95, sans départs.** Le même protocole
 (graine 0, 365 ticks numérotés, `random.Random(0)`, taux du mieux-vivre à 0)
-garde les bras à 6,2. À part nulle, il reste 35897120 habitants ;
-la part 0,03 en laisse 35546671 (perte 0,98 %), la part 0,04 en laisse
-35403048 (perte 1,38 %). La borne de 1 % reste tenue pour 0,03 et
-dépassée pour 0,04. Ces mesures sont de niveau 2, plausibles, jamais sourcées.
+garde les bras à 95. À part nulle, il reste 65061219 habitants ;
+la part 0,03 en laisse 64833469 (perte 0,35 %), la part 0,04 en laisse
+64728105 (perte 0,51 %). Ni 0,03 ni 0,04 ne dépasse la borne de 1 %.
+Ces mesures sont de niveau 2, plausibles, jamais sourcées.
 
 **Mesures avec départs actifs.** Le même protocole, graine 0, 365 ticks
 numérotés de 0 à 364 et `random.Random(0)`, garde le mieux-vivre actif,
-avec `taux_annuel_par_tranche = 0.005` et `plafond_annuel = 0.03`, les bras calibrés à 6,2
+avec `taux_annuel_par_tranche = 0.005` et `plafond_annuel = 0.03`, les bras calibrés à 95
 et toutes les constantes livrées. Naissances,
 morts, commerce, famine et convois restent actifs ; toutes les maisons ont
 la même part. La référence est cette année active à part nulle, avec un cache
 séparé de la référence historique. Mesures de niveau 2, plausibles, jamais sourcées :
-- part 0,00 : 35897456 habitants ; perte 0,000000 % ; 3524 foyers déplacés.
-- part 0,03 : 35546976 habitants ; perte 0,976337 % ; 2660 foyers déplacés.
-- part 0,04 : 35403446 habitants ; perte 1,376170 % ; 2038 foyers déplacés.
-- part 0,10 : 33670749 habitants ; perte 6,202966 % ; 988 foyers déplacés.
-Calibration tenue : perte(0,03) = 0,976337 % ≤ 1 % < perte(0,04) = 1,376170 %.
-Les quatre populations décroissent strictement ; 0,10 est trop coûteux.
+- part 0,00 : 65062311 habitants ; perte 0,000000 % ; 7644 foyers déplacés.
+- part 0,03 : 64833595 habitants ; perte 0,351534 % ; 6064 foyers déplacés.
+- part 0,04 : 64728507 habitants ; perte 0,513053 % ; 5471 foyers déplacés.
+- part 0,10 : 63272706 habitants ; perte 2,750602 % ; 3163 foyers déplacés.
+Calibration en échec : perte(0,03) = 0,351534 % et perte(0,04) = 0,513053 % restent sous 1 %.
+Les quatre populations décroissent strictement ; 0,10 coûte 2,75 %.
 Les départs sont les sorties brutes du monde, en foyers entiers, observées
 à chaque étape réelle et concordant avec son retour, sans déduire les arrivées.
+
+Sur le monde livré, la part 0,03 n'est plus la plus haute part au centième qui
+coûte au plus 1 % : la règle `PART_COUTUMIERE` n'est plus tenue, et sa remesure
+attend une décision.
 
 `World.convois` regroupe les charges par tick d'arrivée, avec une liste dense
 par maison et un facteur commun de perte : aucune allocation par lieu.
@@ -3313,6 +3422,8 @@ lieu, il atteint tout le panier et aucune capacité n'est calculée.
 charrettes d'une demi-tonne par jour, ordre de grandeur de **niveau 2**,
 plausible, jamais sourcé. La fonction `capacite_chemins_interieurs_kg` relit
 cette constante et refuse une valeur NaN ou négative ; l'infini est accepté.
+Elle est un débit de charrette, pas une ration : le passage à une ration de
+0,75 kg la laisse telle quelle, pour la même raison que les débits des arêtes.
 
 Le besoin du bourg est `population × part × ration`, celui des champs est le
 besoin total moins celui du bourg. Le bourg mange le minimum de son besoin et
@@ -3833,22 +3944,10 @@ il reste le même objet. Une ouverture autonome reconstruit aussi le plan ; sans
 
 L'enceinte tracée (niveau 2, aucune constante nouvelle) est servie en dernier, après les bâtiments, sur le même compte de journées payables : clé `(cell_id, "enceinte", 0)`, l'identifiant `0` n'étant qu'un nom d'observation, jamais stocké sur l'`Enceinte`. Elle prend le minimum des bras admissibles, de `foyers × TAILLE_FOYER`, du travail restant et des journées payables, au bourg puis aux autres lieux du même maître par rang croissant ; un lieu d'un autre maître ne donne rien. À zéro bras, le motif suit la priorité ci-dessus sans `parcelle_en_chantier`, l'entrée existe et l'enceinte reste le même objet. Au requis, `en_chantier` devient faux, l'entrée est observée ce jour puis disparaît, et les ouvriers reviennent aux champs le lendemain. Une enceinte seule en chantier rend le plan actif ; le plan est reconstruit, enceinte servie comprise, si une liste ou l'enceinte a reçu du travail. Matériaux, portes, hauteur, entretien, effet défensif et priorité choisie par le joueur restent de niveau 3, non simulés. Une ouverture autonome reconstruit aussi le plan ; sans candidat ni chantier, aucune écriture nouvelle.
 
-Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel.
+Chaque journée coûte `SALAIRE_JOURNEE_KG = 3` kg de grain (niveau 2), relu à chaque appel : un salaire en grain, qui nourrit l'ouvrier et sa famille, pas une ration (il vaut quatre rations de `FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK`).
 Le maître actuel du bourg (rang 0) paie depuis `World.greniers` : `floor(stock / salaire)` borne les bras avant tout travail.
 Sans lieux, bourg, maître ou grenier déclaré, aucun salaire ; une nourriture absente vaut zéro. Les cellules se partagent la réserve courante dans leur ordre. Les journées réellement fournies débitent exactement leur salaire et le versent au seul panier du bourg et au total cellulaire, deux représentations du même stock ; la reprise intérieure conserve cette destination.
 Les métiers restent ceux de la cellule ; rattacher collectivement ces ouvriers au bourg est une convention de niveau 2, sans déplacement individuel. Pertes du grenier avant paiement, récolte et consommation après ; le prélèvement arrivé ensuite finance les jours suivants. Aucun convoi ni perte de salaire ici ; matériaux et argent restent hors simulation.
-
-Mesure : `python3 pc/epreuve_jalon4.py --sortie /tmp/forge-j4-{avant,apres}` (deux appels), graine 0, dix ticks, Zab à 0 puis gestes à 2, 3, 5 ; maison et cellule dérivées de `depart_biskra`.
-
-| mesure | avant | après |
-|---|---|---|
-| route ; parcelle ; bâtiment (journées fournies/requises) | 40/80 ; 20/20 ; 15/400 | 40/80 ; 20/20 ; 10/400 |
-| salaire cumulé ; grenier final (kg) | 0 ; 311,51790706477567 | 210 ; 101,98375196817031 |
-| SHA-256 `monde-service.json` et `monde-rejoue.json` | 5d36f7552ede792621ff1199242535aa0bf9deca761b8aac8434e9dc16ac0039 | 3538394f432f810340efa6a1244b260b21f01b77db79559dd7af4a7cc2efb8eb |
-| SHA-256 `monde-sans-gestes.json` | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 | bdce0bb1a329e179dce66a2f736868273a7ff41c9fbecddca17f1297e3de8ed2 |
-Seule Biskra change face au témoin ; la différence des réserves finales inclut les pertes journalières et ne mesure pas le salaire.
-Année sans geste (simulation : 39,08 s avant, 44,18 s après) : depuis `jeu/`, `python3 -m forge --ticks 365 --seed 0 --sortie /tmp/forge-641-annee-avant`, puis même commande vers `/tmp/forge-641-annee-apres` ; durée simulée 365 jours.
-`sha256sum /tmp/forge-641-annee-{avant,apres}/monde.json` donne deux fois `954dafd53519fbf19033dac4a98c52dda0e9e328f435f58bf6ccbe323e4edb5b`.
 
 La récolte du même tick lit les paysans restés aux champs. Les naissances,
 morts et départs suivent le prorata des métiers, ouvriers compris ; le retour
@@ -3857,7 +3956,7 @@ ouvriers ont travaillé ; ils reviennent le lendemain. Ils comptent dans le
 bourg, dérivé des métiers non paysans. `/lieu` les publie dans `foyers` ;
 `/monde` ne change pas. L’étape ne tire aucun aléa et n’a aucun état caché.
 
-La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 6,2` donne son poids à la moisson.
+La constante `BRAS_AUX_CHAMPS_PAR_KM2 = 95` donne son poids à la moisson.
 Les chantiers ordinaires prennent leurs paysans du bourg, puis des autres lieux du même maître, par rang croissant. Un lieu d'un autre maître ne fournit aucun bras. Chaque personne envoyée augmente le compte journalier `ouvriers_du_jour` de son lieu d'origine. Ce compte est remis à zéro au début de Chantiers, après le retour des ouvriers de la veille ; il n'est ni un métier ni une population, et il n'entre pas dans la sauvegarde. À la récolte du même tick, chaque lieu retranche ses ouvriers du jour de ses paysans avant le facteur de saison. Les mineurs et les artisans restent retranchés du seul bourg, ainsi que le reliquat d'ouvriers cellulaires sans origine journalière. La perte de récolte est celle du lieu qui a prêté ses bras. Âge et
 sexe, nourriture propre, outils, matériaux et salaires différenciés restent de
 niveau 3, comme les effets locaux des rues achevées autres que le chemin vers un lieu, les artisans
@@ -4644,6 +4743,10 @@ leur sélection commune vit dans `sim/puissances.py` et sert `sim/maisons.py`.
 Le pays de chaque terre, de chaque maison jouable et sa fiche se calculent dans
 `sim/pays_servis.py` ; la donnée des capitales bâties en 3D est lue par
 `sim/villes_3d.py`.
+
+La table des 13 grandes régions de 1400, leur cible d'habitants et la part cultivée
+de chaque cellule se lisent et se dérivent dans `sim/regions.py`, d'après
+`data/population-1400.json`.
 
 Les paramètres du tick sont définis comme constantes nommées dans
 `sim/constants.py`. Aucun littéral numérique de ces valeurs n'apparaît dans
