@@ -38,6 +38,14 @@ namespace Forge.Pont {
         // De combien les bornes de la vue s'écartent des cellules : assez pour laisser de la mer autour d'elles, moins que la
         // marge de mer du terrain.
         public const float MARGE_DU_CADRE_KM = 70f;
+        // La jupe du terrain déborde de trois fois son plus grand côté : au plus loin, même une fenêtre deux fois plus haute
+        // que large, l'accueil ouvert, n'en voit pas le bout.
+        public const float JUPE_PAR_COTE = 3f;
+        // Le mot posé le long de chaque coupure, sur le papier, à cette distance de la terre, et son encre.
+        public const string HORS_CARTE = "Hors de la carte", TEXTE_HORS_CARTE = "hors de la carte";
+        // Une ligne d'environ 80 km : une vingtaine de pixels de haut quand toute la carte est à l'écran.
+        public const float ECART_HORS_CARTE_KM = 70f, TAILLE_HORS_CARTE = 2f * TAILLE_CARACTERE;
+        private static readonly Color ENCRE_HORS_CARTE = new Color(0.3f, 0.24f, 0.18f, 0.85f);
         // La part d'opacité qui dit, dans la palette, qu'un éclat couvre la teinte du lieu : il se voit même teint par l'altitude.
         public const float OPACITE_D_ECLAT = 0.8f;
         private const int PAS_MAX_DU_RAYON = 256, AFFINAGES = 12;
@@ -351,8 +359,11 @@ namespace Forge.Pont {
             close = true;
             Shader relief = Resources.Load<Shader>(SHADER_DU_TERRAIN);
             if (relief == null) { Dire(SANS_SHADER); return; }
+            // Le maillage levé, puis sa jupe : au-delà du rectangle, la mer ou le papier du bord continuent aussi loin que la vue porte.
+            var jupe = terrain.Jupe(JUPE_PAR_COTE * Mathf.Max(terrain.Largeur, terrain.Hauteur) * terrain.Pas);
             var maillage = new Mesh { name = TERRAIN, indexFormat = IndexFormat.UInt32 };
-            maillage.SetVertices(terrain.SommetsDuMaillage); maillage.SetUVs(0, terrain.UvDuMaillage); maillage.SetTriangles(terrain.TrianglesDuMaillage, 0);
+            maillage.SetVertices(terrain.SommetsDuMaillage.Concat(jupe.sommets).ToArray()); maillage.SetUVs(0, terrain.UvDuMaillage.Concat(jupe.uv).ToArray());
+            maillage.SetTriangles(terrain.TrianglesDuMaillage.Concat(jupe.triangles).ToArray(), 0);
             maillage.RecalculateBounds(); crees.Add(maillage);
             // Les numéros des lieux et les distances se lisent au texel près ; le relief se lit entre ses altitudes.
             Texture2D lieux = Creer("Lieux de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R16, FilterMode.Point, true);
@@ -366,6 +377,8 @@ namespace Forge.Pont {
             // La mer hors de la carte se lit entre ses altitudes, comme le relief ; la marque, au texel près, partout au loin.
             Texture2D horsCarte = Creer("Mer hors de la carte", terrain.LargeurDuRelief, terrain.HauteurDuRelief, TextureFormat.RG16, FilterMode.Bilinear, true);
             horsCarte.SetPixelData(terrain.TexelsHorsCarte, 0); horsCarte.Apply(false, true);
+            Texture2D estompe = Creer("Estompe de la carte", terrain.LargeurDuRelief, terrain.HauteurDuRelief, TextureFormat.R8, FilterMode.Bilinear, true);
+            estompe.SetPixelData(terrain.TexelsDeLEstompe, 0); estompe.Apply(false, true);
             marques = Creer("Marque de la carte", terrain.Largeur, terrain.Hauteur, TextureFormat.R8, FilterMode.Point, true);
             champDeLaMarque = new byte[terrain.Largeur * terrain.Hauteur]; for (int k = 0; k < champDeLaMarque.Length; k++) champDeLaMarque[k] = TerrainDeCarte.AU_LOIN;
             marqueAVerser = true;
@@ -385,7 +398,7 @@ namespace Forge.Pont {
             matiere = new Material(relief) { name = TERRAIN }; crees.Add(matiere);
             matiere.SetTexture("_Lieux", lieux); matiere.SetTexture("_Relief", altitudes); matiere.SetTexture("_Palette", palette);
             matiere.SetTexture("_Bords", bords); matiere.SetTexture("_Frontieres", frontieres); matiere.SetTexture("_Pays", paysDesLieux); matiere.SetTexture("_TeintesDesPays", teintesDesPays);
-            matiere.SetTexture("_HorsCarte", horsCarte); matiere.SetTexture("_Marque", marques);
+            matiere.SetTexture("_HorsCarte", horsCarte); matiere.SetTexture("_Estompe", estompe); matiere.SetTexture("_Marque", marques);
             matiere.SetFloat("_PasDuRelief", terrain.PasDuRelief); matiere.SetFloat("_Fond", TerrainDeCarte.FOND); matiere.SetFloat("_Plafond", TerrainDeCarte.PLAFOND);
             matiere.SetFloat("_Pas", terrain.Pas); matiere.SetFloat("_PorteeDesBords", TerrainDeCarte.PORTEE_DES_BORDS_KM); matiere.SetFloat("_PorteeDesFrontieres", TerrainDeCarte.PORTEE_DES_FRONTIERES_KM);
             matiere.SetFloat("_PorteeDeLaMarque", TerrainDeCarte.PORTEE_DE_LA_MARQUE_KM);
@@ -400,7 +413,7 @@ namespace Forge.Pont {
             var rendu = sol.GetComponent<MeshRenderer>(); rendu.sharedMaterial = matiere; rendu.shadowCastingMode = ShadowCastingMode.Off; rendu.receiveShadows = false;
             // La vue tient toute la planche : les cellules et le cadre autour d'elles.
             boite = new Bounds(); boite.SetMinMax(new Vector3(Cadre.xMin, 0f, Cadre.yMin), new Vector3(Cadre.xMax, 0f, Cadre.yMax));
-            origine = terrain.Origine; Nommer(lue, terrain.Origine); reperage = new ReperageDeCarte(lue, formes, terrain.Origine); Lue = lue; Formes = formes;
+            origine = terrain.Origine; Nommer(lue, terrain.Origine); NommerLesCoupures(terrain); reperage = new ReperageDeCarte(lue, formes, terrain.Origine); Lue = lue; Formes = formes;
             if (cameraCreee && camera != null && nombrePosees > 0) Vue = new VueDeCarte(boite, camera.aspect); // la carte qui remplit l'écran
             CellulesServies = servies; Dire(""); Cadrer();
         }
@@ -470,6 +483,21 @@ namespace Forge.Pont {
                     nom.font = police; nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
                     nom.fontSize = TAILLE_NOM; nom.characterSize = TAILLE_CARACTERE; nom.anchor = TextAnchor.MiddleCenter; nom.color = Color.black; nom.text = ville.Nom;
                 }
+        }
+        // Le long de chaque coupure de la carte, sur le papier, à `ECART_HORS_CARTE_KM` de la terre : « hors de la carte »,
+        // couché dans le sens de la coupure et lisible d'en haut, jamais la tête en bas.
+        private void NommerLesCoupures(TerrainDeCarte terrain) {
+            Transform racine = new GameObject(HORS_CARTE).transform; racine.SetParent(transform, false);
+            Font police = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            foreach (var (milieu, direction) in terrain.Coupures) {
+                Vector2 dehors = new Vector2(direction.y, -direction.x), ici = milieu + dehors * ECART_HORS_CARTE_KM;
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                if (angle > 90f) angle -= 180f; else if (angle <= -90f) angle += 180f;
+                var nom = new GameObject(HORS_CARTE).AddComponent<TextMesh>();
+                nom.transform.SetParent(racine, false); nom.transform.SetLocalPositionAndRotation(SurLeSol(ici.x, ici.y, HAUTEUR_NOM), Quaternion.Euler(90f, -angle, 0f));
+                nom.font = police; nom.GetComponent<MeshRenderer>().sharedMaterial = police.material;
+                nom.fontSize = TAILLE_NOM; nom.characterSize = TAILLE_HORS_CARTE; nom.anchor = TextAnchor.MiddleCenter; nom.color = ENCRE_HORS_CARTE; nom.text = TEXTE_HORS_CARTE;
+            }
         }
         private static Vector3 Place(PointCarte point, PointCarte origine, float hauteur) { Vector3 p = TriangulationDeCarte.Point(point.X, point.Y, origine); p.y = hauteur; return p; }
         // Seule la caméra créée est cadrée, sur la vue : une caméra donnée n'est jamais touchée. La toile du texte suit son plan proche.

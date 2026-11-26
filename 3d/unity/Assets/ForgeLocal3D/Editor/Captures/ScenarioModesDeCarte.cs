@@ -261,7 +261,8 @@ namespace ForgeLocal3D.Captures
             yield return carte.camera;
         }
 
-        // La molette jusqu'au bout : la vue tient dans la carte, et les quatre coins de l'écran ont un sol qui tombe dans le cadre dessiné.
+        // La molette jusqu'au bout : toute la carte tient dans la partie libre de l'écran, et les quatre coins de l'écran ont un sol
+        // dessiné, le terrain ou sa jupe : au-delà du bord, la mer ou le papier continuent.
         [ScenarioDeCapture(GROUPE, "7-au-plus-loin", Largeur = LARGEUR, Hauteur = HAUTEUR)]
         static IEnumerator AuPlusLoin(Camera camera)
         {
@@ -271,21 +272,25 @@ namespace ForgeLocal3D.Captures
             PoserLaToile(carte, cabinet); guerre.SuivreLaVue();
             for (int i = 0; i < IMAGES_DE_POSE; i++) yield return null;
             if (!Mathf.Approximately(carte.Vue.Echelle, 1f)) throw Faux("la molette n'a pas mené la vue au plus loin : échelle " + carte.Vue.Echelle.ToString("0.###", CultureInfo.InvariantCulture));
-            // Au niveau de la mer, le rectangle visé tient dans les bornes de la carte ; le rayon d'un coin, qui descend jusqu'au fond de
-            // la mer, touche un sol du terrain dessiné, bordé de mer bien au-delà des bornes.
-            int l = carte.camera.pixelWidth - 1, h = carte.camera.pixelHeight - 1; Rect cadre = carte.Cadre; const float EPSILON_KM = 1e-2f;
-            var terrain = carte.Terrain; Rect dessine = new Rect(terrain.Coin, new Vector2(terrain.Largeur, terrain.Hauteur) * terrain.Pas);
+            // Les quatre coins des bornes de la carte, au niveau de la mer, tombent dans la partie libre de l'écran ; le rayon de
+            // chaque coin de l'écran touche le sol dessiné, le terrain ou sa jupe.
+            int l = carte.camera.pixelWidth - 1, h = carte.camera.pixelHeight - 1; Rect cadre = carte.Cadre, libre = carte.Vue.Libre; const float EPSILON = 1e-3f;
+            Bounds dessine = carte.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshFilter>().sharedMesh.bounds;
+            foreach (var bout in new[] { new Vector2(cadre.xMin, cadre.yMin), new Vector2(cadre.xMax, cadre.yMin), new Vector2(cadre.xMin, cadre.yMax), new Vector2(cadre.xMax, cadre.yMax) })
+            {
+                Vector3 f = carte.camera.WorldToViewportPoint(carte.transform.TransformPoint(new Vector3(bout.x, 0f, bout.y)));
+                if (f.x < libre.xMin - EPSILON || f.x > libre.xMax + EPSILON || f.y < libre.yMin - EPSILON || f.y > libre.yMax + EPSILON)
+                    throw Faux("au plus loin, le coin " + bout + " des bornes de la carte tombe en " + f + " de l'écran, hors de la partie libre " + libre);
+            }
             foreach (var coin in new[] { new Vector2(0, 0), new Vector2(l, 0), new Vector2(0, h), new Vector2(l, h) })
             {
-                Vector2 vise = carte.Vue.PointSous(new Vector2(coin.x / l, coin.y / h));
-                if (vise.x < cadre.xMin - EPSILON_KM || vise.x > cadre.xMax + EPSILON_KM || vise.y < cadre.yMin - EPSILON_KM || vise.y > cadre.yMax + EPSILON_KM)
-                    throw Faux("au plus loin, le coin " + coin + " de l'écran vise " + vise + " km au niveau de la mer, hors des bornes " + cadre);
                 if (!(carte.SolSous(coin) is Vector3 sol)) throw Faux("au plus loin, le coin " + coin + " de l'écran ne tombe sur aucun sol");
                 Vector3 local = carte.transform.InverseTransformPoint(sol);
-                if (!dessine.Contains(new Vector2(local.x, local.z))) throw Faux("au plus loin, le coin " + coin + " de l'écran tombe en (" + local.x + ", " + local.z + ") km, hors du terrain dessiné " + dessine);
+                if (local.x < dessine.min.x || local.x > dessine.max.x || local.z < dessine.min.z || local.z > dessine.max.z)
+                    throw Faux("au plus loin, le coin " + coin + " de l'écran tombe en (" + local.x + ", " + local.z + ") km, hors du sol dessiné " + dessine.min + " – " + dessine.max);
             }
             SansFigurines(carte);
-            Debug.Log("CAPTURE modes de carte : au plus loin, les quatre coins de l'écran tombent dans le cadre " + cadre);
+            Debug.Log("CAPTURE modes de carte : au plus loin, la carte " + cadre + " tient dans la partie libre " + libre + " et les quatre coins de l'écran ont un sol");
             yield return carte.camera;
         }
 

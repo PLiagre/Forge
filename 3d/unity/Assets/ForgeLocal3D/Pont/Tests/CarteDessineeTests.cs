@@ -87,13 +87,17 @@ namespace Forge.Pont.Tests {
             Assert.IsTrue(servies == 596 && attendue.Cellules.Count == servies && carte.CellulesServies == servies && carte.CellulesPosees == servies && TerrainsSousLaCarte == 1, carte.CellulesPosees + " posées, " + TerrainsSousLaCarte + " terrain(s)");
             Transform sol = objet.transform.Find(CarteDessinee.TERRAIN); Assert.IsNotNull(sol, "le terrain n'est pas un enfant direct de la carte");
             TerrainDeCarte terrain = carte.Terrain; Assert.IsNotNull(terrain, "la carte posée n'expose pas son terrain");
-            // Le maillage posé est celui du terrain levé, sommet pour sommet, et il reste sous le plan des calques.
+            // Le maillage posé est celui du terrain levé, sommet pour sommet, suivi de sa jupe, et il reste sous le plan des calques.
             Mesh m = sol.GetComponent<MeshFilter>().sharedMesh; Vector3[] s = m.vertices; int[] t = m.triangles; Vector2[] uv = m.uv;
-            Assert.IsTrue(s.Length == terrain.Sommets.Count && uv.Length == terrain.Uv.Count && t.Length == terrain.Triangles.Count && t.Length > 0, s.Length + " sommets, " + t.Length + " indices");
+            var jupe = terrain.Jupe(CarteDessinee.JUPE_PAR_COTE * Mathf.Max(terrain.Largeur, terrain.Hauteur) * terrain.Pas); int grille = terrain.Sommets.Count;
+            Assert.IsTrue(s.Length == grille + jupe.sommets.Length && uv.Length == s.Length && t.Length == terrain.Triangles.Count + jupe.triangles.Length && t.Length > 0, s.Length + " sommets, " + t.Length + " indices");
             int ecarts = 0;
-            for (int k = 0; k < s.Length; k++) if (!Egal(s[k], terrain.Sommets[k]) || uv[k].x != terrain.Uv[k].x || uv[k].y != terrain.Uv[k].y) ecarts++;
-            for (int k = 0; k < t.Length; k++) if (t[k] != terrain.Triangles[k]) ecarts++;
-            Assert.AreEqual(0, ecarts, "sommets ou triangles différents du terrain levé");
+            for (int k = 0; k < s.Length; k++) {
+                Vector3 attendu = k < grille ? terrain.Sommets[k] : jupe.sommets[k - grille]; Vector2 sonUv = k < grille ? terrain.Uv[k] : jupe.uv[k - grille];
+                if (!Egal(s[k], attendu) || uv[k].x != sonUv.x || uv[k].y != sonUv.y) ecarts++;
+            }
+            for (int k = 0; k < t.Length; k++) if (t[k] != (k < terrain.Triangles.Count ? terrain.Triangles[k] : jupe.triangles[k - terrain.Triangles.Count])) ecarts++;
+            Assert.AreEqual(0, ecarts, "sommets ou triangles différents du terrain levé et de sa jupe");
             Assert.LessOrEqual(m.bounds.max.y, 0f, "une cime dépasse le plan des calques");
             // Un seul matériau, au shader du relief, qui reçoit les grilles du terrain, ses distances aux traits, les tables des pays et ses bornes.
             MeshRenderer rendu = sol.GetComponent<MeshRenderer>(); Material mat = rendu.sharedMaterial;
@@ -237,10 +241,18 @@ namespace Forge.Pont.Tests {
             const int L = 800, H = 450; var ecran = new RenderTexture(L, H, 24); Camera cam = carte.camera; cam.targetTexture = ecran; cam.aspect = (float)L / H;
             try {
                 var mer = new Color(0f, 0f, .5f, 1f); carte.Habiller(mer, mer, Color.white); carte.PeindreHorsCarte(new Color(1f, 0f, 1f, 1f));
-                int Compter(Func<Color, bool> quoi) {
+                Color[] Rendre() {
                     carte.Pas(2); cam.Render(); var lu = new Texture2D(L, H, TextureFormat.RGBA32, false); RenderTexture.active = ecran;
-                    try { lu.ReadPixels(new Rect(0, 0, L, H), 0, 0); lu.Apply(); return lu.GetPixels().Count(quoi); }
+                    try { lu.ReadPixels(new Rect(0, 0, L, H), 0, 0); lu.Apply(); return lu.GetPixels(); }
                     finally { RenderTexture.active = null; UnityEngine.Object.DestroyImmediate(lu); }
+                }
+                int Compter(Func<Color, bool> quoi) => Rendre().Count(quoi);
+                // Les couleurs rendues autour d'un point du sol, en km locaux : les 5 × 5 pixels dont il est le centre, pour qu'un
+                // trait fin qui passe là ne décide pas seul.
+                Color[] Autour(Color[] image, Vector2 point) {
+                    Vector3 e = cam.WorldToScreenPoint(objet.transform.TransformPoint(carte.SurLeSol(point.x, point.y, 0f))); var lus = new List<Color>();
+                    for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++) lus.Add(image[Mathf.Clamp((int)e.y + dy, 0, H - 1) * L + Mathf.Clamp((int)e.x + dx, 0, L - 1)]);
+                    return lus.ToArray();
                 }
                 bool Papier(Color c) => c.r > .4f && c.b > .4f && c.g < .25f;
                 bool Vert(Color c) => c.g > .3f && c.r < .2f && c.b < .2f;
@@ -251,6 +263,18 @@ namespace Forge.Pont.Tests {
                 int vert = Compter(Vert);
                 Assert.Greater(vert, L * H / 20, "teinte par l'altitude, la terre n'a pas la teinte des paliers : " + vert + " pixels");
                 Assert.Less(vertAvant, vert / 10, "contre-épreuve : la terre avait déjà la teinte des paliers avant d'être teinte par l'altitude");
+                // La terre ne s'arrête pas sur un trait droit : à 15 km de la coupe, elle a presque pris le papier ; à 150 km, elle a sa teinte.
+                Vector2 a = new Vector2(coupe.x, coupe.y), b = new Vector2(coupe.z, coupe.w), milieu = (a + b) / 2f, versLaTerre = new Vector2(b.y - a.y, a.x - b.x).normalized;
+                if (t.CelluleEn(milieu.x + 5f * versLaTerre.x, milieu.y + 5f * versLaTerre.y) == 0) versLaTerre = -versLaTerre;
+                Vector2 pres = milieu + 15f * versLaTerre, loin = milieu + 150f * versLaTerre;
+                Assert.IsTrue(t.CelluleEn(pres.x, pres.y) != 0 && t.CelluleEn(loin.x, loin.y) != 0, "échantillon faussé : les points de l'estompe ne sont pas à terre");
+                // Ni liseré ni frontière des pays, et des cimes vertes elles aussi : seule l'estompe peut changer la teinte de la terre.
+                carte.MontrerLesPays(false); carte.Habiller(mer, mer, new Color(0f, .9f, 0f, 1f));
+                Color[] image = Rendre(); Color[] presDeLaCoupe = Autour(image, pres), auLoin = Autour(image, loin);
+                // Presque le papier : au moins les quatre cinquièmes de sa couleur sur la terre verte.
+                bool PresquePapier(Color c) => c.r > .8f && c.b > .8f;
+                Assert.GreaterOrEqual(presDeLaCoupe.Count(PresquePapier), 20, "à 15 km de la coupe, la terre garde sa teinte au lieu de s'estomper dans le papier : " + presDeLaCoupe[12]);
+                Assert.GreaterOrEqual(auLoin.Count(Vert), 20, "à 150 km de la coupe, la terre s'estompe encore : " + auLoin[12]);
                 // Contre-épreuve : au large de Lisbonne, la mer et le rivage, sans papier.
                 Vector2 lisbonne = new Vector2((float)((2670000 - o.X) / 1000), (float)((1940000 - o.Y) / 1000)); carte.Vue.Centrer(lisbonne, 200f);
                 Assert.AreEqual(0, Compter(Papier), "au large de Lisbonne, la mer se peint en papier");
@@ -503,6 +527,39 @@ namespace Forge.Pont.Tests {
                 }
                 Assert.AreEqual(1f, touche, 1e-3f, "aspect " + aspect + " : au plus loin, la carte ne touche pas le bord de l'écran");
                 Assert.Greater(Sol(Vector2.up).y, Sol(Vector2.zero).y, "aspect " + aspect + " : le nord n'est pas en haut");
+            }
+        }
+        // Au plus loin, quelle que soit la forme de la fenêtre et la part qu'en prend l'accueil, chaque coin de l'écran tombe
+        // sur le sol dessiné, le terrain ou sa jupe : au-delà du bord, la mer ou le papier continuent, jamais le vide.
+        [Test] public void Au_plus_loin_chaque_coin_de_l_ecran_tombe_sur_le_sol_dessine() {
+            Servir(0, 200, Fixture); Poser(); objet.transform.position = new Vector3(1000, 50, -2000); Lire(1);
+            Camera cam = carte.camera; Bounds sol = objet.transform.Find(CarteDessinee.TERRAIN).GetComponent<MeshFilter>().sharedMesh.bounds; int coins = 0;
+            foreach (Rect libre in new[] { new Rect(0f, 0f, 1f, 1f), new Rect(0f, 0f, 1312f / 1920f, 956f / 1080f) })
+                foreach (float aspect in new[] { 16f / 9f, 4f / 3f, 0.5f, 2.4f }) {
+                    cam.aspect = aspect; carte.Vue.Liberer(libre); carte.Vue.Zoomer(-1000, libre.center); carte.Pas(2);
+                    foreach (var coin in new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }) {
+                        Vector3? touche = carte.SolSur(cam.ViewportPointToRay(new Vector3(coin.x, coin.y, 0f))); coins++;
+                        Assert.IsTrue(touche.HasValue, "aspect " + aspect + ", libre " + libre + " : le rayon du coin " + coin + " ne trouve aucun sol");
+                        Vector3 ici = objet.transform.InverseTransformPoint(touche.Value);
+                        Assert.IsTrue(ici.x >= sol.min.x && ici.x <= sol.max.x && ici.z >= sol.min.z && ici.z <= sol.max.z,
+                            "aspect " + aspect + ", libre " + libre + " : le coin " + coin + " de l'écran tombe en " + ici + ", hors du sol dessiné " + sol.min + " – " + sol.max);
+                    }
+                }
+            Assert.AreEqual(2 * 4 * 4, coins, "échantillon vide");
+        }
+        // Là où la carte coupe la terre, « hors de la carte » se lit sur le papier : un nom par coupure, posé hors de la carte,
+        // lisible d'en haut, jamais la tête en bas.
+        [Test] public void Chaque_coupure_porte_hors_de_la_carte() {
+            Servir(0, 200, Fixture); Poser(); Lire(1); TerrainDeCarte t = carte.Terrain;
+            Transform racine = objet.transform.Find(CarteDessinee.HORS_CARTE); Assert.IsNotNull(racine, "aucun nom hors de la carte");
+            TextMesh[] noms = racine.GetComponentsInChildren<TextMesh>(true);
+            Assert.IsTrue(t.Coupures.Count > 0 && noms.Length == t.Coupures.Count, noms.Length + " noms pour " + t.Coupures.Count + " coupures");
+            foreach (TextMesh nom in noms) {
+                Vector3 p = nom.transform.localPosition;
+                Assert.AreEqual(CarteDessinee.TEXTE_HORS_CARTE, nom.text); Assert.IsTrue(t.HorsCarteEn(p.x, p.z), "« hors de la carte » posé en " + p + ", qui n'est pas au-delà d'une coupe");
+                Vector3 lecture = nom.transform.localRotation * Vector3.right, haut = nom.transform.localRotation * Vector3.up;
+                Assert.Less(Vector3.Angle(nom.transform.localRotation * Vector3.forward, Vector3.down), 1e-2f, "le nom n'est pas couché face au ciel");
+                Assert.GreaterOrEqual(lecture.x, -1e-4f, "le nom se lit de droite à gauche"); Assert.Greater(haut.z, -1e-4f, "le nom a la tête au sud");
             }
         }
         [Test] public void Sans_carte_ni_contour_ni_nom() {
