@@ -58,12 +58,18 @@ NOURRITURE = c.MARCHANDISE_NOURRITURE
 # les personnes sont inchangés. La population passe de 37 481 793 à 37 147 031 : dans ce monde sans famine posée
 # et au commerce d'avant, l'ancien taux vidait le bourg de Paris vers ses champs et masquait sa disette ;
 # gardés au bourg, ses gens y meurent de faim (523 habitants au lieu de 131 966 dans la cellule).
+# Les lieux nommés d'après la ville qui tombe chez eux ou désignés d'après leur province, les seigneurs plausibles
+# servis comme tels (« Seigneur de … », leurs chefs « <prénom>, seigneur de … ») et l'Irlande de 1400 changent, au
+# 365e tick, le registre (six grandes maisons d'Irlande, 9 maisons plausibles neuves, 19 retirées, le suzerain de 5)
+# et les personnes, le maître de 53 lieux d'Irlande, les greniers (15 neufs, 19 retirés, 8 changés) et les convois ;
+# dans la photographie, les noms des lieux et des maisons, et la puissance, la maison et les places des cellules
+# d'Irlande. Sans les maîtres, les cellules sont celles d'avant : la population reste 37 147 031.
 # Les habitants de 1400 (la part cultivée de chaque région, le rendement et la ration recalés, la mort
 # ordinaire, la coutume à 0,05) changent, au 365e tick, toutes les cellules, leurs greniers, convois et cumuls,
 # et dans la photographie les cellules : la population part de 65 217 511 et finit à 65 270 701.
 EMPREINTES_365 = {
-    "linux": ("d6f1d14b07a677dfa815db5cfa35b0e94b8caa667fc3509f92c134b60b1339b6",
-              "86ec871b3bfe87676001441dd82160fc872edac7255b3e6d76026a444255f71e"),
+    "linux": ("a1f21fcafe26fa02e6d73b2f34f62ed8f819b9658c6de4e01217423bf3d16b70",
+              "47e16cde9606917f753e5a07082b4372fc9e7062f13455712436a822335fc6e3"),
 }
 
 

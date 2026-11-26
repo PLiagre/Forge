@@ -433,7 +433,7 @@ class ServeurMonde(ThreadingHTTPServer):
         self._arret_horloge = False
         self._tick_en_cours = False
         self._signature_noms = lambda: (self.world.maisons, tuple((cid, c.area_km2, tuple((l.rang, l.maitre) for l in c.lieux)) for cid, c in sorted(self.world.cells.items())))
-        self._empreinte_noms = self._signature_noms(); self._noms = noms_depuis_monde(self.world, *self._sources_des_noms())
+        self._empreinte_noms = self._signature_noms(); self._noms = noms_depuis_monde(self.world, *self._sources_des_noms(), places=self._places_des_lieux())
         self.etat_publie = self._construire_etat(jours_par_seconde, -1)
         self._fil_horloge = threading.Thread(
             target=self._faire_avancer_horloge,
@@ -593,7 +593,7 @@ class ServeurMonde(ThreadingHTTPServer):
             for cell_id in sorted(self.world.cells)
         ]
         signature = self._signature_noms()
-        if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world, *self._sources_des_noms()); self._empreinte_noms = signature
+        if signature != self._empreinte_noms: self._noms = noms_depuis_monde(self.world, *self._sources_des_noms(), places=self._places_des_lieux()); self._empreinte_noms = signature
         noms = self._noms
         flux = flux_des_lieux(self.world)
         date = self.world.date_simulation

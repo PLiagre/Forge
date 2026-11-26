@@ -283,7 +283,7 @@ def test_forge_ia_sorties(tmp_path, capsys, monkeypatch):
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])['planche']['ia'] is False
 
 
-@pytest.mark.parametrize('ticks,empreinte', [(0, 'ac390a131e2f792b6c45efbac7105979765205d5d255273b2a31d83ba1f062f0'), (30, '6e115ec6ff531e7cd588a11f04176078360acb3f13576ffd139a8cc6e755b34f')])
+@pytest.mark.parametrize('ticks,empreinte', [(0, '264aea4db77a92ec1685357e4b56994538c9bc0f8cc721da3287539732b55e0c'), (30, '7b725c5eb0eb956d8faf2d05513d2f5bc0b5b3df4002d75170f1636a71afa28e')])
 def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     monkeypatch.setattr("sim.constants.PART_COUTUMIERE", 0)
     # Les empreintes historiques de la photographie, couche après couche : le
@@ -303,6 +303,14 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     # capitale neuve.
     # Le nom de chaque terre d'après sa vraie ville de 1400 ne change que les noms (celui des lieux et le bloc
     # `noms`) : sans eux, la photographie est celle d'avant, au jour 0 comme au 30e jour.
+    # Les lieux nommés d'après la ville qui tombe chez eux, sinon désignés d'après leur province et leur
+    # position, ne changent encore que les noms des lieux hors des bourgs, dans les lieux et le bloc `noms`.
+    # Les seigneurs plausibles servis comme tels (sorte, « Seigneur de … » au lieu d'un nom de liste) ne changent que
+    # le bloc `noms`, au jour 0 comme au 30e : sans lui, la photographie est celle d'avant. Elle ne porte pas les personnes.
+    # L'Irlande de 1400 (le Pale et les ports royaux à l'Irlande, six pays gaéliques et anglo-irlandais, les Seigneuries
+    # d'Irlande) change les mêmes couches et elles seules, dans les huit cellules de l'île qu'elle redécide : au jour 0,
+    # la puissance, la maison et les noms de 8 cellules, le maître de 53 lieux, le nom de 57 et le point de 34 (les six
+    # bourgs au siège d'une capitale neuve, et le tirage des autres places de leurs cellules). La population est inchangée.
     # Les habitants de 1400 (la part cultivée de chaque région, le rendement et la ration recalés, la mort
     # ordinaire, la coutume à 0,05) changent toutes les couches qui comptent : population, foyers, soudure,
     # récoltes, flux et prélèvements de chaque cellule. Les frontières, les maîtres et les noms ne bougent pas.
@@ -312,7 +320,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     from forge.__main__ import _simuler
     from sim.snapshot_export import serialize_snapshot
     monkeypatch.setattr('sim.ia.jouer_ia', lambda *a: pytest.fail('IA sans option'))
-    ancienne = {0: '07d42dfa2b481f8dbe965762a2743a5a777724d93c9852c57b0bfe8a46ad3600', 30: '693a55ebed673cdd760bf71d37ff70935d751bc7559f0f8b4c8aea6e37852dfd'}[ticks]
+    ancienne = {0: '592fedd6fa307d25b1e8fb8074376f197bb117b500abd17cf91695b6c585c961', 30: 'c772cbf274398d835d2d2a95d1f2b293ab92335ad23152e914bc73115d210cae'}[ticks]
     if ticks == 30:
         # Toutes les empreintes se prennent sur le même témoin.
         with monkeypatch.context() as ctx:
@@ -322,16 +330,16 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
         chemin, mesures = _simuler(ticks, 0, tmp_path / 'sans.json')
     assert 'ia' not in mesures and 'ia' not in json.loads(chemin.read_bytes())
     # Chaque lieu porte son point ; sans lui, c'est exactement la photographie d'avant.
-    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: 'aa26de3d693015a49fdfcb79bc1042d77e2d4aedc346a6ad58c358c6d0a9b79a', 30: 'c67090e8075930388ad495163ef73964fe9f97d8b74b16e675fa2979e27b0171'}[ticks]
+    assert hashlib.sha256(chemin.read_bytes()).hexdigest() == {0: 'ae40efdcd265e368bed3724eee2263372ba79d96dbb316e4d5c129779de831d9', 30: '6a556121d1de62136ea720f05d76b016b6190249684fd8a7302e693148963af1'}[ticks]
     photo_noms = json.loads(chemin.read_bytes())
     faux_flux = json.loads(chemin.read_bytes()); faux_flux['cells'][0]['lieux'][0]['flux_30j']['preleve_kg'] += 1
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux_flux)).hexdigest() == hashlib.sha256(chemin.read_bytes()).hexdigest()
     for cellule in photo_noms['cells']:
         for lieu in cellule['lieux']: lieu.pop('nom'); lieu.pop('flux_30j')
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'f56004ddc641cafabc2713892a7d92faf669ba4801d7de0a4f8e4b96ee997ce0', 30: 'a549571f7e8051cf5b94bdca5a9e0bd1480ba171b3cd647f51df3cc04ab2ba71'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '41dfe434d6cc328f7120abd8d2255d60fda12fc71c0407a28debf0283b7d7910', 30: '74a4eb4c5bef2e957b448828caa810033479ee1f60354b6d01b9684dc1a58b71'}[ticks]
     points = [lieu.pop('point') for c in photo_noms['cells'] for lieu in c['lieux']]
     assert points and all(set(p) == {'x_m', 'y_m', 'latitude', 'longitude'} for p in points)
-    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: '47df856b60e49b0b53a43b47b298968c52e3de2c35cc4fd007bfa77b9d50732b', 30: '0550f1a9b6c13e974760948342356c9a9c34785069d4edba997b409e70b0dbb8'}[ticks]
+    assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == {0: 'c0400ed246bef27b1b34437f7855745c95754da02765eb3a2a62770d6af8305c', 30: 'c716effd9e01f54bd8b8020e85aabd94e6610354d175fe64c871d1498478372c'}[ticks]
     assert all(c.pop('noms') for c in photo_noms['cells']); assert hashlib.sha256(serialize_snapshot(photo_noms)).hexdigest() == empreinte
     faux = dict(photo_noms, ia=[])
     with pytest.raises(AssertionError): assert hashlib.sha256(serialize_snapshot(faux)).hexdigest() == empreinte
@@ -353,7 +361,7 @@ def test_forge_ia_sans(tmp_path, monkeypatch, ticks, empreinte):
     if ticks == 30:
         normal, _ = _simuler(ticks, 0, tmp_path / 'normal.json')
         def controler(octets):
-            assert hashlib.sha256(octets).hexdigest() == '1aa73083ac3c45aac98fb54aec440a4db0e43c1996c31df0ac80049b5d42e1d2'
+            assert hashlib.sha256(octets).hexdigest() == '42ae63b18502bf434f2d0936f211fac7f6b42b5d0aef2f4f6da7fe37655eb684'
         controler(normal.read_bytes())
         with pytest.raises(AssertionError):
             controler(normal.read_bytes() + b' ')

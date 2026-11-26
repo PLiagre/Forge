@@ -101,8 +101,8 @@ namespace Forge.Pont.Tests
                 CollectionAssert.AreEqual(new[] { "nom", "rang" }, nomLieu.Keys.ToArray()); Assert.AreEqual((double)rang, nomLieu["rang"]);
                 Assert.IsNotEmpty((string)nomLieu["nom"]);
                 var maison = (Dictionary<string, object>)maisons[(string)unLieu["maitre"]];
-                CollectionAssert.AreEqual(new[] { "nom", "prenom_chef" }, maison.Keys.ToArray());
-                Assert.IsNotEmpty((string)maison["nom"]); Assert.IsNotEmpty((string)maison["prenom_chef"]);
+                CollectionAssert.AreEqual(new[] { "nom", "prenom_chef", "sorte" }, maison.Keys.ToArray());
+                Assert.IsNotEmpty((string)maison["nom"]); Assert.IsNotEmpty((string)maison["prenom_chef"]); Assert.AreEqual("plausible", maison["sorte"]);
                 var panier = (Dictionary<string, object>)unLieu["stocks"];
                 CollectionAssert.AreEqual(
                     stocks.Keys.ToArray(), panier.Keys.ToArray(),

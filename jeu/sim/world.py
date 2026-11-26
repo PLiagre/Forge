@@ -411,12 +411,12 @@ class World:
                     f"registre chargé : vassal {maison.id}, "
                     f"suzerain {maison.suzerain!r} inconnu"
                 )
-        monde.personnages, monde.chefs = construire_personnages(monde)
-        # Une fois, après les maîtres : le prélèvement lit cet index sans recalcul.
+        # Une fois, après les maîtres : les noms des personnes et le prélèvement lisent ces places sans recalcul.
         from sim.convois import routes_des_lieux, dus_des_vassaux
         from sim.places import places_du_monde
 
         places = places_du_monde(monde)
+        monde.personnages, monde.chefs = construire_personnages(monde, places)
         monde.routes_des_lieux = routes_des_lieux(monde, places)
         monde.dus_des_vassaux = dus_des_vassaux(monde, places)
         monde.greniers = {maison.id: {} for maison in monde.maisons}

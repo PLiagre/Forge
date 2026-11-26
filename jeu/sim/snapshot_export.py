@@ -366,7 +366,7 @@ def build_snapshot_document(world: World, seed: int, tick: int, releve_ia=None) 
     except (PuissanceInvalide, SeigneurieInconnue, ValueError) as exc:
         raise SnapshotExportError(str(exc)) from exc
 
-    noms = noms_depuis_monde(world, table=table, vue=puissances_vue, attribution=attribution)
+    noms = noms_depuis_monde(world, table=table, vue=puissances_vue, attribution=attribution, places=places)
     maisons_du_joueur = _maisons_du_joueur(world, noms, places)
     flux = flux_des_lieux(world)
     for cellule in cells_out:

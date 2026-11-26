@@ -66,7 +66,13 @@
     { "id": 61, "nom": "Buondelmonti", "source": "Wikipédia en anglais, article Esau de' Buondelmonti : Ésaü Buondelmonti, de la maison Buondelmonti, despote d'Épire à Ioannina de 1385 à 1411 (https://en.wikipedia.org/wiki/Esau_de%27_Buondelmonti)" },
     { "id": 62, "nom": "Tocco", "source": "Wikipédia en anglais, article Carlo I Tocco : Charles Ier Tocco, de la maison Tocco, comte palatin de Céphalonie et Zante de 1376 à 1429 (https://en.wikipedia.org/wiki/Carlo_I_Tocco)" },
     { "id": 63, "nom": "Crispo", "source": "Wikipédia en anglais, article Giacomo I Crispo : Jacques Ier Crispo, de la maison Crispo, duc de l'Archipel de 1397 à 1418 (https://en.wikipedia.org/wiki/Giacomo_I_Crispo)" },
-    { "id": 64, "nom": "Banou Thabit", "source": "Wikipédia en anglais, article Hafsid dynasty : les Banou Thabit tiennent Tripoli jusqu'en 1401, que les Hafsides ne leur reprennent qu'à cette date (https://en.wikipedia.org/wiki/Hafsid_dynasty)" }
+    { "id": 64, "nom": "Banou Thabit", "source": "Wikipédia en anglais, article Hafsid dynasty : les Banou Thabit tiennent Tripoli jusqu'en 1401, que les Hafsides ne leur reprennent qu'à cette date (https://en.wikipedia.org/wiki/Hafsid_dynasty)" },
+    { "id": 65, "nom": "Ó Néill", "source": "Wikipédia en anglais, article List of rulers of Tyrone : Niall Óg mac Néill O'Neill, roi de Tír Eoghain de 1397 à 1402 (https://en.wikipedia.org/wiki/List_of_rulers_of_Tyrone)" },
+    { "id": 66, "nom": "Ó Domhnaill", "source": "Wikipédia en anglais, article List of rulers of Tyrconnell : Turlough an Fhíona O'Donnell (Tairrdelbach an Fhiona Ó Domhnaill), roi de 1380 à 1422 (https://en.wikipedia.org/wiki/List_of_rulers_of_Tyrconnell)" },
+    { "id": 67, "nom": "Ó Conchobhair Sligigh", "source": "Wikipédia en anglais, article O'Connor Sligo : les Ó Conchobhair Sligigh, seigneurs de Sligo et du Bas-Connacht (Íochtar Connacht) ; Muircheartach Bachach Ó Conchobhair Sligigh de 1395 à 1403 (https://en.wikipedia.org/wiki/O%27Connor_Sligo)" },
+    { "id": 68, "nom": "Ó Briain", "source": "Wikipédia en anglais, article List of monarchs of Thomond : Brian Sreamhach Ó Briain, roi de Thomond de 1369 à 1400, puis Conchobhar mac Mathghamhna Ó Briain de 1400 à 1426 (https://en.wikipedia.org/wiki/List_of_monarchs_of_Thomond)" },
+    { "id": 69, "nom": "Butler", "source": "Wikipédia en anglais, article James Butler, 3rd Earl of Ormond : comte d'Ormond, de la pairie d'Irlande, de 1382 à sa mort le 7 septembre 1405 ; il bâtit en 1385 le château de Gowran, dont il fait sa résidence ordinaire, et achète en 1391 le château de Kilkenny (https://en.wikipedia.org/wiki/James_Butler,_3rd_Earl_of_Ormond)" },
+    { "id": 70, "nom": "FitzGerald de Desmond", "source": "Wikipédia en anglais, article Thomas FitzGerald, 5th Earl of Desmond : il succède en 1399 à son père Jean, 4e comte, au comté de Desmond, en Munster (https://en.wikipedia.org/wiki/Thomas_FitzGerald,_5th_Earl_of_Desmond)" }
   ],
   "puissances": [
     { "id": 1, "nom": "Angleterre", "nature": "royaume", "religion": "catholique", "maison": 1 },
@@ -159,7 +165,13 @@
     { "id": 90, "nom": "Épire", "nature": "principauté", "religion": "catholique", "maison": 61 },
     { "id": 91, "nom": "Céphalonie et Zante", "nature": "principauté", "religion": "catholique", "maison": 62 },
     { "id": 92, "nom": "Duché de l'Archipel", "nature": "principauté", "religion": "catholique", "maison": 63 },
-    { "id": 93, "nom": "Tripolitaine", "nature": "principauté", "religion": "musulmane", "maison": 64 }
+    { "id": 93, "nom": "Tripolitaine", "nature": "principauté", "religion": "musulmane", "maison": 64 },
+    { "id": 94, "nom": "Tír Eoghain", "nature": "royaume", "religion": "catholique", "maison": 65 },
+    { "id": 95, "nom": "Tír Chonaill", "nature": "royaume", "religion": "catholique", "maison": 66 },
+    { "id": 96, "nom": "Íochtar Connacht", "nature": "principauté", "religion": "catholique", "maison": 67 },
+    { "id": 97, "nom": "Thomond", "nature": "royaume", "religion": "catholique", "maison": 68 },
+    { "id": 98, "nom": "Ormond", "nature": "principauté", "religion": "catholique", "maison": 69, "suzerain": 49, "source_suzerain": "Wikipédia en anglais, article James Butler, 3rd Earl of Ormond : comte d'Ormond, de la pairie d'Irlande, de 1382 à sa mort le 7 septembre 1405 ; il bâtit en 1385 le château de Gowran, dont il fait sa résidence ordinaire, et achète en 1391 le château de Kilkenny (https://en.wikipedia.org/wiki/James_Butler,_3rd_Earl_of_Ormond)" },
+    { "id": 99, "nom": "Desmond", "nature": "principauté", "religion": "catholique", "maison": 70, "suzerain": 49, "source_suzerain": "Wikipédia en anglais, article Earl of Desmond : titre créé par le roi d'Angleterre dans la pairie d'Irlande (https://en.wikipedia.org/wiki/Earl_of_Desmond)" }
   ],
   "ancres": [
     { "id": 1, "puissance": 1, "nom": "Londres", "lat": 51.51, "lon": -0.13, "source": "Wikipédia, article Royaume d'Angleterre : Londres en est la capitale" },
@@ -286,6 +298,12 @@
     { "id": 124, "puissance": 90, "nom": "Ioannina", "lat": 39.66, "lon": 20.85, "source": "Wikipédia en anglais, article Despotate of Epirus : Ioannina est le siège du despotat d'Épire d'Ésaü Buondelmonti (https://en.wikipedia.org/wiki/Despotate_of_Epirus)" },
     { "id": 125, "puissance": 91, "nom": "Agios Georgios", "lat": 38.14, "lon": 20.55, "source": "Wikipédia en anglais, article Castle of Saint George, Cephalonia : forteresse de l'intérieur de l'île, capitale de Céphalonie, dans le comté palatin des Tocco (https://en.wikipedia.org/wiki/Castle_of_Saint_George,_Cephalonia)" },
     { "id": 126, "puissance": 92, "nom": "Naxos", "lat": 37.1, "lon": 25.385, "source": "Wikipédia en anglais, article Duchy of the Archipelago : Naxos est le siège du duché de l'Archipel des Crispo ; le point est pris à l'intérieur du polygone de l'île, à moins d'un kilomètre de la ville, la côte de la carte étant plus grossière (https://en.wikipedia.org/wiki/Duchy_of_the_Archipelago)" },
-    { "id": 127, "puissance": 93, "nom": "Tripoli", "lat": 32.89, "lon": 13.19, "source": "Wikipédia en anglais, article Hafsid dynasty : Tripoli est aux Banou Thabit jusqu'en 1401, que les Hafsides en chassent (https://en.wikipedia.org/wiki/Hafsid_dynasty)" }
+    { "id": 127, "puissance": 93, "nom": "Tripoli", "lat": 32.89, "lon": 13.19, "source": "Wikipédia en anglais, article Hafsid dynasty : Tripoli est aux Banou Thabit jusqu'en 1401, que les Hafsides en chassent (https://en.wikipedia.org/wiki/Hafsid_dynasty)" },
+    { "id": 128, "puissance": 94, "nom": "Dungannon", "lat": 54.5, "lon": -6.77, "source": "Wikipédia en anglais, article Tír Eoghain : sa principale capitale est Dungannon, les rois étant inaugurés à Tullyhogue (https://en.wikipedia.org/wiki/T%C3%ADr_Eoghain)" },
+    { "id": 129, "puissance": 95, "nom": "Donegal", "lat": 54.65, "lon": -8.11, "source": "Wikipédia en anglais, article Donegal (town) : Donegal est la « capitale » de Tyrconnell, royaume gaélique des O'Donnell, du XVe au début du XVIIe siècle ; le siège en 1400 est de niveau 2 (https://en.wikipedia.org/wiki/Donegal_(town))" },
+    { "id": 130, "puissance": 96, "nom": "Sligo", "lat": 54.27, "lon": -8.47, "source": "Wikipédia en anglais, article Sligo : la ville devient en 1315 le centre administratif de la confédération des O'Conor Sligo du Bas-Connacht (https://en.wikipedia.org/wiki/Sligo)" },
+    { "id": 131, "puissance": 97, "nom": "Ennis", "lat": 52.84, "lon": -8.98, "source": "Wikipédia en anglais, article Ennis : les O'Brien, rois de Thomond, quittent Limerick et bâtissent en 1210 le fort de Clonroad, résidence royale sur les rives du Fergus, à Ennis (https://en.wikipedia.org/wiki/Ennis)" },
+    { "id": 132, "puissance": 98, "nom": "Gowran", "lat": 52.63, "lon": -7.07, "source": "Wikipédia en anglais, article James Butler, 3rd Earl of Ormond : comte d'Ormond, de la pairie d'Irlande, de 1382 à sa mort le 7 septembre 1405 ; il bâtit en 1385 le château de Gowran, dont il fait sa résidence ordinaire, et achète en 1391 le château de Kilkenny (https://en.wikipedia.org/wiki/James_Butler,_3rd_Earl_of_Ormond)" },
+    { "id": 133, "puissance": 99, "nom": "Tralee", "lat": 52.27, "lon": -9.7, "source": "Wikipédia en anglais, article Tralee : la ville anglo-normande devient une place forte des comtes de Desmond, qui y bâtissent le château de Tralee (https://en.wikipedia.org/wiki/Tralee)" }
   ]
 }

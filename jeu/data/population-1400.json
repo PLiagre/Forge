@@ -24,8 +24,8 @@
     {
       "id": "iles",
       "nom": "Îles Britanniques",
-      "puissances": [1, 2, 49],
-      "terres": [],
+      "puissances": [1, 2, 49, 94, 95, 96, 97, 98, 99],
+      "terres": ["irlande"],
       "cellules": [1175, 1176, 1178, 1208, 1209, 1210, 1211, 1213, 10185, 10199],
       "raison_cellules": "Les Orcades et les Shetland, norvégiennes en 1400 : terres du Royaume-Uni d'aujourd'hui.",
       "part_cultivee": 0.111,
