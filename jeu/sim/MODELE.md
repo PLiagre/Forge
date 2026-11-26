@@ -1312,27 +1312,37 @@ lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
   capacité des arêtes. Le décor d'avant (`sim/tests/amorcage_d_avant.py`,
   `couper_l_appel_des_villes`) rend 0 et 1.
 - Aucun kilo n'est créé ni détruit, et `food_deficit_kg` n'est pas touché.
-- Le Caire ne peut pas gagner d'habitants par l'appel : aucun mort de faim, aucune
-  perte nette au pas des départs, sous les deux règles. Il est jugé sur son grain.
+- Une ville qui, sous l'appel, n'a ni mort de faim ni perte nette au pas des
+  départs n'est pas jugée sur ses habitants, seulement sur son grain et ses morts :
+  ils ne bougent plus que par ses naissances, par les réfugiés de ses voisines et
+  par les hommes que sa maison lève. C'est Milan : l'IA lève autant d'hommes que
+  son grenier en nourrit au-delà de sa réserve, l'appel remplit ce grenier, et
+  17 373 de ses hommes sont encore en campagne au 365e jour, contre 2 236 sous le
+  commerce d'avant. Le mieux-vivre et la migration lui en apportent 8 671, quand
+  il en perdait 1 520 sous le commerce d'avant, et ses cinq voisines meurent
+  moins de faim avec l'appel qu'avant.
 
-Mesuré (graine 0, IA active, 365 jours,
-`test_grain_monte_vers_les_villes_un_an`, qui rejoue les quatre réglages) :
+Mesuré (graine 0, IA active, 365 jours, `test_grain_monte_vers_les_villes_un_an`,
+qui rejoue le commerce d'avant et l'appel ; les deux réglages intermédiaires sont
+mesurés à part, sous les mêmes conditions) :
 
-| ville | habitants, avant → avec l'appel | grain au 365e jour, avant → avec l'appel |
-|---|---|---|
-| Paris | 153 052 → 284 985 | 956 t → 8 081 t |
-| Milan | 185 767 → 196 333 | 4 557 t → 50 292 t |
-| Gand | 33 669 → 89 260 | 0 t → 1 665 t |
-| Alexandrie | 22 305 → 42 231 | 0 t → 1 252 t |
-| Le Caire (grain seul) | 389 614 → 388 042 | 3 125 t → 23 196 t |
+| ville | habitants, avant → avec l'appel | grain au 365e jour, avant → avec l'appel | morts de faim, avant → avec l'appel |
+|---|---|---|---|
+| Paris | 48 → 122 717 | 0 t → 36 189 t | 260 909 → 151 719 |
+| Milan | 186 260 → 181 560 | 7 600 t → 53 914 t | 234 → 0 |
+| Gand | 8 556 → 78 414 | 0 t → 785 t | 158 726 → 93 535 |
+| Alexandrie | 19 958 → 35 302 | 0 t → 1 247 t | 14 325 → 261 |
+| Le Caire | 358 228 → 389 701 | 7 799 t → 30 822 t | 30 346 → 0 |
 
-Les deux réglages sont nécessaires. Le rayon seul (`P = 0`, `R = 6`) ne nourrit
-personne : Paris finit comme avant (153 052 habitants, 956 t), car son grenier ne
-descend jamais sous un jour de ration et il n'appelle donc rien ; Gand, Alexandrie
-et Le Caire bougent à peine (Gand 33 674, Alexandrie 22 454, Le Caire 389 779
-habitants et 3 116 t). L'appel seul (`P = 1`, `R = 1`) nourrit moins : Paris finit
-à 188 377 habitants et 5 199 t, Milan à 191 211 et 37 745 t, Gand à 97 249 et
-3 355 t, Alexandrie à 41 976 et 1 252 t, Le Caire à 388 336 habitants et 23 186 t.
+L'appel fait l'essentiel ; le rayon ne compte qu'avec lui. Le rayon seul (`P = 0`,
+`R = 6`) ne nourrit personne : Paris finit à 102 habitants et 0 t, Gand à 8 200 et
+0 t, Alexandrie à 20 096 et 0 t, Milan comme avant, et Le Caire y perd (345 086
+habitants, 8 347 t, 43 560 morts de faim contre 30 346). L'appel seul (`P = 1`,
+`R = 1`) nourrit déjà : Paris finit à 105 879 habitants et 11 020 t, Milan à
+179 936 et 40 468 t, Gand à 82 008 et 1 242 t, Alexandrie à 35 316 et 1 247 t, Le
+Caire à 389 704 et 30 822 t. Le rayon ajouté à l'appel porte surtout Paris
+(+16 838 habitants, +25 169 t) et le grain de Milan ; Gand y perd un peu (3 594
+habitants et 457 t de moins qu'avec l'appel seul).
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même

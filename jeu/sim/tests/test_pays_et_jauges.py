@@ -692,9 +692,9 @@ def _recoltes_versees(monde, alea, monkeypatch):
     verse = {}
     original = engine._verser_recolte
 
-    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None):
+    def mesurer(cell, recolte, carte, saison, recoltes, facteurs=None, facteurs_carte=None):
         avant = cell.stocks.get(NOURRITURE, 0.0)
-        original(cell, recolte, carte, saison, recoltes, facteurs)
+        original(cell, recolte, carte, saison, recoltes, facteurs, facteurs_carte)
         verse[cell.cell_id] = cell.stocks.get(NOURRITURE, 0.0) - avant
 
     with monkeypatch.context() as ctx:
