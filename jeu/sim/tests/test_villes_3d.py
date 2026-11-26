@@ -94,6 +94,14 @@ def _raison_absente(d):
     del d["raison_sans_ville"]
 
 
+def _raison_designee_absente(d):
+    del d["raison_sans_ville_designee"]
+
+
+def _raison_designee_sans_siege(d):
+    d["raison_sans_ville_designee"] = "aucun siège bâti, sauf {baties}"
+
+
 def _entree_pas_un_objet(d):
     d["villes"].append("seigneurie-1")
 
@@ -110,6 +118,8 @@ def _entree_pas_un_objet(d):
         (_raison_absente, "champ raison_sans_ville : texte absent ou vide"),
         (_raison_sans_siege, "{siege}"),
         (_raison_cle_inconnue, "champ raison_sans_ville"),
+        (_raison_designee_absente, "champ raison_sans_ville_designee : texte absent ou vide"),
+        (_raison_designee_sans_siege, "champ raison_sans_ville_designee : {siege}"),
     ],
 )
 def test_le_chargeur_refuse(tmp_path, alterer, fragment):
@@ -123,3 +133,6 @@ def test_la_raison_se_formate():
     texte = raison_sans_ville(charger_villes_3d(), "Bar-le-Duc", "Biskra")
     assert "Bar-le-Duc" in texte
     assert "Biskra" in texte
+    # Un siège désigné n'est jamais appelé ville.
+    designe = raison_sans_ville(charger_villes_3d(), "la campagne de Borgund, au nord-ouest", "Biskra", designe=True)
+    assert "la campagne de Borgund, au nord-ouest" in designe and "Biskra" in designe and "ville" not in designe

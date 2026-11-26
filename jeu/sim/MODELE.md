@@ -3084,14 +3084,15 @@ Chaque entrée garde `id`, `nom`, `sorte` et `lieux`, et porte :
   Gediminides de Jagellon au titre de la Pologne). Un prince d'Empire n'a pas de
   suzerain : son `ensemble` se lit dans la fiche du pays de `/terres` ;
 - `ville` `{batie, scene, raison}` : `batie` dit si la capitale a une ville bâtie
-  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas ; le siège d'un petit seigneur, une
-  désignation, y prend son article (« la ville de la campagne de Borgund, au nord-ouest n'est pas encore bâtie »,
-  `noms.avec_son_article`).
+  en 3D, `scene` la scène Unity, `raison` pourquoi elle n'en a pas ; le siège d'un petit seigneur, quand il est
+  une désignation, n'y est jamais appelé ville : il prend son article et son propre modèle (« le siège de ce
+  seigneur, la campagne de Borgund, au nord-ouest, n'est pas encore bâti en 3D », `noms.avec_son_article`).
 
 Le `nom` d'un petit seigneur vient des noms servis, non de son identifiant. La
 liste des capitales bâties est `data/villes-3d.json` (`sim/villes_3d.py`) : les
-maisons dont la ville existe en 3D, avec leur scène, et le modèle de la raison
-donnée aux autres. C'est un fait de la vue, pas une règle du monde : le moteur ne
+maisons dont la ville existe en 3D, avec leur scène, et les deux modèles de la raison
+donnée aux autres : `raison_sans_ville` pour un siège qui porte un nom de ville, `raison_sans_ville_designee`
+pour un siège désigné ; un modèle absent, vide ou sans `{siege}` est refusé en nommant son champ. C'est un fait de la vue, pas une règle du monde : le moteur ne
 vérifie pas que la scène existe, un test vérifie que les scènes existent et que
 les maisons sont exactement celles de `TerresAvecKit.Scenes`. Seule `seigneurie-6`
 (Biskra) y figure. Le tick ne lit ni cette vue ni cette donnée.

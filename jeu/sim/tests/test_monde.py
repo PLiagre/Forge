@@ -5483,7 +5483,9 @@ def test_flux_des_lieux_publication_et_passe_unique(monkeypatch):
         with pytest.raises(AssertionError): une_passe()
 
 
-@pytest.mark.parametrize('tick,ancienne', [(3, '5d4e194897e3d937683cdf48b912358805b137a0dd61f3179e6b1cd682a00f22'), (4, '673bae6929a7a4ad608b68f10ad85133028ba244a06d7e9dcad9374480f6375c')])
+# Les réponses figées gardent ici le bloc `noms` : les lieux nommés d'après leur ville ou désignés, et les seigneurs
+# plausibles servis comme tels (« Seigneur de … », `sorte`) le changent, et lui seul.
+@pytest.mark.parametrize('tick,ancienne', [(3, '266a5f47c9efdf7524c81211dfa80cf12d091c6f9e42c1ca7b7a222f39175ce3'), (4, 'ba4a160f9eb102c75f2988279f9bccb99001a133583746104d645b9920fc45fd')])
 def test_service_reponse_figee_flux_et_origine(tick, ancienne):
     from sim.service import _serialiser
     document = json.loads((_REPO.parent / f'3d/unity/Assets/ForgeLocal3D/Pont/Tests/lieu-graine0-tick{tick}.json').read_bytes())

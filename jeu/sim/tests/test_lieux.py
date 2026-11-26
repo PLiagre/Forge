@@ -1651,6 +1651,22 @@ def test_noms_des_lieux_le_juge_voit_chaque_faute(noms_livres):
     assert _juger(s, villes={**s.villes, "Ville d'épreuve": {(cid, 1)}})
 
 
+def test_noms_des_lieux_refusent_un_lieu_pose_sur_son_bourg(noms_livres):
+    """Un lieu posé sur la place de son bourg n'a pas de direction : la désignation le refuse en nommant la cellule,
+    au lieu de chercher sans fin un quart de tour qui n'existe pas."""
+    import dataclasses as dc
+    from sim.noms import _designations, _direction
+    s = noms_livres
+    cid = next(c for c in sorted(s.places) if len(s.places[c]) > 2)
+    places = list(s.places[cid])
+    assert _designations(cid, places, [1, 2], "Épreuve")
+    places[1] = dc.replace(places[1], x_m=places[0].x_m, y_m=places[0].y_m)
+    with pytest.raises(ValueError, match=f"cellule {cid} : le lieu 1"):
+        _designations(cid, places, [1, 2], "Épreuve")
+    with pytest.raises(ValueError, match="vecteur nul"):
+        _direction(0, 0, 8)
+
+
 def test_noms_aires_de_cellule():
     from sim.noms import charger_noms, aire_de_cellule
     from sim.puissances import charger_table

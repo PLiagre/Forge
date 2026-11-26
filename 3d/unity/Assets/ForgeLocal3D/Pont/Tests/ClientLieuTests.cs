@@ -791,7 +791,7 @@ namespace Forge.Pont.Tests
         }
 
         // Le nom servi de chaque lieu ; la mutation vise l'entrée lieux[1], jamais le bloc `noms` qui la répète.
-        private const string NomDuSecond = "\"plausible-9922-0\",\"nom\":\"Övre dal\"";
+        private const string NomDuSecond = "\"plausible-9922-0\",\"nom\":\"campagne d'Örebro, au sud-est\"";
         private static Dictionary<string, object> Second(string corps) => (Dictionary<string, object>)((List<object>)LecteurJson.LireObjet(corps)["lieux"])[1];
         private static Lieu Terre(long cell, string nom, string absence = null) =>
             new Lieu(cell, 1, 1400, 1, 1, new Dictionary<string, double>(), 0, 0, lieux: new[] { new LieuPlace(1, null, null, nom: "autre"), new LieuPlace(0, null, null, nom: nom, absenceDuNom: absence) });
@@ -805,7 +805,7 @@ namespace Forge.Pont.Tests
             Assert.IsTrue(attendus.Count > 1 && lieu.Lieux.Count == attendus.Count, "échantillon de lieux");
             for (int i = 0; i < attendus.Count; i++)
                 Assert.IsTrue(lieu.Lieux[i].Nom == (string)((Dictionary<string, object>)attendus[i])["nom"] && lieu.Lieux[i].AbsenceDuNom == null, "nom du lieu " + i);
-            Assert.AreEqual("Örebro", lieu.Lieux[0].Nom); Assert.AreEqual("Övre dal", lieu.Lieux[1].Nom);
+            Assert.AreEqual("Örebro", lieu.Lieux[0].Nom); Assert.AreEqual("campagne d'Örebro, au sud-est", lieu.Lieux[1].Nom);
             Fermer(); Lieu change = Servi(Remplacer(texte, NomDuSecond, "\"plausible-9922-0\",\"nom\":\"Mistra\""));
             Assert.IsTrue(change.Lieux[1].Nom == "Mistra" && change.Lieux[0].Nom == "Örebro", "seul le second lieu change de nom");
         }
@@ -837,7 +837,7 @@ namespace Forge.Pont.Tests
             var noms = NomsDesTerres.Local(port);
             Assert.IsNull(noms.Bourg(CellFigee, 0)); StringAssert.Contains("en cours", noms.Raison(CellFigee, 0));
             Attendre(noms);
-            Assert.AreEqual("Örebro", noms.Bourg(CellFigee, 0.1)); Assert.AreEqual("Övre dal", noms.Nom(CellFigee, 1, 0.1));
+            Assert.AreEqual("Örebro", noms.Bourg(CellFigee, 0.1)); Assert.AreEqual("campagne d'Örebro, au sud-est", noms.Nom(CellFigee, 1, 0.1));
             Assert.IsNull(noms.Raison(CellFigee, 0));
             Assert.IsNull(noms.Nom(CellFigee, 999, 0.1)); Assert.AreEqual("aucun lieu de ce rang dans la terre", noms.Raison(CellFigee, 999));
             Fermer();
