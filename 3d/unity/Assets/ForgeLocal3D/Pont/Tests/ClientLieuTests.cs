@@ -389,7 +389,7 @@ namespace Forge.Pont.Tests
                 Assert.IsTrue(maitres.Count > 1 && place);
                 Assert.Throws<NotSupportedException>(() => ((IList<LieuPlace>)lieu.Lieux).Add(null));
                 Fermer();
-                Servir(200, texte.Replace("\"x_m\":4631943.28,\"y_m\":4046406.921", "\"x_m\":1.25,\"y_m\":-3.5").Replace("\"maitre\":\"plausible-9922-0\",\"nom\":\"\u00d6vre dal\"", "\"maitre\":\"maison-b\",\"nom\":\"\u00d6vre dal\""));
+                Servir(200, texte.Replace("\"x_m\":4631943.28,\"y_m\":4046406.921", "\"x_m\":1.25,\"y_m\":-3.5").Replace("\"maitre\":" + NomDuSecond, "\"maitre\":\"maison-b\",\"nom\":\"campagne d'\u00d6rebro, au sud-est\""));
                 Lieu relu = client.Lire(CellFigee).Lieu;
                 Assert.IsTrue(relu.Lieux[1].Maitre == "maison-b" && relu.Lieux[1].Position.Value.X == 1.25 && relu.Lieux[1].Position.Value.Y == -3.5 && relu.Lieux[0].Position.Value.X == lieu.Lieux[0].Position.Value.X && relu.Lieux[0].Maitre == lieu.Lieux[0].Maitre);
             }

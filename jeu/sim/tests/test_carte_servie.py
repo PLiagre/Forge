@@ -363,3 +363,27 @@ def test_jouables_fige_du_pont():
         assert statut == HTTPStatus.OK and octets == fige
     zab = next(j for j in document["jouables"] if j["id"] == "seigneurie-6")
     assert zab["ville"]["batie"] is True and zab["ville"]["scene"] and zab["ville"]["raison"] is None
+
+
+def test_terres_et_jouables_figes_de_l_europe():
+    """Les terres et les jouables que les tests C# lisent sont ceux du service, octet pour octet.
+
+    Graine 0, sans IA ni amorçage, après trente ticks : `/terres` et `/jouables` rendent les mêmes octets que
+    `terres-graine0-europe.json` et `jouables-graine0-europe.json`, d'où le client Unity lit les pays, les lieux
+    d'autres pays et les fiches du monde livré. Des terres et des fiches vides échoueraient ici.
+    """
+    from pathlib import Path
+    dossier = Path(__file__).resolve().parents[3] / "3d/unity/Assets/ForgeLocal3D/Pont/Tests"
+    terres_figees = (dossier / "terres-graine0-europe.json").read_bytes()
+    jouables_figes = (dossier / "jouables-graine0-europe.json").read_bytes()
+    terres, jouables = json.loads(terres_figees), json.loads(jouables_figes)
+    assert terres["pays"] and terres["terres"] and jouables["jouables"]
+    assert terres["tick"] == jouables["tick"] == 30
+    with lancer_service(0) as port:
+        assert requete_service(port, "/tick?n=30", "POST")[0] == HTTPStatus.OK
+        statut, document, octets = requete_service(port, "/terres")
+        assert statut == HTTPStatus.OK and octets == terres_figees
+        assert document["pays"] and document["terres"]
+        statut, document, octets = requete_service(port, "/jouables")
+        assert statut == HTTPStatus.OK and octets == jouables_figes
+        assert document["jouables"]

@@ -7,42 +7,53 @@ using UnityEngine.UI;
 
 namespace Forge.Interface
 {
-    // L'échelle dessinée d'une légende : des teintes fondues de l'une à l'autre (`Degrade`), ou trois pastilles, et trois
-    // étiquettes, de gauche à droite. Trois mots ou chiffres, jamais une phrase : la règle et la date sont dans l'infobulle.
+    // L'échelle dessinée d'une légende : des teintes fondues de l'une à l'autre (`Degrade`) ou trois pastilles, et trois étiquettes,
+    // de gauche à droite ; ou des paliers (`Paliers`) : une pastille par palier, et sous chaque limite entre deux pastilles la borne
+    // qui les sépare, un nombre seul, la dernière portant l'unité (`Unite`), dite une seule fois pour toutes. Des mots ou des
+    // chiffres, jamais une phrase : la règle et la date sont dans l'infobulle.
     public sealed class EchelleDuMode
     {
-        public IReadOnlyList<Color> Teintes { get; } public bool Degrade { get; } public IReadOnlyList<string> Etiquettes { get; }
+        public IReadOnlyList<Color> Teintes { get; } public bool Degrade { get; } public bool Paliers { get; } public IReadOnlyList<string> Etiquettes { get; }
+        // L'unité des bornes d'une échelle à paliers ; nulle pour les autres.
+        public string Unite { get; }
         public EchelleDuMode(bool degrade, IReadOnlyList<Color> teintes, string gauche, string milieu, string droite)
         {
             if (teintes == null || (degrade ? teintes.Count < 2 : teintes.Count != 3)) throw new ArgumentException(degrade ? "un dégradé de deux teintes au moins" : "trois pastilles");
             var etiquettes = new[] { gauche, milieu, droite }; if (etiquettes.Any(string.IsNullOrWhiteSpace)) throw new ArgumentException("trois étiquettes non vides");
             Degrade = degrade; Teintes = teintes.ToArray(); Etiquettes = etiquettes;
         }
-        // Les trois étiquettes, telles qu'elles se lisent sous l'échelle.
-        public string Texte => string.Join(" · ", Etiquettes);
-        // La valeur au rang `part` (0 à 1) d'une liste triée : au plancher sous la médiane, au plafond au-dessus, comme les bornes d'une échelle.
-        public static double Centile(IReadOnlyList<double> triees, double part) { int dernier = triees.Count - 1; return triees[part <= .5 ? (int)Math.Floor(part * dernier) : (int)Math.Ceiling(part * dernier)]; }
+        EchelleDuMode(IReadOnlyList<Color> teintes, IReadOnlyList<string> bornes, string unite)
+        {
+            if (teintes == null || teintes.Count < 2 || bornes == null || bornes.Count != teintes.Count - 1) throw new ArgumentException("des paliers : deux pastilles au moins, une borne entre deux");
+            if (bornes.Any(string.IsNullOrWhiteSpace) || string.IsNullOrWhiteSpace(unite)) throw new ArgumentException("des bornes et une unité non vides");
+            Paliers = true; Teintes = teintes.ToArray(); Unite = unite;
+            var etiquettes = bornes.ToArray(); etiquettes[etiquettes.Length - 1] += " " + unite; Etiquettes = etiquettes;
+        }
+        // Une échelle à paliers : `teintes`, du premier palier au dernier, et les `bornes` entre deux, la dernière suivie de `unite`.
+        public static EchelleDuMode EnPaliers(IReadOnlyList<Color> teintes, IReadOnlyList<string> bornes, string unite) => new EchelleDuMode(teintes, bornes, unite);
+        // Les étiquettes, telles qu'elles se lisent sous l'échelle ; hors du dessin, dans l'infobulle, chaque borne d'une échelle à paliers porte son unité.
+        public string Texte => Paliers ? string.Join(" · ", Etiquettes.Select(e => e.EndsWith(" " + Unite, StringComparison.Ordinal) ? e : e + " " + Unite)) : string.Join(" · ", Etiquettes);
+        // Le palier d'une valeur : le nombre de bornes qu'elle atteint, de 0 au nombre de bornes.
+        public static int Palier(double valeur, IReadOnlyList<double> bornes) { int k = 0; while (k < bornes.Count && valeur >= bornes[k]) k++; return k; }
+        // `n` teintes de `claire` à `foncee`, à pas égaux.
+        public static Color[] Pas(Color claire, Color foncee, int n) => Enumerable.Range(0, n).Select(k => Color.Lerp(claire, foncee, k / (float)(n - 1))).ToArray();
     }
 
     // La densité de chaque lieu servi (`/lieux`) : ses habitants divisés par sa surface, deux nombres du monde dont la vue ne fait
-    // que le rapport, pour que le bourg d'une cellule se lise à côté de ses campagnes. L'échelle est logarithmique, bornée aux
-    // lieux du 5e et du 95e centile, le lieu du milieu à mi-teinte : les quelques lieux vides ou très denses ne tassent pas tous
-    // les autres dans la même teinte. L'échelle dit les bornes et le lieu du milieu en hab./km², et « jusqu'à » ou « dès » quand
-    // des lieux dépassent une borne.
+    // que le rapport, pour que le bourg d'une cellule se lise à côté de ses campagnes. L'échelle a des paliers fixes en habitants par
+    // km² (`BORNES`), les mêmes quelle que soit la carte servie, comme sur un atlas : un lieu de ville est foncé, une campagne claire,
+    // et un même lieu garde sa teinte d'une lecture à l'autre tant que sa densité ne passe pas une borne.
     public sealed class RepartitionHabitants
     {
-        public const double CENTILE_BAS = .05, CENTILE_HAUT = .95;
-        // Les deux bouts de l'échelle : le papier, et le brun du socle tiré vers l'encre.
+        // Les bornes des paliers, en habitants par km² : moins de 2, puis 2, 5, 10, 20, 40, et dès 80.
+        public static readonly IReadOnlyList<double> BORNES = new[] { 2d, 5, 10, 20, 40, 80 };
+        public const string UNITE = "hab./km²";
+        // Les deux bouts de l'échelle : le papier, et le brun du socle tiré vers l'encre ; un palier par pas entre eux.
         public static readonly Color CLAIRE = SocleInterface.Couleur("papier"), FONCEE = Color.Lerp(SocleInterface.Couleur("secondaire"), SocleInterface.Couleur("encre"), .3f); // un brun d'encre : ni le bleu de la mer, ni le rouge de l'alerte
+        public static readonly IReadOnlyList<Color> PALIERS = EchelleDuMode.Pas(CLAIRE, FONCEE, BORNES.Count + 1);
         static readonly System.Globalization.CultureInfo Fr = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
         readonly Dictionary<(long, long), double> densites = new Dictionary<(long, long), double>();
         public DateDuMonde Date { get; }
-        public double Minimum { get; }
-        public double Maximum { get; }
-        public double Bas { get; }
-        public double Haut { get; }
-        // Le lieu du milieu : la moitié des lieux est moins dense, l'autre moitié plus. Il prend la mi-teinte quand il est entre les bornes.
-        public double Mediane { get; }
         public int Lieux => densites.Count;
         public RepartitionHabitants(LieuxLus lieux)
         {
@@ -52,27 +63,20 @@ namespace Forge.Interface
                 if (lieu.Population < 0 || !(lieu.SurfaceKm2 > 0)) throw new ArgumentException("Habitants négatifs ou surface nulle d'un lieu servi");
                 densites.Add((cellule.CellId, lieu.Rang), lieu.Population / lieu.SurfaceKm2);
             }
-            var triees = densites.Values.OrderBy(n => n).ToList();
-            Minimum = triees[0]; Maximum = triees[triees.Count - 1]; Date = lieux.Date; TexteDuMonde.Date(Date);
-            Bas = EchelleDuMode.Centile(triees, CENTILE_BAS); Haut = EchelleDuMode.Centile(triees, CENTILE_HAUT); Mediane = triees[(triees.Count - 1) / 2];
+            if (densites.Count == 0) throw new ArgumentException("aucun lieu servi");
+            Date = lieux.Date; TexteDuMonde.Date(Date);
         }
         // Une densité comme on la lit : au dixième sous 10 hab./km², à l'unité au-delà.
-        public static string Densite(double d) => (d < 10 ? Math.Round(d, 1, MidpointRounding.AwayFromZero).ToString("0.#", Fr) : TexteDuMonde.Nombre((long)Math.Round(d, MidpointRounding.AwayFromZero))) + " hab./km²";
-        bool AvecMediane => Mediane > Bas && Mediane < Haut;
+        public static string Densite(double d) => (d < 10 ? Math.Round(d, 1, MidpointRounding.AwayFromZero).ToString("0.#", Fr) : TexteDuMonde.Nombre((long)Math.Round(d, MidpointRounding.AwayFromZero))) + " " + UNITE;
         // La densité du lieu, en habitants par km².
         public double DensiteDe(long cellId, long rang) => densites.TryGetValue((cellId, rang), out double d) ? d : throw new ArgumentException("Habitants absents du lieu " + rang + " du territoire " + cellId);
         public bool Sert(long cellId, long rang) => densites.ContainsKey((cellId, rang));
-        // De 0 (clair) à 1 (foncé), au logarithme : de la borne claire au lieu du milieu, puis du lieu du milieu à la borne foncée,
-        // chacun sur une moitié de l'échelle ; au-delà d'une borne, la teinte de la borne.
-        public float Position(long cellId, long rang)
-        {
-            double d = DensiteDe(cellId, rang);
-            if (Bas == Haut) return .5f;
-            double n = Math.Min(Math.Max(d, Bas), Haut);
-            float Entre(double a, double b) => (float)((Math.Log(1d + n) - Math.Log(1d + a)) / (Math.Log(1d + b) - Math.Log(1d + a)));
-            return !AvecMediane ? Entre(Bas, Haut) : n <= Mediane ? .5f * Entre(Bas, Mediane) : .5f + .5f * Entre(Mediane, Haut);
-        }
-        public EchelleDuMode Echelle => new EchelleDuMode(true, new[] { CLAIRE, FONCEE }, (Bas > Minimum ? "jusqu'à " : "") + Densite(Bas), Densite(Mediane), (Haut < Maximum ? "dès " : "") + Densite(Haut));
+        // Le palier du lieu, de 0 (moins de 2 hab./km²) au dernier (dès 80).
+        public int Palier(long cellId, long rang) => EchelleDuMode.Palier(DensiteDe(cellId, rang), BORNES);
+        // De 0 (clair) à 1 (foncé) : le palier du lieu rapporté au dernier.
+        public float Position(long cellId, long rang) => Palier(cellId, rang) / (float)BORNES.Count;
+        public Color Teinte(long cellId, long rang) => PALIERS[Palier(cellId, rang)];
+        public EchelleDuMode Echelle => EchelleDuMode.EnPaliers(PALIERS, BORNES.Select(b => b.ToString("0.#", Fr)).ToArray(), UNITE);
         public string Detail => " Habitants au " + TexteDuMonde.Date(Date) + ", sur " + TexteDuMonde.Nombre(Lieux) + " lieux.";
     }
 
@@ -110,18 +114,22 @@ namespace Forge.Interface
     }
 
     // Les jours de grain qui restent à chaque lieu servi (`/lieux`), tels que le mieux-vivre les lit : la nourriture moins la dette,
-    // divisée par la ration de ses habitants. La teinte va du vide (aucune réserve, ou une dette) au plein, la borne haute étant
-    // la réserve du 95e centile des lieux servis : aucun seuil n'est posé ici. Un lieu sans habitants n'a pas de réserve : gris.
+    // divisée par la ration de ses habitants. La teinte a des paliers fixes en mois de grain (`BORNES_EN_MOIS`) : vide ou endetté,
+    // moins d'un mois, un à trois, trois à six, six à douze, un an et plus, du brun à l'or, les mêmes quelle que soit la carte
+    // servie. Un lieu sans habitants n'a pas de réserve : gris.
     public sealed class VivresDesLieux
     {
-        public const double CENTILE_HAUT = .95;
+        // Les bornes des paliers, en mois de grain, et ce que vaut un mois en jours : une année de 365 jours en douze.
+        public static readonly IReadOnlyList<double> BORNES_EN_MOIS = new[] { 0d, 1, 3, 6, 12 };
+        public const double JOURS_PAR_MOIS = 365d / 12d; public const string UNITE = "mois";
         public static readonly Color PLEIN = Color.Lerp(SocleInterface.Couleur("papier"), SocleInterface.Couleur("or-vieilli"), .8f),
             VIDE = Color.Lerp(SocleInterface.Couleur("cuivre"), SocleInterface.Couleur("encre"), .6f);
+        public static readonly IReadOnlyList<Color> PALIERS = EchelleDuMode.Pas(VIDE, PLEIN, BORNES_EN_MOIS.Count + 1);
+        // Les bornes en jours ; un lieu vide (aucune réserve, ou une dette) reste sous la première.
+        static readonly double[] BORNES_EN_JOURS = BORNES_EN_MOIS.Select((m, k) => k == 0 ? double.Epsilon : m * JOURS_PAR_MOIS).ToArray();
         readonly Dictionary<(long, long), double?> reserves = new Dictionary<(long, long), double?>();
         public DateDuMonde Date { get; }
-        public double Haut { get; } // en jours, la borne pleine ; 0 quand aucun lieu n'a de réserve
         public double Mediane { get; }
-        public double Maximum { get; }
         public int Vides { get; } // lieux habités sans réserve, ou endettés
         public int SansHabitants { get; }
         public VivresDesLieux(LieuxLus lieux)
@@ -134,17 +142,17 @@ namespace Forge.Interface
                 if (lieu.ReserveJours is double r) { servies.Add(Math.Max(r, 0)); if (r <= 0) Vides++; } else SansHabitants++;
             }
             if (servies.Count == 0) throw new ArgumentException("aucun lieu habité servi");
-            servies.Sort(); Haut = EchelleDuMode.Centile(servies, CENTILE_HAUT); Mediane = servies[(servies.Count - 1) / 2]; Maximum = servies[servies.Count - 1];
+            servies.Sort(); Mediane = servies[(servies.Count - 1) / 2];
             Date = lieux.Date; TexteDuMonde.Date(Date);
         }
         // Les jours de réserve servis du lieu ; null sans habitants.
         public double? JoursDe(long cellId, long rang) => reserves.TryGetValue((cellId, rang), out double? j) ? j : throw new ArgumentException("Réserve absente du lieu " + rang + " du territoire " + cellId);
         public bool Sert(long cellId, long rang) => reserves.ContainsKey((cellId, rang));
-        // De 0 (vide) à 1 (plein) : la réserve rapportée à la borne haute ; au-delà, plein.
-        public float Position(long cellId, long rang) { double? j = JoursDe(cellId, rang); return j == null || !(Haut > 0) ? 0f : (float)Math.Min(1, Math.Max(0, j.Value) / Haut); }
-        public Color Teinte(long cellId, long rang) => JoursDe(cellId, rang) == null ? SocleInterface.Attenue : Color.Lerp(VIDE, PLEIN, Position(cellId, rang));
+        // Le palier du lieu, de 0 (vide ou endetté) au dernier (un an et plus) ; -1 sans habitants.
+        public int Palier(long cellId, long rang) { double? j = JoursDe(cellId, rang); return j == null ? -1 : EchelleDuMode.Palier(j.Value, BORNES_EN_JOURS); }
+        public Color Teinte(long cellId, long rang) { int p = Palier(cellId, rang); return p < 0 ? SocleInterface.Attenue : PALIERS[p]; }
         static string Jours(double j) => TexteDuMonde.Jours((long)Math.Round(j, MidpointRounding.AwayFromZero));
-        public EchelleDuMode Echelle => new EchelleDuMode(true, new[] { VIDE, PLEIN }, "vide", Jours(Mediane), (Maximum > Haut ? "dès " : "") + Jours(Haut));
+        public EchelleDuMode Echelle => EchelleDuMode.EnPaliers(PALIERS, BORNES_EN_MOIS.Select(m => m.ToString("0", System.Globalization.CultureInfo.InvariantCulture)).ToArray(), UNITE);
         public string Detail => "\nRéserves au " + TexteDuMonde.Date(Date) + " : " + (Vides > 0 ? TexteDuMonde.Nombre(Vides) + (Vides > 1 ? " lieux habités sont vides" : " lieu habité est vide") : "aucun lieu habité n'est vide")
             + " ; la moitié des lieux habités a moins de " + Jours(Mediane) + " de grain." + (SansHabitants > 0 ? "\n" + TexteDuMonde.Nombre(SansHabitants) + (SansHabitants > 1 ? " lieux sans habitants, en gris." : " lieu sans habitants, en gris.") : "");
     }
@@ -190,7 +198,7 @@ namespace Forge.Interface
     // Ce qu'un mode lit pour se peindre, lu d'un coup avant qu'un seul lieu change de couleur : une donnée qui manque lève une
     // `ArgumentException` qui la nomme, et le mode le dit au lieu de peindre. Les terres lues portent les pays, en Politique
     // comme dans les autres modes ; nulles, les pays ne sont pas lus. Population et Vivres se lisent lieu par lieu (`/lieux`) ;
-    // la carte politique peint en rouge les seuls lieux du joueur en alerte (`alertes`), et rien d'autre.
+    // la carte politique peint chaque lieu au pigment de son pays, en alerte (`alertes`) ou non : l'alerte se marque à part.
     public sealed class LectureDuMode
     {
         public ModeDeCarte Mode { get; }
@@ -220,13 +228,14 @@ namespace Forge.Interface
         }
         public bool EnAlerte(long cellId, long rang) => alertes.Contains((cellId, rang));
         // La teinte d'un lieu qu'un pays tient et dont le pigment est donné.
+        // En Politique, un lieu en alerte garde le pigment de son pays : l'alerte est une marque posée sur lui (`LieuxDeCarte`), pas une teinte.
         public Color Teinte(long cellId, long rang, string pays, Color pigment) => Mode == ModeDeCarte.Relief ? Relief.Teinte(cellId)
-            : Mode == ModeDeCarte.Population ? Color.Lerp(RepartitionHabitants.CLAIRE, RepartitionHabitants.FONCEE, Population.Position(cellId, rang))
+            : Mode == ModeDeCarte.Population ? Population.Teinte(cellId, rang)
             : Mode == ModeDeCarte.Vivres ? Vivres.Teinte(cellId, rang)
             : Mode == ModeDeCarte.Guerres ? Guerres.Teinte(cellId, pays, pigment)
-            : EnAlerte(cellId, rang) ? SocleInterface.Couleur("alerte") : pigment;
-        // L'échelle de la légende ; nulle quand il n'y a rien à échelonner (aucune armée en campagne).
-        public EchelleDuMode Echelle => Mode == ModeDeCarte.Politique ? new EchelleDuMode(false, new[] { CalquesCarte.PIGMENT_TEMOIN, SocleInterface.Couleur("alerte"), SocleInterface.Couleur("encre") },
+            : pigment;
+        // L'échelle de la légende ; nulle quand il n'y a rien à échelonner (aucune armée en campagne). La pastille de l'alerte est l'encre de sa marque.
+        public EchelleDuMode Echelle => Mode == ModeDeCarte.Politique ? new EchelleDuMode(false, new[] { CalquesCarte.PIGMENT_TEMOIN, SocleInterface.Couleur("encre"), SocleInterface.Couleur("encre") },
                 Terres != null ? "pays" : "puissance", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE)
             : Relief?.Echelle ?? Population?.Echelle ?? Vivres?.Echelle ?? Guerres.Echelle;
         // La légende telle qu'elle se lit : les étiquettes de l'échelle, ou ce qui en tient lieu.
@@ -240,14 +249,15 @@ namespace Forge.Interface
     {
         // La bande des modes en bas à droite de la vue de la carte, sa légende juste au-dessus (unités de la toile, 1920 × 1080).
         public const string BANDE = "Modes de la carte", LEGENDE = "Légende du mode", COUPEE = "Mode indisponible : détail dans l'infobulle.";
-        // Les étiquettes de l'échelle politique : le rouge n'y dit que l'alerte, et la terre ouverte est cernée d'un trait d'encre.
-        // `PAYS_NON_LUS` ouvre le détail quand les pays ne sont pas encore lus.
-        public const string ALERTE = "rouge : départs", TERRE_OUVERTE = "trait : terre ouverte", PAYS_NON_LUS = "Pays non lus";
+        // Les étiquettes de l'échelle politique : une flèche d'encre marque les lieux d'où partent plus de gens qu'il n'en arrive, et la terre
+        // ouverte est cernée d'un trait d'encre ; aucune couleur de pays n'y dit autre chose que son pays. `PAYS_NON_LUS` ouvre le détail
+        // quand les pays ne sont pas encore lus.
+        public const string ALERTE = "flèche : départs", TERRE_OUVERTE = "trait : terre ouverte", PAYS_NON_LUS = "Pays non lus";
         // La pastille d'un pays dans une échelle : un pigment d'atlas, qu'aucun mode ne prend pour l'une de ses teintes.
         public static readonly Color PIGMENT_TEMOIN = SocleInterface.Pigment(new Color(.45f, .6f, .85f));
         // La légende tient entre le guide des premiers gestes (jusqu'à x 764) et la fiche de la terre (dès x 1312) : une échelle haute
         // de `HAUTEUR_D_ECHELLE`, ses trois étiquettes dessous ; un message, sans échelle, en trois lignes au plus.
-        public const int LIGNES_MAX = 3; public const float FORCE_DU_LISERE = .55f, HAUTEUR_D_ECHELLE = 12f; const float X = 776, LARGEUR = 530, BAS = 1004, MARGE = 4;
+        public const int LIGNES_MAX = 3; public const float FORCE_DU_LISERE = .55f, HAUTEUR_D_ECHELLE = 12f, LARGEUR_DE_LA_LEGENDE = LARGEUR; const float X = 776, LARGEUR = 530, BAS = 1004, MARGE = 4;
         public const string ECHELLE = "Échelle du mode", ETIQUETTE = "Étiquette ";
         // Les lieux servis se relisent toutes les `PERIODE_DES_LIEUX_S` tant que Population ou Vivres est montré.
         public const float PERIODE_DES_LIEUX_S = 2f;
@@ -259,7 +269,7 @@ namespace Forge.Interface
         Dictionary<long, Color> maisons; // la couleur de la maison de chaque terre dessinée, relevée une fois à la pose, jamais relue sur le terrain reteint
         Dictionary<long, string> departs; // le rattachement de chaque terre à la pose, relevé avec sa couleur : celui qui revient quand les pays ne sont pas lus
         Dictionary<long, long[]> rangsDesLieux; // les rangs des lieux que le terrain dessine, par terre
-        RawImage echelle; Texture2D teintesDeLEchelle; readonly Text[] etiquettesDeLEchelle = new Text[3];
+        RawImage echelle; Texture2D teintesDeLEchelle; readonly List<Text> etiquettesDeLEchelle = new List<Text>(); int etiquettesMontrees;
         // Les lieux servis, la lecture en vol, et la prochaine ; nulles tant qu'aucune n'a rendu.
         public Func<Lecture<LieuxLus>> LecteurDesLieux; public bool LieuxEnVol => volDesLieux != null && !volDesLieux.IsCompleted; public Lecture<LieuxLus> LieuxLus { get; private set; }
         System.Threading.Tasks.Task<Lecture<LieuxLus>> volDesLieux; double prochaineDesLieux; Lecture<LieuxLus> lieuxPeints; int alertesPeintes = -1;
@@ -280,12 +290,13 @@ namespace Forge.Interface
         public Text Legende => legende;
         public EchelleDuMode EchelleMontree { get; private set; }
         public RawImage Echelle => echelle;
-        public IReadOnlyList<Text> EtiquettesDeLEchelle => etiquettesDeLEchelle;
+        // Les étiquettes montrées sous l'échelle, de gauche à droite : trois sous un dégradé ou des pastilles, une par borne sous des paliers.
+        public IReadOnlyList<Text> EtiquettesDeLEchelle => etiquettesDeLEchelle.Take(etiquettesMontrees).ToList();
         // Ce que dit le bouton de chaque mode au survol : ce qu'il montre, jamais son nom seul.
-        public static string PhraseDuMode(ModeDeCarte mode) => mode == ModeDeCarte.Politique ? "Politique : chaque lieu à la couleur du pays qui le tient ; en rouge, vos lieux d'où partent plus de gens qu'il n'en arrive."
+        public static string PhraseDuMode(ModeDeCarte mode) => mode == ModeDeCarte.Politique ? "Politique : chaque lieu à la couleur du pays qui le tient ; une flèche d'encre sur vos lieux d'où partent plus de gens qu'il n'en arrive."
             : mode == ModeDeCarte.Relief ? "Relief : le terrain nu, teint par son altitude du marais à la haute montagne, sans couleur ni frontière de pays."
-            : mode == ModeDeCarte.Population ? "Population : chaque lieu plus ou moins foncé selon ses habitants par km², les villes sombres, les campagnes claires."
-            : mode == ModeDeCarte.Vivres ? "Vivres : les jours de grain qui restent à chaque lieu, et ce que vos lieux envoient à votre siège."
+            : mode == ModeDeCarte.Population ? "Population : chaque lieu plus ou moins foncé selon ses habitants par km², par paliers ; chaque ville en disque d'encre à la mesure de ses habitants."
+            : mode == ModeDeCarte.Vivres ? "Vivres : les mois de grain qui restent à chaque lieu, par paliers, et ce que vos lieux envoient à votre siège."
             : "Guerres : seuls les pays en guerre en couleur, leurs armées et les terres assiégées.";
         public void Initialiser(CarteDessinee carte, Transform toile, Func<MondeLu> monde, Func<CelluleDeCarte> selection)
         {
@@ -303,14 +314,20 @@ namespace Forge.Interface
             echelle = new GameObject(ECHELLE, typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>(); var bandeau = echelle.rectTransform; bandeau.SetParent(fond, false);
             bandeau.anchorMin = bandeau.anchorMax = bandeau.pivot = new Vector2(0, 1); bandeau.anchoredPosition = new Vector2(8, -MARGE - 2); bandeau.sizeDelta = new Vector2(LARGEUR - 16, HAUTEUR_D_ECHELLE); echelle.raycastTarget = false;
             teintesDeLEchelle = new Texture2D(256, 1, TextureFormat.RGBA32, false) { name = ECHELLE, wrapMode = TextureWrapMode.Clamp }; echelle.texture = teintesDeLEchelle;
-            var places = new[] { (TextAnchor.UpperLeft, "gauche"), (TextAnchor.UpperCenter, "milieu"), (TextAnchor.UpperRight, "droite") };
-            for (int k = 0; k < 3; k++)
-            {
-                var etiquette = SocleInterface.Texte(fond, "", 8 + k * (LARGEUR - 16) / 3f, MARGE + 2 + HAUTEUR_D_ECHELLE + 2, (LARGEUR - 16) / 3f); etiquette.name = ETIQUETTE + places[k].Item2;
-                etiquette.alignment = places[k].Item1; etiquette.color = SocleInterface.Couleur("papier"); etiquette.supportRichText = false; etiquette.horizontalOverflow = HorizontalWrapMode.Overflow; etiquette.raycastTarget = false;
-                etiquettesDeLEchelle[k] = etiquette;
-            }
+            for (int k = 0; k < 3; k++) Etiquette(k);
             Legender(legende.text, DetailDuMode(Mode));
+        }
+        // La k-ième étiquette sous l'échelle, posée la première fois qu'on la demande.
+        Text Etiquette(int k)
+        {
+            while (etiquettesDeLEchelle.Count <= k)
+            {
+                int n = etiquettesDeLEchelle.Count; string place = n == 0 ? "gauche" : n == 1 ? "milieu" : n == 2 ? "droite" : (n + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var etiquette = SocleInterface.Texte(fond, "", 8, MARGE + 2 + HAUTEUR_D_ECHELLE + 2, (LARGEUR - 16) / 3f); etiquette.name = ETIQUETTE + place;
+                etiquette.color = SocleInterface.Couleur("papier"); etiquette.supportRichText = false; etiquette.horizontalOverflow = HorizontalWrapMode.Overflow; etiquette.raycastTarget = false;
+                etiquette.gameObject.SetActive(false); etiquettesDeLEchelle.Add(etiquette);
+            }
+            return etiquettesDeLEchelle[k];
         }
         public void Brancher(LieuxDeCarte lieux, FlechesDeCarte fleches, CarteDeLaGuerre guerre = null, AtlasDeCarte atlas = null, VillesDeCarte villes = null) { this.lieux = lieux; this.fleches = fleches; this.guerre = guerre; this.atlas = atlas; villesDeCarte = villes; }
         // Les cinq modes côte à côte, chacun réduit à son icône, la bande centrée sous la légende. L'icône est l'image de la
@@ -363,9 +380,9 @@ namespace Forge.Interface
         public static Color Lisere(Color pays) => LisereDuPigment(SocleInterface.Pigment(pays));
         public static Color LisereDuPigment(Color pigment) => Color.Lerp(pigment, SocleInterface.Couleur("encre"), FORCE_DU_LISERE);
         // La règle de chaque mode, dite dans l'infobulle de sa légende avant ce que ses données disent.
-        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus un lieu est foncé, plus il est dense : ses habitants divisés par sa surface, en habitants par km², pour que le bourg d'une terre se lise à côté de ses campagnes. La mi-teinte est le lieu du milieu : la moitié des lieux est moins dense, l'autre moitié plus. L'échelle est logarithmique : chaque pas de teinte multiplie la densité au lieu de l'additionner, pour que les lieux presque vides restent lisibles à côté des plus denses. Les lieux les moins et les plus denses, un vingtième de chaque côté, prennent la teinte de la borne."
+        public static string DetailDuMode(ModeDeCarte mode) => (mode == ModeDeCarte.Population ? "Plus un lieu est foncé, plus il est dense : ses habitants divisés par sa surface, en habitants par km², pour que le bourg d'une terre se lise à côté de ses campagnes. Les paliers sont ceux d'un atlas, les mêmes sur toute la carte et à toute date, et l'échelle en dit les bornes. Chaque ville est un disque d'encre dont l'aire suit ses habitants, à la même mesure pour toutes."
             : mode == ModeDeCarte.Relief ? "Le terrain nu : chaque lieu prend la teinte de son altitude, fondue d'une classe de relief à l'autre, sans couleur ni frontière de pays, et les noms des pays se taisent."
-            : mode == ModeDeCarte.Vivres ? "Chaque lieu dit les jours de grain qui lui restent pour nourrir ses habitants, sa dette ôtée : du brun quand il n'en a plus, à l'or quand il en a autant que les mieux pourvus, un vingtième des lieux habités au-delà. En gris, un lieu sans habitants. Les flèches partent de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaississent avec ce qui est envoyé."
+            : mode == ModeDeCarte.Vivres ? "Chaque lieu dit les mois de grain qui lui restent pour nourrir ses habitants, sa dette ôtée, par paliers fixes : du brun quand il est vide ou endetté, à l'or quand il en a pour un an et plus ; l'échelle en dit les bornes. En gris, un lieu sans habitants. Les flèches partent de vos lieux vers votre siège, ou de votre siège vers celui de son suzerain, et s'épaississent avec ce qui est envoyé."
             : mode == ModeDeCarte.Guerres ? "Seuls les pays qu'une guerre servie nomme gardent leur couleur ; les autres passent au papier. Une terre qu'une armée assiège est en brun sombre."
             : PAYS_NON_LUS + " : en attendant leur lecture, chaque terre porte, en pigment d'atlas, la couleur de la puissance relevée au dessin de la carte. " + LieuxDeCarte.ENTETE) + TRAIT_DE_LA_TERRE_OUVERTE;
         public const string TRAIT_DE_LA_TERRE_OUVERTE = " La terre que vous gardez ouverte est cernée d'un trait d'encre.";
@@ -399,14 +416,22 @@ namespace Forge.Interface
             if (lignes > LIGNES_MAX) throw new ArgumentException("légende de " + lignes + " lignes : trois au plus");
             Ecrire(texte, texte + "\n" + detail, null);
         }
-        // Une échelle et ses trois étiquettes, chacune sur une ligne, sans qu'aucune empiète sur sa voisine : sous des pastilles, chacune
-        // tient dans son tiers ; sous un dégradé, celles des bouts et la moitié de celle du milieu tiennent chacune dans une moitié.
+        // Une échelle et ses étiquettes, chacune sur une ligne, sans qu'aucune empiète sur sa voisine : sous des pastilles, chacune
+        // tient dans son tiers ; sous un dégradé, celles des bouts et la moitié de celle du milieu tiennent chacune dans une moitié ;
+        // sous des paliers, chaque borne est centrée sur la limite de ses deux pastilles, à un écart de ses voisines, dans la largeur.
         public const float ECART_DES_ETIQUETTES = 8f;
         public void Legender(EchelleDuMode echelleDuMode, string detail)
         {
             foreach (string etiquette in echelleDuMode.Etiquettes) if (Math.Max(Lignes(legende, etiquette, 1f), Lignes(legende, etiquette, 2f / 3f)) > 1) throw new ArgumentException("étiquette de plus d'une ligne : " + etiquette);
-            float pleine = LARGEUR - 16; var larges = echelleDuMode.Etiquettes.Select(e => Largeur(etiquettesDeLEchelle[0], e)).ToArray();
-            bool tient = echelleDuMode.Degrade ? larges[0] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f && larges[2] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f
+            float pleine = LARGEUR - 16; var larges = echelleDuMode.Etiquettes.Select(e => Largeur(Etiquette(0), e)).ToArray();
+            bool tient;
+            if (echelleDuMode.Paliers)
+            {
+                float pas = pleine / echelleDuMode.Teintes.Count; int n = larges.Length;
+                tient = pas - larges[0] / 2f >= 0f && n * pas + larges[n - 1] / 2f <= pleine;
+                for (int k = 1; k < n && tient; k++) tient = (larges[k - 1] + larges[k]) / 2f + ECART_DES_ETIQUETTES <= pas;
+            }
+            else tient = echelleDuMode.Degrade ? larges[0] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f && larges[2] + larges[1] / 2f + ECART_DES_ETIQUETTES <= pleine / 2f
                 : larges.All(l => l + ECART_DES_ETIQUETTES <= pleine / 3f);
             if (!tient) throw new ArgumentException("étiquettes qui empiètent l'une sur l'autre : " + echelleDuMode.Texte);
             Ecrire(echelleDuMode.Texte, echelleDuMode.Texte + "\n" + detail, echelleDuMode);
@@ -421,30 +446,35 @@ namespace Forge.Interface
         {
             legende.text = texte; bulle.phrase = infobulle; EchelleMontree = echelleDuMode; float hauteur;
             legende.enabled = echelleDuMode == null; echelle.gameObject.SetActive(echelleDuMode != null);
-            foreach (var etiquette in etiquettesDeLEchelle) etiquette.gameObject.SetActive(echelleDuMode != null);
+            etiquettesMontrees = echelleDuMode == null ? 0 : echelleDuMode.Etiquettes.Count;
+            for (int k = 0; k < Math.Max(etiquettesMontrees, etiquettesDeLEchelle.Count); k++) Etiquette(k).gameObject.SetActive(k < etiquettesMontrees);
             if (echelleDuMode == null) { hauteur = legende.preferredHeight; legende.rectTransform.sizeDelta = new Vector2(LARGEUR - 16, hauteur); }
             else
             {
-                Teindre(echelleDuMode); float ligne = 0f;
-                for (int k = 0; k < 3; k++)
+                Teindre(echelleDuMode); float ligne = 0f, pleine = LARGEUR - 16;
+                for (int k = 0; k < etiquettesMontrees; k++)
                 {
-                    var etiquette = etiquettesDeLEchelle[k]; etiquette.text = echelleDuMode.Etiquettes[k];
-                    // Sous des pastilles, chaque étiquette se centre sous la sienne ; sous un dégradé, elles tiennent ses deux bouts et son milieu.
-                    etiquette.alignment = echelleDuMode.Degrade ? (k == 0 ? TextAnchor.UpperLeft : k == 1 ? TextAnchor.UpperCenter : TextAnchor.UpperRight) : TextAnchor.UpperCenter;
-                    ligne = Mathf.Max(ligne, etiquette.preferredHeight); etiquette.rectTransform.sizeDelta = new Vector2((LARGEUR - 16) / 3f, etiquette.preferredHeight);
+                    var etiquette = Etiquette(k); etiquette.text = echelleDuMode.Etiquettes[k]; var cadre = etiquette.rectTransform;
+                    // Sous des paliers, chaque borne se centre sur la limite de ses deux pastilles ; sous des pastilles, chaque étiquette
+                    // sous la sienne ; sous un dégradé, elles tiennent ses deux bouts et son milieu.
+                    float x, large;
+                    if (echelleDuMode.Paliers) { large = Largeur(etiquette) + 2f; x = 8 + (k + 1) * pleine / echelleDuMode.Teintes.Count - large / 2f; etiquette.alignment = TextAnchor.UpperCenter; }
+                    else { large = pleine / 3f; x = 8 + k * large; etiquette.alignment = echelleDuMode.Degrade ? (k == 0 ? TextAnchor.UpperLeft : k == 1 ? TextAnchor.UpperCenter : TextAnchor.UpperRight) : TextAnchor.UpperCenter; }
+                    cadre.anchoredPosition = new Vector2(x, cadre.anchoredPosition.y);
+                    ligne = Mathf.Max(ligne, etiquette.preferredHeight); cadre.sizeDelta = new Vector2(large, etiquette.preferredHeight);
                 }
                 hauteur = 2 + HAUTEUR_D_ECHELLE + 2 + ligne;
             }
             fond.sizeDelta = new Vector2(LARGEUR, hauteur + 2 * MARGE); fond.anchoredPosition = new Vector2(X, -(BAS - hauteur - 2 * MARGE)); // le bas reste à y 1004, sur la bande
         }
-        // La bande de l'échelle : les teintes fondues sur toute la largeur, ou trois pastilles égales.
+        // La bande de l'échelle : les teintes fondues sur toute la largeur, ou une pastille égale par teinte.
         void Teindre(EchelleDuMode echelleDuMode)
         {
             int n = teintesDeLEchelle.width; var pixels = new Color[n]; var t = echelleDuMode.Teintes;
             for (int i = 0; i < n; i++)
             {
                 float u = (i + .5f) / n;
-                if (!echelleDuMode.Degrade) { pixels[i] = t[Math.Min(2, (int)(u * 3))]; continue; }
+                if (!echelleDuMode.Degrade) { pixels[i] = t[Math.Min(t.Count - 1, (int)(u * t.Count))]; continue; }
                 float p = u * (t.Count - 1); int a = Math.Min(t.Count - 2, (int)p); pixels[i] = Color.Lerp(t[a], t[a + 1], p - a);
             }
             teintesDeLEchelle.filterMode = echelleDuMode.Degrade ? FilterMode.Bilinear : FilterMode.Point; teintesDeLEchelle.SetPixels(pixels); teintesDeLEchelle.Apply(false);
@@ -465,7 +495,7 @@ namespace Forge.Interface
         {
             if (legende == null || carte.CellulesPosees == 0) return;
             EspacerLesNoms();
-            // La terre gardée est cernée à l'encre, quelle que soit la couleur que le cabinet a demandée : le rouge ne dit que l'alerte.
+            // La terre gardée est cernée à l'encre, quelle que soit la couleur que le cabinet a demandée : aucun rouge sur la carte.
             if (carte.Marquee is long marquee) carte.Marquer(marquee, SocleInterface.Couleur("encre"));
             LireLesLieux(Time.realtimeSinceStartupAsDouble);
             // Les lieux et les flèches se lisent à leur rythme ; leur texte se récrit sans recolorer une terre. Après une faute, rien ne se récrit tant que rien ne bouge.
@@ -537,7 +567,8 @@ namespace Forge.Interface
             }
             bool nu = lecture.Mode == ModeDeCarte.Relief; carte.MontrerLesPays(!nu); guerre?.MontrerLesNoms(!nu); carte.TeindreParLAltitude(nu ? ReliefDesTerres.Paliers : null);
             // Le liseré teint chaque pays de sa couleur le long de sa frontière : hors de la carte politique, il couvrirait la teinte du mode.
-            carte.MontrerLesLiseres(lecture.Mode == ModeDeCarte.Politique);
+            // Les marques des départs ne se lisent que sur la carte politique, dont la légende les dit.
+            carte.MontrerLesLiseres(lecture.Mode == ModeDeCarte.Politique); if (lieux != null) lieux.MontrerLesMarques(lecture.Mode == ModeDeCarte.Politique);
         }
         // Les textes posés sur la carte (les villes, les sièges de l'atlas), cachés compris, hors ceux de la guerre : relevés à la
         // pose de la carte, puis chaque fois que les villes en posent ou en retirent.

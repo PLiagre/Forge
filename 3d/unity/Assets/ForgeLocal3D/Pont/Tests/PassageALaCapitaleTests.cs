@@ -194,8 +194,12 @@ namespace Forge.Pont.Tests
             var notes = new List<string>(); const int PORT = 4242;
             (Scene scene, GameObject carte) = SceneDe(OuvertureDeLaCarte.SCENE, true);
             try {
-                carte.GetComponent<CarteDessinee>().port = PORT; PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single);
+                carte.GetComponent<CarteDessinee>().port = PORT; var avant = new HashSet<Component>(carte.GetComponents<Component>());
+                PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single);
                 PassageALaCapitale pose = carte.GetComponent<PassageALaCapitale>();
+                // Le passage ne pose que lui : la capitale du joueur n'est nommée que par les villes de la carte, jamais une seconde fois.
+                var autres = carte.GetComponents<Component>().Where(c => !avant.Contains(c) && !(c is PassageALaCapitale)).Select(c => c.GetType().Name).ToList();
+                if (autres.Count > 0) notes.Add("carte : le chargement pose aussi " + string.Join(", ", autres));
                 if (pose == null) notes.Add("carte : la carte n'a pas reçu de passage");
                 else if (pose.port != PORT) notes.Add("carte : le passage n'a pas le port de la carte");
                 else { PassageALaCapitale.AuChargement(scene, LoadSceneMode.Single); PassageALaCapitale[] tous = carte.GetComponents<PassageALaCapitale>();

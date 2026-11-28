@@ -2,8 +2,9 @@ using System; using System.Collections.Generic; using System.Linq; using Forge.P
 
 namespace Forge.Interface
 {
-    // Près du curseur, le lieu survolé comme Europa dit une province : son pays d'abord (`/terres` : nom, suzerain ou ensemble, habitants du pays),
-    // puis le lieu et ses habitants, sa province et les siens, et son seigneur en dernier (`/lieu`). LateUpdate suit SurvolDeCarte.
+    // Près du curseur, le lieu survolé comme Europa dit une province : son pays d'abord, sur une ligne (`/terres` : nom, suzerain ou ensemble,
+    // habitants du pays ; ou la terre sans État qu'on ne joue pas), puis le lieu et ses habitants, sa province, les pays qui la partagent et ses
+    // habitants, et son seigneur en dernier (`/lieu`), les lignes mêmes de la fiche (`DossierTerritoire`). LateUpdate suit SurvolDeCarte.
     // Puis, du registre `/modificateurs` lu au même tick, une ligne par modificateur du bourg et le total de chaque grandeur, tels que le monde les sert.
     public sealed class InfobulleDeTerre : MonoBehaviour
     {
@@ -13,9 +14,9 @@ namespace Forge.Interface
         public Func<TerresDeLaCarte> Terres { get; set; }
         Canvas toile; Func<CelluleDeCarte> survolee; Func<long> rangSurvole; double prochaine, prochaineModificateurs; long? cellule, rangDit; DocumentDuMonde document, registre; TerresDeLaCarte terresDites; string erreur, erreurRegistre, texte;
 
-        // Les lignes du pays du lieu de ce rang, puis celles du lieu, de sa province et de son seigneur ; rien n'est compté ici.
+        // La ligne du pays du lieu de ce rang, puis celles du lieu, de sa province et de son seigneur ; rien n'est compté ici.
         public static string Decrire(string erreur, DocumentDuMonde document, TerresDeLaCarte terres, long cellule, long rang)
-            => string.Join("\n", DossierTerritoire.LignesDuPays(terres, cellule, rang).Concat(DossierTerritoire.LignesDuLieu(erreur, document, cellule, rang)));
+            => string.Join("\n", DossierTerritoire.LignesDuPays(terres, cellule, rang).Concat(DossierTerritoire.LignesDuLieu(erreur, document, terres, cellule, rang)));
 
         // Les lignes du bourg (rang 0) de la terre, dans l'ordre servi : une par pose, puis le total de sa grandeur. Rien n'est additionné ici ; vide si le bourg n'a pas de pose.
         public static string[] DecrireModificateurs(DocumentDuMonde modificateurs, long cellule)

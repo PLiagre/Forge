@@ -3,6 +3,7 @@ using System.Linq;
 using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using Text = UnityEngine.UI.Text;
 
 namespace Forge.Interface.Tests
 {
@@ -134,6 +135,47 @@ namespace Forge.Interface.Tests
         [OneTimeSetUp] public void Poser() => europe = new EuropeDeCarte();
         [OneTimeTearDown] public void Fermer() => europe?.Dispose();
         static TerresDeLaCarte Terres => Forge.Pont.Tests.EuropeDeTest.TerresEurope;
+
+        // Une capitale n'est nommée qu'une fois : sur toute la carte, un seul texte posé porte son nom, et vue de près, une seule étiquette
+        // d'écran le montre. Le Duché de Bar, la France et la Morée en sont l'échantillon : leur siège est une ville de la carte ou un siège de l'atlas.
+        [Test] public void Une_capitale_n_est_nommee_qu_une_fois()
+        {
+            int jugees = 0;
+            foreach (string pays in new[] { "seigneurie-1", "puissance-3", "seigneurie-4" })
+            {
+                var c = europe.Villes.Capitales.FirstOrDefault(x => x.pays.Contains(pays)); if (c.nom == null) continue;
+                jugees++;
+                var poses = europe.Racine.GetComponentsInChildren<TextMesh>(true).Where(t => t.text == c.nom).ToList();
+                Assert.That(poses.Count, Is.EqualTo(1), pays + " : « " + c.nom + " » est posé " + poses.Count + " fois sur la carte");
+                europe.Voir(new Vector2(c.pied.x, c.pied.z), 150f);
+                int montrees = europe.Racine.GetComponentsInChildren<Text>(true).Count(t => t.enabled && t.gameObject.activeInHierarchy && t.text == c.nom);
+                Assert.That(montrees, Is.EqualTo(1), pays + " : « " + c.nom + " » est montré " + montrees + " fois à l'écran");
+            }
+            Assert.That(jugees, Is.GreaterThanOrEqualTo(2), "échantillon vide : ni le Duché de Bar, ni la France, ni la Morée n'ont de capitale posée");
+        }
+
+        // Sur la carte de la population, chaque ville est un disque d'encre dont l'aire suit ses habitants servis, à la même mesure pour
+        // toutes : de près, le rapport des rayons de deux villes est la racine du rapport de leurs habitants. Les figurines reviennent sur
+        // la carte politique.
+        [Test] public void En_population_chaque_ville_est_un_disque_a_la_mesure_de_ses_habitants()
+        {
+            var villes = europe.Carte.Lue.Cellules.SelectMany(c => c.Villes).OrderByDescending(v => v.Population).ToList();
+            var grande = villes.First(); var petite = villes.Last();
+            Assert.That(petite.Population * 2 < grande.Population && VillesDeCarte.RayonDuDisque(petite.Population) > VillesDeCarte.RAYON_MIN_DU_DISQUE_KM, Is.True, "échantillon vide : " + grande.Nom + " et " + petite.Nom + " ont presque les mêmes habitants");
+            Transform Figurine(VilleDeCarte v) => europe.Racine.transform.Find(VillesDeCarte.RACINE + "/Figurine de " + v.Nom);
+            try
+            {
+                europe.Calques.BoutonDu(ModeDeCarte.Population).onClick.Invoke(); Assert.That(europe.Calques.Mode, Is.EqualTo(ModeDeCarte.Population));
+                Vector3 pied = Figurine(grande).localPosition; europe.Voir(new Vector2(pied.x, pied.z), 60f); europe.Villes.Pas();
+                Assert.That(europe.Villes.EnDisques, Is.True, "les villes ne passent pas en disques sur la carte de la population");
+                foreach (var v in new[] { grande, petite }) Assert.That(Figurine(v).GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Disque d'une ville"), v.Nom);
+                float rapport = Figurine(grande).localScale.x / Figurine(petite).localScale.x, attendu = Mathf.Sqrt(grande.Population / (float)petite.Population);
+                Assert.That(rapport, Is.EqualTo(attendu).Within(attendu * 0.01f), grande.Nom + " et " + petite.Nom + " : leurs disques ne suivent pas leurs habitants");
+                Assert.That(Figurine(grande).localScale.x, Is.EqualTo(VillesDeCarte.RayonDuDisque(grande.Population)).Within(1e-3f), "le disque de " + grande.Nom + " n'est pas à la mesure commune");
+            }
+            finally { europe.Calques.BoutonDu(ModeDeCarte.Politique).onClick.Invoke(); europe.Peindre(); europe.Villes.Pas(); }
+            Assert.That(europe.Villes.EnDisques, Is.False); Assert.That(Figurine(grande).GetComponent<MeshFilter>().sharedMesh.name, Does.StartWith("Capitale de taille").Or.StartWith("Bourg"), "la figurine ne revient pas sur la carte politique");
+        }
 
         // Chaque ville servie et chaque capitale posée, vue de près (150 km de demi-hauteur), répond au survol et au clic sur
         // tout ce que sa figurine couvre : son pied et huit points à neuf dixièmes de son rayon rendent un lieu. Au large de la

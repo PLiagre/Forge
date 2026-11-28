@@ -88,7 +88,8 @@ namespace Forge.Pont {
         }
 
         // À l'ouverture de la carte, le passage manquant se pose sur chaque CarteDessinee, avec son port.
-        // Un second avis ne crée rien. Une autre scène n'est pas touchée. Le Start prend ensuite la caméra.
+        // Un second avis ne crée rien. Une autre scène n'est pas touchée. Le Start prend ensuite la caméra. Rien d'autre ne se pose :
+        // la capitale du joueur n'est nommée que par les villes de la carte (`VillesDeCarte`).
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Installer() {
             SceneManager.sceneLoaded -= AuChargement; SceneManager.sceneLoaded += AuChargement;
@@ -99,7 +100,6 @@ namespace Forge.Pont {
             if (!scene.IsValid() || scene.name != OuvertureDeLaCarte.SCENE) return;
             foreach (CarteDessinee carte in UnityEngine.Object.FindObjectsByType<CarteDessinee>(FindObjectsSortMode.None)) {
                 if (carte.gameObject.scene != scene) continue;
-                if (carte.GetComponent<ReperesDeDepart.NomDuSiege>() == null) carte.gameObject.AddComponent<ReperesDeDepart.NomDuSiege>(); // le nom du siège, que le cabinet n'arrête pas
                 if (carte.GetComponent<PassageALaCapitale>() == null) carte.gameObject.AddComponent<PassageALaCapitale>().port = carte.port;
             }
         }

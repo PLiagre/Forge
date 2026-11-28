@@ -31,9 +31,12 @@ namespace Forge.Interface
         public NomCourbe NomDuPays { get; internal set; }
         // La ligne de vassalité du pays, écrite en petit sous sa maison (ou sous son nom) ; nulle pour un pays sans suzerain.
         public NomCourbe Vassalite { get; internal set; }
+        // La composition sur le tracé montré, avant tout agrandissement ; et de combien elle est agrandie (1 : telle quelle). Seul le nom du
+        // pays du joueur, et ses lignes, s'agrandissent (`NomsCourbes.PaysDuJoueur`).
+        public NomCompose Base { get; internal set; } public float Agrandissement { get; internal set; } = 1f;
         internal bool AMailler;
         internal NomCourbe(string pays, string texte, string ecrit, StyleDeNom style, TraceDeNom trace, NomCompose compose, MeshRenderer rendu, Mesh maillage)
-        { Pays = pays; Texte = texte; Ecrit = ecrit; Style = style; Trace = trace; Compose = compose; Rendu = rendu; Maillage = maillage; }
+        { Pays = pays; Texte = texte; Ecrit = ecrit; Style = style; Trace = trace; Compose = Base = compose; Rendu = rendu; Maillage = maillage; }
     }
 
     // Les noms des pays sur la carte, chacun couché sur le grand axe de son territoire, avec sa maison et, pour un vassal, « vassal de … » en petit dessous. Une lettre est un carré de
@@ -78,6 +81,11 @@ namespace Forge.Interface
         // tracé d'origine tolère un trou. `SurSaTerre` dit si un point (km de la carte) est sur la terre d'un pays ; sans lui, toute variante l'est.
         public const int LETTRES_HORS_DE_SA_TERRE = 1;
         public Func<string, Vector2, bool> SurSaTerre { get; set; }
+        // Le pays du joueur : son nom ne se cache jamais faute de taille. Quand son corps passerait sous `CORPS_DU_JOUEUR_PX` pixels, ses
+        // lignes s'agrandissent autour du milieu de son tracé jusqu'à ce corps, et reviennent à leur taille dès qu'elles le dépassent ;
+        // de trop près, il s'efface comme les autres. Nul : aucun nom ne s'agrandit.
+        public const float CORPS_DU_JOUEUR_PX = 16f;
+        public string PaysDuJoueur { get; set; }
         // La variante montrée du nom d'un pays : son échelle (son rang dans `ECHELLES`, 0 d'origine) et son décalage en travers, en km ; (0, 0) pour un nom posé à son tracé d'origine.
         public (int echelle, float decalage) VarianteDe(NomCourbe nom) { foreach (Groupe g in groupes) if (g.Lignes[0] == nom) return (g.Echelle, g.Decalage); return (0, 0f); }
         // Le corps du nom d'un pays sur son tracé d'origine, en km, quelle que soit la variante montrée.
@@ -259,7 +267,7 @@ namespace Forge.Interface
                 {
                     var (trace, compose) = g.Dispositions[echelle][k];
                     if (decalage != 0f) { TraceDeNom decale = trace.Dessous(-decalage, trace.Largeur); NomCompose recompose = decale.Composer(g.Avances[k]); if (recompose != null) (trace, compose) = (decale, recompose); }
-                    NomCourbe ligne = g.Lignes[k]; ligne.Trace = trace; ligne.Compose = compose; ligne.AMailler = true;
+                    NomCourbe ligne = g.Lignes[k]; ligne.Trace = trace; ligne.Compose = ligne.Base = compose; ligne.Agrandissement = 1f; ligne.AMailler = true;
                 }
             }
         }
@@ -371,6 +379,7 @@ namespace Forge.Interface
         public void Suivre(Camera camera)
         {
             if (camera == null || noms.Count == 0) return;
+            Agrandir(camera);
             float ecran = camera.pixelHeight;
             foreach (NomCourbe nom in lignes)
             {
@@ -407,6 +416,40 @@ namespace Forge.Interface
             }
             if (refait) { refait = false; Atlas(); foreach (NomCourbe nom in lignes) nom.AMailler = true; }
             foreach (NomCourbe nom in lignes) if (nom.AMailler && nom.Opacite > 0f) Mailler(nom);
+        }
+
+        // Le nom du pays du joueur, s'il est trop petit pour se lire, et ses lignes : chacune agrandie du même facteur autour du milieu du
+        // tracé de son nom, pour que le nom tienne `CORPS_DU_JOUEUR_PX` pixels ; telles quelles au-delà. Un nom qui change de facteur se remaille.
+        void Agrandir(Camera camera)
+        {
+            foreach (Groupe g in groupes)
+            {
+                NomCourbe nom = g.Lignes[0]; float facteur = 1f;
+                if (PaysDuJoueur != null && nom.Pays == PaysDuJoueur && nom.Base != null)
+                {
+                    float px = nom.Base.Corps * PxParKm(camera, nom.Trace);
+                    if (px > 0f && px < CORPS_DU_JOUEUR_PX) facteur = CORPS_DU_JOUEUR_PX / px;
+                }
+                if (Mathf.Abs(facteur - nom.Agrandissement) <= 1e-3f * facteur) continue;
+                Vector2 milieu = nom.Trace.Point((nom.Trace.Debut + nom.Trace.Fin) / 2f);
+                foreach (NomCourbe ligne in g.Lignes) { ligne.Compose = facteur == 1f ? ligne.Base : Agrandie(ligne.Base, facteur, milieu); ligne.Agrandissement = facteur; ligne.AMailler = true; }
+            }
+        }
+        // Une composition agrandie de `facteur` autour de `milieu` : ses lettres écartées d'autant, leur corps grandi d'autant, leur sens gardé.
+        static NomCompose Agrandie(NomCompose compose, float facteur, Vector2 milieu)
+        {
+            var lettres = new PlaceDeLettre[compose.Lettres.Count];
+            for (int i = 0; i < lettres.Length; i++) { PlaceDeLettre l = compose.Lettres[i]; lettres[i] = new PlaceDeLettre(milieu + (l.Point - milieu) * facteur, l.Sens); }
+            return new NomCompose(compose.Corps * facteur, compose.Interlettre * facteur, compose.Etendue * facteur, lettres);
+        }
+        // Ce que vaut un km de la carte à l'écran, en pixels, au milieu d'un tracé : mesuré dans le sens de l'écriture et en travers, le plus grand des deux.
+        float PxParKm(Camera camera, TraceDeNom trace)
+        {
+            float milieu = (trace.Debut + trace.Fin) / 2f; Vector2 p = trace.Point(milieu), sens = trace.Sens(milieu), haut = new Vector2(-sens.y, sens.x);
+            Vector3 ici = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p)));
+            if (ici.z <= 0f) return 0f;
+            Vector2 enLong = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p + sens))), enTravers = camera.WorldToScreenPoint(racine.TransformPoint(Poser(p + haut)));
+            return Mathf.Max((enLong - (Vector2)ici).magnitude, (enTravers - (Vector2)ici).magnitude);
         }
 
         void Demander(string lettres, int taille) => police.RequestCharactersInTexture(lettres + CAPITALE, taille);

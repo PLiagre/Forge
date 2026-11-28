@@ -9,7 +9,8 @@ namespace Forge.Interface
     // La couleur de chaque pays servi sur la carte politique, et son liseré. Un bloc est un pays racine et tous ceux qui
     // relèvent de lui en remontant la chaîne `suzerain` : tout le bloc porte une même famille de teinte
     // (`SocleInterface.FamilleDuPigment`), et deux blocs voisins n'ont jamais la même ; deux pays voisins de blocs différents
-    // restent en outre à `ECART_MIN` au moins (ΔE, CIE 1976). La racine porte le pigment de son bloc ; un vassal le porte
+    // restent en outre à `ECART_MIN` au moins (ΔE, CIE 1976) ; quand il le peut, un bloc prend une famille qui ne suit ni ne précède celle
+    // d'un bloc voisin sur le cercle des sept familles. La racine porte le pigment de son bloc ; un vassal le porte
     // éclairci d'une des `PARTS`, toujours plus clair que son suzerain et dans sa famille, et deux vassaux voisins d'un même
     // bloc ne sont pas éclaircis de la même part. Le liseré d'un membre d'un `ensemble` est celui de l'ensemble
     // (`SocleInterface.LisereDeLEnsemble`) ; celui d'un autre pays est tiré du pigment de la racine de son bloc, pour que le bloc
@@ -178,7 +179,8 @@ namespace Forge.Interface
 
         // Le pigment de chaque bloc. D'abord ceux qui gardent le leur, dans l'ordre des racines ; puis les autres, le plus
         // contraint d'abord (le plus de pigments déjà pris autour de lui, puis le plus de voisins), chacun au premier pigment
-        // permis à partir de celui qu'il avait, sinon du sien. Sans pigment permis, il déloge le moins de voisins qu'il peut, chacun
+        // permis à partir de celui qu'il avait, sinon du sien, dont la famille ne suit ni ne précède sur le cercle celle d'un bloc voisin
+        // déjà teint, et au premier permis s'il n'y en a pas : un petit pays placé après un grand ne prend pas sa teinte voisine. Sans pigment permis, il déloge le moins de voisins qu'il peut, chacun
         // vers un pigment permis autour de lui ; à défaut, son entourage se replace autour de lui ; si un conflit reste, toute la
         // carte se replace, et ce qui reste se compte.
         void Teindre(Dictionary<string, List<string>> blocs, Func<string, HashSet<string>> voisinsDe, CouleursDesPays avant)
@@ -197,9 +199,21 @@ namespace Forge.Interface
                             pire = Mathf.Min(pire, Ecart(Peindre(k, parts[id]), Peindre(autre, parts[v])));
                 return pire;
             }
+            // Un bloc voisin teint d'une famille qui suit ou précède celle du pigment k sur le cercle des familles : deux teintes qui ne se
+            // séparent que de leur pas le plus court (45 à 60°), là où deux familles qui ne se suivent pas en sont à 90° au moins.
+            int familles = SocleInterface.NomsDesFamilles.Count;
+            int Proches(string bloc, int k)
+            {
+                int f = SocleInterface.FamilleDuPigment(k), proches = 0;
+                foreach (string r in voisinsDuBloc[bloc])
+                    if (pigments.TryGetValue(r, out int autre)) { int g = SocleInterface.FamilleDuPigment(autre); if ((f - g + familles) % familles == 1 || (g - f + familles) % familles == 1) proches++; }
+                return proches;
+            }
+            bool FamilleProche(string bloc, int k) => Proches(bloc, k) > 0;
+            var gardes = new HashSet<string>();
             if (avant != null)
                 foreach (string bloc in blocs.Keys.OrderBy(b => b, StringComparer.Ordinal))
-                    if (avant.pigments.TryGetValue(bloc, out int k) && EcartAuxVoisins(bloc, k) >= ECART_MIN) pigments[bloc] = k;
+                    if (avant.pigments.TryGetValue(bloc, out int k) && EcartAuxVoisins(bloc, k) >= ECART_MIN) { pigments[bloc] = k; gardes.Add(bloc); }
             // Place les blocs donnés, `premier` d'abord s'il est donné ; rend ceux qui n'ont trouvé aucun pigment permis.
             List<string> Placer(IEnumerable<string> aPlacer, string premier = null)
             {
@@ -209,12 +223,15 @@ namespace Forge.Interface
                     string bloc = premier != null && restants.Contains(premier) ? premier : restants.OrderByDescending(b => voisinsDuBloc[b].Where(pigments.ContainsKey).Select(r => pigments[r]).Distinct().Count())
                         .ThenByDescending(b => voisinsDuBloc[b].Count).ThenBy(b => b, StringComparer.Ordinal).First();
                     restants.Remove(bloc);
-                    int prefere = avant != null && avant.pigments.TryGetValue(bloc, out int ancien) ? ancien : Prefere(bloc), choisi = -1, meilleur = prefere; float meilleurEcart = float.NegativeInfinity;
+                    int prefere = avant != null && avant.pigments.TryGetValue(bloc, out int ancien) ? ancien : Prefere(bloc), choisi = -1, permis = -1, meilleur = prefere; float meilleurEcart = float.NegativeInfinity;
+                    // Le premier pigment permis dont la famille ne suit ni ne précède sur le cercle celle d'un bloc voisin ; à défaut, le premier permis.
                     for (int d = 0; d < n && choisi < 0; d++)
                     {
                         int k = (prefere + d) % n; float e = EcartAuxVoisins(bloc, k);
-                        if (e >= ECART_MIN) choisi = k; else if (e > meilleurEcart) { meilleurEcart = e; meilleur = k; }
+                        if (e >= ECART_MIN) { if (permis < 0) permis = k; if (!FamilleProche(bloc, k)) choisi = k; }
+                        else if (e > meilleurEcart) { meilleurEcart = e; meilleur = k; }
                     }
+                    if (choisi < 0) choisi = permis;
                     if (choisi < 0) { choisi = meilleur; manques.Add(bloc); }
                     pigments[bloc] = choisi;
                 }
@@ -265,7 +282,17 @@ namespace Forge.Interface
                 var restes = Placer(zone, bloc); conflits.Remove(bloc); conflits.AddRange(restes.Where(b => !conflits.Contains(b)));
             }
             // Si un conflit reste, toute la carte se replace, chaque bloc essayant d'abord le pigment qu'il avait.
-            if (conflits.Count > 0) { pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); foreach (string bloc in conflits.ToList()) if (Deloger(bloc)) conflits.Remove(bloc); }
+            if (conflits.Count > 0) { gardes.Clear(); pigments.Clear(); conflits = Placer(blocs.Keys.ToList()); foreach (string bloc in conflits.ToList()) if (Deloger(bloc)) conflits.Remove(bloc); }
+            // Puis un bloc teint ici dont la famille suit ou précède celle d'un voisin en change, le moins entouré d'abord, pour le pigment
+            // permis proche du moins de voisins, le premier à partir du sien : un petit pays s'écarte de son grand voisin, qui a moins de choix
+            // que lui. Un bloc qui garde sa couleur d'avant, ou qui n'en trouve pas de meilleure, ne bouge pas.
+            foreach (string bloc in blocs.Keys.Where(b => !gardes.Contains(b) && !conflits.Contains(b)).OrderBy(b => voisinsDuBloc[b].Count).ThenBy(b => b, StringComparer.Ordinal).ToList())
+            {
+                int sien = pigments[bloc]; pigments.Remove(bloc);
+                int choisi = sien, moins = Proches(bloc, sien);
+                for (int d = 1; d < n && moins > 0; d++) { int k = (sien + d) % n, p = Proches(bloc, k); if (p < moins && EcartAuxVoisins(bloc, k) >= ECART_MIN) { choisi = k; moins = p; } }
+                pigments[bloc] = choisi;
+            }
             Conflits = conflits.Count;
         }
     }

@@ -14,18 +14,32 @@ namespace Forge.Pont.Tests {
     // Les formes que les tests donnent au terrain. Des terres témoins : chaque cellule en un seul lieu, de son contour, ou
     // coupée en lieux par des droites. Les réponses figées de l'Ouest (`carte-graine0-ouest.json`,
     // `formes-graine0-ouest.json`, `terres-graine0-tick24.json`), relevées du vrai service sur la graine 0 et lues
-    // par les vrais clients, une fois pour tous les cas.
-    internal static class FormesDeTest {
+    // par les vrais clients, une fois pour tous les cas. Celles des Détroits (`carte-graine0-detroits.json`,
+    // `formes-graine0-detroits.json`) sont relevées du même service, graine 0, au tick 30, sans IA ; elles ne gardent
+    // que la cellule du bourg de Constantinople, où des lieux de Byzance côtoient des lieux ottomans, et ses
+    // voisines de Thrace et de Bithynie, toutes ottomanes. Leurs terres sont celles de l'Europe
+    // (`EuropeDeTest.TerresEurope`). Publique : les tests de l'interface lisent les mêmes Détroits.
+    public static class FormesDeTest {
         public const string CARTE = "carte-graine0-ouest.json", FORMES = "formes-graine0-ouest.json", TERRES = "terres-graine0-tick24.json";
+        public const string CARTE_DETROITS = "carte-graine0-detroits.json", FORMES_DETROITS = "formes-graine0-detroits.json";
         // La cellule de Pampelune, à la Navarre, dont des lieux sont à la Castille ; celles de Gênes et de Florence.
         public const long PAMPELUNE = 10192, GENES = 10456, FLORENCE = 10260;
+        // La cellule du bourg de Constantinople (Byzance, dont des lieux sont aux Ottomans) ; ses voisines de Thrace
+        // (Édirne et deux autres) et de Bithynie, aux Ottomans.
+        public const long CONSTANTINOPLE = 10374, EDIRNE = 10366, THRACE_NORD = 10370, THRACE_OUEST = 10361, BITHYNIE = 10032;
         private static CarteLue carte; private static FormesLues formes; private static TerresDeLaCarte terres; private static TerrainDeCarte terrain;
+        private static CarteLue carteDetroits; private static FormesLues formesDetroits; private static TerrainDeCarte terrainDetroits;
 
         public static CarteLue CarteOuest { get { Lire(); return carte; } }
         public static FormesLues FormesOuest { get { Lire(); return formes; } }
         public static TerresDeLaCarte TerresOuest { get { Lire(); return terres; } }
         // Le terrain des réponses figées, levé une fois.
         public static TerrainDeCarte TerrainOuest { get { Lire(); return terrain ?? (terrain = TerrainDeCarte.Lever(carte, formes)); } }
+
+        public static CarteLue CarteDetroits { get { LireDetroits(); return carteDetroits; } }
+        public static FormesLues FormesDetroits { get { LireDetroits(); return formesDetroits; } }
+        // Le terrain des Détroits, levé une fois.
+        public static TerrainDeCarte TerrainDetroits { get { LireDetroits(); return terrainDetroits ?? (terrainDetroits = TerrainDeCarte.Lever(carteDetroits, formesDetroits)); } }
 
         // Chaque cellule en un seul lieu, de son contour servi.
         public static FormesLues UnLieuParCellule(CarteLue lue) =>
@@ -74,6 +88,22 @@ namespace Forge.Pont.Tests {
             var corps = new Dictionary<string, byte[]> {
                 { "/carte", File.ReadAllBytes(dossier + CARTE) }, { "/formes", File.ReadAllBytes(dossier + FORMES) }, { "/terres", File.ReadAllBytes(dossier + TERRES) }
             };
+            try { Servir(corps, out carte, out formes, out terres); } catch { carte = null; throw; }
+        }
+
+        // Les deux réponses figées des Détroits, servies et lues de même.
+        private static void LireDetroits() {
+            if (carteDetroits != null) return;
+            string dossier = Application.dataPath + "/ForgeLocal3D/Pont/Tests/";
+            var corps = new Dictionary<string, byte[]> {
+                { "/carte", File.ReadAllBytes(dossier + CARTE_DETROITS) }, { "/formes", File.ReadAllBytes(dossier + FORMES_DETROITS) }
+            };
+            try { Servir(corps, out carteDetroits, out formesDetroits, out _); } catch { carteDetroits = null; throw; }
+        }
+
+        // Sert ces corps par un faux service et les fait lire par les vrais clients ; `/terres` n'est lu que s'il est servi.
+        private static void Servir(Dictionary<string, byte[]> corps, out CarteLue lueCarte, out FormesLues lueFormes, out TerresDeLaCarte lueTerres) {
+            lueCarte = null; lueFormes = null; lueTerres = null;
             var sonde = new TcpListener(IPAddress.Loopback, 0);
             sonde.Start(); int port = ((IPEndPoint)sonde.LocalEndpoint).Port; sonde.Stop();
             var ecoute = new HttpListener(); ecoute.Prefixes.Add("http://127.0.0.1:" + port + "/"); ecoute.Start();
@@ -89,11 +119,11 @@ namespace Forge.Pont.Tests {
             }) { IsBackground = true };
             fil.Start();
             try {
-                using (var c = new ClientCarte(port, ClientCarte.DelaiMinimal)) { LectureCarte l = c.Lire(); Assert.IsTrue(l.Presente, l.Absence); carte = l.Carte; }
-                using (var c = new ClientFormes(port, ClientFormes.DelaiMinimal)) { LectureFormes l = c.Lire(); Assert.IsTrue(l.Presente, l.Absence); formes = l.Formes; }
-                using (var c = new ClientGuerre(port, TimeSpan.FromSeconds(10))) { Lecture<TerresDeLaCarte> l = c.LireTerres(); Assert.IsTrue(l.Presente, l.Absence); terres = l.Donnees; }
-            } catch { carte = null; throw; }
-            finally { ecoute.Close(); fil.Join(TimeSpan.FromSeconds(5)); }
+                using (var c = new ClientCarte(port, ClientCarte.DelaiMinimal)) { LectureCarte l = c.Lire(); Assert.IsTrue(l.Presente, l.Absence); lueCarte = l.Carte; }
+                using (var c = new ClientFormes(port, ClientFormes.DelaiMinimal)) { LectureFormes l = c.Lire(); Assert.IsTrue(l.Presente, l.Absence); lueFormes = l.Formes; }
+                if (corps.ContainsKey("/terres"))
+                    using (var c = new ClientGuerre(port, TimeSpan.FromSeconds(10))) { Lecture<TerresDeLaCarte> l = c.LireTerres(); Assert.IsTrue(l.Presente, l.Absence); lueTerres = l.Donnees; }
+            } finally { ecoute.Close(); fil.Join(TimeSpan.FromSeconds(5)); }
         }
     }
 }

@@ -66,6 +66,29 @@ namespace Forge.Interface.Tests
             Assert.That(CouleursDesPays.EcartDeTeinte(c.Couleur(GUYENNE), c.Couleur(FRANCE)), Is.GreaterThanOrEqualTo(CouleursDesPays.ECART_DE_TEINTE_MIN), "la Guyenne a la teinte de la France");
         }
 
+        // Deux petits voisins se distinguent franchement : Byzance et les Ottomans, qui se touchent aux Détroits, ont deux familles qui ne
+        // se suivent pas sur le cercle des sept teintes, à 80° de teinte perçue au moins, et la carte reste sans conflit. Sur toute
+        // l'Europe, la plupart des blocs voisins font de même : un bloc ne prend la famille voisine de celle d'un voisin que faute d'autre,
+        // et alors celle qui touche le moins de voisins.
+        const string BYZANCE = "puissance-25", OTTOMANS = "puissance-26";
+        [Test] public void Deux_petits_voisins_ont_deux_teintes_franchement_differentes()
+        {
+            var c = Colorier(Terres); Assert.That(c.Conflits, Is.Zero, "des voisins n'ont pas pu être séparés");
+            Assert.That((Terres.NomDuPays(BYZANCE), Terres.NomDuPays(OTTOMANS)), Is.EqualTo(("Byzance", "Ottomans")));
+            Assert.That(c.Voisins.TryGetValue(BYZANCE, out var autour) && autour.Contains(OTTOMANS), Is.True, "échantillon vide : Byzance et les Ottomans ne se touchent pas");
+            int familles = SocleInterface.NomsDesFamilles.Count; bool Voisines(int f, int g) => (f - g + familles) % familles == 1 || (g - f + familles) % familles == 1;
+            int fb = c.FamilleDe(BYZANCE), fo = c.FamilleDe(OTTOMANS);
+            string Entour(string pays) => string.Join(", ", c.Voisins.Where(v => c.Racine(v.Key) == c.Racine(pays)).SelectMany(v => v.Value).Select(c.Racine).Where(r => r != c.Racine(pays)).Distinct()
+                .Select(r => (Terres.NomDuPays(r) ?? r) + " " + SocleInterface.NomsDesFamilles[c.FamilleDe(r)]));
+            Assert.That(fb != fo && !Voisines(fb, fo), Is.True, "Byzance (" + SocleInterface.NomsDesFamilles[fb] + ") et les Ottomans (" + SocleInterface.NomsDesFamilles[fo] + ") ont deux familles voisines ; autour de Byzance : " + Entour(BYZANCE));
+            Assert.That(CouleursDesPays.EcartDeTeinte(c.Couleur(BYZANCE), c.Couleur(OTTOMANS)), Is.GreaterThanOrEqualTo(80f));
+            var blocs = Paires(c).Select(p => (c.Racine(p.a), c.Racine(p.b))).Where(p => p.Item1 != p.Item2).Distinct().ToList();
+            int proches = blocs.Count(p => Voisines(c.FamilleDe(p.Item1), c.FamilleDe(p.Item2)));
+            Assert.That(blocs.Count, Is.GreaterThan(50), "échantillon vide : trop peu de blocs voisins");
+            // Sur une carte aussi dense, sept familles ne séparent pas tous les voisins : un sur trois se suivrait sans la préférence, moins de 28 % avec elle.
+            Assert.That(proches * 100, Is.LessThan(28 * blocs.Count), proches + " paires de blocs voisins sur " + blocs.Count + " ont deux familles qui se suivent sur le cercle");
+        }
+
         // Deux pigments de deux familles se séparent à toute clarté : à `ECART_DE_TEINTE_MIN` et à `ECART_MIN` au moins, chacun
         // éclairci de n'importe quelle part. Le gris des terres sans pays reste loin de tout pigment, à toute part.
         [Test] public void Deux_familles_se_separent_a_toute_clarte_et_le_gris_reste_neutre()
