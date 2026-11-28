@@ -3765,21 +3765,14 @@ def test_service_lieux_documentes_dans_le_modele():
 
 @pytest.mark.chronometre
 def test_tick_sous_le_budget_du_service(monkeypatch):
-    import random
     import statistics
     import time
     from sim import engine
     from sim.service import BUDGET_TICK_MS
+    from sim.tests.mesure_du_tick import chronometrer_les_jours
 
     def mesurer():
-        monde, rng = World.charger(0), random.Random(0)
-        for numero in range(5):
-            engine.tick(monde, rng, numero_tick=numero)
-        durees = []
-        for numero in range(5, 25):
-            debut = time.perf_counter()
-            engine.tick(monde, rng, numero_tick=numero)
-            durees.append((time.perf_counter() - debut) * 1000)
+        _, durees = chronometrer_les_jours()
         mediane = statistics.median(durees)
         print(f"médiane={mediane:.2f} ms maximum={max(durees):.2f} ms budget={BUDGET_TICK_MS} ms")
         assert mediane < BUDGET_TICK_MS
@@ -4697,17 +4690,14 @@ def test_ateliers_documentation(monkeypatch):
 
 @pytest.mark.chronometre
 def test_ateliers_budget(monkeypatch):
-    from sim.tests.test_chantiers import _atelier, _contre_ateliers; import random, statistics, time; from sim import engine; from sim.service import BUDGET_TICK_MS
-    def mesurer():
-        monde, rng = World.charger(0), random.Random(0)
+    from sim.tests.test_chantiers import _atelier, _contre_ateliers; import statistics, time; from sim import engine; from sim.service import BUDGET_TICK_MS; from sim.tests.mesure_du_tick import chronometrer_les_jours
+    def preparer(monde):
         for cid, cell in monde.cells.items():
             if cell.population and cell.habitants_par_metier is not None:
                 monde.plans[cid] = _atelier().plans[0]
-        assert sum(bool(p.batiments) for p in monde.plans.values()) > 0; durees = []
-        for numero in range(25):
-            debut = time.perf_counter(); engine.tick(monde, rng, numero)
-            if numero >= 5:
-                durees.append((time.perf_counter() - debut) * 1000)
+        assert sum(bool(p.batiments) for p in monde.plans.values()) > 0
+    def mesurer():
+        monde, durees = chronometrer_les_jours(preparer)
         assert sum(c.habitants_par_metier.get("artisans", 0) for c in monde.cells.values()) > 0; print(f"ateliers : médiane={statistics.median(durees):.2f} ms maximum={max(durees):.2f} ms"); assert statistics.median(durees) < BUDGET_TICK_MS
     mesurer(); affecter = engine._affecter_artisans
     def lent(monde):
