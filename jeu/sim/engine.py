@@ -2301,8 +2301,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
                     affames.add((cell.cell_id, lieu.rang))
 
     # Le bourg d'une ville affamée tire le grain de ses champs par des chemins élargis du rayon.
-    facteurs_consommation = _facteurs_de_la_consommation(
-        facteurs_routes, _chemins_des_villes_affamees(world))
+    chemins_affames = _chemins_des_villes_affamees(world)
+    facteurs_consommation = _facteurs_de_la_consommation(facteurs_routes, chemins_affames)
     if facteurs_consommation or assiegees:
         for cell in world.cells.values():
             facteurs = facteurs_consommation.get(cell.cell_id)
