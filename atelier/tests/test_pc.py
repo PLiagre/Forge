@@ -222,6 +222,7 @@ def test_un_agent_en_panne_de_quota_laisse_une_attente_sur_la_pr(projet, gh, dep
     lignes = _travailler(projet, gh, depot, tmp_path, Agents(QUOTA))
     attente = _marques(gh)[-1]
     assert (attente["etat"], attente["role"]) == (lots.ATTENTE, "chef") and attente["quand"]
+    assert "quota épuisé" in attente["raison"] and len(attente["raison"]) <= 240
     assert "aucun agent n'a pu répondre" in gh.dits(50, pr=True) and "quota épuisé" in gh.dits(50, pr=True)
     assert lots.etapes_faites(_marques(gh)) == set() and any("attente" in l for l in lignes)
     assert not [m for m in _marques(gh) if m.get("etat") in (lots.ECHEC, lots.COUPE)], "une attente n'est pas un essai"

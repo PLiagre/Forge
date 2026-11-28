@@ -300,11 +300,16 @@ class Action:
 
 # Ce que le PC répond à un envoi : une étape faite, un échec, une coupure, ou
 # une attente (aucun de ses agents n'a pu répondre : ce n'est pas un passage).
-# Une attente se renvoie au bout d'un quart d'heure : un renvoi qui retrouve
-# le quota vide ne coûte qu'un passage de quelques secondes, et un passage
-# tombé repart sans faire perdre une heure au lot.
+# Une attente se renvoie d'abord au bout d'un quart d'heure, puis le délai
+# double à chaque attente consécutive jusqu'à 4 h (base 2 h pour une limite
+# hebdomadaire), pour éviter de réveiller un runner sans quota en boucle.
 HEURES_ATTENTE_PC = 0.25
+HEURES_ATTENTE_PC_MAX = 4.0
+HEURES_ATTENTE_QUOTA_HEBDO = 2.0
 HEURES_SILENCE_PC = 24
+# Passages achevés d'un même rôle avant de repartir sur une session neuve :
+# borne le contexte accumulé dans la session du meneur.
+MAX_PASSAGES_PAR_SESSION = 3
 # Les chantiers du PC : un dossier par lot mené en même temps, chacun avec
 # sa `Library` Unity. Le premier garde le nom du chantier unique d'avant.
 CHANTIER_PC = "pc"
@@ -334,10 +339,60 @@ PLAN, ETAPE, CORRECTION, REPONSE, COUPE, ECHEC, ENVOYE, ATTENTE = (
 REPRISE, BLOQUE, DECISION, BOUCLE = "reprise", "bloque", "decision", "boucle"
 # Un passage qui a compté : il a rendu quelque chose, bon ou non.
 _PASSAGES = (PLAN, ETAPE, CORRECTION, REPONSE, ECHEC, COUPE)
+# Un passage achevé : fait avancer la génération de session (une coupure ou un
+# échec reste sur la même session pour pouvoir reprendre).
+_PASSAGES_ACHEVES = (PLAN, ETAPE, CORRECTION, REPONSE, "conflit")
 # Deux échecs de suite du meneur, et le lot est bloqué : le CTO regarde.
 ECHECS_MAX = 2
 # Une étape rendue inachevée se poursuit ; trois fois de suite, elle est trop grosse.
 POURSUITES_MAX = 3
+
+
+def role_du_passage(lot: Lot, action: Action, etapes: list[dict]) -> str:
+    """Le rôle qui exécute ce passage : pour un lot mené par le chef, le
+    développeur (Sonnet) prend directement les étapes marquées `developpeur`
+    ainsi que les résolutions de conflit ; sinon, le meneur du lot."""
+    if lot.meneur != CHEF:
+        return lot.meneur
+    if action.nom == "conflit":
+        return DEVELOPPEUR
+    if action.nom == "etape" and 1 <= action.essai <= len(etapes):
+        courante = etapes[action.essai - 1]
+        if isinstance(courante, dict) and courante.get("qui") == DEVELOPPEUR:
+            return DEVELOPPEUR
+    return lot.meneur
+
+
+def generation_de_session(liste: list[dict], *, role: str, machine: str,
+                          max_passages: int = MAX_PASSAGES_PAR_SESSION) -> int:
+    """Numéro de génération de session pour ce rôle sur cette machine : repart
+    sur une session neuve tous les `max_passages` passages achevés, sans
+    changer de génération après une coupure."""
+    acheves = sum(1 for m in liste
+                  if m.get("role") == role and m.get("etat") in _PASSAGES_ACHEVES
+                  and m.get("machine", machine) == machine)
+    return acheves // max(max_passages, 1)
+
+
+def delai_attente_pc(siens: list[dict]) -> float:
+    """Délai en heures avant de renvoyer un travail au PC après une attente :
+    backoff progressif sur les marques `ATTENTE` consécutives depuis le dernier
+    vrai passage (0,25 h → 0,5 h → 1 h → 2 h → 4 h max), avec base 2 h quand
+    la dernière raison mentionne `weekly limit`."""
+    attentes: list[dict] = []
+    for m in reversed(siens):
+        etat = m.get("etat")
+        if etat == ATTENTE:
+            attentes.append(m)
+        elif etat == ENVOYE:
+            continue
+        else:
+            break
+    if not attentes:
+        return HEURES_ATTENTE_PC
+    raison = str(attentes[0].get("raison") or "").lower()
+    base = HEURES_ATTENTE_QUOTA_HEBDO if "weekly limit" in raison else HEURES_ATTENTE_PC
+    return min(base * (2 ** (len(attentes) - 1)), HEURES_ATTENTE_PC_MAX)
 
 
 def depuis_reprise(liste: list[dict]) -> list[dict]:
@@ -404,9 +459,11 @@ def action_suivante(pr: dict | None, etat_ci: str, liste: list[dict], *, correct
         if heures_depuis_envoi_pc is not None and heures_depuis_envoi_pc > HEURES_SILENCE_PC:
             return Action("relancer_pc", "le PC n'a pas répondu en 24 h")
         return Action("attendre_pc", "le travail est parti sur le PC")
-    if (siens and siens[-1].get("etat") == ATTENTE and heures_depuis_attente_pc is not None
-            and heures_depuis_attente_pc < HEURES_ATTENTE_PC):
-        return Action("attendre_pc", "aucun agent du PC n'a pu répondre : renvoi au bout d'un quart d'heure")
+    if siens and siens[-1].get("etat") == ATTENTE and heures_depuis_attente_pc is not None:
+        limite = delai_attente_pc(siens)
+        if heures_depuis_attente_pc < limite:
+            minutes = round(limite * 60)
+            return Action("attendre_pc", f"aucun agent du PC n'a pu répondre : renvoi au bout de {minutes} min")
 
     passages = [m for m in siens if m.get("etat") in _PASSAGES]
     if _de_suite(passages, COUPE) >= coupures_max:
@@ -636,14 +693,18 @@ def dernier_blocage(commentaires: list[dict]) -> tuple[int, dict] | None:
 
 def deblocage_a_faire(commentaires: list[dict]) -> bool:
     """Le CTO doit-il regarder ce lot bloqué ? Oui si son dernier blocage
-    n'est pas le sien (il ne se relit pas), et qu'il n'a rien dit depuis."""
+    n'est pas le sien (il ne se relit pas), qu'il n'a posé aucune marque autre
+    qu'un échec depuis, et qu'il a échoué moins de `ECHECS_MAX` fois."""
     trouve = dernier_blocage(commentaires)
     if trouve is None:
         return False
     rang, blocage = trouve
     if blocage.get("par") == CTO:
         return False
-    return not any(m.get("role") == CTO for m in marques(commentaires)[rang + 1:])
+    du_cto = [m for m in marques(commentaires)[rang + 1:] if m.get("role") == CTO]
+    if any(m.get("etat") != ECHEC for m in du_cto):
+        return False
+    return len(du_cto) < ECHECS_MAX
 
 
 def relances_du_cto(commentaires: list[dict]) -> int:

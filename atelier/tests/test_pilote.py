@@ -89,11 +89,13 @@ def test_un_lot_va_de_la_fiche_a_la_fusion(projet, gh, depot, tmp_path):
     gh.ci(numero_pr, "vert")
     pilote.tour()
     assert ("fusion_auto", numero_pr) in gh.gestes
-    assert agents.modeles() == ["opus", "opus", "opus", "opus"]
-    # Une seule session pour le meneur, reprise à chaque étape ; le relecteur a la sienne.
+    assert agents.modeles() == ["opus", "opus", "sonnet", "opus"]
+    # Le chef reprend sa session pour ses propres étapes ; l'étape marquée `developpeur`
+    # part directement sur Sonnet dans sa session dédiée ; le relecteur n'a pas de session.
     plan, etape1, etape2, relecture = agents.appels
-    assert not plan["reprise"] and etape1["reprise"] and etape2["reprise"]
-    assert plan["session"] == etape1["session"] == etape2["session"] != ""
+    assert not plan["reprise"] and etape1["reprise"] and not etape2["reprise"]
+    assert plan["session"] == etape1["session"] != ""
+    assert etape2["session"] != "" and etape2["session"] != plan["session"]
     assert relecture["session"] == "" and "--permission-mode" in relecture["argv"]
 
     gh.prs_[numero_pr].update(state="MERGED", mergedAt="2026-11-16T12:00:00Z")
@@ -103,8 +105,12 @@ def test_un_lot_va_de_la_fiche_a_la_fusion(projet, gh, depot, tmp_path):
 
 def test_la_session_reprise_ne_recoit_que_sa_tache_et_la_session_perdue_recoit_tout(projet, gh, depot, tmp_path):
     gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    plan_chef = {"sortie": {"decision": "plan", "resume": "Deux étapes du chef.", "etapes": [
+        {"titre": "La règle de la levée", "quoi": "armees.py", "qui": "chef", "tests": "test_armees.py -k levee"},
+        {"titre": "Le ravitaillement", "quoi": "vivres.py", "qui": "chef", "tests": "test_armees.py -k vivres"},
+    ]}}
     perdue = {"code": 1, "brut": "", "erreur": "No conversation found with session ID: abc"}
-    agents = Agents(PLAN, faite(), perdue, faite())
+    agents = Agents(plan_chef, faite(), perdue, faite())
     pilote = piloter(projet, gh, depot, agents, tmp_path)
     for _ in range(3):
         pilote.tour()
@@ -121,15 +127,62 @@ def test_le_chef_confie_au_developpeur_dans_sa_session(projet, gh, depot, tmp_pa
     pilote = piloter(projet, gh, depot, agents, tmp_path)
     for _ in range(3):
         pilote.tour()
-    plan, _, etape2 = agents.appels
-    sous = json.loads(etape2["argv"][etape2["argv"].index("--agents") + 1])
+    plan, etape1, etape2 = agents.appels
+    # Le chef garde le sous-agent développeur sur ses propres étapes.
+    sous = json.loads(etape1["argv"][etape1["argv"].index("--agents") + 1])
     assert sous["developpeur"]["model"] == "sonnet"
-    permis = etape2["argv"][etape2["argv"].index("--allowedTools") + 1]
-    assert "Agent" in permis.split(",") and "Confie-la au sous-agent `developpeur`" in etape2["consigne"]
+    permis = etape1["argv"][etape1["argv"].index("--allowedTools") + 1]
+    assert "Agent" in permis.split(",")
     assert "--agents" not in plan["argv"], "le plan ne confie rien"
+    # L'étape marquée `developpeur` part directement sur Sonnet, sans sous-agent ni consigne de délégation.
+    assert etape2["modele"] == "sonnet" and "--agents" not in etape2["argv"]
+    assert "Elle est à toi." in etape2["consigne"] and "Confie-la au sous-agent" not in etape2["consigne"]
+    assert _marques(gh, _pr_du_lot(gh, 10), pr=True)[-1]["role"] == "developpeur"
     # Un sous-agent lancé en arrière-plan laisserait la session rendre la main sans son résultat.
-    assert etape2["env"]["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
-    assert not any(cle in etape2["env"] for cle in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"))
+    assert etape1["env"]["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+    assert not any(cle in etape1["env"] for cle in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"))
+
+
+def test_la_session_du_chef_se_renouvelle_toutes_les_trois_etapes_et_une_etape_deleguee_coupee_reprend(
+        projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    etapes = [
+        {"titre": "Étape 1", "quoi": "a.py", "qui": "chef", "tests": "pytest a.py"},
+        {"titre": "Étape 2", "quoi": "b.py", "qui": "chef", "tests": "pytest b.py"},
+        {"titre": "Étape 3", "quoi": "c.py", "qui": "chef", "tests": "pytest c.py"},
+        {"titre": "Étape 4", "quoi": "d.py", "qui": "developpeur", "tests": "pytest d.py"},
+    ]
+    plan4 = {"sortie": {"decision": "plan", "resume": "Quatre étapes.", "etapes": etapes}}
+    agents = Agents(plan4, faite(), faite(), faite(), {"coupe": True}, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    for _ in range(6):
+        pilote.tour()
+    plan, e1, e2, e3, e4_coupee, e4_reprise = agents.appels
+    # Plan + étape 1 + étape 2 = 3 passages achevés du chef → étape 3 repart sur une session neuve (génération 1).
+    assert plan["session"] == e1["session"] == e2["session"]
+    assert not plan["reprise"] and e1["reprise"] and e2["reprise"]
+    assert e3["session"] != plan["session"] and not e3["reprise"]
+    # Étape 4 déléguée au développeur : session dédiée (génération 1004), reprise après coupure.
+    assert e4_coupee["modele"] == "sonnet" and not e4_coupee["reprise"]
+    assert e4_reprise["modele"] == "sonnet" and e4_reprise["reprise"]
+    assert e4_reprise["session"] == e4_coupee["session"] == lots.session_du_lot(projet.depot, 10, generation=1004)
+
+
+def test_un_conflit_sur_un_lot_du_chef_part_sur_le_developpeur_sans_session(projet, gh, depot, tmp_path):
+    gh.ajouter_issue(10, "Lever une armée", corps=FICHE)
+    agents = Agents(PLAN, faite())
+    pilote = piloter(projet, gh, depot, agents, tmp_path)
+    pilote.tour()
+    numero_pr = _pr_du_lot(gh, 10)
+    gh.prs_[numero_pr]["mergeable"] = "CONFLICTING"
+    depot.fusionner_base = lambda chemin: ["jeu/sim/armees.py"]
+    depot.marqueurs_restants = lambda chemin, fichiers: []
+    pilote.tour()
+    conflit = agents.appels[-1]
+    assert conflit["modele"] == "sonnet" and conflit["session"] == "" and not conflit["reprise"]
+    assert "--agents" not in conflit["argv"]
+    assert _marques(gh, numero_pr, pr=True)[-1]["role"] == "developpeur"
+    assert _marques(gh, numero_pr, pr=True)[-1]["etat"] == "conflit"
 
 
 def test_un_lot_simple_est_mene_par_le_developpeur_seul(projet, gh, depot, tmp_path):

@@ -486,7 +486,7 @@ class Pilote:
         siens = lots.du_meneur(lots.depuis_reprise(liste))
         if pr is None and siens and siens[-1].get("etat") in (lots.ENVOYE, lots.ATTENTE):
             heures = self._heures_depuis(liste, siens[-1]["etat"])
-            limite = lots.HEURES_SILENCE_PC if siens[-1]["etat"] == lots.ENVOYE else lots.HEURES_ATTENTE_PC
+            limite = lots.HEURES_SILENCE_PC if siens[-1]["etat"] == lots.ENVOYE else lots.delai_attente_pc(siens)
             if heures is not None and heures < limite:
                 self.noter(lot.numero, "attendre_pc", "le plan est parti sur le PC")
                 return False
@@ -530,26 +530,40 @@ class Pilote:
 
     def marquer_attente(self, lot: Lot, numero_pr: int | None, raison: str) -> None:
         """Le PC n'a pas pu travailler : la marque répond à l'envoi sans compter
-        comme un passage du meneur, et le pilote renvoie au quart d'heure."""
+        comme un passage du meneur, et le pilote renvoie après le délai d'attente."""
         quand = self.maintenant().isoformat(timespec="seconds")
         texte = (f"🤖 **{NOMS[lot.meneur]}** (PC) : le lot attend — {raison}\n\nAucun essai n'est compté ; le pilote "
-                 f"renvoie le travail dans un quart d'heure.\n\n{marque(role=lot.meneur, etat=lots.ATTENTE, quand=quand)}")
+                 f"renvoie le travail après le délai d'attente.\n\n"
+                 f"{marque(role=lot.meneur, etat=lots.ATTENTE, quand=quand, raison=raison[:240])}")
         if numero_pr is None:
             self.gh.commenter_issue(lot.numero, texte)
         else:
             self.gh.commenter_pr(numero_pr, texte)
 
     # ------------------------------------------------------------ le plan
-    def _session(self, lot: Lot, liste: list[dict]) -> tuple[str | None, bool]:
-        """La session du lot, et si elle existe déjà (une marque la porte).
+    def _session(self, lot: Lot, liste: list[dict], *, role: str | None = None,
+                 action: lots.Action | None = None) -> tuple[str | None, bool]:
+        """La session du passage, et si elle existe déjà (une marque la porte).
         Sous Antigravity CLI, l'identifiant de conversation vient du serveur
-        au premier tour et se reprend par `--conversation`."""
-        if self.projet.agent(lot.meneur).outil == "antigravity":
+        au premier tour et se reprend par `--conversation`. Sous Claude, une
+        étape déléguée au développeur a sa propre session (reprise seulement
+        si coupée), un conflit part à neuf, et la session du meneur se
+        renouvelle toutes les `MAX_PASSAGES_PAR_SESSION` étapes achevées."""
+        qui = role or lot.meneur
+        if self.projet.agent(qui).outil == "antigravity":
             connue = next((m["session"] for m in reversed(liste)
-                           if m.get("role") == lot.meneur and isinstance(m.get("session"), str) and m["session"]
+                           if m.get("role") == qui and isinstance(m.get("session"), str) and m["session"]
                            and m.get("machine", self.machine) == self.machine), None)
             return connue, bool(connue)
-        session = lots.session_du_lot(self.projet.depot, lot.numero)
+        if qui != lot.meneur:
+            if action is not None and action.nom == "etape":
+                session = lots.session_du_lot(self.projet.depot, lot.numero, generation=1000 + action.essai)
+                connue = any(m.get("session") == session and m.get("etat") == lots.COUPE
+                             and m.get("machine", self.machine) == self.machine for m in liste)
+                return session, connue
+            return None, False
+        generation = lots.generation_de_session(liste, role=qui, machine=self.machine)
+        session = lots.session_du_lot(self.projet.depot, lot.numero, generation=generation)
         return session, any(m.get("session") == session and m.get("machine", self.machine) == self.machine
                             for m in liste)
 
@@ -700,6 +714,7 @@ class Pilote:
         numero_pr, branche = pr["number"], lot.branche(self.projet.prefixe_branche)
         plan = lots.plan_du_lot(liste) or {}
         etapes = plan.get("detail") or []
+        role = lots.role_du_passage(lot, action, etapes)
         faites = lots.etapes_faites(liste)
         chemin = self.depot.preparer(lot.numero if chantier is None else chantier, branche)
         commentaires = self.gh.issue(lot.numero).get("comments") or []
@@ -714,26 +729,26 @@ class Pilote:
                 self.noter(lot.numero, "base fusionnée", "sans conflit")
                 return False
             tache = consignes.conflit(branche, self.projet.branche_base, conflits)
-            neuve = consignes.suite_neuve(self.projet, lot, etapes, tache, decisions)
+            neuve = consignes.suite_neuve(self.projet, lot, etapes, tache, decisions, role=role)
         else:
             self._mettre_a_jour(chemin, branche, lot.numero)
             if action.nom == "etape":
-                neuve, tache = consignes.etape(self.projet, lot, action.essai, etapes, decisions, coupee)
+                neuve, tache = consignes.etape(self.projet, lot, action.essai, etapes, decisions, coupee, role=role)
             else:
                 if action.nom == "corriger_ci":
                     tache = consignes.correction_ci(self._dernier_resume(pr))
                 else:
                     revue, arbitrage = self._derniere_revue(pr)
                     tache = consignes.correction_relecture(revue, arbitrage)
-                neuve = consignes.suite_neuve(self.projet, lot, etapes, tache, decisions)
+                neuve = consignes.suite_neuve(self.projet, lot, etapes, tache, decisions, role=role)
                 tache += consignes._decisions(decisions)
-        session, connue = self._session(lot, lots.marques(commentaires) + liste)
+        session, connue = self._session(lot, lots.marques(commentaires) + liste, role=role, action=action)
         appel = agents_mod.Appel(
-            role=lot.meneur, lecture_seule=False, session=session, reprendre=connue, consigne=neuve, suite=tache,
+            role=role, lecture_seule=False, session=session, reprendre=connue, consigne=neuve, suite=tache,
             schema=consignes.SCHEMA_PASSAGE, jours_max=self.projet.jours_max,
-            sous_agents=consignes.sous_agents(self.projet) if lot.meneur == CHEF else None)
-        res = self._invoquer(lot.meneur, appel, chemin, lot=lot.numero)
-        nom = NOMS[lot.meneur]
+            sous_agents=consignes.sous_agents(self.projet) if role == CHEF else None)
+        res = self._invoquer(role, appel, chemin, lot=lot.numero)
+        nom = NOMS[role]
         quoi = {"etape": f"étape {action.essai}", "corriger_ci": f"correction {action.essai} (CI rouge)",
                 "corriger_relecture": f"correction {action.essai} (relecture)", "conflit": "conflit avec la base"}[action.nom]
         if res.attente:
@@ -760,17 +775,17 @@ class Pilote:
             sha = self._enregistrer(chemin, branche, lot, f"{quoi}, coupée par le délai", res.agent, conflits) \
                 if changes else ""
             self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent}) — {quoi} : coupé par son délai "
-                                            f"({self.projet.delai(lot.meneur)} s)"
+                                            f"({self.projet.delai(role)} s)"
                                             + (f", révision `{sha[:7]}` poussée" if sha else ", rien à pousser")
                                             + f". Sa session reprend au tour suivant.{retires}\n\n"
-                                            + marque(**self._champs(lot.meneur, res, etat=lots.COUPE, **({"sha": sha} if sha else {}))))
+                                            + marque(**self._champs(role, res, etat=lots.COUPE, **({"sha": sha} if sha else {}))))
             self.noter(lot.numero, f"{nom} coupé", quoi, str(res.agent))
             return True
         if etat not in ("faite", "a_poursuivre", "question", "conteste"):
             raison = f"code {res.code}" if not res.reussi else "compte rendu illisible"
             self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent or '—'}) — {quoi} : échec ({raison}).\n\n"
                                             f"```\n{_extrait(res.texte, 40)}\n```\n\n"
-                                            f"{marque(**self._champs(lot.meneur, res, etat=lots.ECHEC))}")
+                                            f"{marque(**self._champs(role, res, etat=lots.ECHEC))}")
             self.noter(lot.numero, f"{nom} en échec", f"{quoi} — {raison}", str(res.agent or ""))
             return True
         compte_rendu = _extrait((sortie.get("compte_rendu") or "").strip())
@@ -792,7 +807,7 @@ class Pilote:
             sha = self._enregistrer(chemin, branche, lot, quoi, res.agent, conflits) if changes else ""
             self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent}) conteste la relecture.\n\n{corps}"
                                             + (f"\n\n**Ce qu'il conteste**{contestes}" if contestes else "") + "\n\n"
-                                            + marque(**self._champs(lot.meneur, res, etat=lots.REPONSE,
+                                            + marque(**self._champs(role, res, etat=lots.REPONSE,
                                                                     **({"sha": sha} if sha else {}))))
             self.noter(lot.numero, f"{nom} : conteste la relecture", "", str(res.agent))
             return True
@@ -819,7 +834,7 @@ class Pilote:
         self.gh.commenter_pr(numero_pr, f"🤖 **{nom}** ({res.agent}) — {quoi} : {etat_dit}"
                                         + (f", révision `{sha[:7]}`" if changes else ", sans changement de fichier")
                                         + f".\n\n{corps}{note}{photos}\n\n"
-                                        + marque(**self._champs(lot.meneur, res, sha=sha, tests_changes=declares,
+                                        + marque(**self._champs(role, res, sha=sha, tests_changes=declares,
                                                                 **champs, **vu.marque)))
         self._ecrire_la_pr(lot, numero_pr, chemin, liste, etapes, faites, declares)
         if tout_fait and pr.get("isDraft"):

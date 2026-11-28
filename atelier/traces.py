@@ -129,18 +129,43 @@ def lire(rouge: Rouge, lignes: int = 80) -> str:
     return _lire(rouge, lignes)[1]
 
 
+def _echecs_du_journal(journal: str) -> list[str]:
+    """Les lignes commençant par `FAILED ` ou `ERROR ` d'un journal, sans
+    horodatage ni doublon, dans leur ordre d'apparition."""
+    vus: set[str] = set()
+    trouves: list[str] = []
+    for ligne in journal.splitlines():
+        propre = _HORODATAGE.sub("", ligne).strip()
+        if propre.startswith(("FAILED ", "ERROR ")) and propre not in vus:
+            vus.add(propre)
+            trouves.append(propre)
+    return trouves
+
+
 def lire_run(depot: str, run: int, lignes: int = 80) -> str:
-    """Ce qui fait rougir un run (la CI de master) : l'extrait du journal de
-    chacun de ses travaux en échec. Un journal illisible se dit."""
+    """Ce qui fait rougir un run (la CI de master) : une synthèse de toutes
+    les lignes d'échec de chaque travail en échec, suivie de l'extrait de
+    chacun de leurs journaux. Un journal illisible se dit."""
     travaux = _gh("run", "view", str(run), "-R", depot, "--json", "jobs")
     if travaux.returncode != 0:
         return f"run {run} illisible : {travaux.stderr.strip()}"
     import json
-    blocs = []
+    synthese: list[str] = []
+    blocs: list[str] = []
     for job in json.loads(travaux.stdout or "{}").get("jobs", []):
         if job.get("conclusion") != "failure":
             continue
+        nom = job.get("name") or "?"
         journal = _gh("api", f"repos/{depot}/actions/jobs/{job.get('databaseId')}/logs")
-        corps = "\n".join(extrait(journal.stdout, lignes)) if journal.returncode == 0 else "journal illisible"
-        blocs.append(f"== {job.get('name')}\n{corps}")
-    return "\n\n".join(blocs) or f"aucun travail en échec lisible dans le run {run}"
+        if journal.returncode == 0:
+            for echec in _echecs_du_journal(journal.stdout):
+                synthese.append(f"- [{nom}] {echec}")
+            corps = "\n".join(extrait(journal.stdout, lignes))
+        else:
+            corps = "journal illisible"
+        blocs.append(f"== {nom}\n{corps}")
+    if not blocs:
+        return f"aucun travail en échec lisible dans le run {run}"
+    if synthese:
+        blocs.insert(0, "== Synthèse des échecs (tous travaux)\n" + "\n".join(synthese))
+    return "\n\n".join(blocs)
