@@ -16,7 +16,7 @@ namespace Forge.Interface.Tests
         const string Second = "{\"rang\":2,\"nom\":\"Hameau témoin\",\"population\":10,\"surface_km2\":15,\"maitre\":null,\"stocks\":{\"nourriture\":9},\"flux_30j\":null}";
 
         // Les terres témoins, comme `/terres` les sert sur le monde livré : chaque pays avec sa maison, sauf la terre sans État des Tribus du
-        // désert (`terre-desert`), que le monde sert sans maison. Tournai au Hainaut (prince d'Empire, sans suzerain), Avignon aux États de
+        // désert (`sans-etat-desert`), que le monde sert sans maison. Tournai au Hainaut (prince d'Empire, sans suzerain), Avignon aux États de
         // l'Église, Bordeaux à la Guyenne, vassale de l'Angleterre, la terre de Pampelune à la Navarre avec un lieu castillan (rang 2), la terre
         // de Bar-le-Duc au Duché de Bar, vassal de la France, avec un lieu français (rang 2), une terre des Tribus du désert, et une terre sans pays.
         public const long TOURNAI = 20, AVIGNON = 21, BORDEAUX = 22, PAMPELUNE = 23, SANS_PAYS = 24, BAR = 25, DESERT = 26;
@@ -26,12 +26,12 @@ namespace Forge.Interface.Tests
                 new PaysDeLaCarte("puissance-42", "Guyenne", new IdentiteDeMaison("grande-1", "Lancastre"), suzerain: "puissance-1"), new PaysDeLaCarte("puissance-1", "Angleterre", new IdentiteDeMaison("grande-1", "Lancastre")),
                 new PaysDeLaCarte("puissance-7", "Navarre", new IdentiteDeMaison("grande-7", "Évreux")), new PaysDeLaCarte("puissance-5", "Castille", new IdentiteDeMaison("grande-5", "Trastamare")),
                 new PaysDeLaCarte("seigneurie-1", "Duché de Bar", new IdentiteDeMaison("seigneurie-1", "Bar"), suzerain: "puissance-3"), new PaysDeLaCarte("puissance-3", "France", new IdentiteDeMaison("grande-3", "Valois")),
-                new PaysDeLaCarte("terre-desert", "Tribus du désert") },
+                new PaysDeLaCarte("sans-etat-desert", "Tribus du désert") },
             new[] { new TerreLue(TOURNAI, "plausible-20-0", "puissance-60"), new TerreLue(AVIGNON, "institution-12", "puissance-12"), new TerreLue(BORDEAUX, "grande-31", "puissance-42"),
                 new TerreLue(PAMPELUNE, "grande-7", "puissance-7", autresPays: new[] { new LieuDAutrePays(2, "plausible-23-2", "puissance-5") }), new TerreLue(SANS_PAYS, null, null),
-                new TerreLue(BAR, "seigneurie-1", "seigneurie-1", autresPays: new[] { new LieuDAutrePays(2, "plausible-25-2", "puissance-3") }), new TerreLue(DESERT, "plausible-26-0", "terre-desert") },
+                new TerreLue(BAR, "seigneurie-1", "seigneurie-1", autresPays: new[] { new LieuDAutrePays(2, "plausible-25-2", "puissance-3") }), new TerreLue(DESERT, "plausible-26-0", "sans-etat-desert") },
             new System.Collections.Generic.Dictionary<string, long> { ["puissance-60"] = 250000, ["puissance-12"] = 61000, ["puissance-42"] = 412300, ["puissance-1"] = 2100000, ["puissance-7"] = 98000,
-                ["puissance-5"] = 3400000, ["seigneurie-1"] = 24947, ["puissance-3"] = 9100000, ["terre-desert"] = 51234 });
+                ["puissance-5"] = 3400000, ["seigneurie-1"] = 24947, ["puissance-3"] = 9100000, ["sans-etat-desert"] = 51234 });
         // Le dossier `/lieu` d'une terre, avec le bloc `noms` du monde livré : son bourg, tenu par `maitreDuBourg` (une grande maison, sinon
         // la seigneurie de Bar), et un hameau de rang 2 tenu par un seigneur plausible, servi par sa désignation.
         public const string PLAUSIBLE = "Seigneur de la campagne de Tournai, au nord";

@@ -24,6 +24,8 @@ namespace Forge.Interface
         long? cellule; long? rangLu;
         double prochaineLecture;
         public DocumentDuMonde Document => lecture?.Document;
+        // Le texte que le panneau montre à cet instant, tel qu'il est écrit dans son champ.
+        public string TexteAffiche => texte != null ? texte.text : null;
         // `rang` : celui du lieu cliqué dans la terre (0, le bourg, s'il manque) ; `terres` : les terres de `/terres`, nulles tant qu'elles ne sont pas lues ;
         // `titre` : le texte du titre du panneau, qui prend le nom de la province.
         public void Initialiser(Text contenu, int port, Func<CelluleDeCarte> selection, Func<long> rang = null, Func<TerresDeLaCarte> terres = null, Text titre = null)
