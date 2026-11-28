@@ -42,6 +42,8 @@ py -m pytest sim/tests/ -q
 
 `test_prelevement.py` protège le dû au suzerain, sa cascade et la conservation, les pertes et délais de convoi, les parts, le déterminisme à part nulle et la calibration de la part coutumière sur un an.
 
+`mesure_du_tick.py` garantit que tout test de budget du tick chronomètre par `chronometrer_les_jours` : un monde chargé seul, figé hors du ramasse-miettes comme dans le service, et le ramasse-miettes rendu à la fin même en cas d'échec.
+
 Les preuves `test_departs_tick_` exercent les départs actifs et leur conservation ;
 `test_departs_budget_comparaison` mesure leur coût. Les références historiques
 explicitement isolées par `taux_annuel_de_depart` remplacé par 0 décrivent le monde sans mieux-vivre,

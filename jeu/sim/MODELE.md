@@ -2411,8 +2411,12 @@ Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
 20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
 moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
 prototype : 3,3 ms).
-Après correction des accès aux paniers, test chronométré joué seul :
-médiane du tick 77,44 ms, sous 100 ms ; la base avait donné 90 à 93 ms.
+Les quatre tests de budget (`BUDGET_TICK_MS`) chronomètrent le tick par
+`chronometrer_les_jours` (`sim/tests/mesure_du_tick.py`), sur un monde chargé
+par `World.charger(0)`, jamais une copie, figé hors du ramasse-miettes comme
+`main()` le fait au lancement du service (`regler_le_ramasse_miettes`) : 5
+jours de rodage, 20 chronométrés, puis le réglage est défait. Médiane du tick
+du test du flux sur srv1914711 : 89 à 91 ms, sous 100 ms.
 Les départs ajoutent leur total une seule fois
 par groupe. La production et le prélèvement lisent et écrivent les paniers
 par les fonctions de `model.py` ;
