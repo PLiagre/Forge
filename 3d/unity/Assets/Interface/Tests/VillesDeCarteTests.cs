@@ -3,6 +3,7 @@ using System.Linq;
 using Forge.Pont;
 using NUnit.Framework;
 using UnityEngine;
+using Text = UnityEngine.UI.Text;
 
 namespace Forge.Interface.Tests
 {
@@ -134,6 +135,24 @@ namespace Forge.Interface.Tests
         [OneTimeSetUp] public void Poser() => europe = new EuropeDeCarte();
         [OneTimeTearDown] public void Fermer() => europe?.Dispose();
         static TerresDeLaCarte Terres => Forge.Pont.Tests.EuropeDeTest.TerresEurope;
+
+        // Une capitale n'est nommée qu'une fois : sur toute la carte, un seul texte posé porte son nom, et vue de près, une seule étiquette
+        // d'écran le montre. Le Duché de Bar, la France et la Morée en sont l'échantillon : leur siège est une ville de la carte ou un siège de l'atlas.
+        [Test] public void Une_capitale_n_est_nommee_qu_une_fois()
+        {
+            int jugees = 0;
+            foreach (string pays in new[] { "seigneurie-1", "puissance-3", "seigneurie-4" })
+            {
+                var c = europe.Villes.Capitales.FirstOrDefault(x => x.pays.Contains(pays)); if (c.nom == null) continue;
+                jugees++;
+                var poses = europe.Racine.GetComponentsInChildren<TextMesh>(true).Where(t => t.text == c.nom).ToList();
+                Assert.That(poses.Count, Is.EqualTo(1), pays + " : « " + c.nom + " » est posé " + poses.Count + " fois sur la carte");
+                europe.Voir(new Vector2(c.pied.x, c.pied.z), 150f);
+                int montrees = europe.Racine.GetComponentsInChildren<Text>(true).Count(t => t.enabled && t.gameObject.activeInHierarchy && t.text == c.nom);
+                Assert.That(montrees, Is.EqualTo(1), pays + " : « " + c.nom + " » est montré " + montrees + " fois à l'écran");
+            }
+            Assert.That(jugees, Is.GreaterThanOrEqualTo(2), "échantillon vide : ni le Duché de Bar, ni la France, ni la Morée n'ont de capitale posée");
+        }
 
         // Chaque ville servie et chaque capitale posée, vue de près (150 km de demi-hauteur), répond au survol et au clic sur
         // tout ce que sa figurine couvre : son pied et huit points à neuf dixièmes de son rayon rendent un lieu. Au large de la
