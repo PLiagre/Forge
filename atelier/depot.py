@@ -115,12 +115,22 @@ class Depot:
         return fichiers
 
     def annuler(self, chemin: Path, fichiers: list[str]) -> None:
-        """Remet ces fichiers comme la tête les porte ; efface les nouveaux."""
-        suivis = set(self.git("ls-files", "-z", cwd=chemin).split("\0"))
+        """Remet ces fichiers comme la référence les porte ; efface ceux
+        qu'elle n'a pas.
+
+        La référence est la tête, sauf pendant une fusion de la base : elle
+        est alors la base fusionnée (MERGE_HEAD). Un lot ne touche jamais ces
+        fichiers, et la fusion apporte leur version de la base : la tête les
+        remettrait à l'état d'avant la fusion, et la PR défairait ce que la
+        base a changé."""
+        code, _, _ = self.git_code("rev-parse", "--verify", "--quiet", "MERGE_HEAD", cwd=chemin)
+        reference = "MERGE_HEAD" if code == 0 else "HEAD"
+        portes = set(self.git("ls-tree", "-r", "-z", "--name-only", reference, cwd=chemin).split("\0"))
         for f in fichiers:
-            if f in suivis:
-                self.git("checkout", "HEAD", "--", f, cwd=chemin)
+            if f in portes:
+                self.git("checkout", reference, "--", f, cwd=chemin)
             else:
+                self.git("rm", "--cached", "--quiet", "--ignore-unmatch", "--", f, cwd=chemin)
                 cible = Path(chemin) / f
                 if cible.is_file():
                     cible.unlink()
