@@ -86,10 +86,17 @@ namespace Forge.Interface.Tests
             Servir(cell => { vus.Add(cell); return Reponse(cell, 4, false, 3); }); Assert.That(vus, Is.EquivalentTo(new[] { 10L, 20L }), lieux.TexteLegende); Assert.That(lieux.TexteLegende, Does.Contain("\nAlba · relevé au jour 5 de 1400").And.Contain("\nDara · relevé au jour 5 de 1400").And.Contain(LieuxDeCarte.ENTETE));
             // Les lieux du joueur (10-0 et 20-1) voient partir plus de gens qu'il n'en arrive : eux seuls sont en alerte, pas ceux de B ni de C ; et rien n'est posé sur la carte.
             Assert.That(Alertes(), Is.EqualTo("10-0,20-1")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1)); Assert.That(Posees(), Is.Empty, "la lecture des lieux a posé quelque chose sur la carte");
+            // Chaque lieu en alerte porte une marque, une seule, à sa place servie ; elle se cache hors de la carte politique.
+            Assert.That(Marques(), Is.EqualTo("10-0,20-1"), "les marques des départs ne sont pas celles des lieux en alerte");
+            foreach (var paire in lieux.Marques) Assert.That(paire.Value.GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Marque des départs"));
+            lieux.MontrerLesMarques(false); Assert.That(lieux.Marques.Values.All(m => !m.gameObject.activeInHierarchy), Is.True, "une marque se montre hors de la carte politique"); lieux.MontrerLesMarques(true);
             // Servie renversée, la même réponse donne le même ensemble trié et la même version.
             Servir(cell => Reponse(cell, 11, true, 3)); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 12 de 1400")); Assert.That(Alertes(), Is.EqualTo("10-0,20-1")); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(1), "une relecture identique change la version"); Assert.That(Posees(), Is.Empty);
+            Assert.That(Marques(), Is.EqualTo("10-0,20-1"), "une relecture identique change les marques");
             Servir(cell => Reponse(cell, 12, false, 1)); Assert.That(lieux.TexteLegende, Does.Contain("relevé au jour 13 de 1400")); Assert.That(Alertes(), Is.Empty); Assert.That(lieux.VersionDesAlertes, Is.EqualTo(2)); Assert.That(Posees(), Is.Empty);
+            Assert.That(Marques(), Is.Empty, "une marque reste sur un lieu qui n'est plus en alerte");
         }
+        string Marques() => string.Join(",", lieux.Marques.Keys.OrderBy(k => k).Select(k => k.cell + "-" + k.rang));
         [TestCase(JOUEUR, 7L, 2L, true)] [TestCase(JOUEUR, 9L, 2L, true)] [TestCase(JOUEUR, 2L, 7L, false)] [TestCase(JOUEUR, 7L, 7L, false)] [TestCase(JOUEUR, 0L, 0L, false)] [TestCase(B, 7L, 2L, false)] [TestCase(B, 9L, 2L, false)] [TestCase(B, 2L, 7L, false)] [TestCase(B, 7L, 7L, false)] [TestCase(B, 0L, 0L, false)] public void LAlerteSuitLeSoldeDesLieuxDuJoueur(string maitre, long partis, long arrives, bool alerte)
         {
             Preparer(); Publier(JOUEUR, new LieuTenu(10, 0)); Servir(_ => LectureLieu.De(Cellule(10, 3, Place(10, 0, 1000, 2000, maitre, partis, arrives))));

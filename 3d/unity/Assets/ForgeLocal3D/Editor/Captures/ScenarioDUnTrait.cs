@@ -542,25 +542,26 @@ namespace ForgeLocal3D.Captures
         }
 
         // Les lieux qui ont changé de teinte d'un relevé à l'autre ; échoue si l'échantillon est vide, si un lieu pris n'a pas la teinte du
-        // preneur (ou le rouge de l'alerte, qui ne se pose que sur les lieux du joueur), ou si un lieu qui n'est pas pris a changé.
-        // Un lieu dont l'alerte a basculé entre les deux relevés ne se juge pas : sa teinte dit l'alerte, plus son pays.
+        // preneur, ou si un lieu qui n'est pas pris a changé. L'alerte des départs est une marque posée sur le lieu, pas une teinte : un lieu
+        // dont l'alerte a basculé garde la teinte de son pays, et se juge comme les autres.
         static List<(long, long)> Comparer(Dictionary<(long, long), Color32> avant, HashSet<(long, long)> alertesAvant, Dictionary<(long, long), Color32> apres, HashSet<(long, long)> alertesApres, Color preneur, PriseLue prisee)
         {
             var communs = avant.Keys.Where(apres.ContainsKey).ToList();
             if (communs.Count == 0) throw Faux("aucun lieu dessiné à la fois la veille et le jour de la prise");
             var pris = new HashSet<(long, long)>(prisee.Rangs.Select(r => (prisee.CellId, r)));
-            Color32 duPreneur = preneur, alerte = SocleInterface.Couleur("alerte");
-            var juges = communs.Where(l => alertesAvant.Contains(l) == alertesApres.Contains(l)).ToList();
+            Color32 duPreneur = preneur;
+            var juges = communs;
             var changes = juges.Where(l => !avant[l].Equals(apres[l])).OrderBy(l => l).ToList();
             var visiblesPris = pris.Where(apres.ContainsKey).ToList();
             if (visiblesPris.Count == 0) throw Faux("aucun lieu pris n'est dessiné dans l'image");
-            string sansTeinte = string.Join(", ", visiblesPris.Where(l => !apres[l].Equals(duPreneur) && !apres[l].Equals(alerte)).Select(l => l.Item1 + "/" + l.Item2 + " " + apres[l]));
+            string sansTeinte = string.Join(", ", visiblesPris.Where(l => !apres[l].Equals(duPreneur)).Select(l => l.Item1 + "/" + l.Item2 + " " + apres[l]));
             if (sansTeinte.Length > 0) throw Faux("des lieux pris n'ont pas la teinte du preneur " + duPreneur + " : " + sansTeinte);
             string inchanges = string.Join(", ", visiblesPris.Where(l => avant.ContainsKey(l) && avant[l].Equals(apres[l])).Select(l => l.Item1 + "/" + l.Item2));
             if (inchanges.Length > 0) throw Faux("des lieux pris n'ont pas changé de teinte : " + inchanges);
             string autres = string.Join(", ", changes.Where(l => !pris.Contains(l)).Select(l => l.Item1 + "/" + l.Item2 + " " + avant[l] + " → " + apres[l]));
             if (autres.Length > 0) throw Faux("des lieux qui ne sont pas pris ont changé de teinte : " + autres);
-            Debug.Log("CAPTURE d'un trait : " + communs.Count + " lieux comparés, " + (communs.Count - juges.Count) + " écartés (alerte basculée), " + changes.Count + " changés");
+            int basculees = communs.Count(l => alertesAvant.Contains(l) != alertesApres.Contains(l));
+            Debug.Log("CAPTURE d'un trait : " + communs.Count + " lieux comparés, dont " + basculees + " dont l'alerte a basculé, " + changes.Count + " changés");
             return changes;
         }
 

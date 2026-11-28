@@ -16,7 +16,8 @@ namespace Forge.Interface
     // figurine ne descend jamais sous `MIN_PX` pixels de large ; et le nom de la ville, posé par la carte, se range
     // juste au sud d'elle, à `MARGE_DU_NOM_PX` pixels de son socle. Quand la vue recule et que deux figurines se
     // recouvriraient à l'écran de plus de `RECOUVREMENT`, la moins peuplée des deux se cache, avec son nom, et
-    // revient quand la vue s'approche.
+    // revient quand la vue s'approche. Sur la carte de la population, chaque figurine cède la place à un disque d'encre à la mesure de
+    // ses habitants servis (`RayonDuDisque`).
     // La capitale de chaque pays qui tient une terre porte un socle à l'or vieilli, et ne descend jamais sous `MIN_PX_D_UNE_CAPITALE`. Elle se lit dans les réponses du monde :
     // la maison du pays (`/terres`) a son siège servi (`/jouables`, un nom et une cellule), qui est la ville de ce nom dans
     // cette cellule, ou la seule ville de ce nom sur la carte, sinon le siège de cette maison dans `/atlas`, où une figurine nommée est posée. Les capitales passent
@@ -35,6 +36,14 @@ namespace Forge.Interface
         public const float KM_PAR_PIXEL_DES_VILLES = 1.6f;
         // La figurine d'un siège de l'atlas : ses habitants ne sont pas servis, elle prend la plus petite taille.
         public const int TAILLE_D_UN_SIEGE = 1;
+        // Sur la carte de la population (`CalquesCarte.Mode`), chaque ville est un disque d'encre dont l'aire suit ses habitants servis,
+        // à la même mesure pour toutes : `HABITANTS_PAR_KM2_DU_DISQUE` habitants par km² de disque, jamais sous `RAYON_MIN_DU_DISQUE_KM`
+        // ni sous `MIN_PX_D_UN_DISQUE` pixels de large.
+        public const double HABITANTS_PAR_KM2_DU_DISQUE = 500; public const float RAYON_MIN_DU_DISQUE_KM = 0.5f, MIN_PX_D_UN_DISQUE = 5f;
+        public static float RayonDuDisque(long habitants) => Mathf.Max(RAYON_MIN_DU_DISQUE_KM, (float)Math.Sqrt(Math.Max(0, habitants) / HABITANTS_PAR_KM2_DU_DISQUE / Math.PI));
+        // Les villes se montrent-elles en disques (la carte de la population), ou en figurines.
+        public bool EnDisques { get; private set; }
+        Mesh disque;
         CarteDessinee carte; Transform racine, racineDesCapitales; Material matiere; readonly Mesh[] formes = new Mesh[FormesDeCarte.TAILLE_MAX + 1], capitales = new Mesh[FormesDeCarte.TAILLE_MAX + 1];
         readonly List<Posee> posees = new List<Posee>(); readonly List<UnityEngine.Object> crees = new List<UnityEngine.Object>();
         Func<JouablesLus> jouables; CarteDeLaGuerre guerre; AtlasDeCarte atlas; string signature;
@@ -89,12 +98,17 @@ namespace Forge.Interface
             if (carte == null) return;
             if (racine == null) { if (carte.Lue == null || carte.CellulesPosees == 0) return; Poser(); }
             Capitaliser();
+            if (calques == null) calques = GetComponent<CalquesCarte>();
+            bool disques = calques != null && calques.Mode == ModeDeCarte.Population;
+            if (disques != EnDisques) { EnDisques = disques; foreach (Posee p in posees) if (p.Figurine != null) p.Figurine.GetComponent<MeshFilter>().sharedMesh = disques ? Disque() : Forme(p.Taille, p.Capitale); }
             Camera camera = carte.camera; if (camera == null) return;
             foreach (Posee p in posees)
             {
                 if (p.Figurine == null) continue;
-                Vector3 monde = carte.transform.TransformPoint(p.Pied); float rayon = FormesDeCarte.RayonDuBourg(p.Taille), echelle = FormesDeCarte.EchellePourLEcran(camera, monde, rayon, p.Capitale ? MIN_PX_D_UNE_CAPITALE : MIN_PX);
-                p.Figurine.localScale = Vector3.one * echelle; float kmParPixel = FormesDeCarte.KmParPixel(camera, monde);
+                // Une figurine est faite en km à sa taille ; un disque a un km de rayon, et se grandit au rayon de ses habitants.
+                Vector3 monde = carte.transform.TransformPoint(p.Pied); float rayon = disques ? RayonDuDisque(p.Habitants) : FormesDeCarte.RayonDuBourg(p.Taille);
+                float echelle = FormesDeCarte.EchellePourLEcran(camera, monde, rayon, disques ? MIN_PX_D_UN_DISQUE : p.Capitale ? MIN_PX_D_UNE_CAPITALE : MIN_PX);
+                p.Figurine.localScale = Vector3.one * echelle * (disques ? rayon : 1f); float kmParPixel = FormesDeCarte.KmParPixel(camera, monde);
                 if (p.Nom != null) { float retrait = rayon * echelle + MARGE_DU_NOM_PX * kmParPixel; p.Nom.localPosition = carte.SurLeSol(p.Pied.x, p.Pied.z - retrait, CarteDessinee.HAUTEUR_NOM); }
                 p.Ecran = camera.WorldToScreenPoint(monde); p.RayonKm = rayon * echelle; p.RayonPx = kmParPixel > 0f ? p.RayonKm / kmParPixel : 0f;
             }
@@ -215,7 +229,7 @@ namespace Forge.Interface
                 }
                 ou.Pays.Add(p);
             }
-            foreach (Posee p in posees) if (p.Figurine != null) p.Figurine.GetComponent<MeshFilter>().sharedMesh = Forme(p.Taille, p.Capitale);
+            foreach (Posee p in posees) if (p.Figurine != null) p.Figurine.GetComponent<MeshFilter>().sharedMesh = EnDisques ? Disque() : Forme(p.Taille, p.Capitale);
             Trier(); VersionDesTextes++;
         }
 
@@ -233,6 +247,8 @@ namespace Forge.Interface
             }
             return table[taille];
         }
+        // Le disque d'une ville sur la carte de la population : d'encre, bordé de papier, le même pour toutes.
+        Mesh Disque() { if (disque == null) { disque = FormesDeCarte.Disque(SocleInterface.Couleur("encre"), SocleInterface.Couleur("papier")); crees.Add(disque); } return disque; }
         Material Matiere() { if (matiere == null) { matiere = FormesDeCarte.Matiere(SocleInterface.Couleur("cuivre")); matiere.name = RACINE; crees.Add(matiere); } return matiere; }
         static void Detruire(UnityEngine.Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
     }

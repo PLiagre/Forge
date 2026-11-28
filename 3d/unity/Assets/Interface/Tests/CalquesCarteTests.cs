@@ -59,11 +59,14 @@ namespace Forge.Interface.Tests
         static LectureDuMode Mode(ModeDeCarte mode, LieuxLus lieux = null, IEnumerable<(long, long)> alertes = null) =>
             new LectureDuMode(mode, lieux ?? TroisLieux(), Carte("marais", "plaine", "haute_montagne"), Terres(), Guerres(new[] { new GuerreLue(1, "m10", "m20", 2) }, 20), alertes);
 
-        // Une échelle tient sur la toile, aux deux échelles : chacune de ses trois étiquettes sur une ligne, sans mot interdit ni nombre
-        // sans unité ; ce sont des mots ou des chiffres, jamais une phrase.
+        // Une échelle tient sur la toile, aux deux échelles : chacune de ses étiquettes sur une ligne (trois, ou une par borne entre deux
+        // paliers), sans mot interdit ni nombre sans unité, l'unité d'une échelle à paliers valant pour toutes ses bornes ; ce sont des mots
+        // ou des chiffres, jamais une phrase, et jamais « rouge ».
         static void Tenir(EchelleDuMode echelle)
         {
-            Assert.That(echelle, Is.Not.Null, "pas d'échelle"); Assert.That(echelle.Etiquettes.Count, Is.EqualTo(3));
+            Assert.That(echelle, Is.Not.Null, "pas d'échelle"); Assert.That(echelle.Etiquettes.Count, Is.EqualTo(echelle.Paliers ? echelle.Teintes.Count - 1 : 3));
+            if (echelle.Paliers) Assert.That(echelle.Etiquettes.Last(), Does.EndWith(" " + echelle.Unite), "l'unité n'est pas dite après la dernière borne");
+            Assert.That(echelle.Etiquettes.Where(e => e.IndexOf("rouge", StringComparison.OrdinalIgnoreCase) >= 0), Is.Empty, "une étiquette dit « rouge »");
             var toile = new GameObject("Toile témoin", typeof(Canvas));
             try
             {
@@ -73,7 +76,8 @@ namespace Forge.Interface.Tests
                 Assert.That(calques.EtiquettesDeLEchelle.Select(t => t.text), Is.EqualTo(echelle.Etiquettes), "les étiquettes dessinées ne sont pas celles de l'échelle");
                 foreach (string etiquette in echelle.Etiquettes)
                 {
-                    Assert.IsNull(TexteDuMonde.Interdit(etiquette, A, B, C, "m10", "m20") ?? TexteDuMonde.SansUnite(etiquette), etiquette);
+                    string lue = echelle.Paliers && !etiquette.EndsWith(" " + echelle.Unite) ? etiquette + " " + echelle.Unite : etiquette;
+                    Assert.IsNull(TexteDuMonde.Interdit(etiquette, A, B, C, "m10", "m20") ?? TexteDuMonde.SansUnite(lue), etiquette);
                     Assert.That(etiquette.Split(' ', ' ', ' ').Length <= 5 && !etiquette.EndsWith("."), Is.True, "une phrase dans l'échelle : « " + etiquette + " »");
                 }
             }
@@ -95,78 +99,95 @@ namespace Forge.Interface.Tests
             var egaux = Mode(ModeDeCarte.Population, Lieux(Une(10, (500, 100, 0), (500, 100, 0)), Une(20, (5, 100, 0)), Une(30, (50000, 100, 0))));
             Assert.That(egaux.Teinte(10, 0, null, Color.white), Is.EqualTo(egaux.Teinte(10, 1, null, Color.white)));
             Assert.Throws<ArgumentException>(() => lecture.Population.Position(10, 3), "un lieu que le service ne sert pas");
-            Tenir(lecture.Echelle); Assert.That(lecture.Echelle.Etiquettes.All(e => e.EndsWith(" hab./km²")), Is.True, lecture.Legende);
+            Tenir(lecture.Echelle); Assert.That(lecture.Echelle.Etiquettes.Last(), Does.EndWith(" hab./km²"), lecture.Legende);
         }
-        // Vingt et un lieux de 100 à 2 100 hab./km², plus un vide et un immense : l'échelle se borne aux centiles, ses étiquettes le disent,
-        // et les lieux hors des bornes prennent la teinte de la borne au lieu de tasser tous les autres.
-        [Test] public void L_echelle_des_densites_se_borne_aux_centiles_et_le_dit()
+        // Les paliers de densité sont ceux d'un atlas, fixes : les mêmes bornes et la même teinte pour une même densité, quels que soient les
+        // lieux servis. Un lieu de ville de 275 000 habitants est plus foncé qu'une campagne, même quand presque tous les lieux servis sont
+        // vides (une échelle bornée au 95e centile les peignait de la même teinte).
+        [Test] public void Les_paliers_de_densite_sont_fixes_et_la_ville_est_plus_foncee_que_la_campagne()
         {
-            var cellules = Enumerable.Range(1, 21).Select(k => Une(k, (100 * k, 1, 0))).Concat(new[] { Une(100, (0, 1, 0)), Une(200, (9000000, 1, 0)) }).ToArray();
-            var r = new RepartitionHabitants(Lieux(cellules));
-            Assert.That((r.Minimum, r.Maximum, r.Bas, r.Mediane, r.Haut), Is.EqualTo((0d, 9000000d, 100d, 1100d, 2100d)));
-            Assert.That(r.Echelle.Etiquettes, Is.EqualTo(new[] { "jusqu'à 100 hab./km²", RepartitionHabitants.Densite(1100), "dès " + RepartitionHabitants.Densite(2100) }));
-            Assert.That((r.Position(100, 0), r.Position(1, 0), r.Position(11, 0), r.Position(21, 0), r.Position(200, 0)), Is.EqualTo((0f, 0f, .5f, 1f, 1f)));
-            Assert.That(r.Position(6, 0), Is.EqualTo(.5f * (float)(Math.Log(601d / 101d) / Math.Log(1101d / 101d))).Within(1e-5f), "la moitié claire de l'échelle n'est pas au logarithme");
-            // Contre-épreuve : sans lieu hors des bornes, ni « jusqu'à » ni « dès ».
-            Assert.That(new RepartitionHabitants(Lieux(cellules.Take(3).ToArray())).Echelle.Etiquettes, Is.EqualTo(new[] { "100 hab./km²", "200 hab./km²", "300 hab./km²" }));
+            var vides = Enumerable.Range(1, 40).Select(k => Une(k, (k % 8 + 1, 1, 0))).ToArray();
+            var r = new RepartitionHabitants(Lieux(vides.Concat(new[] { Une(100, (30, 1, 0)), Une(200, (275000, 30, 0)) }).ToArray()));
+            var denses = new RepartitionHabitants(Lieux(Une(1, (5000, 1, 0)), Une(100, (30, 1, 0)), Une(200, (9000, 1, 0)), Une(300, (12, 1, 0))));
+            Assert.That(r.Teinte(200, 0).grayscale, Is.LessThan(r.Teinte(100, 0).grayscale), "la ville de 275 000 habitants n'est pas plus foncée qu'une campagne de 30 hab./km²");
+            Assert.That(r.Teinte(100, 0), Is.EqualTo(denses.Teinte(100, 0)), "la même densité change de teinte selon les autres lieux servis");
+            Assert.That(r.Echelle.Etiquettes, Is.EqualTo(denses.Echelle.Etiquettes)); Assert.That(r.Echelle.Teintes, Is.EqualTo(denses.Echelle.Teintes));
+            Assert.That(r.Echelle.Etiquettes, Is.EqualTo(new[] { "2", "5", "10", "20", "40", "80 hab./km²" })); Assert.That(r.Echelle.Paliers && r.Echelle.Teintes.Count == 7, Is.True);
+            // Les bornes : un palier commence à sa borne.
+            var bords = new RepartitionHabitants(Lieux(Une(1, (19, 10, 0)), Une(2, (2, 1, 0)), Une(3, (799, 10, 0)), Une(4, (80, 1, 0))));
+            Assert.That((bords.Palier(1, 0), bords.Palier(2, 0), bords.Palier(3, 0), bords.Palier(4, 0)), Is.EqualTo((0, 1, 5, 6)));
+            Assert.That((bords.Teinte(1, 0), bords.Teinte(4, 0)), Is.EqualTo((RepartitionHabitants.CLAIRE, RepartitionHabitants.FONCEE)));
+            Tenir(r.Echelle);
             Assert.That((RepartitionHabitants.Densite(0.04), RepartitionHabitants.Densite(3.26), RepartitionHabitants.Densite(1234.5)), Is.EqualTo(("0 hab./km²", "3,3 hab./km²", TexteDuMonde.Nombre(1235) + " hab./km²")));
             Assert.Throws<ArgumentException>(() => new RepartitionHabitants(Lieux()), "aucun lieu servi");
         }
-        // La réserve de chaque lieu va du vide au plein, le plein à la réserve du 95e centile ; une dette se peint au vide, un lieu sans
-        // habitants en gris, jamais comme un lieu nourri.
+        // La réserve de chaque lieu se lit par paliers fixes de mois de grain, du vide (ou d'une dette) à un an et plus, quels que soient les
+        // autres lieux servis ; un lieu sans habitants est gris, jamais comme un lieu nourri.
         [Test] public void Les_vivres_vont_du_vide_au_plein_et_un_lieu_sans_habitants_est_gris()
         {
-            var cellules = Enumerable.Range(1, 21).Select(k => Une(k, (10, 1, 10.0 * k))).Concat(new[] { Une(100, (10, 1, -4), (0, 1, null)), Une(200, (10, 1, 5000)) }).ToArray();
+            var cellules = new[] { Une(1, (10, 1, -4), (0, 1, null)), Une(2, (10, 1, 0)), Une(3, (10, 1, 10)), Une(4, (10, 1, 40)), Une(5, (10, 1, 100)), Une(6, (10, 1, 200)), Une(7, (10, 1, 400)), Une(8, (10, 1, 5000)) };
             var v = new VivresDesLieux(Lieux(cellules));
-            Assert.That((v.Haut, v.Mediane, v.Maximum, v.Vides, v.SansHabitants), Is.EqualTo((210d, 110d, 5000d, 1, 1)));
-            Assert.That(v.Teinte(100, 1), Is.EqualTo(SocleInterface.Attenue)); Assert.That(v.JoursDe(100, 1), Is.Null, "un lieu sans habitants a une réserve");
-            Assert.That((v.Teinte(100, 0), v.Teinte(200, 0), v.Teinte(21, 0)), Is.EqualTo((VivresDesLieux.VIDE, VivresDesLieux.PLEIN, VivresDesLieux.PLEIN)), "la dette n'est pas vide, ou le plein n'est pas à la borne");
-            Assert.That(v.Teinte(11, 0), Is.EqualTo(Color.Lerp(VivresDesLieux.VIDE, VivresDesLieux.PLEIN, 110f / 210f)), "la réserve ne suit pas ses jours servis");
-            Assert.That(v.Teinte(100, 1), Is.Not.EqualTo(v.Teinte(100, 0)).And.Not.EqualTo(VivresDesLieux.PLEIN), "un lieu sans habitants peint comme vide ou plein");
-            Assert.That(v.Echelle.Etiquettes, Is.EqualTo(new[] { "vide", "110 jours", "dès 210 jours" })); Tenir(v.Echelle);
-            Assert.That(v.Detail, Does.Contain("1 lieu habité est vide").And.Contain("1 lieu sans habitants, en gris"));
+            Assert.That((v.Vides, v.SansHabitants), Is.EqualTo((2, 1)));
+            Assert.That(v.Teinte(1, 1), Is.EqualTo(SocleInterface.Attenue)); Assert.That(v.JoursDe(1, 1), Is.Null, "un lieu sans habitants a une réserve");
+            Assert.That(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }.Select(c => v.Palier(c, 0)), Is.EqualTo(new[] { 0, 0, 1, 2, 3, 4, 5, 5 }), "les paliers ne suivent pas les mois de grain");
+            Assert.That((v.Teinte(1, 0), v.Teinte(7, 0), v.Teinte(8, 0)), Is.EqualTo((VivresDesLieux.VIDE, VivresDesLieux.PLEIN, VivresDesLieux.PLEIN)), "la dette n'est pas vide, ou un an n'est pas plein");
+            Assert.That(v.Teinte(1, 1), Is.Not.EqualTo(v.Teinte(1, 0)).And.Not.EqualTo(VivresDesLieux.PLEIN), "un lieu sans habitants peint comme vide ou plein");
+            // Les mêmes jours gardent leur teinte quand les autres lieux changent.
+            Assert.That(new VivresDesLieux(Lieux(Une(4, (10, 1, 40)), Une(9, (10, 1, 9000)))).Teinte(4, 0), Is.EqualTo(v.Teinte(4, 0)), "une même réserve change de teinte selon les autres lieux servis");
+            Assert.That(v.Echelle.Etiquettes, Is.EqualTo(new[] { "0", "1", "3", "6", "12 mois" })); Assert.That(v.Echelle.Paliers && v.Echelle.Teintes.Count == 6, Is.True); Tenir(v.Echelle);
+            Assert.That(v.Detail, Does.Contain("2 lieux habités sont vides").And.Contain("1 lieu sans habitants, en gris"));
             Assert.Throws<ArgumentException>(() => new VivresDesLieux(Lieux(Une(1, (0, 1, null)))), "aucun lieu habité : rien à échelonner");
         }
 
-        // Chaque mode a son échelle et ses trois étiquettes ; la règle et la date sont dans l'infobulle.
+        // Chaque mode a son échelle et ses étiquettes ; la règle et la date sont dans l'infobulle.
         [Test] public void Chaque_legende_est_une_echelle_a_trois_etiquettes_et_la_date_est_dans_l_infobulle()
         {
             var attendues = new Dictionary<ModeDeCarte, string[]>
             {
                 [ModeDeCarte.Politique] = new[] { "pays", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE },
                 [ModeDeCarte.Relief] = new[] { "marais", "colline", "haute montagne" },
-                [ModeDeCarte.Population] = new[] { "1 hab./km²", "90 hab./km²", TexteDuMonde.Nombre(9000) + " hab./km²" },
-                [ModeDeCarte.Vivres] = new[] { "vide", "2 jours", "30 jours" },
+                [ModeDeCarte.Population] = new[] { "2", "5", "10", "20", "40", "80 hab./km²" },
+                [ModeDeCarte.Vivres] = new[] { "0", "1", "3", "6", "12 mois" },
                 [ModeDeCarte.Guerres] = new[] { "en guerre", "en paix", "assiégée" }
             };
             Assert.That(attendues.Keys, Is.EquivalentTo((ModeDeCarte[])Enum.GetValues(typeof(ModeDeCarte))), "un mode sans légende jugée");
             foreach (var paire in attendues)
             {
                 var lecture = Mode(paire.Key); Tenir(lecture.Echelle);
-                Assert.That(lecture.Echelle.Etiquettes, Is.EqualTo(paire.Value), paire.Key.ToString()); Assert.That(lecture.Legende, Is.EqualTo(string.Join(" · ", paire.Value)));
+                Assert.That(lecture.Echelle.Etiquettes, Is.EqualTo(paire.Value), paire.Key.ToString());
+                // Hors du dessin, chaque borne des paliers porte son unité : la légende lue ne montre aucun nombre nu.
+                string unite = lecture.Echelle.Paliers ? " " + lecture.Echelle.Unite : "";
+                Assert.That(lecture.Legende, Is.EqualTo(string.Join(" · ", paire.Value.Select(e => unite.Length > 0 && !e.EndsWith(unite) ? e + unite : e)))); Assert.That(TexteDuMonde.SansUnite(lecture.Legende), Is.Null, lecture.Legende);
                 Assert.That(lecture.Detail, Does.Contain("de 1400").Or.Contain("ne change pas"), paire.Key + " : l'infobulle ne date pas le mode");
                 Assert.IsNull(TexteDuMonde.Interdit(lecture.Detail, A, B, C) ?? TexteDuMonde.SansUnite(lecture.Detail), lecture.Detail);
             }
-            Assert.That(Mode(ModeDeCarte.Population).Echelle.Degrade && Mode(ModeDeCarte.Vivres).Echelle.Degrade && Mode(ModeDeCarte.Relief).Echelle.Degrade, Is.True, "une grandeur continue sans dégradé");
+            Assert.That(Mode(ModeDeCarte.Relief).Echelle.Degrade, Is.True, "une grandeur continue sans dégradé");
+            Assert.That(Mode(ModeDeCarte.Population).Echelle.Paliers && Mode(ModeDeCarte.Vivres).Echelle.Paliers, Is.True, "la densité ou les vivres sans paliers fixes");
             Assert.That(Mode(ModeDeCarte.Politique).Echelle.Degrade || Mode(ModeDeCarte.Guerres).Echelle.Degrade, Is.False, "des catégories en dégradé");
         }
 
-        // La légende politique ne dit « rouge » qu'une fois, pour l'alerte, pays lus ou non, alertes lues ou non ; seuls les lieux du joueur en
-        // alerte sont rouges, et aucun mode ne peint quoi que ce soit en rouge hors de l'alerte politique.
-        [Test] public void Le_rouge_ne_dit_que_l_alerte()
+        // Aucune légende ne dit « rouge », ni ses étiquettes, ni son infobulle, ni la phrase de son bouton, pays et alertes lus ou non : sur la
+        // carte politique, un rouge à côté de pays peints en brique dirait deux choses. Un lieu du joueur en alerte garde le pigment de son
+        // pays ; l'alerte est une marque, que la légende dit en mots. Aucun mode ne peint quoi que ce soit au rouge de l'alerte.
+        [Test] public void Aucune_legende_ne_dit_rouge_et_un_lieu_en_alerte_garde_le_pigment_de_son_pays()
         {
             var alertes = new[] { (20L, 0L) };
             foreach (var lecture in new[] { Mode(ModeDeCarte.Politique), Mode(ModeDeCarte.Politique, alertes: alertes), new LectureDuMode(ModeDeCarte.Politique, null, null, null, null), new LectureDuMode(ModeDeCarte.Politique, null, null, null, null, alertes) })
             {
-                Assert.That(Regex.Matches(lecture.Legende, "rouge", RegexOptions.IgnoreCase).Count, Is.EqualTo(1), lecture.Legende); Tenir(lecture.Echelle);
-                Assert.That(lecture.Detail, Does.Contain(LieuxDeCarte.ENTETE).And.Contain("cernée d'un trait d'encre").And.Not.Contain("Le rouge marque la terre"));
+                Assert.That(Regex.IsMatch(lecture.Legende + "\n" + lecture.Detail, "rouge", RegexOptions.IgnoreCase), Is.False, lecture.Legende + "\n" + lecture.Detail); Tenir(lecture.Echelle);
+                Assert.That(lecture.Detail, Does.Contain(LieuxDeCarte.ENTETE).And.Contain("cernée d'un trait d'encre"));
+                Assert.That(lecture.Echelle.Etiquettes[1], Is.EqualTo(CalquesCarte.ALERTE)); Assert.That(lecture.Echelle.Teintes[1], Is.EqualTo(SocleInterface.Couleur("encre")), "la pastille de l'alerte n'est pas l'encre de sa marque");
+            }
+            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte)))
+            {
+                var lecture = Mode(mode, alertes: alertes);
+                Assert.That(Regex.IsMatch((lecture.Legende ?? "") + "\n" + lecture.Detail + "\n" + CalquesCarte.PhraseDuMode(mode) + "\n" + CalquesCarte.DetailDuMode(mode), "rouge", RegexOptions.IgnoreCase), Is.False, mode + " dit « rouge »");
+                Assert.That(Peintes(lecture), Has.None.EqualTo(SocleInterface.Couleur("alerte")), mode + " peint en rouge");
             }
             var politique = Mode(ModeDeCarte.Politique, alertes: alertes);
-            Assert.That(Peintes(politique), Is.EqualTo(new[] { PA, SocleInterface.Couleur("alerte"), PC }), "seul le lieu en alerte est rouge");
-            Assert.That(politique.Teinte(20, 1, B, PB), Is.EqualTo(PB), "un autre lieu de la même terre est rouge");
-            Assert.That(Peintes(Mode(ModeDeCarte.Politique)), Is.EqualTo(new[] { PA, PB, PC }), "contre-épreuve : sans alerte, rien n'est rouge");
-            foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte)))
-                if (mode != ModeDeCarte.Politique) Assert.That(Peintes(Mode(mode, alertes: alertes)), Has.None.EqualTo(SocleInterface.Couleur("alerte")), mode + " peint en rouge");
+            Assert.That(politique.EnAlerte(20, 0), Is.True, "échantillon vide : le lieu n'est pas en alerte");
+            Assert.That(Peintes(politique), Is.EqualTo(new[] { PA, PB, PC }), "le lieu en alerte ne garde pas le pigment de son pays");
+            Assert.That(Peintes(Mode(ModeDeCarte.Politique)), Is.EqualTo(Peintes(politique)), "l'alerte change une teinte");
             Assert.That(BelligerantsDesPays.ASSIEGEE, Is.Not.EqualTo(SocleInterface.Couleur("alerte")));
         }
 
@@ -238,8 +259,15 @@ namespace Forge.Interface.Tests
                 Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(true, new[] { Color.white, Color.black }, "a", "Une étiquette beaucoup trop longue pour tenir sur une seule ligne de la légende", "c"), "détail"));
                 // Deux étiquettes qui tiennent chacune sur une ligne mais empiètent sur leur voisine : sous des pastilles, chacune dans son tiers.
                 var pastilles = new[] { Color.white, Color.red, Color.black };
-                Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(false, pastilles, "pays", "rouge : plus de départs", "trait : terre ouverte"), "détail"), "deux étiquettes qui se chevauchent");
+                Assert.Throws<ArgumentException>(() => calques.Legender(new EchelleDuMode(false, pastilles, "pays", "flèche : plus de départs qu'il n'en arrive", "trait : terre ouverte"), "détail"), "deux étiquettes qui se chevauchent");
                 Assert.DoesNotThrow(() => calques.Legender(new EchelleDuMode(false, pastilles, "pays", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE), "détail"), "contre-épreuve : l'échelle politique tient");
+                // Sous des paliers, une borne trop large pour l'écart entre deux limites empiète sur sa voisine ; les paliers des modes tiennent.
+                var sept = EchelleDuMode.Pas(Color.white, Color.black, 7);
+                Assert.Throws<ArgumentException>(() => calques.Legender(EchelleDuMode.EnPaliers(sept, new[] { "2", "5 000 000", "10 000 000", "20", "40", "80" }, "hab./km²"), "détail"), "deux bornes qui se chevauchent");
+                Assert.DoesNotThrow(() => calques.Legender(EchelleDuMode.EnPaliers(sept, new[] { "2", "5", "10", "20", "40", "80" }, "hab./km²"), "détail"), "contre-épreuve : les paliers de la densité tiennent");
+                Assert.That(calques.EtiquettesDeLEchelle.Count, Is.EqualTo(6)); Assert.That(calques.EtiquettesDeLEchelle.All(t => t.gameObject.activeSelf), Is.True);
+                Assert.That(calques.EtiquettesDeLEchelle.Select(t => t.rectTransform.anchoredPosition.x + t.rectTransform.sizeDelta.x / 2f).Zip(Enumerable.Range(1, 6), (x, k) => Mathf.Abs(x - (8 + k * (CalquesCarte.LARGEUR_DE_LA_LEGENDE - 16) / 7f))).Max(), Is.LessThan(1f), "une borne n'est pas sur la limite de ses deux pastilles");
+                calques.Legender(new EchelleDuMode(false, pastilles, "pays", CalquesCarte.ALERTE, CalquesCarte.TERRE_OUVERTE), "détail"); Assert.That(calques.EtiquettesDeLEchelle.Count, Is.EqualTo(3), "les bornes d'avant restent montrées");
                 Assert.DoesNotThrow(() => calques.Legender("Aucune armée en campagne", "détail")); Assert.That(calques.Legende.enabled && !calques.Echelle.gameObject.activeSelf, Is.True, "un message sans échelle ne se montre pas en texte");
                 foreach (ModeDeCarte mode in Enum.GetValues(typeof(ModeDeCarte))) { string phrase = CalquesCarte.PhraseDuMode(mode); Assert.That(phrase.StartsWith(mode + " : ") && phrase.Length > mode.ToString().Length + 20, Is.True, phrase); }
             }

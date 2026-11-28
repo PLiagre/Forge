@@ -386,14 +386,17 @@ namespace ForgeLocal3D.Captures
             if (posees.Length > 0) throw Faux("des figurines de lieux sont posées sur la carte : " + string.Join(", ", posees));
         }
 
-        // La légende du mode est une échelle de trois étiquettes non vides, et les trois textes sous l'échelle les montrent.
+        // La légende du mode est une échelle d'étiquettes non vides (trois, ou une par borne entre deux paliers), aucune ne dit
+        // « rouge », et les textes sous l'échelle les montrent.
         static void VerifierLEchelle(CarteDessinee carte, ModeDeCarte mode)
         {
             var calques = Calques(carte); var echelle = calques.EchelleMontree ?? throw Faux("la légende de « " + mode + " » n'est pas une échelle : « " + calques.Legende.text + " »");
-            if (echelle.Etiquettes.Count != 3 || echelle.Etiquettes.Any(string.IsNullOrWhiteSpace)) throw Faux("l'échelle de « " + mode + " » n'a pas trois étiquettes non vides : « " + echelle.Texte + " »");
+            int attendues = echelle.Paliers ? echelle.Teintes.Count - 1 : 3;
+            if (echelle.Etiquettes.Count != attendues || echelle.Etiquettes.Any(string.IsNullOrWhiteSpace)) throw Faux("l'échelle de « " + mode + " » n'a pas " + attendues + " étiquettes non vides : « " + echelle.Texte + " »");
+            if (echelle.Etiquettes.Any(e => e.IndexOf("rouge", StringComparison.OrdinalIgnoreCase) >= 0)) throw Faux("l'échelle de « " + mode + " » dit « rouge » : « " + echelle.Texte + " »");
             if (calques.Echelle == null || !calques.Echelle.gameObject.activeInHierarchy) throw Faux("l'échelle de « " + mode + " » ne se dessine pas");
-            var textes = calques.EtiquettesDeLEchelle; if (textes.Count != 3) throw Faux("l'échelle de « " + mode + " » a " + textes.Count + " textes sous elle, non trois");
-            for (int k = 0; k < 3; k++)
+            var textes = calques.EtiquettesDeLEchelle; if (textes.Count != attendues) throw Faux("l'échelle de « " + mode + " » a " + textes.Count + " textes sous elle, non " + attendues);
+            for (int k = 0; k < attendues; k++)
                 if (!textes[k].gameObject.activeInHierarchy || textes[k].text != echelle.Etiquettes[k]) throw Faux("l'étiquette " + k + " de « " + mode + " » montre « " + textes[k].text + " » au lieu de « " + echelle.Etiquettes[k] + " »");
         }
 

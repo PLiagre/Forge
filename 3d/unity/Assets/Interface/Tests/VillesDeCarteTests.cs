@@ -154,6 +154,29 @@ namespace Forge.Interface.Tests
             Assert.That(jugees, Is.GreaterThanOrEqualTo(2), "échantillon vide : ni le Duché de Bar, ni la France, ni la Morée n'ont de capitale posée");
         }
 
+        // Sur la carte de la population, chaque ville est un disque d'encre dont l'aire suit ses habitants servis, à la même mesure pour
+        // toutes : de près, le rapport des rayons de deux villes est la racine du rapport de leurs habitants. Les figurines reviennent sur
+        // la carte politique.
+        [Test] public void En_population_chaque_ville_est_un_disque_a_la_mesure_de_ses_habitants()
+        {
+            var villes = europe.Carte.Lue.Cellules.SelectMany(c => c.Villes).OrderByDescending(v => v.Population).ToList();
+            var grande = villes.First(); var petite = villes.Last();
+            Assert.That(petite.Population * 2 < grande.Population && VillesDeCarte.RayonDuDisque(petite.Population) > VillesDeCarte.RAYON_MIN_DU_DISQUE_KM, Is.True, "échantillon vide : " + grande.Nom + " et " + petite.Nom + " ont presque les mêmes habitants");
+            Transform Figurine(VilleDeCarte v) => europe.Racine.transform.Find(VillesDeCarte.RACINE + "/Figurine de " + v.Nom);
+            try
+            {
+                europe.Calques.BoutonDu(ModeDeCarte.Population).onClick.Invoke(); Assert.That(europe.Calques.Mode, Is.EqualTo(ModeDeCarte.Population));
+                Vector3 pied = Figurine(grande).localPosition; europe.Voir(new Vector2(pied.x, pied.z), 60f); europe.Villes.Pas();
+                Assert.That(europe.Villes.EnDisques, Is.True, "les villes ne passent pas en disques sur la carte de la population");
+                foreach (var v in new[] { grande, petite }) Assert.That(Figurine(v).GetComponent<MeshFilter>().sharedMesh.name, Is.EqualTo("Disque d'une ville"), v.Nom);
+                float rapport = Figurine(grande).localScale.x / Figurine(petite).localScale.x, attendu = Mathf.Sqrt(grande.Population / (float)petite.Population);
+                Assert.That(rapport, Is.EqualTo(attendu).Within(attendu * 0.01f), grande.Nom + " et " + petite.Nom + " : leurs disques ne suivent pas leurs habitants");
+                Assert.That(Figurine(grande).localScale.x, Is.EqualTo(VillesDeCarte.RayonDuDisque(grande.Population)).Within(1e-3f), "le disque de " + grande.Nom + " n'est pas à la mesure commune");
+            }
+            finally { europe.Calques.BoutonDu(ModeDeCarte.Politique).onClick.Invoke(); europe.Peindre(); europe.Villes.Pas(); }
+            Assert.That(europe.Villes.EnDisques, Is.False); Assert.That(Figurine(grande).GetComponent<MeshFilter>().sharedMesh.name, Does.StartWith("Capitale de taille").Or.StartWith("Bourg"), "la figurine ne revient pas sur la carte politique");
+        }
+
         // Chaque ville servie et chaque capitale posée, vue de près (150 km de demi-hauteur), répond au survol et au clic sur
         // tout ce que sa figurine couvre : son pied et huit points à neuf dixièmes de son rayon rendent un lieu. Au large de la
         // mer Ionienne, loin de toute figurine, la mer reste la mer.

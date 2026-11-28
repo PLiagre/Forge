@@ -98,6 +98,19 @@ namespace Forge.Pont {
             return c.Finir(auSiege ? "Armée au siège" : "Armée en marche");
         }
 
+        // Un disque plat d'un km de rayon, son dessus de la couleur `dessus` et son bord de la couleur `bord` : la ville de la carte de la
+        // population, que la vue met à l'échelle de ses habitants.
+        public static Mesh Disque(Color dessus, Color bord) {
+            var c = new Chantier(); c.Socle(1f, dessus, bord); return c.Finir("Disque d'une ville");
+        }
+        // Une flèche plate qui sort vers le nord-est, longue d'un km, d'encre sur un liseré de papier un peu plus grand : la marque d'un
+        // lieu d'où partent plus de gens qu'il n'en arrive.
+        public static Mesh Depart(Color encre, Color papier) {
+            var c = new Chantier();
+            c.Fleche(1.35f, 0.62f, 0f, papier); c.Fleche(1f, 0.42f, HAUTEUR_DU_SOCLE_KM, encre);
+            return c.Finir("Marque des départs");
+        }
+
         // Un nombre de 0 à 1 tiré de trois entiers, toujours le même pour les mêmes.
         private static float Hasard(int a, int b, int c) {
             uint h = unchecked((uint)a * 0x9E3779B1u ^ (uint)b * 0x85EBCA77u ^ (uint)c * 0xC2B2AE3Du);
@@ -148,6 +161,22 @@ namespace Forge.Pont {
                     float a = 2f * Mathf.PI * (k + 0.5f) / pans, b = 2f * Mathf.PI * (k + 1.5f) / pans;
                     Face(couleur, coeur, @base + Tourner(new Vector3(rayon * Mathf.Cos(a), 0f, rayon * Mathf.Sin(a)), cap), @base + Tourner(new Vector3(rayon * Mathf.Cos(b), 0f, rayon * Mathf.Sin(b)), cap), sommet);
                 }
+            }
+
+            // Une flèche plate, centrée sur son pied, longue de `longue` km et large de `large` en sa pointe, tournée vers le nord-est :
+            // sa hampe et sa pointe, deux dalles de `HAUTEUR_DU_SOCLE_KM` posées à la hauteur `y`.
+            public void Fleche(float longue, float large, float y, Color couleur) {
+                const float CAP = -45f; float h = HAUTEUR_DU_SOCLE_KM, hampe = large * 0.4f, depart = -longue / 2f, cou = longue * 0.1f, pointe = longue / 2f;
+                Dalle(couleur, y, h, CAP, new Vector2(depart, -hampe / 2f), new Vector2(cou, -hampe / 2f), new Vector2(cou, hampe / 2f), new Vector2(depart, hampe / 2f));
+                Dalle(couleur, y, h, CAP, new Vector2(cou, -large / 2f), new Vector2(pointe, 0f), new Vector2(cou, large / 2f));
+            }
+            // Une dalle convexe : son contour (x vers l'est, y vers le nord avant d'être tourné de `cap`), haute de `h`, posée à `y`.
+            private void Dalle(Color couleur, float y, float h, float cap, params Vector2[] contour) {
+                var haut = new Vector3[contour.Length]; var bas = new Vector3[contour.Length]; Vector3 coeur = Vector3.zero;
+                for (int k = 0; k < contour.Length; k++) { haut[k] = Tourner(new Vector3(contour[k].x, y + h, contour[k].y), cap); bas[k] = haut[k] + Vector3.down * h; coeur += haut[k]; }
+                coeur = coeur / contour.Length + Vector3.down * (h / 2f);
+                Face(couleur, coeur, (Vector3[])haut.Clone());
+                for (int k = 0; k < contour.Length; k++) { int s = (k + 1) % contour.Length; Face(couleur, coeur, haut[k], haut[s], bas[s], bas[k]); }
             }
 
             // Le socle : un disque bas à vingt pans, son dessus d'une couleur et son bord d'une autre.
