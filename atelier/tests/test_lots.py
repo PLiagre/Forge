@@ -363,6 +363,64 @@ def test_un_lot_garde_son_chantier_du_pc_et_un_lot_neuf_prend_le_premier_libre()
     assert lots.chantier_libre({"pc", "pc-2"}, 2) == "pc", "tous tenus : les passages se suivent sur le premier"
 
 
+def test_le_delai_d_attente_pc_double_jusqu_au_plafond_et_part_a_deux_heures_sur_quota_hebdo():
+    att = {"role": "chef", "etat": "attente", "raison": "You've hit your 5-hour limit"}
+    hebdo = {"role": "chef", "etat": "attente", "raison": "You've hit your weekly limit"}
+    assert lots.delai_attente_pc([PLAN]) == 0.25
+    assert lots.delai_attente_pc([PLAN, att]) == 0.25
+    assert lots.delai_attente_pc([PLAN, ENVOYE, att, ENVOYE, att]) == 0.5
+    assert lots.delai_attente_pc([PLAN, att, att, att]) == 1.0
+    assert lots.delai_attente_pc([PLAN, att, att, att, att]) == 2.0
+    assert lots.delai_attente_pc([PLAN, att, att, att, att, att]) == 4.0
+    assert lots.delai_attente_pc([PLAN, att, att, att, att, att, att]) == 4.0
+    # Un vrai passage remet le backoff à zéro.
+    assert lots.delai_attente_pc([PLAN, att, att, att, etape(1), att]) == 0.25
+    # Limite hebdomadaire : base 2 h → 4 h max.
+    assert lots.delai_attente_pc([PLAN, hebdo]) == 2.0
+    assert lots.delai_attente_pc([PLAN, att, ENVOYE, hebdo]) == 4.0
+    assert lots.delai_attente_pc([PLAN, hebdo, hebdo, hebdo]) == 4.0
+    # `action_suivante` applique ce délai progressif.
+    assert ensuite([PLAN, ENVOYE, att, ENVOYE, att], heures_depuis_attente_pc=0.4).nom == "attendre_pc"
+    assert ensuite([PLAN, ENVOYE, att, ENVOYE, att], heures_depuis_attente_pc=0.6) == Action("etape", essai=1)
+    assert ensuite([PLAN, hebdo], heures_depuis_attente_pc=1.5).nom == "attendre_pc"
+    assert ensuite([PLAN, hebdo], heures_depuis_attente_pc=2.1) == Action("etape", essai=1)
+
+
+def test_le_role_du_passage_envoie_les_etapes_developpeur_et_les_conflits_sur_sonnet():
+    etapes = [{"titre": "Cœur", "qui": "chef"}, {"titre": "Données", "qui": "developpeur"}]
+    du_chef = lot(10)
+    simple = lot(11, etiquettes=("lot", "en-cours", "interface", "simple"))
+    asset = lot(12, etiquettes=("lot", "en-cours", "asset"))
+    assert lots.role_du_passage(du_chef, Action("etape", essai=1), etapes) == "chef"
+    assert lots.role_du_passage(du_chef, Action("etape", essai=2), etapes) == "developpeur"
+    assert lots.role_du_passage(du_chef, Action("conflit"), etapes) == "developpeur"
+    assert lots.role_du_passage(du_chef, Action("corriger_ci", essai=1), etapes) == "chef"
+    assert lots.role_du_passage(du_chef, Action("corriger_relecture", essai=1), etapes) == "chef"
+    assert lots.role_du_passage(du_chef, Action("etape", essai=9), etapes) == "chef"
+    assert lots.role_du_passage(simple, Action("etape", essai=1), etapes) == "developpeur"
+    assert lots.role_du_passage(asset, Action("etape", essai=2), etapes) == "artiste"
+    assert lots.role_du_passage(asset, Action("conflit"), etapes) == "artiste"
+
+
+def test_la_generation_de_session_tourne_tous_les_trois_passages_acheves_sans_compter_les_coupures():
+    plan_vps = PLAN | {"machine": "vps"}
+    e_vps = etape(1) | {"machine": "vps"}
+    e_pc = etape(1) | {"machine": "pc"}
+    e_dev = {"role": "developpeur", "etat": "etape", "etape": 2, "fini": True, "machine": "vps"}
+    coupe_vps = COUPE | {"machine": "vps"}
+    echec_vps = ECHEC | {"machine": "vps"}
+    conflit_vps = {"role": "chef", "etat": "conflit", "machine": "vps"}
+    assert lots.generation_de_session([], role="chef", machine="vps") == 0
+    assert lots.generation_de_session([plan_vps, e_vps], role="chef", machine="vps") == 0
+    # Coupures, échecs, autres rôles et autres machines ne font pas avancer la génération.
+    assert lots.generation_de_session([plan_vps, e_vps, coupe_vps, echec_vps, e_dev, e_pc], role="chef", machine="vps") == 0
+    assert lots.generation_de_session([plan_vps, e_vps, CORRECTION | {"machine": "vps"}], role="chef", machine="vps") == 1
+    assert lots.generation_de_session([plan_vps, e_vps, CORRECTION | {"machine": "vps"}, coupe_vps],
+                                      role="chef", machine="vps") == 1
+    six = [plan_vps, e_vps, e_vps, REPONSE | {"machine": "vps"}, conflit_vps, e_vps]
+    assert lots.generation_de_session(six, role="chef", machine="vps") == 2
+
+
 # ----------------------------------------------- les rouges qui ne sont pas au lot
 AVANT, REJEU_A, APRES = "2026-11-16T09:00:00Z", "2026-11-16T09:30:00+00:00", "2026-11-16T09:45:00Z"
 
@@ -477,6 +535,14 @@ def test_un_lot_bloque_par_la_chaine_attend_le_regard_du_cto():
     assert not lots.deblocage_a_faire([BLOCAGE, RELANCE]), "le CTO a déjà parlé depuis"
     du_cto = pose(role="pilote", etat="bloque", par="cto", raison="au propriétaire")
     assert not lots.deblocage_a_faire([du_cto]), "le CTO ne relit pas son propre blocage"
+
+
+def test_un_echec_du_cto_permet_une_nouvelle_tentative_jusqu_a_echecs_max():
+    echec_cto = pose(role="cto", etat="echec")
+    assert lots.deblocage_a_faire([BLOCAGE, echec_cto]), "un seul échec CTO (timeout) ne gèle pas le lot"
+    assert not lots.deblocage_a_faire([BLOCAGE, echec_cto, echec_cto]), "après ECHECS_MAX échecs, on arrête"
+    assert not lots.deblocage_a_faire([BLOCAGE, echec_cto, RELANCE]), "une décision après un échec clôt le déblocage"
+    assert lots.deblocage_a_faire([BLOCAGE, echec_cto, echec_cto, BLOCAGE]), "un nouveau blocage remet les essais à zéro"
 
 
 def test_les_relances_du_cto_se_comptent():

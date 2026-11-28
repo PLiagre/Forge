@@ -311,16 +311,45 @@ Tes règles :
 - Écris en français : comptes rendus, noms et entrées du manifeste."""
 
 
-def _regles_du_meneur(projet: Projet, lot: Lot) -> str:
-    if lot.meneur == ARTISTE:
+def _couper_milieu(texte: str, limite: int) -> str:
+    """Coupe au milieu un texte trop long : garde ~45 % du début (les synthèses
+    et l'ouverture) et ~55 % de la fin (les derniers faits et conclusions)."""
+    propre = (texte or "").strip()
+    if len(propre) <= limite:
+        return propre
+    marqueur = "\n\n[… milieu tronqué …]\n\n"
+    utile = max(limite - len(marqueur), 0)
+    if utile == 0:
+        return propre[:limite]
+    debut = int(utile * 0.45)
+    fin = utile - debut
+    return (propre[:debut].rstrip() + marqueur + propre[-fin:].lstrip()) if fin else propre[:debut]
+
+
+def _regles_du_meneur(projet: Projet, lot: Lot, role: str | None = None) -> str:
+    qui = role or lot.meneur
+    if qui == ARTISTE:
         return _regles_de_l_artiste(projet, lot)
-    role = "le chef de lot" if lot.meneur == CHEF else "le développeur, et tu mènes seul ce lot simple"
-    confier = ("- Tu codes le difficile toi-même. Tu confies au sous-agent `developpeur` les tâches bornées (un "
-               "fichier, un test, un écran, une donnée), une à la fois, avec les fichiers et la règle à suivre ; "
-               "tu relis ce qu'il rend avant de continuer.\n" if lot.meneur == CHEF else
-               "- Tu ne décides d'aucune règle du monde : si le lot en demande une que la fiche ne donne pas, "
-               "pose la question.\n")
-    return f"""Tu es {role} de Forge. Tu mènes le lot #{lot.numero} « {lot.titre} » du plan à la fusion, dans cette session : elle sera reprise à chaque étape et à chaque correction, tu t'y souviendras de tout.
+    if qui == CHEF:
+        intro = (f"Tu es le chef de lot de Forge. Tu mènes le lot #{lot.numero} « {lot.titre} » du plan à la fusion, "
+                 "dans cette session : elle sera reprise à chaque étape et à chaque correction, tu t'y souviendras de tout.")
+        confier = ("- Tu codes le difficile toi-même. Marque `qui: developpeur` dans ton plan sur chaque étape bornée "
+                   "(données, tests, écran courant, câblage) : le pilote l'exécutera directement par le développeur sans "
+                   "mobiliser ta session. Dans tes propres étapes, tu peux aussi confier au sous-agent `developpeur` "
+                   "une tâche bornée (un fichier, un test, un écran, une donnée), une à la fois, avec les fichiers et "
+                   "la règle à suivre ; tu relis ce qu'il rend avant de continuer.\n")
+    elif lot.meneur == CHEF:
+        intro = (f"Tu es le développeur de Forge. Tu prends en charge ce passage borné du lot #{lot.numero} "
+                 f"« {lot.titre} » d'après la fiche et le plan du chef de lot.")
+        confier = ("- Tu fais cette tâche toi-même, et elle seule. Tu ne décides d'aucune règle du monde : si le "
+                   "passage en demande une que la fiche et le plan ne donnent pas, pose la question.\n")
+    else:
+        intro = (f"Tu es le développeur, et tu mènes seul ce lot simple de Forge. Tu mènes le lot #{lot.numero} "
+                 f"« {lot.titre} » du plan à la fusion, dans cette session : elle sera reprise à chaque étape et à "
+                 "chaque correction, tu t'y souviendras de tout.")
+        confier = ("- Tu ne décides d'aucune règle du monde : si le lot en demande une que la fiche ne donne pas, "
+                   "pose la question.\n")
+    return f"""{intro}
 
 Lis d'abord `AGENTS.md`, `CAP.md` (le palier en cours), le `CLAUDE.md` de chaque zone que tu touches, et `jeu/sim/MODELE.md` si le lot touche le monde.
 
@@ -346,8 +375,8 @@ def plan(projet: Projet, lot: Lot, decisions: tuple[str, ...] = ()) -> str:
     if lot.meneur == ARTISTE:
         confie = " (`qui` vaut `artiste` : c'est toi)"
     elif lot.meneur == CHEF:
-        confie = (" et dit qui la fait (`chef` pour le difficile, `developpeur` pour une tâche bornée que tu lui "
-                  "confieras)")
+        confie = (" et dit qui la fait (`chef` pour le difficile ou le cœur du moteur, `developpeur` sur chaque étape "
+                  "bornée de données, tests, écran courant ou câblage : le pilote la confie directement au développeur)")
     else:
         confie = " (`qui` vaut `developpeur` : c'est toi)"
     return _regles_du_meneur(projet, lot) + _decisions(decisions) + f"""
@@ -359,9 +388,9 @@ TA TÂCHE MAINTENANT : LE PLAN. Lis le code et les références que le lot touch
 - Si la fiche ne sert pas le palier ou se contredit, rends `refus` avec la raison. Si elle demande une décision qui n'est pas la tienne, rends `question`."""
 
 
-def _etape(k: int, n: int, etape: dict) -> str:
+def _etape(k: int, n: int, etape: dict, role: str | None = None) -> str:
     qui = ("Confie-la au sous-agent `developpeur`, puis vérifie ce qu'il rend."
-           if etape.get("qui") == "developpeur" else "Elle est à toi.")
+           if role != DEVELOPPEUR and etape.get("qui") == "developpeur" else "Elle est à toi.")
     return (f"ÉTAPE {k} SUR {n} : {etape.get('titre', '')}.\n{etape.get('quoi', '')}\nSes tests : "
             f"{etape.get('tests', '')}\n{qui}\n"
             "Rends `faite` quand elle est finie et que ses tests sont verts ; `a_poursuivre` si tu dois t'arrêter "
@@ -369,14 +398,15 @@ def _etape(k: int, n: int, etape: dict) -> str:
 
 
 def etape(projet: Projet, lot: Lot, k: int, etapes: list[dict], decisions: tuple[str, ...] = (),
-          coupee: bool = False) -> tuple[str, str]:
+          coupee: bool = False, role: str | None = None) -> tuple[str, str]:
     """La consigne d'une étape : (pour une session neuve, pour la session reprise)."""
+    qui = role or lot.meneur
     plan_ecrit = "\n".join(f"{i}. {'[faite] ' if i < k else ''}{e.get('titre', '')} — {e.get('quoi', '')}"
                            for i, e in enumerate(etapes, start=1))
     coupure = ("Ton passage précédent a été coupé par son délai : ce que tu avais écrit est gardé. Reprends où tu "
                "en étais, sans relancer ce qui t'a fait attendre.\n\n" if coupee else "")
-    tache = coupure + _etape(k, len(etapes), etapes[k - 1])
-    neuve = (_regles_du_meneur(projet, lot) + _decisions(decisions)
+    tache = coupure + _etape(k, len(etapes), etapes[k - 1], role=qui)
+    neuve = (_regles_du_meneur(projet, lot, role=qui) + _decisions(decisions)
              + f"\n\nTon plan, déjà dans la PR (les étapes « faite » sont déjà sur la branche) :\n{plan_ecrit}\n\n" + tache)
     return neuve, tache + _decisions(decisions)
 
@@ -406,10 +436,11 @@ def conflit(branche: str, base: str, fichiers: list[str]) -> str:
             "marqueurs `<<<<<<<`, `=======`, `>>>>>>>`. Joue les tests qui couvrent ces fichiers. Rends `faite`.")
 
 
-def suite_neuve(projet: Projet, lot: Lot, etapes: list[dict], tache: str, decisions: tuple[str, ...] = ()) -> str:
+def suite_neuve(projet: Projet, lot: Lot, etapes: list[dict], tache: str, decisions: tuple[str, ...] = (),
+                role: str | None = None) -> str:
     """Une correction, pour une session qu'il a fallu rouvrir : tout le lot, puis la tâche."""
     plan_ecrit = "\n".join(f"{i}. {e.get('titre', '')} — {e.get('quoi', '')}" for i, e in enumerate(etapes, start=1))
-    return (_regles_du_meneur(projet, lot) + _decisions(decisions)
+    return (_regles_du_meneur(projet, lot, role=role) + _decisions(decisions)
             + f"\n\nTon plan, déjà réalisé sur la branche (`git diff origin/{projet.branche_base}...HEAD`) :\n"
               f"{plan_ecrit}\n\n" + tache)
 
@@ -447,7 +478,7 @@ def relecteur(projet: Projet, lot: Lot, *, url: str, sha: str, plan_ecrit: str, 
         lfs += ("\nCes fichiers du lot sont en LFS et n'ont pas pu être téléchargés : "
                 + ", ".join(f"`{f}`" for f in lfs_illisibles) + ". Juge-les sur les captures de la PR.\n")
     comptes = (f"\nCe que le meneur dit avoir fait (des affirmations à vérifier, pas des preuves) :\n-----\n"
-               f"{rapports.strip()[:8000]}\n-----\n" if rapports.strip() else "")
+               f"{_couper_milieu(rapports, 16000)}\n-----\n" if rapports.strip() else "")
     return f"""Tu es {qui}. Tu n'as pas écrit ce code et tu ne le modifies pas.
 
 Relis le lot #{lot.numero} « {lot.titre} » : la PR {url}, révision {sha[:7]}. Ce dossier est cette révision. Lis `AGENTS.md` et le `CLAUDE.md` des zones touchées. Lis d'abord la fiche et le diff (`git diff origin/{projet.branche_base}...HEAD`), ensuite seulement ce que le meneur en dit.
@@ -578,7 +609,7 @@ def palier(projet: Projet, *, numero: int, note_du_proprietaire: str, etat_du_pa
         moment = f"Le propriétaire a joué la démo du palier {numero} et a écrit ce qu'il veut. Tire de sa note et de `CAP.md` le palier {numero + 1}."
     du_testeur = (f"\nCe que le testeur a trouvé en jouant le build figé du palier {numero} (un récit prouvé par ses photos ; "
                   f"il ne connaît pas le code, et la parole du propriétaire prime sur la sienne) :\n-----\n"
-                  f"{rapport_du_testeur.strip()[:12000]}\n-----\n" if rapport_du_testeur.strip() else "")
+                  f"{_couper_milieu(rapport_du_testeur, 24000)}\n-----\n" if rapport_du_testeur.strip() else "")
     return f"""{_contexte_cto(projet)}
 
 {moment}
@@ -602,7 +633,7 @@ Les étapes, leur ordre, leur durée en jours et la règle d'un lot sont dans `C
 - Tout part en parallèle, sauf ce qui dépend vraiment d'un autre lot. Le VPS mène {projet.capacite("vps")} lots à la fois, le PC {projet.capacite("pc")} (Unity) et la file visuelle `asset` {projet.capacite("asset")} (abonnement Google, indépendante du quota Claude) ; deux lots du PC menés ensemble ne touchent ni la même scène, ni le même prefab, ni le même écran. `apres` ne porte que les fiches qu'une fiche attend vraiment (l'écran attend la donnée qu'il affiche) ; jamais « après » pour ranger. Jamais de boucle.
 - Le chemin le plus long, de la première fiche à la dernière en suivant `apres`, tient dans la durée que `CAP.md` donne à l'étape, à raison de deux à quatre heures par lot. S'il ne tient pas, regroupe ou retire des dépendances.
 - La dernière fiche du chemin porte la preuve de l'étape : son critère de fin dans `CAP.md`, joué d'un trait dans le build, sans touche à connaître.
-- Chaque fiche dit ce que je joue de plus, ce que je vois à la démo, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste ({", ".join(projet.pistes)}), la machine (`pc` pour Unity ou Blender, `asset` pour les icônes/textures/illustrations sur la chaîne visuelle parallèle) et qui le mène (`chef`, `developpeur` pour un lot simple de données ou d'écran courant, ou `artiste` pour un lot d'assets visuels). Dans `hors_du_lot`, les dossiers que le lot touche et ce qu'il laisse à un autre.
+- Chaque fiche dit ce que je joue de plus, ce que je vois à la démo, la règle du monde (son niveau de fidélité, la section de `jeu/sim/MODELE.md`), les preuves, la piste ({", ".join(projet.pistes)}), la machine (`pc` pour Unity ou Blender, `asset` pour les icônes/textures/illustrations sur la chaîne visuelle parallèle) et qui le mène : choisis `developpeur` (`simple`) dès que la cause exacte (fichier et ligne) est connue sans changement de règle du monde, ou pour un lot bien borné (données, tests ou réponses figées, écran courant), `artiste` pour un lot d'assets visuels, et réserve `chef` aux systèmes complexes ou au cœur du moteur. Dans `hors_du_lot`, les dossiers que le lot touche et ce qu'il laisse à un autre.
 - Ce qui reste du palier {numero} et que le propriétaire veut encore, reprends-le dans une fiche ; ce qu'il écarte, laisse-le.
 - `palier_atteint` : vrai seulement s'il le dit. `note` : ce que tu as fait de chacune de ses demandes, ce que tu reportes, et ce qui part en parallèle. {_FRONTIERE}"""
 
@@ -620,7 +651,7 @@ Tous les lots du palier {numero} « {titre} » sont fermés, et son build est fi
 
 Les faits, relevés par le pilote sur GitHub :
 -----
-{faits.strip()[:20000]}
+{_couper_milieu(faits, 28000)}
 -----
 
 Écris en français simple, en mots de joueur, sans jargon de code ni de chaîne, exactement ces parties :
@@ -715,9 +746,9 @@ def reparation_de_master(projet: Projet, *, url: str, resume: str) -> str:
 
 La CI de `{projet.branche_base}` est rouge ({url}) : la suite exigée pour fusionner, ou les preuves longues de la nuit. Écris la fiche du lot de réparation, qui passera avant tout autre. Ce dossier est une copie de `{projet.branche_base}`. Ce que dit la CI, résumé par le lecteur :
 -----
-{resume.strip()[:8000] or "(journal illisible)"}
+{_couper_milieu(resume, 20000) or "(journal illisible)"}
 -----
-Trouve la cause dans le code. La fiche dit : dans `joueur`, ce que la panne empêche ; dans `samedi`, « master est vert » ; dans `regle`, la cause, avec le fichier et la ligne ; dans `preuves`, le test rouge qui doit redevenir vert. Choisis la piste et la machine du code en cause, et `chef` pour le mener. Une réparation corrige la cause : elle ne retire pas un test. Si la cause est dans {_interdits(projet)}, dis-le dans `regle` : le lot sera laissé au propriétaire. {_FRONTIERE}"""
+Trouve la cause dans le code. La fiche dit : dans `joueur`, ce que la panne empêche ; dans `samedi`, « master est vert » ; dans `regle`, la cause, avec le fichier et la ligne ; dans `preuves`, le test rouge qui doit redevenir vert. Choisis la piste et la machine du code en cause ; choisis `developpeur` (`simple`) dès que la cause exacte (fichier et ligne) est connue sans changement de règle du monde, ou pour un lot bien borné (données, tests ou réponses figées, écran courant), et réserve `chef` aux systèmes complexes ou au cœur du moteur. Une réparation corrige la cause : elle ne retire pas un test. Si la cause est dans {_interdits(projet)}, dis-le dans `regle` : le lot sera laissé au propriétaire. {_FRONTIERE}"""
 
 
 def journal(*, faits: str) -> str:
