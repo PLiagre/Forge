@@ -5409,22 +5409,20 @@ def test_plan_service_base_constante_et_calculee_une_fois(monkeypatch):
 
 @pytest.mark.chronometre
 def test_departs_budget_comparaison(monkeypatch):
-    import random
     import statistics
     import time
-    from sim import engine, departs
+    from sim import departs
     from sim.service import BUDGET_TICK_MS
-    base, partir = World.charger(0), departs.appliquer_departs
+    from sim.tests.mesure_du_tick import chronometrer_les_jours
+    partir = departs.appliquer_departs
     def mesurer(fonction):
-        monde, rng, etapes, ticks = copy.deepcopy(base), random.Random(0), [], []
+        etapes = []
         def observer(m):
             debut = time.perf_counter(); resultat = fonction(m)
             etapes.append((time.perf_counter() - debut) * 1000); return resultat
         with monkeypatch.context() as ctx:
             ctx.setattr(departs, 'appliquer_departs', observer)
-            for numero in range(25):
-                debut = time.perf_counter(); engine.tick(monde, rng, numero)
-                if numero >= 5: ticks.append((time.perf_counter() - debut) * 1000)
+            _, ticks = chronometrer_les_jours()
         assert len(ticks) == len(etapes[5:]) == 20
         return ticks, etapes[5:]
     actif, etapes = mesurer(partir); sans, absence = mesurer(lambda m: 0)
