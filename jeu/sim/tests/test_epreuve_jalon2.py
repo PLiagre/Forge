@@ -64,15 +64,23 @@ def placer(monde, point):
     return cellules[0] if cellules else None
 
 
-def puissance_du_point(monde, cid, point, vue, lieux, places):
-    """La puissance du lieu le plus proche du point dans sa cellule : celle de son lieu dans une
-    cellule partagée (`lieux`), sinon celle de la cellule. La frontière passe entre les lieux."""
+def puissance_et_lieu_du_point(monde, cid, point, vue, lieux, places):
+    """(puissance, clé de lieu) du point : la puissance du lieu le plus proche du point dans sa cellule
+    quand la cellule est partagée (`lieux`), avec la clé `(cell_id, rang)` de ce lieu ; sinon celle de
+    la cellule, sans clé. La frontière passe entre les lieux."""
     if not lieux or not any(c == cid for c, _ in lieux):
-        return vue.get(cid)
+        return vue.get(cid), None
     x, y = projeter_epsg3035(point["lat"], point["lon"])
     rangs = places[cid]
     rang = min(range(len(rangs)), key=lambda r: ((rangs[r].x_m - x) ** 2 + (rangs[r].y_m - y) ** 2, r))
-    return lieux.get((cid, rang), vue.get(cid))
+    if (cid, rang) in lieux:
+        return lieux[cid, rang], (cid, rang)
+    return vue.get(cid), None
+
+
+def puissance_du_point(monde, cid, point, vue, lieux, places):
+    """La puissance du point : celle de son lieu dans une cellule partagée, sinon celle de la cellule."""
+    return puissance_et_lieu_du_point(monde, cid, point, vue, lieux, places)[0]
 
 
 def densite_region(monde, region):
@@ -83,6 +91,30 @@ def densite_region(monde, region):
     densite = (sum(monde.cells[c].population for c in cellules)
                / sum(monde.cells[c].area_km2 for c in cellules))
     return densite, sorted(cellules)
+
+
+def releve_des_points(monde, vue, reference, lieux, places):
+    """Un enregistrement par point des blocs `points_connus`, `points` et `declares`, dans l'ordre de
+    la référence : nom, bloc, point, cellule (`cid`, ou `erreur` de placement), puissance trouvée (nom),
+    puissance attendue et clé de lieu `(cell_id, rang)` retenue (`None` si la cellule a servi).
+    `lieux` vide : un point a la puissance de sa cellule."""
+    noms_puissances = {p.id: p.nom for p in charger_table().puissances}
+    releve = []
+    for bloc in ("points_connus", "points", "declares"):
+        for point in reference[bloc]:
+            ligne = {"nom": point["nom"], "bloc": bloc, "point": point, "cid": None, "erreur": None,
+                     "puissance": None, "attendue": point.get("puissance"), "lieu": None}
+            try:
+                ligne["cid"] = placer(monde, point)
+            except ValueError as erreur:
+                ligne["erreur"] = erreur
+                releve.append(ligne)
+                continue
+            trouvee, ligne["lieu"] = puissance_et_lieu_du_point(
+                monde, ligne["cid"], point, vue, lieux, places)
+            ligne["puissance"] = noms_puissances.get(trouvee)
+            releve.append(ligne)
+    return releve
 
 
 def epreuve(monde, vue, reference=None, lieux=None):
@@ -109,40 +141,75 @@ def epreuve(monde, vue, reference=None, lieux=None):
             conforme = densite > mediane if bloc == "regions_denses" else densite < mediane
             if not conforme:
                 echecs.append(f"{region['nom']} : densité {densite:.2f}, médiane {mediane:.2f}")
-    noms_puissances = {p.id: p.nom for p in charger_table().puissances}
     justes = couverts = 0
-    for bloc in ("points_connus", "points", "declares"):
-        for point in reference[bloc]:
-            nom = point["nom"]
-            try:
-                cid = placer(monde, point)
-            except ValueError as erreur:
-                echecs.append(str(erreur))
-                continue
-            puissance = noms_puissances.get(puissance_du_point(monde, cid, point, vue, lieux, places))
-            print(f"{nom} : cellule {cid} ; puissance {puissance} ; attente {point.get('puissance')}")
-            if "declare" in point:
-                print(f"{nom} déclaré {point['declare']} : {point['raison']}")
-            if point.get("declare") == "hors carte":
-                if cid is not None:
-                    echecs.append(f"{nom} : déclaré hors carte mais placé dans {cid}")
-                continue
-            if bloc == "declares":
-                continue
-            if cid is None or puissance is None:
-                echecs.append(f"{nom} : hors carte non déclaré ou cellule non couverte")
-                continue
-            juste = puissance == point["puissance"]
-            if bloc == "points_connus" and not juste:
-                echecs.append(f"{nom} : {puissance}, attendu {point['puissance']}")
-            if bloc == "points":
-                couverts += 1
-                justes += juste
+    for ligne in releve_des_points(monde, vue, reference, lieux, places):
+        nom, bloc, point, cid, puissance = (ligne[c] for c in ("nom", "bloc", "point", "cid", "puissance"))
+        if ligne["erreur"] is not None:
+            echecs.append(str(ligne["erreur"]))
+            continue
+        print(f"{nom} : cellule {cid} ; puissance {puissance} ; attente {point.get('puissance')}")
+        if "declare" in point:
+            print(f"{nom} déclaré {point['declare']} : {point['raison']}")
+        if point.get("declare") == "hors carte":
+            if cid is not None:
+                echecs.append(f"{nom} : déclaré hors carte mais placé dans {cid}")
+            continue
+        if bloc == "declares":
+            continue
+        if cid is None or puissance is None:
+            echecs.append(f"{nom} : hors carte non déclaré ou cellule non couverte")
+            continue
+        juste = puissance == point["puissance"]
+        if bloc == "points_connus" and not juste:
+            echecs.append(f"{nom} : {puissance}, attendu {point['puissance']}")
+        if bloc == "points":
+            couverts += 1
+            justes += juste
     seuil = math.ceil(2 * couverts / 3)
     print(f"justes / couverts / seuil = {justes} / {couverts} / {seuil}")
     if not couverts or justes < seuil:
         echecs.append(f"seuil des deux tiers : {justes} / {couverts}, seuil {seuil} ; échantillon vide interdit")
     return echecs
+
+
+def juger_le_grain_du_lieu(monde, vue, lieux):
+    """(fautes, corrigés) : ce que les lieux changent à la puissance des points de la référence.
+
+    Deux relevés, la cellule seule puis les lieux. Les points qui changent de puissance d'un relevé à
+    l'autre se dérivent des deux ; un point corrigé est faux à la cellule et juste avec les lieux, et la
+    cellule lui donne alors le pays de son bourg. Les lieux doivent faire monter les justes du bloc
+    `points`, et un point qui a servi d'un lieu doit être juste."""
+    reference = lire_reference()
+    noms_puissances = {p.id: p.nom for p in charger_table().puissances}
+    cellule = {(l["bloc"], l["nom"]): l for l in releve_des_points(monde, vue, reference, {}, {})}
+    avec_lieux = {(l["bloc"], l["nom"]): l for l in releve_des_points(
+        monde, vue, reference, lieux, places_du_monde(monde))}
+    fautes = []
+    changent = [cle for cle in cellule if cellule[cle]["puissance"] != avec_lieux[cle]["puissance"]]
+    if not changent:
+        fautes.append("échantillon vide : aucun point ne change de puissance entre la cellule et les lieux")
+    for cle in changent:
+        print(f"{cle[1]} change : cellule {cellule[cle]['puissance']}, lieux {avec_lieux[cle]['puissance']}"
+              f" ; attente {cellule[cle]['attendue']}")
+    corriges = [cle for cle in changent
+                if cellule[cle]["puissance"] != cellule[cle]["attendue"]
+                and avec_lieux[cle]["puissance"] == avec_lieux[cle]["attendue"]]
+    for cle in corriges:
+        bourg = noms_puissances.get(vue.get(cellule[cle]["cid"]))
+        if cellule[cle]["puissance"] != bourg:
+            fautes.append(f"{cle[1]} : la cellule seule rend {cellule[cle]['puissance']}, "
+                          f"le pays de son bourg est {bourg}")
+    for cle, ligne in avec_lieux.items():
+        if ligne["lieu"] is not None and ligne["puissance"] != ligne["attendue"] and ligne["attendue"]:
+            fautes.append(f"{cle[1]} : son lieu {ligne['lieu']} rend {ligne['puissance']}, "
+                          f"attendu {ligne['attendue']}")
+    justes = [sum(1 for (bloc, _), l in releve.items()
+                  if bloc == "points" and l["puissance"] is not None and l["puissance"] == l["attendue"])
+              for releve in (cellule, avec_lieux)]
+    print(f"justes du bloc points : cellule {justes[0]}, lieux {justes[1]}")
+    if justes[0] >= justes[1]:
+        fautes.append(f"les lieux ne font pas monter les justes : cellule {justes[0]}, lieux {justes[1]}")
+    return fautes, [cle[1] for cle in corriges]
 
 
 @pytest.fixture(scope="module")
@@ -232,10 +299,44 @@ def test_epreuve_refuse_vides_et_placement_ambigu(temoin):
     assert any("Paris : plusieurs polygones" in e for e in epreuve(double, {1: vue[cid], 2: vue[cid]}))
 
 
+# Cagliari (Aragon) et Pérouse (États de l'Église) : leur cellule est partagée, et son bourg a le pays
+# d'une autre terre que la leur (l'Arborée, Rimini).
+POINTS_CORRIGES = ("Cagliari", "Pérouse")
+
+
+def lignes_des_points_corriges(monde, vue, lieux):
+    """Le relevé des POINTS_CORRIGES, à la cellule seule et avec les lieux."""
+    reference = lire_reference()
+    cellule = releve_des_points(monde, vue, reference, {}, {})
+    avec_lieux = releve_des_points(monde, vue, reference, lieux, places_du_monde(monde))
+    return {nom: (next(l for l in cellule if l["nom"] == nom), next(l for l in avec_lieux if l["nom"] == nom))
+            for nom in POINTS_CORRIGES}
+
+
 def test_preuve_tient(temoin, lieux):
+    monde, vue = temoin
     assert lieux, "échantillon vide : aucune cellule partagée"
     assert epreuve(*temoin, lieux=lieux) == []
-    # Au grain de la cellule, Cagliari (Aragon) et Pérouse (États de l'Église) tombent dans des cellules
-    # partagées dont le bourg est sans pays : la cellule seule ne dit pas leur pays.
-    au_grain_de_la_cellule = epreuve(*temoin)
-    assert {e.split(" : ")[0] for e in au_grain_de_la_cellule} == {"Cagliari", "Pérouse"}
+    fautes, corriges = juger_le_grain_du_lieu(monde, vue, lieux)
+    assert fautes == []
+    assert set(POINTS_CORRIGES) <= set(corriges)
+    noms_puissances = {p.id: p.nom for p in charger_table().puissances}
+    for nom, (cellule, avec_lieux) in lignes_des_points_corriges(monde, vue, lieux).items():
+        # Au grain de la cellule, le point prend le pays du bourg, qui est celui d'une autre terre.
+        assert cellule["puissance"] == noms_puissances[vue[cellule["cid"]]] != cellule["attendue"], nom
+        assert avec_lieux["lieu"] is not None, nom
+        assert avec_lieux["puissance"] == avec_lieux["attendue"], nom
+
+
+@pytest.mark.longue
+def test_preuve_tient_rougit_si_les_lieux_rendent_le_pays_du_bourg(temoin, lieux):
+    monde, vue = temoin
+    mutes = dict(lieux)
+    for nom, (cellule, avec_lieux) in lignes_des_points_corriges(monde, vue, lieux).items():
+        mutes[avec_lieux["lieu"]] = vue[cellule["cid"]]
+    assert mutes != lieux, "mutation sans effet"
+    fautes, corriges = juger_le_grain_du_lieu(monde, vue, mutes)
+    print(f"contre-épreuve des lieux au pays du bourg : {fautes} ; corrigés {corriges}")
+    for nom in POINTS_CORRIGES:
+        assert any(f.startswith(f"{nom} : ") for f in fautes), nom
+        assert nom not in corriges
