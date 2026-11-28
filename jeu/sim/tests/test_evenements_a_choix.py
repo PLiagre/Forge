@@ -552,7 +552,8 @@ def test_exactement_les_gestes_et_la_reponse_se_jouent_dans_l_ordre_du_depot(W30
 
 @pytest.fixture(scope="module")
 def D60(W30):
-    """Trois mondes à la borne du tick 60 : sans réponse, avec « ouvrir » déposé au tick 59, et avant le mois du tick 60."""
+    """Les mondes à la borne du tick 60 : sans réponse, avec « ouvrir » déposé au tick 59, après le mois du tick 60
+    avec « ouvrir » en attente, et le même juste avant cette borne."""
     monde, rng = _copie(W30.monde), copy.deepcopy(W30.rng)
     _jouer_jusqu_a(monde, rng, 59)
     avant_59 = (_copie(monde), copy.deepcopy(rng))
@@ -566,8 +567,10 @@ def D60(W30):
     avant_mois = SimpleNamespace(monde=_copie(avant_59[0]), rng=copy.deepcopy(avant_59[1]))
     engine.tick(avant_mois.monde, avant_mois.rng, 59)
     recevoir_intention(avant_mois.monde, _reponse(OUVRIR))
+    # Le même monde juste avant la borne de mois : de quoi la rejouer sous un autre `au_mois`.
+    avant_la_borne = SimpleNamespace(monde=_copie(avant_mois.monde), rng=copy.deepcopy(avant_mois.rng))
     J.avant_le_tick(avant_mois.monde)
-    return SimpleNamespace(sans=sans, au_59=au_59, avant_mois=avant_mois)
+    return SimpleNamespace(sans=sans, au_59=au_59, avant_mois=avant_mois, avant_la_borne=avant_la_borne)
 
 
 def test_defaut_sans_reponse_laisser_faire_s_applique_au_mois_suivant(W30, D60):
@@ -590,9 +593,15 @@ def test_defaut_une_reponse_deposee_au_tick_59_n_est_pas_fermee_par_defaut(D60):
     assert not [p for p in repondu.modificateurs if p.source == f"jauge:droit:{MAISON}"]
 
 
-def test_defaut_une_reponse_qui_attend_le_mois_n_est_jamais_recouverte(D60):
-    monde, rng = D60.avant_mois.monde, D60.avant_mois.rng
-    sans = D60.sans.monde
+def _jouer_la_reponse_qui_attend(avant_la_borne, sans):
+    """Joue sur une copie la borne de mois du tick 60 avec « ouvrir » en attente, puis jusqu'au tick 90.
+
+    La réponse ferme l'événement du tick 30 : le choix par défaut ne passe pas par-dessus. Au mois
+    suivant, un événement peut s'ouvrir sur la faim qui dure : il est alors neuf (ouvert au tick 90)
+    et sa cause tient ; la réponse n'est jamais recouverte.
+    """
+    monde, rng = _copie(avant_la_borne.monde), copy.deepcopy(avant_la_borne.rng)
+    J.avant_le_tick(monde)
     # Au mois du tick 60, la réponse attend dans la file : l'événement du tick 30 n'est pas fermé par défaut.
     assert monde.jauges[MAISON]["droit"] == 50
     assert monde.evenements[MAISON]["ouvert"] == 30
@@ -602,9 +611,39 @@ def test_defaut_une_reponse_qui_attend_le_mois_n_est_jamais_recouverte(D60):
     assert MAISON not in monde.evenements
     assert monde.jauges[MAISON]["concorde"] == min(3, concorde_avant + 1)
     assert monde.jauges[MAISON]["droit"] == 50 and monde.jauges[MAISON]["concorde"] == sans.jauges[MAISON]["concorde"] + 1
-    # Aucun nouvel événement ne s'ouvre avant le tick 90 (aucun mois ne passe), ni à celui-ci.
+    assert not [p for p in monde.modificateurs if p.source == f"jauge:droit:{MAISON}"]
+    # Au tick 90, le mois suivant : tout événement présent est neuf et causé, jamais celui du tick 30 ni du 60.
     _jouer_jusqu_a(monde, rng, 90)
-    assert monde.evenements == {} and monde.jauges[MAISON]["droit"] == 50
+    print(f"ouvert au tick 90 : {monde.evenements}")
+    for evenement in monde.evenements.values():
+        assert evenement["ouvert"] == 90
+    _controler_les_causes(monde)
+    assert monde.jauges[MAISON]["droit"] == 50
+    assert not [p for p in monde.modificateurs if p.source == f"jauge:droit:{MAISON}"]
+
+
+def test_defaut_une_reponse_qui_attend_le_mois_n_est_jamais_recouverte(D60):
+    _jouer_la_reponse_qui_attend(D60.avant_la_borne, D60.sans.monde)
+
+
+def test_defaut_un_defaut_par_dessus_la_reponse_fait_rougir_le_jugement(D60, monkeypatch):
+    """Un `au_mois` qui applique le choix par défaut sans regarder les réponses en attente fait échouer le jugement."""
+    au_mois = E.au_mois
+
+    def par_dessus_la_reponse(monde, regles=None):
+        en_attente, monde.intentions_en_attente = monde.intentions_en_attente, []
+        try:
+            au_mois(monde, regles)
+        finally:
+            monde.intentions_en_attente = en_attente
+
+    monkeypatch.setattr(E, "au_mois", par_dessus_la_reponse)
+    # Le patch mord : la borne du tick 60 ferme l'événement du tick 30 par défaut, Droit tombe à 45.
+    monde = _copie(D60.avant_la_borne.monde)
+    J.avant_le_tick(monde)
+    assert monde.jauges[MAISON]["droit"] == 45
+    with pytest.raises(AssertionError):
+        _jouer_la_reponse_qui_attend(D60.avant_la_borne, D60.sans.monde)
 
 
 def test_defaut_un_autre_choix_par_defaut_s_applique_avec_ses_kilos(W30, monkeypatch):

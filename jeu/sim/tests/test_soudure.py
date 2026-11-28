@@ -5,10 +5,14 @@ récolte de 1399, de quoi manger jusqu'à la moisson (`JOUR_DE_LA_MOISSON`,
 `jours_de_soudure`, `sim.world._seed_food_stock`). La preuve : graine 0,
 sans joueur, l'IA active, au 365e jour, aucune cellule de la table de
 référence ne perd plus de la moitié de ses habitants
-par la faim. Contre-épreuve : la réserve de cinq jours d'avant la fait échouer.
+par la faim. Contre-épreuves : la réserve de cinq jours d'avant la fait échouer,
+et le bourg d'une ville affamée qui ne tire plus le grain de ses champs au rayon
+(`engine._chemins_des_villes_affamees`) aussi.
 
-La pire cellule de la table, Gand et Bruges, perd 47 % de ses habitants par la
-faim au 365e jour ; avec cinq jours, Paris en perd 89 % dès le 90e.
+La pire cellule de la table, Paris, perd 44,3 % de ses habitants par la faim au
+365e jour, et Gand 27,1 % ; leurs gens restent au bourg (Paris y passe de 39 330
+à 55 287 habitants). Sans le grain des champs au bourg, Paris en perd 55,2 % et
+Gand 51,7 % ; avec cinq jours de réserve, Paris en perd 89 % dès le 90e jour.
 """
 import random
 
@@ -65,6 +69,11 @@ def _jouer_sans_joueur(monkeypatch, ticks):
     return monde, table, depart, morts, releve
 
 
+def _au_bourg(monde, cid):
+    """Les habitants du bourg (rang 0) de la cellule."""
+    return next(lieu.population for lieu in monde.cells[cid].lieux if lieu.rang == 0)
+
+
 def _mortes_de_faim(table, depart, morts):
     """Les cellules de la table qui ont perdu plus de la moitié de leurs habitants par la faim."""
     assert table, "échantillon vide : la table de référence ne place aucune cellule"
@@ -96,10 +105,24 @@ def test_la_premiere_annee_tient_sans_joueur(monkeypatch):
     assert monde.ticks_ecoules == constantes.CALENDAR_DAYS_PER_YEAR
     assert len(table) >= 50 and releve, "échantillon vide : ni table ni geste de l'IA"
     fautives = _mortes_de_faim(table, depart, morts)
-    pire = max(table, key=lambda cid: morts[cid] / depart[cid])
-    print(f"{len(table)} cellules ; pire {table[pire][0]} ({pire}) : "
-          f"{morts[pire] / depart[pire]:.1%} morts de faim ; {len(releve)} gestes de l'IA")
+    pires = sorted(table, key=lambda cid: (-morts[cid] / depart[cid], cid))[:3]
+    print(f"{len(table)} cellules ; pires : " + " ; ".join(
+        f"{table[cid][0]} ({cid}) {morts[cid] / depart[cid]:.1%} morts de faim, "
+        f"{monde.cells[cid].population} habitants dont {_au_bourg(monde, cid)} au bourg" for cid in pires)
+        + f" ; {len(releve)} gestes de l'IA")
     assert not fautives, f"cellules mortes de faim à plus de moitié au 365e jour : {fautives}"
+
+
+@pytest.mark.longue
+def test_sans_le_grain_des_champs_au_bourg_paris_et_gand_meurent_de_faim(monkeypatch):
+    # Le bourg d'une ville affamée ne tire plus le grain de ses champs au rayon : ses chemins
+    # intérieurs gardent la capacité d'une cellule nourrie.
+    monkeypatch.setattr(engine, "_chemins_des_villes_affamees", lambda monde: {})
+    _, table, depart, morts, _ = _jouer_sans_joueur(monkeypatch, constantes.CALENDAR_DAYS_PER_YEAR)
+    fautives = _mortes_de_faim(table, depart, morts)
+    print(f"sans le grain des champs au bourg, au 365e jour : {fautives}")
+    nommees = {nom for _, cid, _ in fautives for nom in table[cid]}
+    assert {"Paris", "Gand"} <= nommees, fautives
 
 
 def test_la_reserve_de_cinq_jours_fait_echouer_la_preuve(monkeypatch):
