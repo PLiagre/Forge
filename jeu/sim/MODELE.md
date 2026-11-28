@@ -65,7 +65,10 @@ part. À chaque tick, dans cet ordre :
    le plafond de sa frontière dès ce tick. Arrivées et départs passent par le
    bourg (rang 0) ; les chemins des champs gardent leur ration et un plafond
    partagé entre destinataires et marchandises, de niveau 2.
-10. **Consommation** (`_apply_consumption`) — le bourg ne mange que ce qu'il
+10. **Consommation** — le bourg d'une ville affamée tire d'abord ses champs par des
+   chemins élargis du rayon (`_chemins_des_villes_affamees`), multiplié aux
+   facteurs des routes (`_facteurs_de_la_consommation`). Puis
+   (`_apply_consumption`) le bourg ne mange que ce qu'il
    atteint, par sa part locale du panier et les chemins venus des champs.
    Ce qui manque devient une **dette** (`food_deficit_kg`), pas un oubli. Si le
    bourg manque pendant que les champs débordent, aucune dette n'est remboursée.
@@ -631,11 +634,15 @@ Après ce premier tick, aucune absence de famine n'est garantie.
 **Ce que la soudure tient, et ce qu'elle ne tient pas** (graine 0, sans
 joueur, IA active, `sim/tests/test_soudure.py`) : au 365e jour, aucune
 cellule de la table de référence n'a perdu plus de la moitié de ses
-habitants par la faim (la pire, Gand et Bruges, 47 % ; Paris garde 51 % de ses
-habitants). La réserve de cinq jours d'avant faisait mourir de faim 89 % de
-Paris avant le 90e jour, et la contre-épreuve la rejoue. La soudure finie, les
-villes de 1400 retombent dans un manque que le commerce ne comble pas (Paris
-reçoit au plus 41 t par jour pour 417 t de manque) : la tenue sur dix ans est
+habitants par la faim. La pire est Paris, qui en perd 44,3 % (121 850 sur
+275 000) et garde 55 % de ses habitants (150 583), dont 55 287 au bourg contre
+39 330 au 1er janvier ; Gand en perd 27,1 %. Ses gens restent au bourg, et le
+bourg tire le grain de ses champs au rayon d'une ville affamée (« La
+distribution à l'intérieur de la cellule ») : sans ce rayon, Paris perd 55,2 %
+de ses habitants et Gand 51,7 %, et la contre-épreuve le rejoue. La réserve de
+cinq jours d'avant faisait mourir de faim 89 % de Paris avant le 90e jour, et
+une autre contre-épreuve la rejoue. La soudure finie, les villes de 1400
+retombent dans un manque que le commerce ne comble pas : la tenue sur dix ans
 n'est pas garantie.
 
 C'est la **seule** marchandise présente au panier d'une cellule à l'amorçage.
@@ -1053,6 +1060,11 @@ Hors famine, un lieu ne perd donc en `n` jours qu'au plus
 cent par an. `test_distribution_interieure.py::test_mieux_vivre_ne_vide_pas_un_lieu_nourri`
 le prouve sur 120 jours de la graine 0 ; l'ancien taux quotidien, plafonné à 1 % par jour,
 y vidait le pire lieu nourri de 67 % de ses gens.
+Le taux annuel garde aussi au bourg les gens d'une ville affamée : l'ancien taux vidait le
+bourg de Paris ou de Gand vers ses champs et masquait sa disette. Gardés au bourg, ils ne
+vont plus au grain : c'est le grain des champs qui monte vers eux, par les chemins
+intérieurs qu'élargit le rayon d'une ville affamée (« La distribution à l'intérieur de la
+cellule »). Ni le taux ni le plafond n'en dépendent.
 Destination : meilleur autre lieu habité de la cellule, sinon meilleur bourg habité
 voisin ; égalités par `(cell_id, rang)`. Les soldes s'appliquent simultanément,
 avec métiers au prorata entre cellules. Un lieu peut envoyer et recevoir sur sa photo :
@@ -1286,10 +1298,12 @@ preuve de la première année en fixe le plafond (25 jours la fait échouer).
 
 Ces chiffres (Alexandrie à 32,7 %, la table des sorties ci-dessus) ont été
 mesurés **sans l'appel** des villes affamées : l'épreuve les rejoue sous
-`couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, la pire
-cellule de `test_soudure.py` est Gand (cellule 10391) : 35,3 % de ses
-habitants morts de faim au 365e jour (63 926 sur 181 000 ; seuil 50 %) ; sans l'appel elle est à 40,5 %, et Alexandrie à
-32,7 %.
+`couper_l_appel_des_villes`. Avec l'appel et le rayon du dépôt, sur les arêtes
+et sur les chemins intérieurs, la pire cellule de `test_soudure.py` est Paris
+(cellule 10322) : 44,3 % de ses habitants morts de faim au 365e jour (121 850
+sur 275 000 ; seuil 50 %) ; Gand (cellule 10391) en perd 27,1 %. Sans le rayon
+des chemins intérieurs, Paris en perd 55,2 % et Gand 51,7 % : le mieux-vivre
+annuel garde leurs gens au bourg, que ses champs ne nourrissent plus.
 
 **L'appel d'une ville affamée** (niveau 2 : plausible, jamais
 sourcé). L'idée est médiévale : une grande ville draine le grain de son contado
@@ -1298,9 +1312,13 @@ demande plus seulement le manque de son tick : elle appelle chaque jour ce que
 ses champs ne lui donnent pas, avant d'avoir faim. `P = appel_ville_affamee_part`
 est déclaré dans `jeu/data/commerce.toml` et vaut **1,0** :
 elle appelle tout le manque. Ni cette part ni le rayon `R = rayon_ville_affamee_jours`
-(voir « La capacité d'une arête ») ne sont sourcés. Seul le besoin change : la
+(voir « La capacité d'une arête ») ne sont sourcés. Au commerce, seul le besoin change : la
 garde, le surplus, l'allocation, l'écrêtage côté receveur, les quais, le passage
-par le bourg et les chemins intérieurs restent ceux d'avant. L'appel nourrit les
+par le bourg et les chemins intérieurs du commerce restent ceux d'avant. Le même
+rayon élargit ensuite, à la consommation, les chemins des champs vers le bourg
+d'une ville affamée (« La distribution à l'intérieur de la cellule ») : l'appel
+fait venir le grain au bourg par ses frontières, le rayon y fait monter celui de
+ses propres champs. L'appel nourrit les
 deux passes qui lisent le besoin du snapshot : les voisines par terre l'envoient
 sur l'arête, le bassin le débarque au quai d'une ville qui a un port, dans la
 limite du quai. Une ville affamée dont le stock dépasse sa réserve peut le même
@@ -1323,26 +1341,28 @@ lisent sur le snapshot, et aucun kilo reçu n'est revendu dans le même tick.
   moins de faim avec l'appel qu'avant.
 
 Mesuré (graine 0, IA active, 365 jours, `test_grain_monte_vers_les_villes_un_an`,
-qui rejoue le commerce d'avant et l'appel ; les deux réglages intermédiaires sont
-mesurés à part, sous les mêmes conditions) :
+qui rejoue le commerce d'avant, `P = 0` et `R = 1`, puis l'appel et le rayon du dépôt,
+sur les arêtes et sur les chemins intérieurs ; l'appel seul est mesuré à part, sous
+les mêmes conditions) :
 
 | ville | habitants, avant → avec l'appel | grain au 365e jour, avant → avec l'appel | morts de faim, avant → avec l'appel |
 |---|---|---|---|
-| Paris | 48 → 122 717 | 0 t → 36 189 t | 260 909 → 151 719 |
+| Paris | 48 → 150 583 | 0 t → 32 382 t | 260 909 → 121 850 |
 | Milan | 186 260 → 181 560 | 7 600 t → 53 914 t | 234 → 0 |
-| Gand | 8 556 → 78 414 | 0 t → 785 t | 158 726 → 93 535 |
-| Alexandrie | 19 958 → 35 302 | 0 t → 1 247 t | 14 325 → 261 |
-| Le Caire | 358 228 → 389 701 | 7 799 t → 30 822 t | 30 346 → 0 |
+| Gand | 8 556 → 121 500 | 0 t → 3 642 t | 158 726 → 48 975 |
+| Alexandrie | 19 958 → 39 885 | 0 t → 1 263 t | 14 325 → 0 |
+| Le Caire | 358 228 → 385 530 | 7 799 t → 33 386 t | 30 346 → 0 |
 
-L'appel fait l'essentiel ; le rayon ne compte qu'avec lui. Le rayon seul (`P = 0`,
-`R = 6`) ne nourrit personne : Paris finit à 102 habitants et 0 t, Gand à 8 200 et
-0 t, Alexandrie à 20 096 et 0 t, Milan comme avant, et Le Caire y perd (345 086
-habitants, 8 347 t, 43 560 morts de faim contre 30 346). L'appel seul (`P = 1`,
-`R = 1`) nourrit déjà : Paris finit à 105 879 habitants et 11 020 t, Milan à
-179 936 et 40 468 t, Gand à 82 008 et 1 242 t, Alexandrie à 35 316 et 1 247 t, Le
-Caire à 389 704 et 30 822 t. Le rayon ajouté à l'appel porte surtout Paris
-(+16 838 habitants, +25 169 t) et le grain de Milan ; Gand y perd un peu (3 594
-habitants et 457 t de moins qu'avec l'appel seul).
+L'appel fait venir le grain ; le rayon le porte. L'appel seul (`P = 1`, `R = 1`)
+nourrit déjà : Paris finit à 105 879 habitants et 11 020 t, Milan à 179 936 et
+40 468 t, Gand à 82 008 et 1 242 t, Alexandrie à 35 316 et 1 247 t, Le Caire à
+389 704 et 30 822 t. Le rayon ajouté à l'appel, sur les arêtes et les chemins
+intérieurs, porte surtout Paris (+44 704 habitants, +21 362 t) et Gand (+39 492
+habitants, +2 400 t), puis le grain de Milan ; Le Caire y perd un peu (4 174
+habitants de moins qu'avec l'appel seul, 1 955 partis au mieux-vivre), mais garde
+plus de grain. Mesuré quand le rayon n'élargissait encore que les arêtes, le rayon
+seul (`P = 0`, `R = 6`) ne nourrissait personne : Paris finissait à 102 habitants
+et 0 t, Gand à 8 200 et 0 t, Alexandrie à 20 096 et 0 t.
 
 Ces valeurs sont calculées sur un **snapshot immuable** pris avant tout
 transfert. Une cellule qui vient de recevoir ne peut pas redistribuer le même
@@ -2411,8 +2431,12 @@ Temps de l'étape mesuré sur srv1914711 (AMD EPYC 9354P), graine 0,
 20 ticks après 5 de chauffe, sans autre test en parallèle : médiane 4,79 ms,
 moyenne 4,95 ms (avant correction des accès aux paniers : 3,71 ms et 3,96 ms ;
 prototype : 3,3 ms).
-Après correction des accès aux paniers, test chronométré joué seul :
-médiane du tick 77,44 ms, sous 100 ms ; la base avait donné 90 à 93 ms.
+Les quatre tests de budget (`BUDGET_TICK_MS`) chronomètrent le tick par
+`chronometrer_les_jours` (`sim/tests/mesure_du_tick.py`), sur un monde chargé
+par `World.charger(0)`, jamais une copie, figé hors du ramasse-miettes comme
+`main()` le fait au lancement du service (`regler_le_ramasse_miettes`) : 5
+jours de rodage, 20 chronométrés, puis le réglage est défait. Médiane du tick
+du test du flux sur srv1914711 : 89 à 91 ms, sous 100 ms.
 Les départs ajoutent leur total une seule fois
 par groupe. La production et le prélèvement lisent et écrivent les paniers
 par les fonctions de `model.py` ;
@@ -3396,6 +3420,34 @@ retrouve exactement la cellule, en `Fraction` aussi. Un lieu unique ne calcule
 aucune capacité ; des chemins infinis rendent le calcul gratuit au bit près.
 Récolte par surface, étoile et ordre de
 service sont de niveau 2, plausibles, jamais sourcés.
+
+**Le bourg d'une ville affamée** (niveau 2 : plausible, jamais sourcé, recalé sur
+un ordre de grandeur de niveau 1 : Paris ne perd pas la moitié de ses gens par la
+faim en 1400). Une ville affamée draine le grain de son contado ; ses propres champs
+d'abord. Pour une cellule affamée (population au-dessus de
+`World.populations_soutenables`, la même table que l'appel et le rayon du commerce,
+`engine._villes_affamees`) qui a plusieurs lieux, le chemin de chaque champ vers le
+bourg vaut, à la consommation :
+
+```
+c_affamee(rang) = c × facteur_route(rang) × R      R = rayon_ville_affamee_jours (6)
+```
+
+`facteur_route` vaut `FACTEUR_ROUTE_INTERIEURE` vers le lieu qu'une route achevée
+atteint, 1 sinon : la route garde son rapport de 4. Le rayon est celui qui élargit
+déjà les arêtes de la ville (« La capacité d'une arête ») : le charroi d'un rayon de
+R jours se rassemble aussi sur ses chemins intérieurs. Aucune clé de plus. Seule la
+capacité change : chaque champ mange sa ration avant d'envoyer, l'étoile et l'ordre
+de service sont ceux d'au-dessus, et aucun kilo n'est créé. Le commerce ne lit pas ce
+rayon : ses chemins, et donc ce qu'une ville exporte de ses champs, restent ceux
+d'avant. Une place assiégée garde ses chemins fermés. Hors ville affamée, sans
+relevé des champs, ou avec `R = 1`, la table est vide et la consommation est celle
+d'avant au bit près (`engine._chemins_des_villes_affamees`,
+`test_distribution_interieure.py::test_ville_affamee_seule_change_au_tick`,
+`test_avec_un_rayon_de_un_le_tick_est_celui_d_avant`). Le bourg de Paris vidé, au
+premier jour, ses champs lui envoient 15 t chacun au lieu de 2,5 t, et sa pénurie
+passe de 63,7 t à zéro. Sur la première année (`test_soudure.py`), Paris perd 44,3 %
+de ses habitants par la faim au lieu de 55,2 %, et Gand 27,1 % au lieu de 51,7 %.
 
 **La route vers un lieu.** Une rue de `World.plans`, achevée (`en_chantier`
 faux) et sans `porte_cell_id`, ne va pas chez le voisin : elle peut viser un
