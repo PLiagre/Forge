@@ -1204,21 +1204,17 @@ def _aretes_par_cellule(world) -> dict[int, list[tuple[int, int]]]:
     return index
 
 
-def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
+def _villes_affamees(world) -> list[int] | None:
     """
-    Le charroi et la batellerie d'un rayon de R jours (niveau 2).
+    Les cellules affamées, dans l'ordre du monde : population au-dessus de
+    `World.populations_soutenables`. Sans relevé des champs, None (aucune).
 
-    La capacité du tick de toute arête dont un bout est une cellule affamée
-    (population au-dessus de `World.populations_soutenables`) est multipliée
-    par `rayon_ville_affamee_jours`. Sans relevé des champs, rien ne change.
-    La formule de la capacité d'une arête n'est pas touchée : seule la capacité
-    du tick l'est. Une cellule absente d'un relevé qui existe lève l'erreur qui
-    nomme son `cell_id`. Seules les arêtes des cellules affamées sont
-    parcourues, par `_aretes_par_cellule`, non toute l'adjacence.
+    Une cellule absente d'un relevé qui existe lève l'erreur qui nomme son
+    `cell_id`.
     """
     soutenables = getattr(world, "populations_soutenables", None)
     if soutenables is None:
-        return
+        return None
     affamees = []
     for cid, cell in world.cells.items():
         if cid not in soutenables:
@@ -1229,8 +1225,66 @@ def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
             )
         if cell.population > soutenables[cid]:
             affamees.append(cid)
+    return affamees
+
+
+def _chemins_des_villes_affamees(world) -> dict[int, dict[int, int]]:
+    """
+    Le charroi des champs vers le bourg d'une ville affamée (niveau 2).
+
+    Pour chaque cellule affamée qui a plusieurs lieux, le facteur
+    R = `rayon_ville_affamee_jours` du chemin de chaque rang ≥ 1 vers le
+    bourg : le rayon qui élargit ses arêtes élargit aussi ses chemins
+    intérieurs, à la consommation seulement. Sans relevé des champs, sans
+    ville affamée ou avec R = 1, la table est vide et la consommation reste
+    celle d'avant au bit près.
+    """
+    affamees = _villes_affamees(world)
+    if not affamees:
+        return {}
     rayon = _constantes.rayon_ville_affamee_jours()
-    if not affamees or rayon == 1:
+    if rayon == 1:
+        return {}
+    chemins = {}
+    for cid in affamees:
+        nombre = len(world.cells[cid].lieux)
+        if nombre > 1:
+            chemins[cid] = dict.fromkeys(range(1, nombre), rayon)
+    return chemins
+
+
+def _facteurs_de_la_consommation(facteurs_routes, chemins_affames) -> dict[int, dict[int, float]]:
+    """
+    Facteur du chemin de chaque rang à la consommation : la route achevée
+    (`FACTEUR_ROUTE_INTERIEURE`) multipliée par le rayon d'une ville affamée.
+
+    Sans ville affamée, la table des routes revient telle quelle.
+    """
+    if not chemins_affames:
+        return facteurs_routes
+    facteurs = dict(facteurs_routes)
+    for cid, rangs in chemins_affames.items():
+        route = facteurs_routes.get(cid) or {}
+        facteurs[cid] = {rang: route.get(rang, 1) * rayon for rang, rayon in rangs.items()}
+    return facteurs
+
+
+def _elargir_aretes_des_villes_affamees(world, capacite_restante) -> None:
+    """
+    Le charroi et la batellerie d'un rayon de R jours (niveau 2).
+
+    La capacité du tick de toute arête dont un bout est une cellule affamée
+    (`_villes_affamees`) est multipliée par `rayon_ville_affamee_jours`. Sans
+    relevé des champs, rien ne change. La formule de la capacité d'une arête
+    n'est pas touchée : seule la capacité du tick l'est. Seules les arêtes des
+    cellules affamées sont parcourues, par `_aretes_par_cellule`, non toute
+    l'adjacence.
+    """
+    affamees = _villes_affamees(world)
+    if not affamees:
+        return
+    rayon = _constantes.rayon_ville_affamee_jours()
+    if rayon == 1:
         return
     index = _aretes_par_cellule(world)
     elargies = set()
@@ -1298,7 +1352,9 @@ def _apply_commerce(
       dépôt), à l'appel extérieur seulement : le charroi et la batellerie
       d'un rayon de R jours. P = 0 et R = 1 redonnent le commerce d'avant, au
       bit près ; sans relevé des champs, aucune cellule n'est affamée. Le
-      surplus, la garde, l'écrêtage, les quais et les chemins ne bougent pas.
+      surplus, la garde, l'écrêtage, les quais et les chemins du commerce ne
+      bougent pas : le rayon n'élargit les chemins intérieurs d'une ville
+      affamée qu'à la consommation (`_chemins_des_villes_affamees`).
 
     Allocation déterministe (plusieurs demandeurs sur la même source) :
     - Les demandes sont triées par cell_id croissant (ordre stable).
@@ -2167,7 +2223,8 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
         8. Prélèvement (prelevement.prelever) — perte, arrivée puis départ de la récolte
         9. Chemins intérieurs (_remplir_chemins_interieurs) — capacités avec les routes achevées
            Commerce    (_apply_commerce)     — sur le monde entier (snapshot)
-        10. Consommation (_apply_consumption) — pour chaque cellule
+        10. Consommation (_apply_consumption) — pour chaque cellule ; les chemins
+            d'une ville affamée portent le rayon (_chemins_des_villes_affamees)
         11. Faim        (_update_hunger)      — pour chaque cellule
         12. Mortalité   (_apply_mortality)    — pour chaque cellule
         13. Natalité   (_apply_natalite)     — pour chaque cellule
@@ -2243,9 +2300,12 @@ def tick(world, rng: random.Random, numero_tick: int | None = None) -> float:
                 if lieu.population > 0 and lieu.duree_faim_ticks > 0:
                     affames.add((cell.cell_id, lieu.rang))
 
-    if facteurs_routes or assiegees:
+    # Le bourg d'une ville affamée tire le grain de ses champs par des chemins élargis du rayon.
+    facteurs_consommation = _facteurs_de_la_consommation(
+        facteurs_routes, _chemins_des_villes_affamees(world))
+    if facteurs_consommation or assiegees:
         for cell in world.cells.values():
-            facteurs = facteurs_routes.get(cell.cell_id)
+            facteurs = facteurs_consommation.get(cell.cell_id)
             if cell.cell_id in assiegees:
                 # Les chemins des champs vers le bourg assiégé sont fermés, dans les deux sens.
                 facteurs = {rang: 0.0 for rang in range(1, len(cell.lieux))}

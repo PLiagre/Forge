@@ -1,6 +1,7 @@
 """Preuves de la nourriture que le bourg peut atteindre dans sa cellule."""
 
 import copy
+import json
 import math
 import random
 
@@ -1030,3 +1031,124 @@ def test_mieux_vivre_ne_vide_pas_un_lieu_nourri():
     with pytest.raises(AssertionError, match="perdent plus que le plafond"):
         _controler_mieux_vivre(moitie, _JOURS_DU_MIEUX_VIVRE)
     _controler_mieux_vivre(releve, _JOURS_DU_MIEUX_VIVRE)
+
+
+# --- Le bourg d'une ville affamée tire le grain de ses champs -------------------
+
+@pytest.fixture(scope="module")
+def monde_de_1400():
+    return World.charger(0)
+
+
+def _vider_le_bourg(monde, cid):
+    """Le panier du bourg à zéro, la cellule portant la somme de ses lieux : le bourg doit tout tirer."""
+    cellule = monde.cells[cid]
+    bourg = next(lieu for lieu in cellule.lieux if lieu.rang == 0)
+    ecrire_stock_marchandise(cellule, constantes.MARCHANDISE_NOURRITURE, _stock(cellule) - _stock(bourg))
+    ecrire_stock_marchandise(bourg, constantes.MARCHANDISE_NOURRITURE, 0.0)
+
+
+def _paris_affame(monde):
+    paris = monde.attribution_villes.placees["Paris"]
+    assert monde.cells[paris].population > monde.populations_soutenables[paris], "Paris devrait être affamé"
+    assert len(monde.cells[paris].lieux) > 1, "Paris sans champ : rien à tirer"
+    return paris
+
+
+def _envois_des_champs(monde, cid, facteurs):
+    """Consomme la cellule ; rend la pénurie, les kilos envoyés par chaque champ au-delà de sa ration et la masse avant/après."""
+    cellule = monde.cells[cid]
+    ration = constantes.FOOD_CONSUMPTION_KG_PER_PERSON_PER_TICK
+    champs = sorted((lieu for lieu in cellule.lieux if lieu.rang >= 1), key=lambda lieu: lieu.rang)
+    avant = {lieu.rang: _stock(lieu) for lieu in champs}
+    masse = _stock(cellule)
+    if facteurs is None:
+        penurie = engine._apply_consumption(cellule, monde.carte)
+    else:
+        penurie = engine._apply_consumption(cellule, monde.carte, facteurs)
+    envois = {lieu.rang: avant[lieu.rang] - _stock(lieu) - lieu.population * ration for lieu in champs}
+    affames = [lieu.rang for lieu in champs if lieu.duree_faim_ticks > 0]
+    return penurie, envois, affames, (masse, _stock(cellule), cellule.population * ration)
+
+
+def test_ville_affamee_le_bourg_tire_le_grain_de_ses_champs_au_rayon(monde_de_1400):
+    rayon = constantes.rayon_ville_affamee_jours()
+    assert rayon > 1, "les données du dépôt sont neutres : la règle n'est pas posée"
+    monde = copy.deepcopy(monde_de_1400)
+    paris = _paris_affame(monde)
+    chemins = engine._chemins_des_villes_affamees(monde)
+    assert chemins[paris] == dict.fromkeys(range(1, len(monde.cells[paris].lieux)), rayon)
+    # Une cellule qui se nourrit n'a pas de chemin élargi.
+    assert all(monde.cells[cid].population > monde.populations_soutenables[cid] for cid in chemins)
+    _vider_le_bourg(monde, paris)
+    c = constantes.capacite_chemins_interieurs_kg(1, engine._facteur_transport_pour_cellule(paris, monde.carte))
+    mesures = {}
+    for nom, facteurs in (("rayon", chemins[paris]), ("avant", None)):
+        penurie, envois, affames, (masse_avant, masse_apres, besoin) = _envois_des_champs(
+            copy.deepcopy(monde), paris, facteurs)
+        # Aucun kilo créé : la masse perd ce qui a été mangé, ni plus ni moins.
+        assert math.isclose(masse_avant - masse_apres, besoin - penurie, rel_tol=1e-9), nom
+        # Chaque champ mange sa ration avant d'envoyer : aucun n'a faim, aucun n'envoie à perte.
+        assert not affames, f"{nom} : champs affamés {affames}"
+        assert min(envois.values()) >= -1e-6, nom
+        mesures[nom] = (penurie, envois)
+    penurie, envois = mesures["rayon"]
+    print(f"Paris, bourg vidé : pénurie {mesures['avant'][0] / 1000:.1f} t avant, {penurie / 1000:.1f} t au rayon {rayon} ; "
+          f"plus gros envoi d'un champ {max(envois.values()) / 1000:.2f} t (c = {c / 1000:.2f} t)")
+    assert max(mesures["avant"][1].values()) <= c * (1 + 1e-9)
+    assert max(envois.values()) <= rayon * c * (1 + 1e-9)
+    assert max(envois.values()) > c, "le rayon n'élargit aucun chemin"
+    assert penurie < mesures["avant"][0]
+
+
+def _jouer_un_tick(monde, monkeypatch, cid, neutraliser=False):
+    """Un tick de la graine 0, le bourg de `cid` vidé après le commerce (l'appel le remplirait) ;
+    rend la consommation de chaque cellule (pénurie, paniers) et le monde."""
+    releve = {}
+    faim, commerce = engine._update_hunger, engine._apply_commerce
+
+    def relever(cellule, penurie):
+        releve[cellule.cell_id] = (penurie, _stock(cellule), tuple(_stock(lieu) for lieu in cellule.lieux))
+        faim(cellule, penurie)
+
+    def commercer_puis_vider(world, *args, **kwargs):
+        commerce(world, *args, **kwargs)
+        _vider_le_bourg(world, cid)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(engine, "_update_hunger", relever)
+        patch.setattr(engine, "_apply_commerce", commercer_puis_vider)
+        if neutraliser:
+            patch.setattr(engine, "_chemins_des_villes_affamees", lambda monde: {})
+        engine.tick(monde, random.Random(0), 0)
+    return releve, json.dumps(monde.to_dict(), sort_keys=True)
+
+
+def test_ville_affamee_seule_change_au_tick(monde_de_1400, monkeypatch):
+    monde = copy.deepcopy(monde_de_1400)
+    paris = _paris_affame(monde)
+    chemins = engine._chemins_des_villes_affamees(monde)
+    regle, _ = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris)
+    avant, _ = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris, neutraliser=True)
+    hors = [cid for cid in regle if cid not in chemins]
+    assert hors, "échantillon vide : aucune cellule hors des villes affamées"
+    # La consommation de toute cellule hors des villes affamées est celle d'avant, au bit près.
+    assert [cid for cid in hors if regle[cid] != avant[cid]] == []
+    print(f"Paris, bourg vidé après le commerce : pénurie {avant[paris][0] / 1000:.1f} t avant, "
+          f"{regle[paris][0] / 1000:.1f} t avec la règle")
+    assert regle[paris][0] < avant[paris][0], "le bourg de Paris n'a pas moins faim"
+
+
+def test_avec_un_rayon_de_un_le_tick_est_celui_d_avant(monde_de_1400, monkeypatch):
+    monde = copy.deepcopy(monde_de_1400)
+    paris = _paris_affame(monde)
+    with monkeypatch.context() as patch:
+        patch.setattr(constantes, "rayon_ville_affamee_jours", lambda chemin=None: 1)
+        assert engine._chemins_des_villes_affamees(monde) == {}
+        _, regle = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris)
+        _, avant = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris, neutraliser=True)
+    assert regle == avant
+    # Contre-épreuve : au rayon du dépôt, le même tick n'est plus celui d'avant.
+    _, regle = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris)
+    _, avant = _jouer_un_tick(copy.deepcopy(monde), monkeypatch, paris, neutraliser=True)
+    assert regle != avant

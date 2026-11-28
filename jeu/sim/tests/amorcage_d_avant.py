@@ -82,7 +82,7 @@ def _rayon_d_avant(chemin=None):
 
 
 def couper_l_appel_des_villes(monkeypatch):
-    """Pour la durée d'un test : une ville affamée n'appelle rien (P = 0) et ses arêtes gardent leur capacité (R = 1), comme avant l'appel des villes affamées."""
+    """Pour la durée d'un test : une ville affamée n'appelle rien (P = 0), et ses arêtes comme ses chemins intérieurs gardent leur capacité (R = 1), comme avant l'appel des villes affamées."""
     monkeypatch.setattr(_constantes, "appel_ville_affamee_part", _appel_d_avant)
     monkeypatch.setattr(_constantes, "rayon_ville_affamee_jours", _rayon_d_avant)
 
